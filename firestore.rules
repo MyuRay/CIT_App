@@ -1,0 +1,516 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // CITユーザー判定関数（修正）
+    function isCITUser() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && (request.auth.token.email.matches('.*@s\\.chibakoudai\\.jp$') ||
+            request.auth.token.email.matches('.*@p\\.chibakoudai\\.jp$'));
+    }
+
+    // 管理者判定関数（修正）
+    function isAdmin() {
+      return isCITUser()
+        && request.auth != null
+        && exists(/databases/$(database)/documents/admin_permissions/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admin_permissions/$(request.auth.uid)).data.get('isAdmin', false) == true;
+    }
+
+    // 掲示板投稿のルール
+    match /bulletin_posts/{postId} {
+      // 認証済みCITユーザーのみ読み取り可能
+      allow read: if isCITUser();
+
+      // 認証済みCITユーザーのみ作成可能
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.resource.data.authorId == request.auth.uid;
+
+      // 更新は認証済みユーザーなら無条件で許可（画面到達には認証が必須のため）
+      // NOTE: セキュリティを緩和しています。必要になったらフィールド制限を戻してください。
+      allow update: if request.auth != null;
+
+      // 作成者または管理者のみ削除可能
+      allow delete: if isCITUser()
+        && request.auth != null
+        && (resource.data.authorId == request.auth.uid || isAdmin());
+    }
+
+    // 掲示板コメントのルール
+    match /bulletin_comments/{commentId} {
+      allow read: if isCITUser();
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.resource.data.authorId == request.auth.uid
+        && hasRequiredCommentFields();
+
+      // コメント作者のみが削除・編集可能
+      allow delete: if isCITUser()
+        && request.auth != null
+        && resource.data.authorId == request.auth.uid;
+
+      // いいね操作は認証済みCITユーザーなら誰でも可能、その他の更新は作者のみ
+      allow update: if isCITUser()
+        && request.auth != null
+        && (resource.data.authorId == request.auth.uid || isLikeOnlyUpdate());
+    }
+
+    // reports コレクション用のルール（修正）
+    match /reports/{reportId} {
+      // 認証済みCITユーザーのみが通報を作成可能
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.resource.data.reporterId == request.auth.uid
+        && hasRequiredReportFields();
+
+      // 管理者のみが通報を読み取り・更新可能
+      allow read, update: if isAdmin();
+    }
+
+    // hidden_posts コレクション用のルール
+    match /hidden_posts/{hiddenId} {
+      // 認証済みCITユーザーのみが非表示投稿を作成可能
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.resource.data != null
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredHiddenPostFields();
+
+      // 自分の非表示投稿のみ削除可能
+      allow delete: if isCITUser()
+        && request.auth != null
+        && resource.data.userId == request.auth.uid;
+
+      // 自分の非表示投稿のみ読み取り可能
+      allow read: if isCITUser()
+        && request.auth != null
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // hidden_comments コレクション用のルール
+    match /hidden_comments/{hiddenId} {
+      // 認証済みCITユーザーのみが非表示コメントを作成可能
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.resource.data != null
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredHiddenCommentFields();
+
+      // 自分の非表示コメントのみ削除可能
+      allow delete: if isCITUser()
+        && request.auth != null
+        && resource.data.userId == request.auth.uid;
+
+      // 自分の非表示コメントのみ読み取り可能
+      allow read: if isCITUser()
+        && request.auth != null
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // blocked_users コレクション用のルール
+    match /blocked_users/{blockedId} {
+      // 認証済みCITユーザーのみがユーザーブロックを作成可能
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.resource.data != null
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredBlockedUserFields();
+
+      // 自分のブロックのみ削除可能
+      allow delete: if isCITUser()
+        && request.auth != null
+        && resource.data.userId == request.auth.uid;
+
+      // 自分のブロックのみ読み取り可能
+      allow read: if isCITUser()
+        && request.auth != null
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // 通知のルール（個人向け通知）
+    match /notifications/{notificationId} {
+      allow read: if isCITUser()
+        && request.auth != null
+        && resource.data.userId == request.auth.uid;
+
+      allow create: if isCITUser()
+        && request.auth != null
+        && hasRequiredNotificationFields();
+
+      allow update: if isCITUser()
+        && request.auth != null
+        && resource.data.userId == request.auth.uid;
+
+      allow delete: if isCITUser()
+        && request.auth != null
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // 全体通知のルール
+    match /global_notifications/{notificationId} {
+      allow read: if isCITUser();
+      allow write: if isAdmin();
+    }
+
+    // FCMトークンのルール
+    match /user_tokens/{userId} {
+      allow read, write: if isCITUser()
+        && request.auth != null
+        && userId == request.auth.uid;
+    }
+
+    // バス情報のルール
+    match /bus_information/{document} {
+      allow read: if isCITUser();
+      allow write: if isAdmin();
+    }
+
+    // バス情報のサブコレクション（運行期間）
+    match /bus_information/{busId}/operation_periods/{periodId} {
+      allow read: if isCITUser();
+      allow write: if isAdmin();
+    }
+
+    // バス情報のサブコレクション（バス路線）
+    match /bus_information/{busId}/bus_routes/{routeId} {
+      allow read: if isCITUser();
+      allow write: if isAdmin();
+    }
+
+    // ユーザー管理のルール
+    match /users/{userId} {
+      allow read: if isCITUser();
+      allow write: if isCITUser() && request.auth.uid == userId;
+    }
+
+    // 管理者のルール
+    match /admins/{adminId} {
+      allow read, write: if isAdmin();
+    }
+
+    // 管理者権限のルール
+    match /admin_permissions/{adminId} {
+      // 自分の権限か、管理者なら読み取り可能
+      allow read: if isCITUser()
+        && request.auth != null
+        && (request.auth.uid == adminId
+            || (exists(/databases/$(database)/documents/admin_permissions/$(request.auth.uid))
+                && get(/databases/$(database)/documents/admin_permissions/$(request.auth.uid)).data.get('isAdmin', false) == true));
+
+      // 管理者のみが作成・更新可能
+      allow create, update: if isCITUser()
+        && request.auth != null
+        && exists(/databases/$(database)/documents/admin_permissions/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admin_permissions/$(request.auth.uid)).data.get('isAdmin', false) == true
+        && hasRequiredAdminPermissionFields();
+
+      // 管理者のみが削除可能
+      allow delete: if isCITUser()
+        && request.auth != null
+        && exists(/databases/$(database)/documents/admin_permissions/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admin_permissions/$(request.auth.uid)).data.get('isAdmin', false) == true;
+    }
+
+    // 時間割のルール
+    match /schedules/{scheduleId} {
+      allow read: if isCITUser()
+        && request.auth != null
+        && resource.data.userId == request.auth.uid;
+
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredScheduleFields();
+
+      allow update: if isCITUser()
+        && request.auth != null
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+
+      allow delete: if isCITUser()
+        && request.auth != null
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // お問い合わせフォームのルール
+    match /contact_forms/{contactId} {
+      // 認証済みCITユーザーのみがお問い合わせを作成可能
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredContactFormFields();
+
+      // 自分のお問い合わせのみ読み取り可能、または管理者は全て読み取り可能
+      allow read: if isCITUser()
+        && request.auth != null
+        && (resource.data.userId == request.auth.uid || isAdmin());
+
+      // 管理者のみがお問い合わせを更新可能（ステータス変更、回答追加など）
+      allow update: if isAdmin();
+
+      // 管理者のみがお問い合わせを削除可能
+      allow delete: if isAdmin();
+    }
+
+    // 学食レビューのルール（新規追加）
+    match /cafeteria_reviews/{reviewId} {
+      // 読み取り: 認証済みCITユーザー
+      allow read: if isCITUser();
+
+      // 作成: 本人のみ、必須フィールドを満たすこと
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredCafeteriaReviewFields();
+
+      // 更新: 本人のみ、固定フィールドは不変、評価値など限定的に変更可
+      allow update: if isCITUser() && hasValidCafeteriaReviewUpdate();
+
+      // 削除: 本人または管理者
+      allow delete: if isCITUser()
+        && request.auth != null
+        && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // 学食メニュー情報のルール（新規追加）
+    match /cafeteria_menu_items/{itemId} {
+      // 読み取り: 認証済みCITユーザー
+      allow read: if isCITUser();
+
+      // 作成: 認証済みCITユーザー、必須フィールドを満たすこと
+      allow create: if isCITUser()
+        && request.auth != null
+        && hasRequiredCafeteriaMenuItemFields();
+
+      // 更新・削除: 管理者のみ
+      allow update, delete: if isAdmin();
+    }
+
+    // ヘルパー関数
+    function isValidCITUser() {
+      return isCITUser();
+    }
+
+    function isOwner(resource) {
+      return request.auth != null && resource.data.authorId == request.auth.uid;
+    }
+
+    function isViewCountOnlyUpdate() {
+      return request.resource.data.keys().hasAll(resource.data.keys())
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['viewCount']);
+    }
+
+    function isLikeOnlyUpdate() {
+      return request.resource.data.keys().hasAll(resource.data.keys())
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['likedBy', 'likeCount']);
+    }
+
+    // クーポン使用のみを厳密に許可するヘルパー（投稿者以外でも可）
+    // 変更できるのは couponUsedCount と couponUsedBy のみ。
+    // 自分の使用回数を +1 し、合計も +1 であること、上限超過しないことを検証。
+    function isCouponUseUpdate() {
+      return resource.data.isCoupon == true
+        // 変更キーは2つのみ
+        && request.resource.data.keys().hasAll(resource.data.keys())
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['couponUsedCount', 'couponUsedBy'])
+        // couponUsedCount は旧値があれば +1、無ければ 1
+        && (
+          (resource.data.couponUsedCount is int && request.resource.data.couponUsedCount == resource.data.couponUsedCount + 1)
+          || (!(resource.data.couponUsedCount is int) && request.resource.data.couponUsedCount == 1)
+        )
+        // 自分の使用回数が +1 になっていること
+        && (
+          // 旧データに couponUsedBy が無い/Mapでない → 自分のキーのみ 1
+          (((resource.data.couponUsedBy is map) == false)
+            && (request.resource.data.couponUsedBy is map)
+            && request.resource.data.couponUsedBy.keys().hasOnly([request.auth.uid])
+            && request.resource.data.couponUsedBy[request.auth.uid] == 1)
+          ||
+          // 旧データが Map → 変更キーは自分のみ かつ new == old+1（old が未定義なら 1）
+          ((resource.data.couponUsedBy is map) && (request.resource.data.couponUsedBy is map)
+            && request.resource.data.couponUsedBy.diff(resource.data.couponUsedBy).changedKeys().hasOnly([request.auth.uid])
+            && (
+              (resource.data.couponUsedBy[request.auth.uid] is int
+                && request.resource.data.couponUsedBy[request.auth.uid] == resource.data.couponUsedBy[request.auth.uid] + 1)
+              || (!(resource.data.couponUsedBy[request.auth.uid] is int)
+                && request.resource.data.couponUsedBy[request.auth.uid] == 1)
+            )
+          )
+        )
+        // 上限が設定されている場合は超えない（null 等の非 int は無制限扱い）
+        && (
+          !('couponMaxUses' in resource.data)
+          || !(resource.data.couponMaxUses is int)
+          || request.resource.data.couponUsedBy[request.auth.uid] <= resource.data.couponMaxUses
+        );
+    }
+
+    function hasRequiredCommentFields() {
+      return request.resource.data.keys().hasAll(['postId', 'content', 'authorId', 'authorName', 'createdAt'])
+        && request.resource.data.postId is string
+        && request.resource.data.content is string
+        && request.resource.data.authorId is string
+        && request.resource.data.authorName is string
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    function hasRequiredNotificationFields() {
+      return request.resource.data.keys().hasAll(['userId', 'type', 'title', 'message', 'createdAt'])
+        && request.resource.data.userId is string
+        && request.resource.data.type is string
+        && request.resource.data.title is string
+        && request.resource.data.message is string
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    function hasRequiredScheduleFields() {
+			return request.resource.data.keys().hasAll(['id','userId','semester','timetable','timeSlots','createdAt','updatedAt'])
+				&& request.resource.data.id is string
+				&& request.resource.data.userId is string
+				&& request.resource.data.semester is string
+				&& request.resource.data.timetable is map
+				&& (request.resource.data.timeSlots is map || request.resource.data.timeSlots is list)
+				&& request.resource.data.createdAt is timestamp
+				&& request.resource.data.updatedAt is timestamp;
+		}
+
+    function hasRequiredAdminPermissionFields() {
+      return request.resource.data.keys().hasAll(['userId', 'isAdmin', 'grantedAt', 'grantedBy'])
+        && request.resource.data.userId is string
+        && request.resource.data.isAdmin is bool
+        && request.resource.data.grantedAt is timestamp
+        && request.resource.data.grantedBy is string;
+    }
+
+    // 通報必須フィールド確認関数（新規追加）
+    function hasRequiredReportFields() {
+      return request.resource.data.keys().hasAll(['type', 'targetId', 'reporterId', 'reporterName', 'reason', 'status', 'createdAt'])
+        && request.resource.data.type is string
+        && request.resource.data.targetId is string
+        && request.resource.data.reporterId is string
+        && request.resource.data.reporterName is string
+        && request.resource.data.reason is string
+        && request.resource.data.status is string
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    // 非表示投稿必須フィールド確認関数（新規追加）
+    function hasRequiredHiddenPostFields() {
+      return request.resource.data.keys().hasAll(['postId', 'userId', 'reason', 'hiddenAt'])
+        && request.resource.data.postId is string
+        && request.resource.data.userId is string
+        && request.resource.data.reason is string
+        && request.resource.data.hiddenAt is timestamp;
+    }
+
+    // 非表示コメント必須フィールド確認関数（新規追加）
+    function hasRequiredHiddenCommentFields() {
+      return request.resource.data.keys().hasAll(['commentId', 'postId', 'userId', 'reason', 'hiddenAt'])
+        && request.resource.data.commentId is string
+        && request.resource.data.postId is string
+        && request.resource.data.userId is string
+        && request.resource.data.reason is string
+        && request.resource.data.hiddenAt is timestamp;
+    }
+
+    // ブロックユーザー必須フィールド確認関数（新規追加）
+    function hasRequiredBlockedUserFields() {
+      return request.resource.data.keys().hasAll(['blockedUserId', 'blockedUserName', 'userId', 'reason', 'blockedAt'])
+        && request.resource.data.blockedUserId is string
+        && request.resource.data.blockedUserName is string
+        && request.resource.data.userId is string
+        && request.resource.data.reason is string
+        && request.resource.data.blockedAt is timestamp;
+    }
+
+    // お問い合わせフォーム必須フィールド確認関数（新規追加）
+    function hasRequiredContactFormFields() {
+      return request.resource.data.keys().hasAll(['userId', 'userEmail', 'category', 'title', 'message', 'status', 'deviceInfo', 'appInfo', 'createdAt'])
+        && request.resource.data.userId is string
+        && request.resource.data.userEmail is string
+        && request.resource.data.category is string
+        && request.resource.data.title is string
+        && request.resource.data.message is string
+        && request.resource.data.status is string
+        && request.resource.data.deviceInfo is map
+        && request.resource.data.appInfo is map
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    // 学食レビュー必須フィールド確認関数（新規追加）
+    function hasRequiredCafeteriaReviewFields() {
+      return request.resource.data.keys().hasAll(['cafeteriaId','taste','volume','recommend','userId','userName','createdAt'])
+        && request.resource.data.cafeteriaId is string
+        && (
+          request.resource.data.cafeteriaId == 'tsudanuma' ||
+          request.resource.data.cafeteriaId == 'narashino_1f' ||
+          request.resource.data.cafeteriaId == 'narashino_2f'
+        )
+        && request.resource.data.taste is int
+        && request.resource.data.volume is int
+        && request.resource.data.recommend is int
+        && request.resource.data.taste >= 1 && request.resource.data.taste <= 5
+        && request.resource.data.volume >= 1 && request.resource.data.volume <= 5
+        && request.resource.data.recommend >= 1 && request.resource.data.recommend <= 5
+        && request.resource.data.userId is string
+        && request.resource.data.userName is string
+        && request.resource.data.createdAt is timestamp
+        // 任意フィールドの型チェック（null も許容: クライアント実装で null を送る場合があるため）
+        && (!('menuName' in request.resource.data) || (request.resource.data.menuName is string || request.resource.data.menuName == null))
+        && (!('comment' in request.resource.data) || (request.resource.data.comment is string || request.resource.data.comment == null))
+        // 量の性別（任意）: 'male' または 'female' のみ許可
+        && (
+          !('volumeGender' in request.resource.data)
+          || (
+            (request.resource.data.volumeGender == null)
+            || (request.resource.data.volumeGender is string
+                && (request.resource.data.volumeGender == 'male' || request.resource.data.volumeGender == 'female'))
+          )
+        );
+    }
+    
+    // 学食レビュー更新許可判定（本人のみ、変更できるキーと値を制限）
+    function hasValidCafeteriaReviewUpdate() {
+      return request.auth != null
+        && resource.data.userId == request.auth.uid
+        // 固定フィールドは不変
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.cafeteriaId == resource.data.cafeteriaId
+        && request.resource.data.menuName == resource.data.menuName
+        // 変更可能なキーのみ変更されていること
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(
+             ['taste','volume','recommend','comment','userName','volumeGender']
+           )
+        // 値のバリデーション
+        && request.resource.data.taste is int && request.resource.data.taste >= 1 && request.resource.data.taste <= 5
+        && request.resource.data.volume is int && request.resource.data.volume >= 1 && request.resource.data.volume <= 5
+        && request.resource.data.recommend is int && request.resource.data.recommend >= 1 && request.resource.data.recommend <= 5
+        && (!('comment' in request.resource.data) || (request.resource.data.comment is string || request.resource.data.comment == null))
+        && request.resource.data.userName is string
+        && (
+          !('volumeGender' in request.resource.data)
+          || request.resource.data.volumeGender == null
+          || (request.resource.data.volumeGender is string &&
+              (request.resource.data.volumeGender == 'male' || request.resource.data.volumeGender == 'female'))
+        );
+    }
+
+    // 学食メニュー必須フィールド確認関数（新規追加）
+    function hasRequiredCafeteriaMenuItemFields() {
+      return request.resource.data.keys().hasAll(['cafeteriaId','menuName'])
+        && request.resource.data.cafeteriaId is string
+        && (
+          request.resource.data.cafeteriaId == 'tsudanuma' ||
+          request.resource.data.cafeteriaId == 'narashino_1f' ||
+          request.resource.data.cafeteriaId == 'narashino_2f'
+        )
+        && request.resource.data.menuName is string
+        // 任意: 価格・画像URL（null も許容）
+        && (!('price' in request.resource.data) || (request.resource.data.price is int || request.resource.data.price == null))
+        && (!('photoUrl' in request.resource.data) || (request.resource.data.photoUrl is string || request.resource.data.photoUrl == null));
+    }
+  }
+}

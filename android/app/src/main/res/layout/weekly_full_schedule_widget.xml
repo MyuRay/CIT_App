@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp"
+    android:background="@android:color/white">
+
+    <TextView
+        android:id="@+id/weekly_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="週間時間割"
+        android:textStyle="bold"
+        android:textSize="16sp"
+        android:paddingBottom="6dp" />
+
+    <LinearLayout
+        android:id="@+id/days_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <!-- Monday -->
+        <LinearLayout
+            android:id="@+id/monday_container"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:padding="4dp">
+
+            <TextView
+                android:id="@+id/monday_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="月"
+                android:textStyle="bold"
+                android:gravity="center" />
+
+            <LinearLayout
+                android:id="@+id/monday_classes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </LinearLayout>
+
+        <!-- Tuesday -->
+        <LinearLayout
+            android:id="@+id/tuesday_container"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:padding="4dp">
+
+            <TextView
+                android:id="@+id/tuesday_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="火"
+                android:textStyle="bold"
+                android:gravity="center" />
+
+            <LinearLayout
+                android:id="@+id/tuesday_classes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </LinearLayout>
+
+        <!-- Wednesday -->
+        <LinearLayout
+            android:id="@+id/wednesday_container"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:padding="4dp">
+
+            <TextView
+                android:id="@+id/wednesday_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="水"
+                android:textStyle="bold"
+                android:gravity="center" />
+
+            <LinearLayout
+                android:id="@+id/wednesday_classes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </LinearLayout>
+
+        <!-- Thursday -->
+        <LinearLayout
+            android:id="@+id/thursday_container"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:padding="4dp">
+
+            <TextView
+                android:id="@+id/thursday_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="木"
+                android:textStyle="bold"
+                android:gravity="center" />
+
+            <LinearLayout
+                android:id="@+id/thursday_classes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </LinearLayout>
+
+        <!-- Friday -->
+        <LinearLayout
+            android:id="@+id/friday_container"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:padding="4dp">
+
+            <TextView
+                android:id="@+id/friday_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="金"
+                android:textStyle="bold"
+                android:gravity="center" />
+
+            <LinearLayout
+                android:id="@+id/friday_classes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </LinearLayout>
+
+        <!-- Saturday -->
+        <LinearLayout
+            android:id="@+id/saturday_container"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:padding="4dp">
+
+            <TextView
+                android:id="@+id/saturday_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="土"
+                android:textStyle="bold"
+                android:gravity="center" />
+
+            <LinearLayout
+                android:id="@+id/saturday_classes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>
+

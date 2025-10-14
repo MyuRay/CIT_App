@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CIT App</string>
+    
+    <!-- Widget descriptions -->
+    <string name="weekly_full_schedule_widget_description">週間の時間割を表示します（必要に応じて土曜を表示）</string>
+    <string name="bus_realtime_widget_description">学バスの次の便を表示します</string>
+</resources>
