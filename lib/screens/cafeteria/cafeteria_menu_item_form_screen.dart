@@ -1,11 +1,88 @@
+import 'dart:io';
+import 'package:characters/characters.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import '../../core/providers/firebase_menu_provider.dart';
 import '../../models/cafeteria/cafeteria_menu_item_model.dart';
 import '../../models/cafeteria/cafeteria_review_model.dart';
 import '../../services/cafeteria/cafeteria_menu_item_service.dart';
 import 'cafeteria_review_form_screen.dart';
+
+String? _campusCodeFromCafeteriaId(String cafeteriaId) {
+  switch (cafeteriaId) {
+    case Cafeterias.tsudanuma:
+      return 'td';
+    case Cafeterias.narashino1F:
+      return 'sd1';
+    case Cafeterias.narashino2F:
+      return 'sd2';
+    default:
+      return null;
+  }
+}
+
+class _FullScreenMenuImagePage extends StatelessWidget {
+  const _FullScreenMenuImagePage({
+    required this.imageUrl,
+    required this.placeholder,
+  });
+
+  final String imageUrl;
+  final String placeholder;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          placeholder,
+          style: const TextStyle(color: Colors.white),
+        ),
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: Image.network(
+            imageUrl,
+            fit: BoxFit.contain,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error, color: Colors.redAccent, size: 32),
+                    const SizedBox(height: 12),
+                    Text(
+                      'メニュー画像を表示できませんでした\n$error',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class CafeteriaMenuItemFormScreen extends ConsumerStatefulWidget {
   const CafeteriaMenuItemFormScreen({
@@ -166,8 +243,55 @@ class _CafeteriaMenuItemFormScreenState extends ConsumerState<CafeteriaMenuItemF
     }
   }
 
+  Future<void> _showCampusMenuImage(String campusCode, String campusName) async {
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final imageUrl = await ref.read(firebaseTodayMenuProvider(campusCode).future);
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+
+      if (imageUrl == null || imageUrl.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$campusNameのメニュー画像が見つかりませんでした')),
+        );
+        return;
+      }
+
+      final placeholder =
+          campusName.characters.isNotEmpty ? campusName.characters.first : campusName;
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder:
+              (_) => _FullScreenMenuImagePage(
+                imageUrl: imageUrl,
+                placeholder: placeholder,
+              ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('メニュー画像の取得に失敗しました: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final campusName = Cafeterias.displayName(widget.cafeteriaId);
+    final campusCode = _campusCodeFromCafeteriaId(widget.cafeteriaId);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final buttonColor = isDark ? Colors.white : Colors.black;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('メニューを追加'),
@@ -179,12 +303,30 @@ class _CafeteriaMenuItemFormScreenState extends ConsumerState<CafeteriaMenuItemF
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '食堂: ${Cafeterias.displayName(widget.cafeteriaId)}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+              Row(
+                children: [
+                  Text(
+                    '食堂: $campusName',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (campusCode != null)
+                    TextButton.icon(
+                      icon: Icon(
+                        Icons.photo_library_outlined,
+                        size: 18,
+                        color: buttonColor,
+                      ),
+                      label: Text(
+                        'メニューを確認',
+                        style: TextStyle(fontSize: 12, color: buttonColor),
+                      ),
+                      onPressed: () => _showCampusMenuImage(campusCode, campusName),
+                    ),
+                ],
               ),
               const SizedBox(height: 16),
               

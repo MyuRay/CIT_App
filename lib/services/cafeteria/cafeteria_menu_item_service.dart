@@ -36,6 +36,10 @@ class CafeteriaMenuItemService {
     await _col.doc(id).update(updateData);
   }
 
+  static Future<void> incrementViewCount(String id) async {
+    await _col.doc(id).update({'viewCount': FieldValue.increment(1)});
+  }
+
   static Future<void> deleteMenuItem(String id) async {
     await _col.doc(id).delete();
   }
@@ -76,4 +80,3 @@ class CafeteriaMenuItemService {
     }
   }
 }
-

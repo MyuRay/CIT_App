@@ -1,3 +1,4 @@
+import 'package:characters/characters.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -6,6 +7,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/providers/admin_provider.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/user_provider.dart';
+import '../../models/user/user_model.dart';
 import '../../services/user/user_service.dart';
 import '../admin/notification_management_screen.dart';
 import '../admin/user_management_screen.dart';
@@ -44,6 +47,26 @@ class SimpleProfileScreen extends ConsumerWidget {
     );
     print('🔧 現在のユーザー: ${currentUser?.email ?? "ゲスト"}');
 
+    AsyncValue<AppUser?>? appUserAsync;
+    if (currentUser != null) {
+      appUserAsync = ref.watch(userProvider(currentUser.uid));
+    }
+
+    final firestoreDisplayName = appUserAsync?.maybeWhen(
+      data: (appUser) => appUser?.displayName,
+      orElse: () => null,
+    );
+    final firebaseDisplayName = currentUser?.displayName;
+    final effectiveDisplayName = _resolveDisplayName(
+      primary: firestoreDisplayName,
+      secondary: firebaseDisplayName,
+      isLoggedIn: currentUser != null,
+    );
+    final avatarInitial = _computeAvatarInitial(
+      effectiveDisplayName,
+      isLoggedIn: currentUser != null,
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('マイページ'),
@@ -62,26 +85,18 @@ class SimpleProfileScreen extends ConsumerWidget {
                     CircleAvatar(
                       radius: 40,
                       backgroundColor: Theme.of(context).colorScheme.primary,
-                      child: Builder(
-                        builder: (context) {
-                          final dn = currentUser?.displayName;
-                          final initial = (dn != null && dn.isNotEmpty)
-                              ? dn.substring(0, 1).toUpperCase()
-                              : (currentUser != null ? 'U' : 'G');
-                          return Text(
-                            initial,
-                            style: const TextStyle(
-                              fontSize: 32,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          );
-                        },
+                      child: Text(
+                        avatarInitial,
+                        style: const TextStyle(
+                          fontSize: 32,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      currentUser?.displayName ?? (currentUser != null ? 'ユーザー' : 'ゲストユーザー'),
+                      effectiveDisplayName,
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: 4),
@@ -93,7 +108,11 @@ class SimpleProfileScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
-                      onPressed: () => _showEditCommentNameDialog(context, ref),
+                      onPressed: () => _showEditCommentNameDialog(
+                        context,
+                        ref,
+                        effectiveDisplayName,
+                      ),
                       icon: const Icon(Icons.edit, size: 16),
                       label: const Text('表示名を編集'),
                     ),
@@ -597,9 +616,21 @@ class SimpleProfileScreen extends ConsumerWidget {
     );
   }
 
-  void _showEditCommentNameDialog(BuildContext context, WidgetRef ref) {
+  void _showEditCommentNameDialog(
+    BuildContext context,
+    WidgetRef ref,
+    String currentDisplayName,
+  ) {
     final current = FirebaseAuth.instance.currentUser;
-    final initial = current?.displayName ?? (current?.email?.split('@').first ?? '');
+    String initial = currentDisplayName.trim();
+    if (initial.isEmpty || initial == 'ユーザー' || initial == 'ゲストユーザー') {
+      final firebaseName = current?.displayName?.trim() ?? '';
+      if (firebaseName.isNotEmpty) {
+        initial = firebaseName;
+      } else {
+        initial = current?.email?.split('@').first ?? '';
+      }
+    }
     final controller = TextEditingController(text: initial);
 
     showDialog(
@@ -757,4 +788,27 @@ class SimpleProfileScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _resolveDisplayName({
+  String? primary,
+  String? secondary,
+  required bool isLoggedIn,
+}) {
+  if (primary != null && primary.trim().isNotEmpty) {
+    return primary.trim();
+  }
+  if (secondary != null && secondary.trim().isNotEmpty) {
+    return secondary.trim();
+  }
+  return isLoggedIn ? 'ユーザー' : 'ゲストユーザー';
+}
+
+String _computeAvatarInitial(String displayName, {required bool isLoggedIn}) {
+  final trimmed = displayName.trim();
+  if (trimmed.isNotEmpty) {
+    final first = trimmed.characters.first;
+    return first.toUpperCase();
+  }
+  return isLoggedIn ? 'U' : 'G';
 }

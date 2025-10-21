@@ -127,7 +127,7 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
                       tooltip: '通報',
                       onPressed: () {
                         print('🔴 通報ボタンがタップされました！');
-                        _showSimpleReportDialog();
+                        _showPostReportDialog();
                       },
                     ),
                   );
@@ -1849,164 +1849,28 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
     }
   }
 
-  // 超シンプルな通報ダイアログ（確実に表示される）
-  void _showSimpleReportDialog() {
-    print('📢 _showSimpleReportDialog 開始');
-
-    // BottomSheetで表示（ダイアログより確実）
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        print('📢 BottomSheet builder実行中');
-        return Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.flag, color: Colors.red, size: 28),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      '投稿を通報',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
-                      print('📢 閉じる');
-                      Navigator.of(ctx).pop();
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Text('この投稿を通報しますか？'),
-              const SizedBox(height: 24),
-              const Text(
-                '通報理由：',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              ListTile(
-                leading: const Icon(Icons.warning, color: Colors.orange),
-                title: const Text('スパム'),
-                onTap: () {
-                  _handleReport('スパム');
-                  Navigator.of(ctx).pop();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.block, color: Colors.red),
-                title: const Text('不適切なコンテンツ'),
-                onTap: () {
-                  _handleReport('不適切なコンテンツ');
-                  Navigator.of(ctx).pop();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.report, color: Colors.purple),
-                title: const Text('その他'),
-                onTap: () {
-                  _handleReport('その他');
-                  Navigator.of(ctx).pop();
-                },
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _handleReport(String reason) {
-    print('📢 通報実行: $reason');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('通報を受け付けました（理由: $reason）'),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 3),
-      ),
-    );
-  }
-
-  // 投稿の通報ダイアログを表示（旧バージョン）
-  Future<void> _showReportDialog() async {
-    print('🚩 通報ダイアログを表示します');
-    print('🚩 context.mounted = ${context.mounted}');
-
-    // まずスナックバーで確実に反応を確認
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('通報機能を準備中...'),
-          duration: Duration(seconds: 1),
-        ),
-      );
-    }
-
-    // 1秒待ってからダイアログを表示
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    if (!mounted) {
-      print('❌ mounted = false, ダイアログ表示をキャンセル');
-      return;
-    }
-
-    // 超シンプルなAlertDialogを試す
-    print('🚩 showDialog呼び出し開始');
+  Future<void> _showPostReportDialog() async {
+    print('🚩 投稿通報ダイアログを表示します');
     try {
-      final result = await showDialog<String>(
-        context: context,
-        barrierDismissible: true,
-        builder: (BuildContext dialogContext) {
-          print('🚩 Dialog builder実行');
-          return AlertDialog(
-            title: const Text('通報'),
-            content: const Text('この投稿を通報しますか？'),
-            actions: <Widget>[
-              TextButton(
-                child: const Text('キャンセル'),
-                onPressed: () {
-                  print('🚩 キャンセルボタン押下');
-                  Navigator.of(dialogContext).pop('cancel');
-                },
-              ),
-              TextButton(
-                child: const Text('通報する'),
-                onPressed: () {
-                  print('🚩 通報ボタン押下');
-                  Navigator.of(dialogContext).pop('report');
-                },
-              ),
-            ],
-          );
-        },
+      final result = await showReportDialog(
+        context,
+        type: ReportType.post,
+        targetId: widget.post.id,
+        targetTitle: widget.post.title.isNotEmpty ? widget.post.title : '投稿',
       );
 
-      print('🚩 ダイアログ結果: $result');
-
-      if (result == 'report' && mounted) {
+      print('🚩 投稿通報ダイアログ結果: $result');
+    } catch (e, stackTrace) {
+      print('❌ 投稿通報ダイアログエラー: $e');
+      print('❌ スタックトレース: $stackTrace');
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('通報を受け付けました（仮）'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: Text('通報フォームの表示に失敗しました: $e'),
+            backgroundColor: Colors.red,
           ),
         );
       }
-    } catch (e, stackTrace) {
-      print('❌ ダイアログエラー: $e');
-      print('❌ スタックトレース: $stackTrace');
     }
   }
 

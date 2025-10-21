@@ -1,3 +1,4 @@
+import 'package:characters/characters.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -282,6 +283,21 @@ class ProfileScreen extends ConsumerWidget {
 
     final adminPermissionsAsync = ref.watch(currentUserAdminProvider);
 
+    final appUserAsync = ref.watch(userProvider(user.uid));
+    final firestoreDisplayName = appUserAsync.maybeWhen(
+      data: (appUser) => appUser?.displayName,
+      orElse: () => null,
+    );
+    final effectiveDisplayName = _resolveDisplayName(
+      primary: firestoreDisplayName,
+      secondary: user.displayName,
+      isLoggedIn: true,
+    );
+    final avatarInitial = _computeAvatarInitial(
+      effectiveDisplayName,
+      isLoggedIn: true,
+    );
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -296,9 +312,7 @@ class ProfileScreen extends ConsumerWidget {
                     radius: 40,
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     child: Text(
-                      user.displayName?.isNotEmpty == true
-                          ? user.displayName![0].toUpperCase()
-                          : 'U',
+                      avatarInitial,
                       style: const TextStyle(
                         fontSize: 32,
                         color: Colors.white,
@@ -308,7 +322,7 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    user.displayName ?? 'ユーザー',
+                    effectiveDisplayName,
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 4),
@@ -778,4 +792,27 @@ class ProfileScreen extends ConsumerWidget {
   String _formatDate(DateTime date) {
     return '${date.year}年${date.month}月${date.day}日 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
+}
+
+String _resolveDisplayName({
+  String? primary,
+  String? secondary,
+  required bool isLoggedIn,
+}) {
+  if (primary != null && primary.trim().isNotEmpty) {
+    return primary.trim();
+  }
+  if (secondary != null && secondary.trim().isNotEmpty) {
+    return secondary.trim();
+  }
+  return isLoggedIn ? 'ユーザー' : 'ゲストユーザー';
+}
+
+String _computeAvatarInitial(String displayName, {required bool isLoggedIn}) {
+  final trimmed = displayName.trim();
+  if (trimmed.isNotEmpty) {
+    final first = trimmed.characters.first;
+    return first.toUpperCase();
+  }
+  return isLoggedIn ? 'U' : 'G';
 }

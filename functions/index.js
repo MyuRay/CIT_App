@@ -1,21 +1,26 @@
 const functions = require('firebase-functions');
+const {setGlobalOptions} = require('firebase-functions/v2');
+const {
+  onDocumentCreated,
+  onDocumentUpdated,
+} = require('firebase-functions/v2/firestore');
 const admin = require('firebase-admin');
 const axios = require('axios');
 
 admin.initializeApp();
 
-// デプロイ時に使用するリージョンを決定（Firestore のロケーションに合わせる）
-// 優先度: functions:config().app.region -> env(FUNCTIONS_REGION/FUNCTION_REGION) -> 'us-central1'
+// 優先順位: functions:config().app.region → env(FUNCTIONS_REGION / FUNCTION_REGION) → us-central1
 const REGION = (
   (functions.config && functions.config().app && functions.config().app.region) ||
   process.env.FUNCTIONS_REGION ||
   process.env.FUNCTION_REGION ||
   'us-central1'
 );
-const r = functions.region(REGION);
+
+setGlobalOptions({region: REGION});
 
 function getWebhook(kind) {
-  // Priority: specific env -> generic env -> functions.config()
+  // 優先順位: 種類別 env → 共通 env → functions.config()
   const envKey = {
     users: process.env.DISCORD_WEBHOOK_URL_USERS,
     contacts: process.env.DISCORD_WEBHOOK_URL_CONTACTS,
@@ -27,7 +32,7 @@ function getWebhook(kind) {
   return (
     envKey[kind] ||
     generic ||
-    config[kind + '_webhook_url'] ||
+    config[`${kind}_webhook_url`] ||
     config.webhook_url ||
     null
   );
@@ -39,13 +44,20 @@ async function postToDiscord(webhookUrl, payload) {
     return;
   }
   try {
-    await axios.post(webhookUrl, payload, { timeout: 8000 });
+    await axios.post(webhookUrl, payload, {timeout: 8000});
   } catch (err) {
     console.error('Failed to post to Discord:', err?.response?.status || err?.message);
   }
 }
 
-function embed({ title, description, color = 0x2f3136, fields = [], url, timestamp = new Date().toISOString() }) {
+function embed({
+  title,
+  description,
+  color = 0x2f3136,
+  fields = [],
+  url,
+  timestamp = new Date().toISOString(),
+}) {
   return {
     embeds: [
       {
@@ -60,115 +72,118 @@ function embed({ title, description, color = 0x2f3136, fields = [], url, timesta
   };
 }
 
-exports.notifyUserCreated = r.firestore
-  .document('users/{uid}')
-  .onCreate(async (snap, context) => {
-    const data = snap.data() || {};
-    const name = data.displayName || '（不明）';
-    const email = data.email || '（未設定）';
-    const uid = snap.id;
+exports.notifyUserCreated = onDocumentCreated('users/{uid}', async (event) => {
+  const snap = event.data;
+  if (!snap) return;
 
-    const payload = embed({
-      title: '🆕 新規ユーザー登録',
-      description: `ユーザーが新規登録しました。`,
-      color: 0x57f287,
-      fields: [
-        { name: '名前', value: name, inline: true },
-        { name: 'メール', value: email, inline: true },
-        { name: 'UID', value: uid, inline: false },
-      ],
-    });
-    await postToDiscord(getWebhook('users'), payload);
+  const data = snap.data() || {};
+  const name = data.displayName || '（未設定）';
+  const email = data.email || '（未設定）';
+  const uid = event.params.uid;
+
+  const payload = embed({
+    title: '🆕 新規ユーザー登録',
+    description: '新しいユーザーが登録されました。',
+    color: 0x57f287,
+    fields: [
+      {name: '名前', value: String(name), inline: true},
+      {name: 'メール', value: String(email), inline: true},
+      {name: 'UID', value: String(uid), inline: false},
+    ],
   });
 
-exports.notifyContactCreated = r.firestore
-  .document('contact_forms/{id}')
-  .onCreate(async (snap, context) => {
-    const c = snap.data() || {};
-    const title = c.title || '件名なし';
-    const category = c.category || '未分類';
-    const userId = c.userId || 'unknown';
-    const email = c.userEmail || '（未設定）';
+  await postToDiscord(getWebhook('users'), payload);
+});
 
-    const payload = embed({
-      title: '📩 新しいお問い合わせ',
-      description: '新しいお問い合わせが届きました。',
-      color: 0x5865f2,
-      fields: [
-        { name: 'カテゴリ', value: String(category), inline: true },
-        { name: '件名', value: String(title), inline: true },
-        { name: 'ユーザーID', value: String(userId), inline: true },
-        { name: 'メール', value: String(email), inline: true },
-        { name: 'ドキュメントID', value: snap.id, inline: false },
-      ],
-    });
-    await postToDiscord(getWebhook('contacts'), payload);
+exports.notifyContactCreated = onDocumentCreated('contact_forms/{id}', async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+
+  const c = snap.data() || {};
+  const subject = c.title || c.subject || '（未設定）';
+  const category = c.categoryName || c.category || '未分類';
+  const userId = c.userId || 'unknown';
+  const email = c.userEmail || c.email || '（未設定）';
+
+  const payload = embed({
+    title: '📮 新しいお問い合わせ',
+    description: 'お問い合わせフォームへの投稿がありました。',
+    color: 0x5865f2,
+    fields: [
+      {name: 'カテゴリー', value: String(category), inline: true},
+      {name: '件名', value: String(subject), inline: true},
+      {name: 'ユーザーID', value: String(userId), inline: true},
+      {name: 'メール', value: String(email), inline: true},
+      {name: 'ドキュメントID', value: event.params.id, inline: false},
+    ],
   });
 
-// 掲示板: 申請（承認待ち）で通知
-exports.notifyBulletinSubmitted = r.firestore
-  .document('bulletin_posts/{id}')
-  .onCreate(async (snap, context) => {
-    const p = snap.data() || {};
-    const status = (p.approvalStatus || 'pending').toString();
-    if (status !== 'pending') return;
+  await postToDiscord(getWebhook('contacts'), payload);
+});
 
-    const title = p.title || '無題';
-    const author = p.authorName || p.authorId || '不明';
-    const categoryName = p.category?.name || p.categoryName || p.category?.id || '未分類';
+// 掲示板: 提出時（承認待ち）に通知
+exports.notifyBulletinSubmitted = onDocumentCreated('bulletin_posts/{id}', async (event) => {
+  const snap = event.data;
+  if (!snap) return;
 
-    const payload = embed({
-      title: '📝 掲示板 申請が届きました（承認待ち）',
-      description: '新しい掲示板投稿の申請があります。',
-      color: 0xfee75c,
-      fields: [
-        { name: 'タイトル', value: String(title), inline: true },
-        { name: 'カテゴリ', value: String(categoryName), inline: true },
-        { name: '申請者', value: String(author), inline: true },
-        { name: 'ドキュメントID', value: snap.id, inline: false },
-      ],
-    });
-    await postToDiscord(getWebhook('bulletin'), payload);
+  const p = snap.data() || {};
+  const status = (p.approvalStatus || 'pending').toString();
+  if (status !== 'pending') return;
+
+  const title = p.title || '（無題）';
+  const author = p.authorName || p.authorId || '匿名';
+  const categoryName = p.category?.name || p.categoryName || p.category?.id || '未分類';
+
+  const payload = embed({
+    title: '📰 掲示板投稿が承認待ち',
+    description: '新しい掲示板投稿が承認待ちとして提出されました。',
+    color: 0xfee75c,
+    fields: [
+      {name: 'タイトル', value: String(title), inline: true},
+      {name: 'カテゴリー', value: String(categoryName), inline: true},
+      {name: '投稿者', value: String(author), inline: true},
+      {name: 'ドキュメントID', value: event.params.id, inline: false},
+    ],
   });
 
-// 既存投稿で承認状態が pending に変わったら通知
-exports.notifyBulletinPendingOnUpdate = r.firestore
-  .document('bulletin_posts/{id}')
-  .onUpdate(async (change, context) => {
-    const before = change.before.data() || {};
-    const after = change.after.data() || {};
+  await postToDiscord(getWebhook('bulletin'), payload);
+});
 
-    const prev = (before.approvalStatus || '').toString();
-    const curr = (after.approvalStatus || '').toString();
+// 掲示板: 承認ステータスが pending になった／ピン留め依頼が入ったら通知
+exports.notifyBulletinPendingOnUpdate = onDocumentUpdated('bulletin_posts/{id}', async (event) => {
+  const before = event.data?.before?.data() || {};
+  const after = event.data?.after?.data() || {};
 
-    // または pinRequested が false -> true も通知
-    const prevPin = !!before.pinRequested;
-    const currPin = !!after.pinRequested;
+  const prevStatus = (before.approvalStatus || '').toString();
+  const currStatus = (after.approvalStatus || '').toString();
 
-    const becamePending = prev !== 'pending' && curr === 'pending';
-    const becamePinRequested = !prevPin && currPin;
+  const prevPin = !!before.pinRequested;
+  const currPin = !!after.pinRequested;
 
-    if (!becamePending && !becamePinRequested) return;
+  const becamePending = prevStatus !== 'pending' && currStatus === 'pending';
+  const becamePinRequested = !prevPin && currPin;
 
-    const title = after.title || '無題';
-    const author = after.authorName || after.authorId || '不明';
-    const categoryName = after.category?.name || after.categoryName || after.category?.id || '未分類';
+  if (!becamePending && !becamePinRequested) return;
 
-    const payload = embed({
-      title: becamePinRequested
-        ? '📌 掲示板 ピン留め申請'
-        : '📝 掲示板 申請が届きました（承認待ち）',
-      description: becamePinRequested
-        ? '掲示板投稿でピン留め申請が行われました。'
-        : '掲示板投稿の承認待ちが設定されました。',
-      color: 0xfaa81a,
-      fields: [
-        { name: 'タイトル', value: String(title), inline: true },
-        { name: 'カテゴリ', value: String(categoryName), inline: true },
-        { name: '申請者', value: String(author), inline: true },
-        { name: 'ドキュメントID', value: context.params.id, inline: false },
-      ],
-    });
+  const title = after.title || '（無題）';
+  const author = after.authorName || after.authorId || '匿名';
+  const categoryName = after.category?.name || after.categoryName || after.category?.id || '未分類';
 
-    await postToDiscord(getWebhook('bulletin'), payload);
+  const payload = embed({
+    title: becamePinRequested
+      ? '📌 掲示板のピン留め申請'
+      : '📰 掲示板投稿が承認待ちに変更',
+    description: becamePinRequested
+      ? '掲示板投稿にピン留めのリクエストが入りました。'
+      : '掲示板投稿の承認ステータスが pending になりました。',
+    color: 0xfaa81a,
+    fields: [
+      {name: 'タイトル', value: String(title), inline: true},
+      {name: 'カテゴリー', value: String(categoryName), inline: true},
+      {name: '投稿者', value: String(author), inline: true},
+      {name: 'ドキュメントID', value: event.params.id, inline: false},
+    ],
   });
+
+  await postToDiscord(getWebhook('bulletin'), payload);
+});

@@ -73,6 +73,7 @@ class UserService {
       profileImageUrl: firebaseUser.photoURL,
       createdAt: DateTime.now(),
       isActive: true,
+      reviewCount: 0,
     );
   }
 
@@ -138,6 +139,18 @@ class UserService {
     } catch (e) {
       print('❌ ユーザー無効化エラー: $e');
       rethrow;
+    }
+  }
+
+  static Future<void> incrementReviewCount(String uid) async {
+    try {
+      await _firestore.collection(_collection).doc(uid).update({
+        'reviewCount': FieldValue.increment(1),
+        'updatedAt': Timestamp.now(),
+      });
+    } catch (e) {
+      print('❌ レビュー数更新エラー: $e');
+      // ドキュメントが存在しない場合などは呼び出し側での処理を継続
     }
   }
 }

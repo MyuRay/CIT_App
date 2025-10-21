@@ -7,6 +7,7 @@ class CafeteriaMenuItem {
   final int? price; // 円。未設定の場合は null
   final String? photoUrl;
   final DateTime createdAt;
+  final int viewCount;
 
   const CafeteriaMenuItem({
     required this.id,
@@ -15,6 +16,7 @@ class CafeteriaMenuItem {
     this.price,
     this.photoUrl,
     required this.createdAt,
+    this.viewCount = 0,
   });
 
   factory CafeteriaMenuItem.fromJson(Map<String, dynamic> json) {
@@ -25,6 +27,7 @@ class CafeteriaMenuItem {
       price: (json['price'] as num?)?.toInt(),
       photoUrl: json['photoUrl'] as String?,
       createdAt: _parseDateTime(json['createdAt']),
+      viewCount: (json['viewCount'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -35,6 +38,7 @@ class CafeteriaMenuItem {
       'price': price,
       'photoUrl': photoUrl,
       'createdAt': Timestamp.fromDate(createdAt),
+      'viewCount': viewCount,
     };
   }
 
@@ -54,6 +58,7 @@ class CafeteriaMenuItem {
     int? price,
     String? photoUrl,
     DateTime? createdAt,
+    int? viewCount,
   }) {
     return CafeteriaMenuItem(
       id: id ?? this.id,
@@ -62,7 +67,7 @@ class CafeteriaMenuItem {
       price: price ?? this.price,
       photoUrl: photoUrl ?? this.photoUrl,
       createdAt: createdAt ?? this.createdAt,
+      viewCount: viewCount ?? this.viewCount,
     );
   }
 }
-

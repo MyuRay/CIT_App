@@ -38,16 +38,16 @@ class _BlockConfirmationDialogState
     }
 
     if (_selectedReason == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ブロック理由を選択してください')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ブロック理由を選択してください')));
       return;
     }
 
     if (!_confirmed) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('確認事項にチェックを入れてください')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('確認事項にチェックを入れてください')));
       return;
     }
 
@@ -56,13 +56,14 @@ class _BlockConfirmationDialogState
     });
 
     try {
-      await ref.read(userBlockProvider.notifier).blockUser(
+      await ref
+          .read(userBlockProvider.notifier)
+          .blockUser(
             blockedUserId: widget.blockedUserId,
             blockedUserName: widget.blockedUserName,
             reason: _selectedReason!,
-            notes: _notesController.text.isNotEmpty
-                ? _notesController.text
-                : null,
+            notes:
+                _notesController.text.isNotEmpty ? _notesController.text : null,
           );
 
       if (!mounted) return;
@@ -95,211 +96,195 @@ class _BlockConfirmationDialogState
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: Colors.white,
-      contentPadding: EdgeInsets.zero,
-      content: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.8,
-          maxWidth: 500,
-        ),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                // ヘッダー
-                Row(
+    final mediaQuery = MediaQuery.of(context);
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: mediaQuery.viewInsets.bottom),
+      child: AlertDialog(
+        backgroundColor: Colors.white,
+        contentPadding: EdgeInsets.zero,
+        content: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: mediaQuery.size.height * 0.8,
+            maxWidth: 500,
+          ),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.block, color: Colors.red, size: 28),
-                    const SizedBox(width: 12),
-                    Expanded(
+                    Row(
+                      children: [
+                        const Icon(Icons.block, color: Colors.red, size: 28),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'ユーザーをブロック',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                widget.blockedUserName,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red[200]!),
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'ユーザーをブロック',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          Row(
+                            children: [
+                              Icon(Icons.info_outline, color: Colors.red[700]),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'ブロックすると以下の効果があります',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.red[900],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
+                          const SizedBox(height: 8),
                           Text(
-                            widget.blockedUserName,
+                            '• このユーザーの投稿やコメントが非表示になります\n'
+                            '• あなたがブロックしたことは相手に通知されません\n'
+                            '• いつでもブロックを解除できます',
                             style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 24),
-
-                // 説明カード
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red[200]!),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.info_outline, color: Colors.red[700]),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'ブロックすると以下の効果があります',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.red[900],
-                              ),
+                              fontSize: 13,
+                              color: Colors.red[900],
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '• このユーザーの投稿やコメントが非表示になります\n'
-                        '• あなたがブロックしたことは相手に通知されません\n'
-                        '• いつでもブロックを解除できます',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.red[900],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ブロック理由選択
-                const Text(
-                  'ブロック理由 *',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ...BlockReason.values.map((reason) {
-                  return RadioListTile<BlockReason>(
-                    title: Text(reason.displayName),
-                    value: reason,
-                    groupValue: _selectedReason,
-                    onChanged: _isLoading
-                        ? null
-                        : (value) {
-                            setState(() {
-                              _selectedReason = value;
-                            });
-                          },
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                  );
-                }).toList(),
-
-                const SizedBox(height: 16),
-
-                // メモ入力
-                TextFormField(
-                  controller: _notesController,
-                  maxLines: 3,
-                  maxLength: 500,
-                  enabled: !_isLoading,
-                  decoration: const InputDecoration(
-                    labelText: 'メモ（任意）',
-                    border: OutlineInputBorder(),
-                    hintText: '備考があれば記入してください（500文字以内）',
-                    alignLabelWithHint: true,
-                  ),
-                  validator: (value) {
-                    if (value != null && value.length > 500) {
-                      return 'メモは500文字以内で入力してください';
-                    }
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 16),
-
-                // 確認チェックボックス
-                CheckboxListTile(
-                  title: const Text(
-                    '上記の内容を理解しました',
-                    style: TextStyle(fontSize: 14),
-                  ),
-                  value: _confirmed,
-                  onChanged: _isLoading
-                      ? null
-                      : (value) {
-                          setState(() {
-                            _confirmed = value ?? false;
-                          });
-                        },
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-
-                const SizedBox(height: 24),
-
-                // ボタン
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () => Navigator.of(context).pop(),
-                      child: const Text('キャンセル'),
                     ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: _isLoading ? null : _blockUser,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
+                    const SizedBox(height: 24),
+                    const Text(
+                      'ブロック理由 *',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text('ブロックする'),
                     ),
+                    const SizedBox(height: 8),
+                    ...BlockReason.values.map((reason) {
+                      return RadioListTile<BlockReason>(
+                        title: Text(reason.displayName),
+                        value: reason,
+                        groupValue: _selectedReason,
+                        onChanged:
+                            _isLoading
+                                ? null
+                                : (value) {
+                                  setState(() {
+                                    _selectedReason = value;
+                                  });
+                                },
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                      );
+                    }).toList(),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _notesController,
+                      maxLines: 3,
+                      maxLength: 500,
+                      enabled: !_isLoading,
+                      decoration: const InputDecoration(
+                        labelText: 'メモ（任意）',
+                        border: OutlineInputBorder(),
+                        hintText: '備考があれば記入してください（500文字以内）',
+                        alignLabelWithHint: true,
+                      ),
+                      validator: (value) {
+                        if (value != null && value.length > 500) {
+                          return 'メモは500文字以内で入力してください';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    CheckboxListTile(
+                      title: const Text(
+                        '上記の内容を理解しました',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      value: _confirmed,
+                      onChanged:
+                          _isLoading
+                              ? null
+                              : (value) {
+                                setState(() {
+                                  _confirmed = value ?? false;
+                                });
+                              },
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                    ),
+                    const SizedBox(height: 24),
                   ],
                 ),
-                ],
               ),
             ),
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+            child: const Text('キャンセル'),
+          ),
+          ElevatedButton(
+            onPressed: _isLoading ? null : _blockUser,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child:
+                _isLoading
+                    ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                    : const Text('ブロックする'),
+          ),
+        ],
       ),
     );
   }

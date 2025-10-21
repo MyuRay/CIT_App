@@ -2592,22 +2592,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final ref = ProviderScope.containerOf(context);
     final imageUrlAsync = ref.read(firebaseBusTimetableProvider);
 
-    // Firebase画像またはアセット画像を直接フルスクリーン表示
+    void showUnavailableSnackBar([String? message]) {
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(message ?? 'オンラインの時刻表を取得できませんでした。'),
+        ),
+      );
+    }
+
+    // Firebase画像が取得できた場合のみフルスクリーン表示する
     imageUrlAsync.when(
       data: (imageUrl) {
-        if (imageUrl != null) {
+        if (imageUrl != null && imageUrl.isNotEmpty) {
           _showFullScreenFirebaseImage(context, imageUrl);
         } else {
-          _showFullScreenAssetImage(context);
+          showUnavailableSnackBar();
         }
       },
       loading: () {
-        // ローディング中はアセット画像を表示
-        _showFullScreenAssetImage(context);
+        showUnavailableSnackBar('時刻表を読み込み中です。しばらくしてからお試しください。');
       },
       error: (error, _) {
-        // エラー時はアセット画像を表示
-        _showFullScreenAssetImage(context);
+        showUnavailableSnackBar();
       },
     );
   }

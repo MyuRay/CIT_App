@@ -14,6 +14,7 @@ class SignUpScreen extends ConsumerStatefulWidget {
 
 class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _displayNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -23,6 +24,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
   @override
   void dispose() {
+    _displayNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -45,6 +47,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     try {
       final authService = ref.read(authServiceProvider);
       await authService.signUpWithEmailAndPassword(
+        displayName: _displayNameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
@@ -191,6 +194,24 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 ),
 
                 const SizedBox(height: 24),
+                TextFormField(
+                  controller: _displayNameController,
+                  decoration: const InputDecoration(
+                    labelText: '表示名(任意)',
+                    hintText: '掲示板コメントや学食レビューで表示されます',
+                  ),
+                  textInputAction: TextInputAction.next,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return '表示名を入力してください';
+                    }
+                    if (value.trim().length < 2) {
+                      return '表示名は2文字以上で入力してください';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,

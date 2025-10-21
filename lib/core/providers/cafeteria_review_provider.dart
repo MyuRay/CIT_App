@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/cafeteria/cafeteria_review_model.dart';
 import '../../services/cafeteria/cafeteria_review_service.dart';
+import '../../services/user/user_service.dart';
 
 // 一覧取得（ストリーム）
 final cafeteriaReviewsProvider = StreamProvider.family<List<CafeteriaReview>, String>((ref, cafeteriaId) {
@@ -43,6 +44,7 @@ class CafeteriaReviewActions {
       likedBy: const {},
     );
     await CafeteriaReviewService.addReview(review);
+    await UserService.incrementReviewCount(user.uid);
   }
 
   Future<void> update({

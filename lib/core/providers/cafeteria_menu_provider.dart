@@ -36,6 +36,7 @@ class CafeteriaMenuItemActions {
       price: price,
       photoUrl: photoUrl,
       createdAt: DateTime.now(),
+      viewCount: 0,
     );
     
     return await CafeteriaMenuItemService.addMenuItem(item);
@@ -65,9 +66,12 @@ class CafeteriaMenuItemActions {
 
     await CafeteriaMenuItemService.deleteMenuItem(id);
   }
+
+  Future<void> incrementViewCount(String id) async {
+    await CafeteriaMenuItemService.incrementViewCount(id);
+  }
 }
 
 final cafeteriaMenuItemActionsProvider = Provider<CafeteriaMenuItemActions>((ref) {
   return CafeteriaMenuItemActions();
 });
-

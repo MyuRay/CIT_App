@@ -61,6 +61,7 @@ class AuthService {
   }
 
   Future<UserCredential?> signUpWithEmailAndPassword({
+    required String displayName,
     required String email,
     required String password,
   }) async {
@@ -72,18 +73,30 @@ class AuthService {
         );
       }
 
+      final trimmedName = displayName.trim();
+      if (trimmedName.isEmpty) {
+        throw FirebaseAuthException(
+          code: 'invalid-display-name',
+          message: '表示名を入力してください',
+        );
+      }
+
       final credential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
-      // Firebase Authでアカウント作成成功後、Firestoreにもユーザー情報を保存
+
+      // Firebase Authでアカウント作成成功後、表示名を設定しFirestoreにも保存
       if (credential.user != null) {
-        final appUser = UserService.createAppUserFromFirebaseUser(credential.user!);
+        await credential.user!.updateDisplayName(trimmedName);
+        await credential.user!.reload();
+        final refreshedUser = _auth.currentUser ?? credential.user!;
+        final appUser = UserService.createAppUserFromFirebaseUser(refreshedUser)
+            .copyWith(displayName: trimmedName);
         await UserService.createUser(appUser);
         print('✅ Firestoreにユーザー情報を保存しました: ${credential.user!.uid}');
       }
-      
+
       await credential.user?.sendEmailVerification();
       return credential;
     } on FirebaseAuthException {

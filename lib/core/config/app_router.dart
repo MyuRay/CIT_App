@@ -33,8 +33,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       // ログイン済みが認証画面へ行こうとしたらホームへ
       if (isLoggedIn && goingAuth) return '/home';
 
-      // 未ログイン時は公開画面と認証画面のみ許可し、その他はログインへ
-      if (!isLoggedIn && !(goingAuth || goingPublic)) return '/login';
+      // 未ログイン時は公開画面と認証画面のみ許可し、その他はサインアップへ
+      if (!isLoggedIn && !(goingAuth || goingPublic)) return '/signup';
 
       return null;
     },

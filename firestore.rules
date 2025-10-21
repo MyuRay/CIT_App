@@ -284,8 +284,27 @@ service cloud.firestore {
         && request.auth != null
         && hasRequiredCafeteriaMenuItemFields();
 
-      // 更新・削除: 管理者のみ
-      allow update, delete: if isAdmin();
+      // 閲覧数(viewCount)を1増やす更新は全認証ユーザーに許可
+      allow update: if isAdmin()
+        || (
+          isCITUser()
+          && request.auth != null
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['viewCount'])
+          && request.resource.data.viewCount is int
+          && (
+            (resource.data.viewCount is int && request.resource.data.viewCount == resource.data.viewCount + 1)
+            || (!(resource.data.viewCount is int) && request.resource.data.viewCount == 1)
+          )
+        );
+      allow update: if isAdmin()
++        || (
++          isCITUser()
++          && request.auth != null
++          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['viewCount'])
++        );
+
+      // 削除は管理者のみ
+      allow delete: if isAdmin();
     }
 
     // ヘルパー関数

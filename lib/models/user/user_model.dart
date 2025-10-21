@@ -11,6 +11,7 @@ class AppUser {
   final String? department; // 学部・学科
   final String? studentId; // 学籍番号
   final int? graduationYear; // 卒業年度
+  final int reviewCount;
 
   const AppUser({
     required this.uid,
@@ -23,6 +24,7 @@ class AppUser {
     this.department,
     this.studentId,
     this.graduationYear,
+    this.reviewCount = 0,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
@@ -37,6 +39,7 @@ class AppUser {
       department: json['department'] as String?,
       studentId: json['studentId'] as String?,
       graduationYear: json['graduationYear'] as int?,
+      reviewCount: (json['reviewCount'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -52,6 +55,7 @@ class AppUser {
       'department': department,
       'studentId': studentId,
       'graduationYear': graduationYear,
+      'reviewCount': reviewCount,
     };
   }
 
@@ -91,6 +95,7 @@ class AppUser {
     String? department,
     String? studentId,
     int? graduationYear,
+    int? reviewCount,
   }) {
     return AppUser(
       uid: uid ?? this.uid,
@@ -103,6 +108,7 @@ class AppUser {
       department: department ?? this.department,
       studentId: studentId ?? this.studentId,
       graduationYear: graduationYear ?? this.graduationYear,
+      reviewCount: reviewCount ?? this.reviewCount,
     );
   }
 }
