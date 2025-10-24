@@ -31,7 +31,20 @@ class ScheduleGridWidget extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final timeColumnWidth = 35.0; // 時限列の幅を縮小
     final cellWidth = (screenWidth - timeColumnWidth - 32) / columnCount;
-    final cellHeight = forceFullHeight ? 60.0 : 65.0; // 共有時はセル高を調整
+    final baseCellHeight = forceFullHeight ? 60.0 : 65.0; // 共有時はセル高を調整
+    final emptyCellHeight = (!isEditMode && !forceFullHeight) ? 24.0 : baseCellHeight;
+
+    final rowHeights = List<double>.generate(10, (index) {
+      final period = index + 1;
+      final hasClass = displayWeekdays.any((weekday) => schedule.timetable[weekday.name]?[period] != null);
+      return hasClass ? baseCellHeight : emptyCellHeight;
+    });
+
+    final cumulativeHeights = List<double>.filled(11, 0);
+    for (var i = 0; i < 10; i++) {
+      cumulativeHeights[i + 1] = cumulativeHeights[i] + rowHeights[i];
+    }
+    final totalHeight = cumulativeHeights.last;
     
     final Widget content = Column(
         children: [
@@ -40,17 +53,17 @@ class ScheduleGridWidget extends StatelessWidget {
           
           // グリッドボディ（スタック方式で連続講義を表現）
           SizedBox(
-            height: cellHeight * 10, // 10時限分の高さ
+            height: totalHeight,
             child: Stack(
               children: [
                 // 背景グリッド
-                _buildBackgroundGrid(context, timeColumnWidth, cellWidth, cellHeight),
+                _buildBackgroundGrid(context, timeColumnWidth, cellWidth, rowHeights),
                 
                 // 時限列
-                _buildTimeColumn(context, timeColumnWidth, cellHeight),
+                _buildTimeColumn(context, timeColumnWidth, rowHeights),
                 
                 // 講義セル（連続講義対応）
-                ..._buildClassCells(context, timeColumnWidth, cellWidth, cellHeight),
+                ..._buildClassCells(context, timeColumnWidth, cellWidth, rowHeights, cumulativeHeights),
               ],
             ),
           ),
@@ -106,12 +119,12 @@ class ScheduleGridWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildBackgroundGrid(BuildContext context, double timeColumnWidth, double cellWidth, double cellHeight) {
+  Widget _buildBackgroundGrid(BuildContext context, double timeColumnWidth, double cellWidth, List<double> rowHeights) {
     return Positioned.fill(
       child: Column(
         children: List.generate(10, (periodIndex) {
           return Container(
-            height: cellHeight,
+            height: rowHeights[periodIndex],
             decoration: BoxDecoration(
               border: Border(
                 top: BorderSide(color: Colors.grey.shade300),
@@ -147,7 +160,7 @@ class ScheduleGridWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildTimeColumn(BuildContext context, double timeColumnWidth, double cellHeight) {
+  Widget _buildTimeColumn(BuildContext context, double timeColumnWidth, List<double> rowHeights) {
     return Positioned(
       left: 0,
       top: 0,
@@ -165,7 +178,7 @@ class ScheduleGridWidget extends StatelessWidget {
 
           return Container(
             width: timeColumnWidth,
-            height: cellHeight,
+            height: rowHeights[periodIndex],
             alignment: Alignment.center,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -195,7 +208,7 @@ class ScheduleGridWidget extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildClassCells(BuildContext context, double timeColumnWidth, double cellWidth, double cellHeight) {
+  List<Widget> _buildClassCells(BuildContext context, double timeColumnWidth, double cellWidth, List<double> rowHeights, List<double> cumulativeHeights) {
     final List<Widget> cells = [];
     final Set<String> processedCells = {}; // 既に処理済みのセル（連続講義対応）
 
@@ -217,15 +230,15 @@ class ScheduleGridWidget extends StatelessWidget {
             context, 
             weekdayKey, 
             period, 
-            timeColumnWidth + (weekdayIndex * cellWidth), 
-            periodIndex * cellHeight, 
-            cellWidth, 
-            cellHeight
+            timeColumnWidth + (weekdayIndex * cellWidth),
+            cumulativeHeights[periodIndex],
+            cellWidth,
+            rowHeights[periodIndex]
           ));
         } else if (scheduleClass.isStartCell) {
           // 講義セル（開始セル）
           final duration = scheduleClass.duration;
-          final cellHeight_effective = cellHeight * duration;
+          final cellHeightEffective = cumulativeHeights[periodIndex + duration] - cumulativeHeights[periodIndex];
           
           // 連続する時限を処理済みとしてマーク
           for (int i = 0; i < duration; i++) {
@@ -237,10 +250,10 @@ class ScheduleGridWidget extends StatelessWidget {
             scheduleClass,
             weekdayKey, 
             period, 
-            timeColumnWidth + (weekdayIndex * cellWidth), 
-            periodIndex * cellHeight, 
-            cellWidth, 
-            cellHeight_effective
+            timeColumnWidth + (weekdayIndex * cellWidth),
+            cumulativeHeights[periodIndex],
+            cellWidth,
+            cellHeightEffective
           ));
         }
         // isStartCell = false の場合は何も描画しない（既に開始セルで描画済み）
