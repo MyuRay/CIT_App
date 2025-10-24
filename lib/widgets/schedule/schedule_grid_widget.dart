@@ -32,7 +32,7 @@ class ScheduleGridWidget extends StatelessWidget {
     final timeColumnWidth = 35.0; // 時限列の幅を縮小
     final cellWidth = (screenWidth - timeColumnWidth - 32) / columnCount;
     final baseCellHeight = forceFullHeight ? 60.0 : 65.0; // 共有時はセル高を調整
-    final emptyCellHeight = (!isEditMode && !forceFullHeight) ? 24.0 : baseCellHeight;
+    final emptyCellHeight = (!isEditMode && !forceFullHeight) ? 40.0 : baseCellHeight; // 空行でも時限/時間が読める高さ
 
     final rowHeights = List<double>.generate(10, (index) {
       final period = index + 1;
