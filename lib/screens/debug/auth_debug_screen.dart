@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/providers/auth_provider.dart';
-import '../../core/providers/persistent_auth_provider.dart';
+import '../../core/providers/simple_auth_provider.dart';
 
 class AuthDebugScreen extends ConsumerWidget {
   const AuthDebugScreen({super.key});
@@ -10,8 +10,8 @@ class AuthDebugScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
-    final persistentAuthState = ref.watch(persistentAuthProvider);
-    final authDebugInfo = ref.watch(authDebugInfoProvider);
+    final simpleAuthState = ref.watch(simpleAuthStateProvider);
+    final currentUser = ref.watch(currentUserSimpleProvider);
     
     return Scaffold(
       appBar: AppBar(
@@ -22,9 +22,7 @@ class AuthDebugScreen extends ConsumerWidget {
             icon: const Icon(Icons.refresh),
             onPressed: () {
               ref.invalidate(authStateProvider);
-              ref.invalidate(persistentAuthProvider);
-              ref.invalidate(authDebugInfoProvider);
-              ref.read(persistentAuthProvider.notifier).refresh();
+              ref.invalidate(simpleAuthStateProvider);
             },
             tooltip: 'リフレッシュ',
           ),
@@ -33,9 +31,7 @@ class AuthDebugScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(authStateProvider);
-          ref.invalidate(persistentAuthProvider);
-          ref.invalidate(authDebugInfoProvider);
-          await ref.read(persistentAuthProvider.notifier).refresh();
+          ref.invalidate(simpleAuthStateProvider);
         },
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -68,42 +64,28 @@ class AuthDebugScreen extends ConsumerWidget {
             ),
             
             const SizedBox(height: 16),
-            
-            // 永続化認証状態
+
+            // シンプル認証状態
             _buildStatusCard(
-              '永続化 Auth 状態',
-              persistentAuthState.when(
-                data: (user) => user != null 
+              'シンプル Auth 状態',
+              simpleAuthState.when(
+                data: (user) => user != null
                     ? '✅ ログイン済み\nUID: ${user.uid}\nEmail: ${user.email}'
                     : '❌ 未ログイン',
                 loading: () => '⏳ 初期化中...',
                 error: (error, _) => '❌ エラー: $error',
               ),
-              persistentAuthState.when(
+              simpleAuthState.when(
                 data: (user) => user != null ? Colors.green : Colors.red,
                 loading: () => Colors.orange,
                 error: (_, __) => Colors.red,
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
-            // 詳細デバッグ情報
-            authDebugInfo.when(
-              data: (info) => _buildDebugInfoCard(info),
-              loading: () => const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-              ),
-              error: (error, _) => Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text('デバッグ情報取得エラー: $error'),
-                ),
-              ),
-            ),
+
+            // 現在のユーザー情報
+            _buildCurrentUserCard(currentUser),
             
             const SizedBox(height: 16),
             
@@ -152,6 +134,41 @@ class AuthDebugScreen extends ConsumerWidget {
               content,
               style: const TextStyle(fontSize: 14),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentUserCard(User? user) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '👤 現在のユーザー情報',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (user != null) ...[
+              _buildInfoRow('UID', user.uid),
+              _buildInfoRow('Email', user.email ?? 'なし'),
+              _buildInfoRow('表示名', user.displayName ?? 'なし'),
+              _buildInfoRow('メール認証', user.emailVerified ? '✅ 済み' : '❌ 未認証'),
+              _buildInfoRow('匿名ユーザー', user.isAnonymous ? 'はい' : 'いいえ'),
+              _buildInfoRow('作成日時', user.metadata.creationTime?.toString() ?? 'なし'),
+              _buildInfoRow('最終ログイン', user.metadata.lastSignInTime?.toString() ?? 'なし'),
+            ] else ...[
+              const Text(
+                '未ログイン',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ],
           ],
         ),
       ),
@@ -221,13 +238,23 @@ class AuthDebugScreen extends ConsumerWidget {
               children: [
                 ElevatedButton.icon(
                   onPressed: () async {
-                    await ref.read(persistentAuthProvider.notifier).forceCheck();
-                    ScaffoldMessenger.of(ref.context).showSnackBar(
-                      const SnackBar(content: Text('認証状態の強制チェックを実行しました')),
-                    );
+                    try {
+                      await FirebaseAuth.instance.currentUser?.reload();
+                      ref.invalidate(simpleAuthStateProvider);
+                      ScaffoldMessenger.of(ref.context).showSnackBar(
+                        const SnackBar(content: Text('ユーザー情報を再読み込みしました')),
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(ref.context).showSnackBar(
+                        SnackBar(
+                          content: Text('再読み込みエラー: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   },
                   icon: const Icon(Icons.security, size: 18),
-                  label: const Text('認証強制チェック'),
+                  label: const Text('ユーザー再読み込み'),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
                 ),
                 ElevatedButton.icon(
@@ -253,8 +280,9 @@ class AuthDebugScreen extends ConsumerWidget {
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () async {
-                    await ref.read(persistentAuthProvider.notifier).refresh();
+                  onPressed: () {
+                    ref.invalidate(simpleAuthStateProvider);
+                    ref.invalidate(authStateProvider);
                     ScaffoldMessenger.of(ref.context).showSnackBar(
                       const SnackBar(content: Text('プロバイダーをリフレッシュしました')),
                     );
@@ -335,14 +363,10 @@ class AuthDebugScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 12),
-            _buildInfoRow('✅ PersistentAuthProvider', '実装済み'),
-            _buildInfoRow('✅ SharedPreferencesバックアップ', '実装済み'),
-            _buildInfoRow('✅ Firebase Auth永続化設定', 'LOCAL設定済み'),
-            _buildInfoRow('✅ 認証状態強制チェック', '実装済み'),
-            _buildInfoRow('✅ 15回 × 800ms 待機', '実装済み'),
+            _buildInfoRow('✅ SimpleAuthProvider', '実装済み'),
+            _buildInfoRow('✅ Firebase Auth標準永続化', '使用中'),
             _buildInfoRow('✅ authStateChanges監視', '実装済み'),
-            _buildInfoRow('✅ 認証トークン保存', '実装済み'),
-            _buildInfoRow('✅ アプリライフサイクル監視', '実装済み'),
+            _buildInfoRow('✅ シンプルな認証フロー', '実装済み'),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -352,8 +376,9 @@ class AuthDebugScreen extends ConsumerWidget {
                 border: Border.all(color: Colors.blue.shade200),
               ),
               child: const Text(
-                'タスクキル後も認証状態を維持する機能が実装されています。\n'
-                '問題が続く場合は、アプリを完全に削除して再インストールをお試しください。',
+                'Firebase Authの標準永続化機能を使用しています。\n'
+                '複雑なロジックを排除し、Firebaseのネイティブ動作に任せることで、\n'
+                'より安定した認証状態の維持を実現しています。',
                 style: TextStyle(fontSize: 13),
               ),
             ),
@@ -384,10 +409,10 @@ class AuthDebugScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 12),
-            _buildInfoRow('🔄 アプリ再開時', '認証状態自動チェック'),
-            _buildInfoRow('⏸️ アプリ一時停止時', '最終アクセス時刻更新'),
-            _buildInfoRow('📱 バックグラウンド復帰', '強制認証チェック実行'),
-            _buildInfoRow('🔐 認証データ有効期限', '30日間'),
+            _buildInfoRow('🔄 アプリ再開時', 'Firebase自動復元'),
+            _buildInfoRow('⏸️ アプリ一時停止時', 'Firebase自動保存'),
+            _buildInfoRow('📱 バックグラウンド復帰', 'Firebase自動同期'),
+            _buildInfoRow('🔐 認証データ', 'Firebaseが管理'),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -397,8 +422,8 @@ class AuthDebugScreen extends ConsumerWidget {
                 border: Border.all(color: Colors.green.shade200),
               ),
               child: const Text(
-                'アプリがバックグラウンドから復帰するたびに認証状態をチェックし、\n'
-                '必要に応じて自動的に復元処理を実行します。',
+                'Firebase Authが自動的に認証状態を管理します。\n'
+                '独自の復元処理は行わず、Firebaseのネイティブ動作に任せています。',
                 style: TextStyle(fontSize: 13),
               ),
             ),

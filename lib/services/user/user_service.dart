@@ -153,4 +153,18 @@ class UserService {
       // ドキュメントが存在しない場合などは呼び出し側での処理を継続
     }
   }
+
+  /// 最終ログイン時刻を更新
+  static Future<void> updateLastLogin(String uid) async {
+    try {
+      await _firestore.collection(_collection).doc(uid).update({
+        'lastLoginAt': Timestamp.now(),
+        'updatedAt': Timestamp.now(),
+      });
+      print('✅ 最終ログイン時刻を更新しました: $uid');
+    } catch (e) {
+      print('⚠️ 最終ログイン時刻更新エラー: $e');
+      // エラーが発生してもログインは継続
+    }
+  }
 }

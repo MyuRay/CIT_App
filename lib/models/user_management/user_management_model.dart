@@ -24,11 +24,12 @@ class AppUser {
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
     return AppUser(
-      uid: json['uid'] as String,
-      email: json['email'] as String,
+      uid: json['uid'] as String? ?? '',
+      email: json['email'] as String? ?? '',
       displayName: json['displayName'] as String?,
-      photoURL: json['photoURL'] as String?,
-      lastLoginAt: _parseDateTime(json['lastLoginAt']),
+      // profileImageUrlとphotoURLの両方に対応
+      photoURL: json['photoURL'] as String? ?? json['profileImageUrl'] as String?,
+      lastLoginAt: _parseDateTime(json['lastLoginAt']) ?? _parseDateTime(json['updatedAt']),
       createdAt: _parseDateTime(json['createdAt']) ?? DateTime.now(),
       isActive: json['isActive'] as bool? ?? true,
       metadata: json['metadata'] as Map<String, dynamic>?,

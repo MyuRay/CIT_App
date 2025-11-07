@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,8 +8,38 @@ import '../../services/cafeteria/cafeteria_review_service.dart';
 import '../../services/user/user_service.dart';
 
 // 一覧取得（ストリーム）
-final cafeteriaReviewsProvider = StreamProvider.family<List<CafeteriaReview>, String>((ref, cafeteriaId) {
-  return CafeteriaReviewService.streamReviews(cafeteriaId);
+final cafeteriaReviewsProvider =
+    StreamProvider.family<List<CafeteriaReview>, String>((ref, cafeteriaId) {
+      return CafeteriaReviewService.streamReviews(cafeteriaId);
+    });
+
+// 本日の学食レビューが存在するか
+final todayCafeteriaReviewExistsProvider = StreamProvider.autoDispose<bool>((
+  ref,
+) {
+  final now = DateTime.now();
+  final todayStart = DateTime(now.year, now.month, now.day);
+  final tomorrowStart = todayStart.add(const Duration(days: 1));
+
+  // 日付が変わったタイミングでプロバイダを更新
+  final refreshDelay =
+      tomorrowStart.difference(now) + const Duration(seconds: 1);
+  Timer? timer;
+  if (refreshDelay > Duration.zero) {
+    timer = Timer(refreshDelay, () => ref.invalidateSelf());
+    ref.onDispose(() => timer?.cancel());
+  }
+
+  final query = FirebaseFirestore.instance
+      .collection('cafeteria_reviews')
+      .where(
+        'createdAt',
+        isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart),
+      )
+      .where('createdAt', isLessThan: Timestamp.fromDate(tomorrowStart))
+      .limit(1);
+
+  return query.snapshots().map((snap) => snap.docs.isNotEmpty);
 });
 
 // 投稿用アクション
@@ -36,9 +68,10 @@ class CafeteriaReviewActions {
       volumeGender: volumeGender,
       comment: comment,
       userId: user.uid,
-      userName: (userName != null && userName.trim().isNotEmpty)
-          ? userName.trim()
-          : (user.displayName ?? (user.email ?? '匿名')),
+      userName:
+          (userName != null && userName.trim().isNotEmpty)
+              ? userName.trim()
+              : (user.displayName ?? (user.email ?? '匿名')),
       createdAt: DateTime.now(),
       likeCount: 0,
       likedBy: const {},
@@ -69,9 +102,10 @@ class CafeteriaReviewActions {
       'volume': volume,
       'recommend': recommend,
       'comment': comment,
-      'userName': (userName != null && userName.trim().isNotEmpty)
-          ? userName.trim()
-          : (user.displayName ?? (user.email ?? '匿名')),
+      'userName':
+          (userName != null && userName.trim().isNotEmpty)
+              ? userName.trim()
+              : (user.displayName ?? (user.email ?? '匿名')),
       'volumeGender': volumeGender,
       'userId': user.uid,
     }..removeWhere((k, v) => v == null);
@@ -103,7 +137,9 @@ class CafeteriaReviewActions {
     if (uid == null || uid.isEmpty) {
       throw Exception('ログインが必要です');
     }
-    final docRef = FirebaseFirestore.instance.collection('cafeteria_reviews').doc(reviewId);
+    final docRef = FirebaseFirestore.instance
+        .collection('cafeteria_reviews')
+        .doc(reviewId);
     await FirebaseFirestore.instance.runTransaction((txn) async {
       final snap = await txn.get(docRef);
       if (!snap.exists) {
@@ -111,7 +147,9 @@ class CafeteriaReviewActions {
       }
       final data = snap.data() as Map<String, dynamic>;
       final currentCount = (data['likeCount'] as int?) ?? 0;
-      final currentLikedBy = Map<String, dynamic>.from(data['likedBy'] as Map<String, dynamic>? ?? {});
+      final currentLikedBy = Map<String, dynamic>.from(
+        data['likedBy'] as Map<String, dynamic>? ?? {},
+      );
       if (currentLikedBy[uid] == true) {
         return;
       }
@@ -128,7 +166,9 @@ class CafeteriaReviewActions {
     if (uid == null || uid.isEmpty) {
       throw Exception('ログインが必要です');
     }
-    final docRef = FirebaseFirestore.instance.collection('cafeteria_reviews').doc(reviewId);
+    final docRef = FirebaseFirestore.instance
+        .collection('cafeteria_reviews')
+        .doc(reviewId);
     await FirebaseFirestore.instance.runTransaction((txn) async {
       final snap = await txn.get(docRef);
       if (!snap.exists) {
@@ -136,7 +176,9 @@ class CafeteriaReviewActions {
       }
       final data = snap.data() as Map<String, dynamic>;
       final currentCount = (data['likeCount'] as int?) ?? 0;
-      final currentLikedBy = Map<String, dynamic>.from(data['likedBy'] as Map<String, dynamic>? ?? {});
+      final currentLikedBy = Map<String, dynamic>.from(
+        data['likedBy'] as Map<String, dynamic>? ?? {},
+      );
       if (currentLikedBy[uid] == true) {
         currentLikedBy[uid] = false;
         txn.update(docRef, {
@@ -146,7 +188,6 @@ class CafeteriaReviewActions {
       }
     });
   }
-
 }
 
 final cafeteriaReviewActionsProvider = Provider<CafeteriaReviewActions>((ref) {

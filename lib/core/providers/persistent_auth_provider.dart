@@ -105,6 +105,16 @@ class PersistentAuthNotifier extends StateNotifier<AsyncValue<User?>> {
         print('⚠️ いったん待機（loading）としてストリームの更新を待ちます');
         // ここではクリアしない。authStateChanges からの復帰を待つ
         state = const AsyncValue.loading();
+
+        // タイムアウト設定: 5秒経過しても復元できない場合は未ログイン扱い
+        Future.delayed(const Duration(seconds: 5), () async {
+          if (state is AsyncLoading) {
+            print('❌ 認証状態復元タイムアウト (5秒経過)');
+            print('❌ SharedPreferencesをクリアして未ログイン状態にします');
+            await _clearPersistentData();
+            state = const AsyncValue.data(null);
+          }
+        });
       } else {
         print('ℹ️ 未認証状態で開始');
         state = const AsyncValue.data(null);

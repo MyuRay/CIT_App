@@ -10,14 +10,19 @@ class FirebaseCampusService {
   static Future<String?> getCampusMapUrl(String campus) async {
     try {
       final fileName = _generateCampusMapFileName(campus);
-      final ref = _storage.ref().child('$_campusMapPath/$fileName');
-      
+      final fullPath = '$_campusMapPath/$fileName';
+      debugPrint('🗺️ キャンパスマップ取得開始 | campus=$campus, fileName=$fileName, path=$fullPath');
+
+      final ref = _storage.ref().child(fullPath);
+      debugPrint('🗺️ Storage reference created | fullPath=${ref.fullPath}');
+
       final downloadUrl = await ref.getDownloadURL();
-      debugPrint('キャンパスマップURL取得: $downloadUrl');
+      debugPrint('✅ キャンパスマップURL取得成功 | campus=$campus, url=$downloadUrl');
       return downloadUrl;
-      
-    } catch (e) {
-      debugPrint('キャンパスマップ取得エラー: $e');
+
+    } catch (e, stackTrace) {
+      debugPrint('❌ キャンパスマップ取得エラー | campus=$campus, error=$e');
+      debugPrint('❌ StackTrace: $stackTrace');
       return null;
     }
   }
@@ -26,14 +31,19 @@ class FirebaseCampusService {
   static Future<String?> getFloorMapUrl(String campus, String building, int floor) async {
     try {
       final fileName = _generateFloorMapFileName(campus, building, floor);
-      final ref = _storage.ref().child('$_floorMapPath/$fileName');
-      
+      final fullPath = '$_floorMapPath/$fileName';
+      debugPrint('🏢 フロアマップ取得開始 | campus=$campus, building=$building, floor=$floor, fileName=$fileName, path=$fullPath');
+
+      final ref = _storage.ref().child(fullPath);
+      debugPrint('🏢 Storage reference created | fullPath=${ref.fullPath}');
+
       final downloadUrl = await ref.getDownloadURL();
-      debugPrint('フロアマップURL取得: $downloadUrl');
+      debugPrint('✅ フロアマップURL取得成功 | campus=$campus, building=$building, floor=$floor, url=$downloadUrl');
       return downloadUrl;
-      
-    } catch (e) {
-      debugPrint('フロアマップ取得エラー: $e');
+
+    } catch (e, stackTrace) {
+      debugPrint('❌ フロアマップ取得エラー | campus=$campus, building=$building, floor=$floor, error=$e');
+      debugPrint('❌ StackTrace: $stackTrace');
       return null;
     }
   }

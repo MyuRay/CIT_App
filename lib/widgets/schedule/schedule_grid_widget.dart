@@ -10,6 +10,7 @@ class ScheduleGridWidget extends StatelessWidget {
   final bool isEditMode;
   final bool showSaturday;
   final bool forceFullHeight;
+  final bool enableScroll;
 
   const ScheduleGridWidget({
     super.key,
@@ -19,6 +20,7 @@ class ScheduleGridWidget extends StatelessWidget {
     this.isEditMode = false,
     this.showSaturday = true,
     this.forceFullHeight = false,
+    this.enableScroll = true,
   });
 
   List<Weekday> get displayWeekdays => showSaturday 
@@ -47,33 +49,38 @@ class ScheduleGridWidget extends StatelessWidget {
     final totalHeight = cumulativeHeights.last;
     
     final Widget content = Column(
-        children: [
-          // ヘッダー行
-          _buildHeaderRow(context, timeColumnWidth, cellWidth),
-          
-          // グリッドボディ（スタック方式で連続講義を表現）
-          SizedBox(
-            height: totalHeight,
-            child: Stack(
-              children: [
-                // 背景グリッド
-                _buildBackgroundGrid(context, timeColumnWidth, cellWidth, rowHeights),
-                
-                // 時限列
-                _buildTimeColumn(context, timeColumnWidth, rowHeights),
-                
-                // 講義セル（連続講義対応）
-                ..._buildClassCells(context, timeColumnWidth, cellWidth, rowHeights, cumulativeHeights),
-              ],
-            ),
+      children: [
+        // ヘッダー行
+        _buildHeaderRow(context, timeColumnWidth, cellWidth),
+
+        // グリッドボディ（スタック方式で連続講義を表現）
+        SizedBox(
+          height: totalHeight,
+          child: Stack(
+            children: [
+              // 背景グリッド
+              _buildBackgroundGrid(context, timeColumnWidth, cellWidth, rowHeights),
+
+              // 時限列
+              _buildTimeColumn(context, timeColumnWidth, rowHeights),
+
+              // 講義セル（連続講義対応）
+              ..._buildClassCells(
+                context,
+                timeColumnWidth,
+                cellWidth,
+                rowHeights,
+                cumulativeHeights,
+              ),
+            ],
           ),
-        ],
-      );
+        ),
+      ],
+    );
 
     // 共有時は全体表示、通常時はスクロール可能
-    return forceFullHeight 
-        ? content 
-        : SingleChildScrollView(child: content);
+    final shouldAllowScroll = !forceFullHeight && enableScroll;
+    return shouldAllowScroll ? SingleChildScrollView(child: content) : content;
   }
 
   Widget _buildHeaderRow(BuildContext context, double timeColumnWidth, double cellWidth) {

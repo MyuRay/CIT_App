@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/providers/cafeteria_provider.dart';
+import '../../core/providers/cafeteria_review_provider.dart';
 import '../../core/providers/schedule_provider.dart';
 import '../../core/providers/notification_provider.dart';
 import '../../core/providers/convenience_link_provider.dart';
@@ -15,15 +16,19 @@ import '../../core/providers/global_notification_provider.dart';
 import '../../core/providers/firebase_menu_provider.dart';
 import '../../core/providers/bus_provider.dart';
 import '../../core/providers/settings_provider.dart';
+import '../../core/providers/in_app_ad_provider.dart';
 import '../../models/cafeteria/cafeteria_model.dart';
 import '../../models/schedule/schedule_model.dart';
 import '../../models/bus/bus_model.dart';
+import '../../models/ads/in_app_ad_model.dart';
+import '../../widgets/ads/in_app_ad_card.dart';
 import '../../widgets/firebase_menu_image_widget.dart';
 import '../../widgets/firebase_bus_timetable_widget.dart';
 import '../bus/bus_information_screen.dart';
 import '../cafeteria/cafeteria_reviews_screen.dart';
 import '../../widgets/campus_map_widget.dart';
 import '../../widgets/performance/optimized_notification_badge.dart';
+import '../../widgets/common/pulsing_dot_badge.dart';
 import '../../models/convenience_link/convenience_link_model.dart';
 import '../notification/notification_list_screen.dart';
 import '../convenience_link/convenience_link_edit_screen.dart';
@@ -150,6 +155,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       }
     });
 
+    final homeAdAsync = ref.watch(inAppAdProvider(AdPlacement.homeTop));
+    final todayReviewExistsAsync = ref.watch(
+      todayCafeteriaReviewExistsProvider,
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('ホーム'),
@@ -166,6 +176,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              homeAdAsync.when(
+                data:
+                    (ad) =>
+                        ad == null
+                            ? const SizedBox.shrink()
+                            : Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: InAppAdCard(
+                                ad: ad,
+                                placement: AdPlacement.homeTop,
+                              ),
+                            ),
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
               // TextMatch広告バナー
               if (_showTextMatchAd)
                 Card(
@@ -391,17 +416,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       // 学食レビュー（単一ボタン）
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: FilledButton.icon(
-                          onPressed: () => _openCafeteriaReviews(context),
-                          icon: const Icon(Icons.reviews, size: 16),
-                          label: const Text('学食レビュー'),
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            FilledButton.icon(
+                              onPressed: () => _openCafeteriaReviews(context),
+                              icon: const Icon(Icons.reviews, size: 16),
+                              label: const Text('学食レビュー'),
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                textStyle: const TextStyle(fontSize: 13),
+                              ),
                             ),
-                            textStyle: const TextStyle(fontSize: 13),
-                          ),
+                            todayReviewExistsAsync.when(
+                              data:
+                                  (hasToday) =>
+                                      hasToday
+                                          ? const Positioned(
+                                            right: -6,
+                                            top: -6,
+                                            child: PulsingDotBadge(
+                                              size: 10,
+                                              tooltipMessage: '今日レビューされています',
+                                            ),
+                                          )
+                                          : const SizedBox.shrink(),
+                              error: (_, __) => const SizedBox.shrink(),
+                              loading: () => const SizedBox.shrink(),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -1318,22 +1364,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     }
 
                     return GestureDetector(
-                      onTap: () => _showClassDetailsDialog(
-                        context,
-                        scheduleClass,
-                        period,
-                        timeSlot,
-                        timeSlotsAsync,
-                      ),
+                      onTap:
+                          () => _showClassDetailsDialog(
+                            context,
+                            scheduleClass,
+                            period,
+                            timeSlot,
+                            timeSlotsAsync,
+                          ),
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color:
                               isActive
-                                  ? Theme.of(
-                                    context,
-                                  ).colorScheme.primaryContainer.withOpacity(0.3)
+                                  ? Theme.of(context)
+                                      .colorScheme
+                                      .primaryContainer
+                                      .withOpacity(0.3)
                                   : isNext
                                   ? Theme.of(context)
                                       .colorScheme
@@ -1346,7 +1394,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           border:
                               isActive
                                   ? Border.all(
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
                                     width: 1,
                                   )
                                   : isNext
@@ -1357,221 +1406,225 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                   )
                                   : null,
                         ),
-                      child: Row(
-                        children: [
-                          // 時間表示
-                          Container(
-                            width: scheduleClass.duration > 1 ? 65 : 50,
-                            padding: const EdgeInsets.symmetric(vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Color(
-                                int.parse(
-                                  '0xff${scheduleClass.color.substring(1)}',
-                                ),
-                              ).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
+                        child: Row(
+                          children: [
+                            // 時間表示
+                            Container(
+                              width: scheduleClass.duration > 1 ? 65 : 50,
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              decoration: BoxDecoration(
                                 color: Color(
                                   int.parse(
                                     '0xff${scheduleClass.color.substring(1)}',
                                   ),
-                                ).withOpacity(0.3),
+                                ).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: Color(
+                                    int.parse(
+                                      '0xff${scheduleClass.color.substring(1)}',
+                                    ),
+                                  ).withOpacity(0.3),
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    scheduleClass.duration > 1
+                                        ? '${timeSlot.period}-${timeSlot.period + scheduleClass.duration - 1}限'
+                                        : '${timeSlot.period}限',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleSmall?.copyWith(
+                                      color: Color(
+                                        int.parse(
+                                          '0xff${scheduleClass.color.substring(1)}',
+                                        ),
+                                      ),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize:
+                                          scheduleClass.duration > 1 ? 10 : 12,
+                                    ),
+                                  ),
+                                  Text(
+                                    scheduleClass.duration > 1
+                                        ? '${timeSlot.startTime}-${_getEndTime(timeSlot, scheduleClass.duration, timeSlotsAsync)}'
+                                        : timeSlot.startTime,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall?.copyWith(
+                                      color: Color(
+                                        int.parse(
+                                          '0xff${scheduleClass.color.substring(1)}',
+                                        ),
+                                      ),
+                                      fontSize:
+                                          scheduleClass.duration > 1 ? 8 : 11,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
                               ),
                             ),
-                            child: Column(
-                              children: [
-                                Text(
-                                  scheduleClass.duration > 1
-                                      ? '${timeSlot.period}-${timeSlot.period + scheduleClass.duration - 1}限'
-                                      : '${timeSlot.period}限',
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.titleSmall?.copyWith(
-                                    color: Color(
-                                      int.parse(
-                                        '0xff${scheduleClass.color.substring(1)}',
-                                      ),
-                                    ),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize:
-                                        scheduleClass.duration > 1 ? 10 : 12,
-                                  ),
-                                ),
-                                Text(
-                                  scheduleClass.duration > 1
-                                      ? '${timeSlot.startTime}-${_getEndTime(timeSlot, scheduleClass.duration, timeSlotsAsync)}'
-                                      : timeSlot.startTime,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.bodySmall?.copyWith(
-                                    color: Color(
-                                      int.parse(
-                                        '0xff${scheduleClass.color.substring(1)}',
-                                      ),
-                                    ),
-                                    fontSize:
-                                        scheduleClass.duration > 1 ? 8 : 11,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
 
-                          const SizedBox(width: 12),
+                            const SizedBox(width: 12),
 
-                          // 科目情報
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    if (isActive) ...[
-                                      Text(
-                                        '現在の授業',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall?.copyWith(
+                            // 科目情報
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      if (isActive) ...[
+                                        Text(
+                                          '現在の授業',
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall?.copyWith(
+                                            color:
+                                                Theme.of(
+                                                  context,
+                                                ).colorScheme.primary,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          Icons.play_circle_filled,
+                                          size: 16,
                                           color:
                                               Theme.of(
                                                 context,
                                               ).colorScheme.primary,
-                                          fontWeight: FontWeight.w500,
                                         ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        Icons.play_circle_filled,
-                                        size: 16,
-                                        color:
-                                            Theme.of(
-                                              context,
-                                            ).colorScheme.primary,
-                                      ),
-                                    ] else if (isNext) ...[
-                                      Text(
-                                        '次の授業',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall?.copyWith(
+                                      ] else if (isNext) ...[
+                                        Text(
+                                          '次の授業',
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall?.copyWith(
+                                            color:
+                                                Theme.of(
+                                                  context,
+                                                ).colorScheme.secondary,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          Icons.schedule,
+                                          size: 16,
                                           color:
                                               Theme.of(
                                                 context,
                                               ).colorScheme.secondary,
-                                          fontWeight: FontWeight.w500,
                                         ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        Icons.schedule,
-                                        size: 16,
-                                        color:
-                                            Theme.of(
-                                              context,
-                                            ).colorScheme.secondary,
-                                      ),
+                                      ],
                                     ],
-                                  ],
-                                ),
-                                if (isActive || isNext)
-                                  const SizedBox(height: 2),
-                                Text(
-                                  scheduleClass.subjectName,
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.bold),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 2,
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Flexible(
-                                      flex: 0,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 2,
+                                  ),
+                                  if (isActive || isNext)
+                                    const SizedBox(height: 2),
+                                  Text(
+                                    scheduleClass.subjectName,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.bold),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 2,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        flex: 0,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color:
+                                                Theme.of(
+                                                  context,
+                                                ).colorScheme.surface,
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                            border: Border.all(
+                                              color:
+                                                  Theme.of(
+                                                    context,
+                                                  ).dividerColor,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            scheduleClass.classroom,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.bodySmall?.copyWith(
+                                              color:
+                                                  Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
                                         ),
-                                        decoration: BoxDecoration(
+                                      ),
+                                      if (scheduleClass
+                                          .instructor
+                                          .isNotEmpty) ...[
+                                        const SizedBox(width: 8),
+                                        Icon(
+                                          Icons.person,
+                                          size: 14,
                                           color:
                                               Theme.of(
                                                 context,
-                                              ).colorScheme.surface,
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                          border: Border.all(
-                                            color:
-                                                Theme.of(context).dividerColor,
-                                          ),
+                                              ).colorScheme.onSurfaceVariant,
                                         ),
-                                        child: Text(
-                                          scheduleClass.classroom,
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.bodySmall?.copyWith(
-                                            color:
-                                                Theme.of(
-                                                  context,
-                                                ).colorScheme.onSurface,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    if (scheduleClass
-                                        .instructor
-                                        .isNotEmpty) ...[
-                                      const SizedBox(width: 8),
-                                      Icon(
-                                        Icons.person,
-                                        size: 14,
-                                        color:
-                                            Theme.of(
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                          child: Text(
+                                            scheduleClass.instructor,
+                                            style: Theme.of(
                                               context,
-                                            ).colorScheme.onSurfaceVariant,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Expanded(
-                                        child: Text(
-                                          scheduleClass.instructor,
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.bodySmall?.copyWith(
-                                            color:
-                                                Theme.of(
-                                                  context,
-                                                ).colorScheme.onSurfaceVariant,
+                                            ).textTheme.bodySmall?.copyWith(
+                                              color:
+                                                  Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
                                           ),
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
                                         ),
-                                      ),
+                                      ],
                                     ],
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // 色インディケーター
-                          Container(
-                            width: 3,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: Color(
-                                int.parse(
-                                  '0xff${scheduleClass.color.substring(1)}',
-                                ),
+                                  ),
+                                ],
                               ),
-                              borderRadius: BorderRadius.circular(1.5),
                             ),
-                          ),
-                        ],
+
+                            // 色インディケーター
+                            Container(
+                              width: 3,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: Color(
+                                  int.parse(
+                                    '0xff${scheduleClass.color.substring(1)}',
+                                  ),
+                                ),
+                                borderRadius: BorderRadius.circular(1.5),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                     );
                   }).toList(),
             );
@@ -1603,66 +1656,101 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       Weekday.saturday: '土曜日',
     };
 
-    final timeRange = scheduleClass.duration > 1
-        ? '${timeSlot.startTime}-${_getEndTime(timeSlot, scheduleClass.duration, timeSlots)}'
-        : timeSlot.startTime;
-    final periodRange = scheduleClass.duration > 1
-        ? '$period-${period + scheduleClass.duration - 1}限'
-        : '$period限';
+    final timeRange =
+        scheduleClass.duration > 1
+            ? '${timeSlot.startTime}-${_getEndTime(timeSlot, scheduleClass.duration, timeSlots)}'
+            : timeSlot.startTime;
+    final periodRange =
+        scheduleClass.duration > 1
+            ? '$period-${period + scheduleClass.duration - 1}限'
+            : '$period限';
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: Color(int.parse('0xff${scheduleClass.color.substring(1)}')),
-                shape: BoxShape.circle,
-              ),
+      builder:
+          (context) => AlertDialog(
+            title: Row(
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Color(
+                      int.parse('0xff${scheduleClass.color.substring(1)}'),
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    scheduleClass.subjectName,
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                scheduleClass.subjectName,
-                style: const TextStyle(fontSize: 18),
-              ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildDetailRow(
+                  context,
+                  Icons.schedule,
+                  '時間',
+                  '${weekdayNames[weekday] ?? ''} $periodRange\n$timeRange',
+                ),
+                const SizedBox(height: 12),
+                _buildDetailRow(
+                  context,
+                  Icons.location_on,
+                  '教室',
+                  scheduleClass.classroom,
+                ),
+                const SizedBox(height: 12),
+                _buildDetailRow(
+                  context,
+                  Icons.person,
+                  '担当教員',
+                  scheduleClass.instructor,
+                ),
+                if (scheduleClass.duration > 1) ...[
+                  const SizedBox(height: 12),
+                  _buildDetailRow(
+                    context,
+                    Icons.timer,
+                    '講義時間',
+                    '${scheduleClass.duration}時間連続',
+                  ),
+                ],
+                if (scheduleClass.notes != null &&
+                    scheduleClass.notes!.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _buildDetailRowLinkified(
+                    context,
+                    Icons.note,
+                    'メモ',
+                    scheduleClass.notes!,
+                  ),
+                ],
+              ],
             ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildDetailRow(context, Icons.schedule, '時間',
-                '${weekdayNames[weekday] ?? ''} $periodRange\n$timeRange'),
-            const SizedBox(height: 12),
-            _buildDetailRow(context, Icons.location_on, '教室', scheduleClass.classroom),
-            const SizedBox(height: 12),
-            _buildDetailRow(context, Icons.person, '担当教員', scheduleClass.instructor),
-            if (scheduleClass.duration > 1) ...[
-              const SizedBox(height: 12),
-              _buildDetailRow(context, Icons.timer, '講義時間', '${scheduleClass.duration}時間連続'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('閉じる'),
+              ),
             ],
-            if (scheduleClass.notes != null && scheduleClass.notes!.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              _buildDetailRowLinkified(context, Icons.note, 'メモ', scheduleClass.notes!),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('閉じる'),
           ),
-        ],
-      ),
     );
   }
 
-  Widget _buildDetailRow(BuildContext context, IconData icon, String label, String value) {
+  Widget _buildDetailRow(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1670,21 +1758,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         const SizedBox(width: 8),
         Text(
           '$label: ',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
         ),
         Expanded(
-          child: Text(
-            value,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
+          child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
         ),
       ],
     );
   }
 
-  Widget _buildDetailRowLinkified(BuildContext context, IconData icon, String label, String value) {
+  Widget _buildDetailRowLinkified(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1692,9 +1782,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         const SizedBox(width: 8),
         Text(
           '$label: ',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
         ),
         Expanded(
           child: RichText(
@@ -1724,13 +1814,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             color: Theme.of(context).colorScheme.primary,
             decoration: TextDecoration.underline,
           ),
-          recognizer: (TapGestureRecognizer()
-            ..onTap = () async {
-              final uri = Uri.tryParse(url);
-              if (uri != null) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
-            }),
+          recognizer:
+              (TapGestureRecognizer()
+                ..onTap = () async {
+                  final uri = Uri.tryParse(url);
+                  if (uri != null) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                }),
         ),
       );
       start = m.end;
@@ -2103,11 +2194,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               onTap: _flipToNextRoute,
               onHorizontalDragEnd: (details) {
                 // 左スワイプ（次の路線へ）
-                if (details.primaryVelocity != null && details.primaryVelocity! < -300) {
+                if (details.primaryVelocity != null &&
+                    details.primaryVelocity! < -300) {
                   _flipToNextRoute();
                 }
                 // 右スワイプ（前の路線へ）
-                else if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
+                else if (details.primaryVelocity != null &&
+                    details.primaryVelocity! > 300) {
                   _flipToPreviousRoute();
                 }
               },
@@ -2581,7 +2674,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // 半回転で前の路線に切り替え
     _flipAnimationController.forward().then((_) {
       setState(() {
-        _selectedRouteIndex = (_selectedRouteIndex - 1 + activeRoutes.length) % activeRoutes.length;
+        _selectedRouteIndex =
+            (_selectedRouteIndex - 1 + activeRoutes.length) %
+            activeRoutes.length;
       });
       _flipAnimationController.reset();
     });
@@ -2595,9 +2690,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     void showUnavailableSnackBar([String? message]) {
       final messenger = ScaffoldMessenger.maybeOf(context);
       messenger?.showSnackBar(
-        SnackBar(
-          content: Text(message ?? 'オンラインの時刻表を取得できませんでした。'),
-        ),
+        SnackBar(content: Text(message ?? 'オンラインの時刻表を取得できませんでした。')),
       );
     }
 

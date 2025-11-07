@@ -14,6 +14,9 @@ import '../../core/providers/settings_provider.dart';
 import '../../models/schedule/schedule_model.dart';
 import '../../widgets/schedule/schedule_grid_widget.dart';
 import 'schedule_edit_screen.dart';
+import '../../core/providers/in_app_ad_provider.dart';
+import '../../models/ads/in_app_ad_model.dart';
+import '../../widgets/ads/in_app_ad_card.dart';
 
 class ScheduleScreen extends ConsumerStatefulWidget {
   const ScheduleScreen({super.key});
@@ -24,13 +27,16 @@ class ScheduleScreen extends ConsumerStatefulWidget {
 
 class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   bool _isEditMode = false;
-  bool _isSharing = false;  // 共有中フラグ
+  bool _isSharing = false; // 共有中フラグ
   final GlobalKey _scheduleKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
     final scheduleAsync = ref.watch(currentUserScheduleProvider);
     final showSaturday = ref.watch(showSaturdayProvider);
+    final scheduleAdAsync = ref.watch(
+      inAppAdProvider(AdPlacement.scheduleBottom),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -53,13 +59,15 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     height: 32,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: showSaturday
-                          ? Theme.of(context).primaryColor.withOpacity(0.15)
-                          : Colors.grey.withOpacity(0.15),
+                      color:
+                          showSaturday
+                              ? Theme.of(context).primaryColor.withOpacity(0.15)
+                              : Colors.grey.withOpacity(0.15),
                       border: Border.all(
-                        color: showSaturday
-                            ? Theme.of(context).primaryColor
-                            : Colors.grey,
+                        color:
+                            showSaturday
+                                ? Theme.of(context).primaryColor
+                                : Colors.grey,
                         width: 2,
                       ),
                     ),
@@ -69,9 +77,10 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: showSaturday
-                              ? Theme.of(context).primaryColor
-                              : Colors.grey,
+                          color:
+                              showSaturday
+                                  ? Theme.of(context).primaryColor
+                                  : Colors.grey,
                         ),
                       ),
                     ),
@@ -100,7 +109,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
               },
               tooltip: showSaturday ? '土曜日を非表示' : '土曜日を表示',
             ),
-          
+
           // 編集/表示モード切り替えボタン
           IconButton(
             icon: Icon(_isEditMode ? Icons.visibility : Icons.edit),
@@ -110,7 +119,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
               });
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(_isEditMode ? '編集モードに切り替えました' : '表示モードに切り替えました'),
+                  content: Text(
+                    _isEditMode ? '編集モードに切り替えました' : '表示モードに切り替えました',
+                  ),
                   duration: const Duration(seconds: 2),
                   backgroundColor: _isEditMode ? Colors.orange : Colors.blue,
                 ),
@@ -118,7 +129,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
             },
             tooltip: _isEditMode ? '表示モードに切り替え' : '編集モードに切り替え',
           ),
-          
+
           // 表示モード時のみ表示される共有ボタン
           if (!_isEditMode)
             IconButton(
@@ -126,7 +137,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
               onPressed: () => _shareSchedule(context),
               tooltip: '時間割を共有',
             ),
-          
+
           // 編集モード時のみ表示されるアクション
           if (_isEditMode) ...[
             IconButton(
@@ -136,28 +147,29 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
             ),
             PopupMenuButton<String>(
               onSelected: (value) => _handleMenuAction(context, value),
-              itemBuilder: (BuildContext context) => [
-                const PopupMenuItem(
-                  value: 'clear',
-                  child: Row(
-                    children: [
-                      Icon(Icons.clear_all),
-                      SizedBox(width: 8),
-                      Text('時間割をクリア'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'export',
-                  child: Row(
-                    children: [
-                      Icon(Icons.download),
-                      SizedBox(width: 8),
-                      Text('エクスポート'),
-                    ],
-                  ),
-                ),
-              ],
+              itemBuilder:
+                  (BuildContext context) => [
+                    const PopupMenuItem(
+                      value: 'clear',
+                      child: Row(
+                        children: [
+                          Icon(Icons.clear_all),
+                          SizedBox(width: 8),
+                          Text('時間割をクリア'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'export',
+                      child: Row(
+                        children: [
+                          Icon(Icons.download),
+                          SizedBox(width: 8),
+                          Text('エクスポート'),
+                        ],
+                      ),
+                    ),
+                  ],
             ),
           ],
         ],
@@ -173,8 +185,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   children: [
                     const Icon(Icons.schedule, size: 64, color: Colors.grey),
                     const SizedBox(height: 12),
-                    const Text('時間割データがありません',
-                        style: TextStyle(fontSize: 16)),
+                    const Text('時間割データがありません', style: TextStyle(fontSize: 16)),
                     const SizedBox(height: 8),
                     Text(
                       'はじめての利用ですか？以下のボタンから時間割を作成できます。',
@@ -206,11 +217,28 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
             );
           }
 
-          return Column(
-            children: [
-              // 時間割グリッド
-              Expanded(
-                child: Padding(
+          final adSection = scheduleAdAsync.when(
+            data:
+                (ad) =>
+                    ad == null
+                        ? const SizedBox.shrink()
+                        : Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: InAppAdCard(
+                            ad: ad,
+                            placement: AdPlacement.scheduleBottom,
+                          ),
+                        ),
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          );
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
                   padding: const EdgeInsets.all(16),
                   child: RepaintBoundary(
                     key: _scheduleKey,
@@ -220,28 +248,40 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Expanded(
-                            child: ScheduleGridWidget(
-                              schedule: schedule,
-                              onClassTap: (weekdayKey, period, scheduleClass) {
-                                _navigateToEdit(context, weekdayKey, period, scheduleClass);
-                              },
-                              onEmptySlotTap: (weekdayKey, period) {
-                                _navigateToEdit(context, weekdayKey, period, null);
-                              },
-                              isEditMode: _isEditMode,
-                              showSaturday: showSaturday,
-                              forceFullHeight: _isSharing, // 共有時は全体表示
-                            ),
+                          ScheduleGridWidget(
+                            schedule: schedule,
+                            onClassTap: (weekdayKey, period, scheduleClass) {
+                              _navigateToEdit(
+                                context,
+                                weekdayKey,
+                                period,
+                                scheduleClass,
+                              );
+                            },
+                            onEmptySlotTap: (weekdayKey, period) {
+                              _navigateToEdit(
+                                context,
+                                weekdayKey,
+                                period,
+                                null,
+                              );
+                            },
+                            isEditMode: _isEditMode,
+                            showSaturday: showSaturday,
+                            forceFullHeight: _isSharing, // ���L���͑S�̕
+                            enableScroll: false,
                           ),
-                          // CIT Appフッター（共有時のみ表示）
+                          // CIT App�t�b�^�[�i���L���̂ݕ
                           if (_isSharing)
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withOpacity(0.1),
                                 borderRadius: const BorderRadius.only(
                                   bottomLeft: Radius.circular(8),
                                   bottomRight: Radius.circular(8),
@@ -253,15 +293,17 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                                   Icon(
                                     Icons.school,
                                     size: 20,
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    'CIT App - 千葉工業大学学生支援アプリ',
+                                    'CIT App - ��t�H�Ƒ�w�w���x���A�v��',
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
-                                      color: Theme.of(context).colorScheme.primary,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
                                     ),
                                   ),
                                 ],
@@ -272,28 +314,30 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     ),
                   ),
                 ),
-              ),
-            ],
+                adSection,
+              ],
+            ),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error, size: 64, color: Colors.red),
-              const SizedBox(height: 16),
-              Text('エラーが発生しました: $error'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  ref.invalidate(currentUserScheduleProvider);
-                },
-                child: const Text('再読み込み'),
+        error:
+            (error, stack) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text('エラーが発生しました: $error'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      ref.invalidate(currentUserScheduleProvider);
+                    },
+                    child: const Text('再読み込み'),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
       ),
     );
   }
@@ -302,7 +346,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   Future<void> _shareSchedule(BuildContext context) async {
     try {
       print('🔄 共有開始...');
-      
+
       // ローディング表示
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -312,7 +356,10 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                 SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 ),
                 SizedBox(width: 12),
                 Text('時間割の画像を作成中...'),
@@ -333,52 +380,58 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       await Future.delayed(const Duration(milliseconds: 500));
 
       // スクリーンショットを撮影
-      final RenderObject? renderObject = _scheduleKey.currentContext?.findRenderObject();
+      final RenderObject? renderObject =
+          _scheduleKey.currentContext?.findRenderObject();
       if (renderObject == null) {
         throw Exception('時間割表示エリアが見つかりません');
       }
 
-      final RenderRepaintBoundary boundary = renderObject as RenderRepaintBoundary;
+      final RenderRepaintBoundary boundary =
+          renderObject as RenderRepaintBoundary;
       print('📸 スクリーンショット撮影中...');
-      
+
       // より高解像度で撮影（共有用）
       final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      
+      final ByteData? byteData = await image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+
       if (byteData == null) {
         throw Exception('画像データの生成に失敗しました');
       }
-      
+
       final Uint8List pngBytes = byteData.buffer.asUint8List();
       print('✅ 画像生成完了: ${pngBytes.length}バイト');
-      
+
       // 一時ディレクトリに画像を保存
       final Directory tempDir = await getTemporaryDirectory();
-      final String tempPath = '${tempDir.path}/cit_schedule_${DateTime.now().millisecondsSinceEpoch}.png';
+      final String tempPath =
+          '${tempDir.path}/cit_schedule_${DateTime.now().millisecondsSinceEpoch}.png';
       final File file = File(tempPath);
       await file.writeAsBytes(pngBytes);
       print('💾 画像保存完了: $tempPath');
-      
+
       // フッターを非表示に戻す
       setState(() {
         _isSharing = false;
       });
 
       // 共有テキスト
-      const String shareText = '私の時間割📚\n\nCIT Appで作成しました！\n\n'
-                               '📱 便利な機能：\n'
-                               '• 時間割管理\n'
-                               '• 掲示板\n'
-                               '• 学食情報\n'
-                               '• キャンパスマップ\n\n'
-                               '🔗 アプリをダウンロード: [🔎CIT App]';
+      const String shareText =
+          '私の時間割📚\n\nCIT Appで作成しました！\n\n'
+          '📱 便利な機能：\n'
+          '• 時間割管理\n'
+          '• 掲示板\n'
+          '• 学食情報\n'
+          '• キャンパスマップ\n\n'
+          '🔗 アプリをダウンロード: [🔎CIT App]';
 
       // share_plusを使った共有を再試行
       print('🚀 share_plus再試行中...');
       await _shareWithSharePlus(context, tempPath, shareText);
-      
+
       print('✅ 共有完了');
-      
+
       // 成功メッセージ
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -395,27 +448,27 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           ),
         );
       }
-      
     } catch (e, stackTrace) {
       print('❌ 共有エラー: $e');
       print('📍 スタックトレース: $stackTrace');
-      
+
       // フッターを非表示に戻す
       setState(() {
         _isSharing = false;
       });
-      
+
       if (context.mounted) {
         String errorMessage = '共有に失敗しました';
-        
-        if (e.toString().contains('Permission') || e.toString().contains('permission')) {
+
+        if (e.toString().contains('Permission') ||
+            e.toString().contains('permission')) {
           errorMessage = 'ストレージへのアクセス権限が必要です';
         } else if (e.toString().contains('No application')) {
           errorMessage = '共有できるアプリが見つかりません';
         } else if (e.toString().contains('見つかりません')) {
           errorMessage = '時間割が表示されていません。しばらく待ってから再試行してください。';
         }
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Column(
@@ -450,10 +503,14 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   }
 
   // share_plusを使った共有機能（再試行版）
-  Future<void> _shareWithSharePlus(BuildContext context, String imagePath, String shareText) async {
+  Future<void> _shareWithSharePlus(
+    BuildContext context,
+    String imagePath,
+    String shareText,
+  ) async {
     try {
       print('🔄 複数の共有方法を試行中...');
-      
+
       // 方法1: share_plusを試行
       try {
         final XFile imageFile = XFile(imagePath);
@@ -476,7 +533,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           'subject': 'CIT App - 私の時間割',
         });
         print('✅ プラットフォームチャンネル成功（テキストのみ）');
-        
+
         // 画像は別途ダイアログで案内
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -503,7 +560,6 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
         final imageBytes = await File(imagePath).readAsBytes();
         await _fallbackShare(context, imageBytes, shareText, imagePath);
       }
-      
     } catch (e) {
       print('❌ すべての共有方法が失敗: $e');
       final imageBytes = await File(imagePath).readAsBytes();
@@ -515,66 +571,74 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   void _showImageLocation(BuildContext context, String imagePath) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.image, color: Colors.blue),
-            SizedBox(width: 8),
-            Text('画像の場所'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('時間割画像は以下の場所に保存されています：'),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Text(
-                imagePath,
-                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-              ),
+      builder:
+          (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.image, color: Colors.blue),
+                SizedBox(width: 8),
+                Text('画像の場所'),
+              ],
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'ファイルマネージャーでこの場所を開き、画像を手動で共有アプリに添付してください。',
-              style: TextStyle(fontSize: 14),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: imagePath));
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('パスをコピーしました'),
-                    duration: Duration(seconds: 2),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('時間割画像は以下の場所に保存されています：'),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.grey.shade300),
                   ),
-                );
-              }
-            },
-            child: const Text('パスをコピー'),
+                  child: Text(
+                    imagePath,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'ファイルマネージャーでこの場所を開き、画像を手動で共有アプリに添付してください。',
+                  style: TextStyle(fontSize: 14),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: imagePath));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('パスをコピーしました'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+                child: const Text('パスをコピー'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('閉じる'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('閉じる'),
-          ),
-        ],
-      ),
     );
   }
 
   // Android用の共有機能（標準共有ダイアログでLINEなどを選択可能）
-  Future<void> _shareOnAndroid(BuildContext context, String imagePath, String shareText) async {
+  Future<void> _shareOnAndroid(
+    BuildContext context,
+    String imagePath,
+    String shareText,
+  ) async {
     try {
       final File imageFile = File(imagePath);
       if (!await imageFile.exists()) {
@@ -623,7 +687,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
 
           // テキストは別途クリップボードにコピー
           await Clipboard.setData(ClipboardData(text: shareText));
-          
+
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -641,7 +705,6 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       if (!shared) {
         throw Exception('すべての共有方法が失敗しました');
       }
-      
     } catch (e) {
       print('❌ Android共有エラー: $e');
       // フォールバックに切り替え
@@ -658,16 +721,16 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       if (externalDir == null) {
         throw Exception('外部ストレージにアクセスできません');
       }
-      
-      final String fileName = 'cit_schedule_${DateTime.now().millisecondsSinceEpoch}.png';
+
+      final String fileName =
+          'cit_schedule_${DateTime.now().millisecondsSinceEpoch}.png';
       final String externalPath = '${externalDir.path}/$fileName';
       final File externalFile = File(externalPath);
-      
+
       await imageFile.copy(externalPath);
       print('📂 外部ストレージにコピー完了: $externalPath');
-      
+
       return externalPath;
-      
     } catch (e) {
       print('⚠️ 外部ストレージコピー失敗、元のパスを使用: $e');
       return imageFile.path;
@@ -675,125 +738,139 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   }
 
   // フォールバック共有機能（画像保存 + テキストコピー + 案内表示）
-  Future<void> _fallbackShare(BuildContext context, Uint8List imageBytes, String shareText, String imagePath) async {
+  Future<void> _fallbackShare(
+    BuildContext context,
+    Uint8List imageBytes,
+    String shareText,
+    String imagePath,
+  ) async {
     try {
       // 画像をクリップボードにコピー（テスト用）
       await Clipboard.setData(ClipboardData(text: shareText));
-      
+
       if (context.mounted) {
         // 共有方法の選択ダイアログを表示
         await showDialog(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Row(
-              children: [
-                Icon(Icons.share, color: Colors.blue),
-                SizedBox(width: 8),
-                Text('時間割を共有'),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '時間割画像を作成しました！\n以下の方法で共有できます：',
-                  style: TextStyle(fontSize: 16),
+          builder:
+              (context) => AlertDialog(
+                title: const Row(
+                  children: [
+                    Icon(Icons.share, color: Colors.blue),
+                    SizedBox(width: 8),
+                    Text('時間割を共有'),
+                  ],
                 ),
-                const SizedBox(height: 20),
-                
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '時間割画像を作成しました！\n以下の方法で共有できます：',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 20),
+
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.info, color: Colors.blue, size: 20),
-                          SizedBox(width: 8),
-                          Text('画像の場所', style: TextStyle(fontWeight: FontWeight.bold)),
+                          const Row(
+                            children: [
+                              Icon(Icons.info, color: Colors.blue, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                '画像の場所',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '画像は以下のパスに保存されました：\n$imagePath',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '画像は以下のパスに保存されました：\n$imagePath',
-                        style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green.shade200),
                       ),
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.green.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.copy, color: Colors.green, size: 20),
-                          SizedBox(width: 8),
-                          Text('共有テキスト（コピー済み）', style: TextStyle(fontWeight: FontWeight.bold)),
+                          const Row(
+                            children: [
+                              Icon(Icons.copy, color: Colors.green, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                '共有テキスト（コピー済み）',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Text(
+                              shareText,
+                              style: const TextStyle(fontSize: 12),
+                              maxLines: 4,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: Text(
-                          shareText,
-                          style: const TextStyle(fontSize: 12),
-                          maxLines: 4,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () async {
-                  // テキストを再度クリップボードにコピー
-                  await Clipboard.setData(ClipboardData(text: shareText));
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('テキストをクリップボードにコピーしました'),
-                        backgroundColor: Colors.green,
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  }
-                },
-                child: const Text('テキストをコピー'),
+                actions: [
+                  TextButton(
+                    onPressed: () async {
+                      // テキストを再度クリップボードにコピー
+                      await Clipboard.setData(ClipboardData(text: shareText));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('テキストをクリップボードにコピーしました'),
+                            backgroundColor: Colors.green,
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+                    child: const Text('テキストをコピー'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('閉じる'),
+                  ),
+                ],
               ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('閉じる'),
-              ),
-            ],
-          ),
         );
       }
-      
     } catch (e) {
       print('フォールバック共有エラー: $e');
       if (context.mounted) {
@@ -822,106 +899,106 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   void _showClearConfirmDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('時間割をクリア'),
-        content: const Text('すべての科目を削除します。この操作は元に戻せません。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('キャンセル'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('時間割をクリア'),
+            content: const Text('すべての科目を削除します。この操作は元に戻せません。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('キャンセル'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  final userId = ref.read(currentUserIdProvider);
+                  final currentYear = ref.read(currentAcademicYearProvider);
+                  if (userId != null) {
+                    ref
+                        .read(scheduleNotifierProvider(userId).notifier)
+                        .clearSchedule();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${currentYear.displayName}の時間割をクリアしました'),
+                      ),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('クリア'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              final userId = ref.read(currentUserIdProvider);
-              final currentYear = ref.read(currentAcademicYearProvider);
-              if (userId != null) {
-                ref.read(scheduleNotifierProvider(userId).notifier).clearSchedule();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${currentYear.displayName}の時間割をクリアしました')),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('クリア'),
-          ),
-        ],
-      ),
     );
   }
 
   void _showDevelopmentMessage(BuildContext context, String featureName) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.construction, color: Colors.orange),
-            const SizedBox(width: 8),
-            Text('$featureName（開発中）'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '$featureNameは現在開発中です。',
-              style: const TextStyle(fontSize: 16),
+      builder:
+          (context) => AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.construction, color: Colors.orange),
+                const SizedBox(width: 8),
+                Text('$featureName（開発中）'),
+              ],
             ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.shade200),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$featureNameは現在開発中です。',
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.info, color: Colors.blue, size: 16),
-                      SizedBox(width: 4),
-                      Text(
-                        '現在利用可能な機能',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          color: Colors.blue,
-                        ),
+                      Row(
+                        children: [
+                          Icon(Icons.info, color: Colors.blue, size: 16),
+                          SizedBox(width: 4),
+                          Text(
+                            '現在利用可能な機能',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ],
                       ),
+                      SizedBox(height: 4),
+                      Text('• 手動での科目追加・編集・削除', style: TextStyle(fontSize: 12)),
+                      Text(
+                        '• リアルタイム同期によるデータ保存',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      Text('• カラー設定とメモ機能', style: TextStyle(fontSize: 12)),
                     ],
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    '• 手動での科目追加・編集・削除',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                  Text(
-                    '• リアルタイム同期によるデータ保存',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                  Text(
-                    '• カラー設定とメモ機能',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('了解'),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('了解'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -933,14 +1010,15 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   ) async {
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (context) => ScheduleEditScreen(
-          weekdayKey: weekdayKey,
-          period: period,
-          initialClass: scheduleClass,
-        ),
+        builder:
+            (context) => ScheduleEditScreen(
+              weekdayKey: weekdayKey,
+              period: period,
+              initialClass: scheduleClass,
+            ),
       ),
     );
-    
+
     if (result == true) {
       // 時間割が更新された場合の処理（必要に応じて）
     }

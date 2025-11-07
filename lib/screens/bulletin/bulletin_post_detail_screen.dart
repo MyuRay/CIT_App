@@ -201,7 +201,7 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 画像セクション
-            if (widget.post.imageUrl.isNotEmpty)
+            if (widget.post.imageUrl.isNotEmpty) ...[
               GestureDetector(
                 onTap: () => _showImageDialog(),
                 child: Hero(
@@ -224,7 +224,33 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
                   ),
                 ),
               ),
-            
+              // 画像タップの注釈
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                color: Colors.grey.shade100,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.touch_app,
+                      size: 16,
+                      color: Colors.grey.shade600,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '画像をタップすると画像全体が表示されます',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             // コンテンツセクション
             Padding(
               padding: const EdgeInsets.all(16),
@@ -277,7 +303,17 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
                   
                   const SizedBox(height: 16),
 
-                  // クーポンセクション（リアルタイム更新）- タイトルの上に配置
+                  // タイトル
+                  Text(
+                    widget.post.title,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // クーポンセクション（リアルタイム更新）- タイトルと本文の間に配置
                   if (widget.post.isCoupon) ...[
                     StreamBuilder<BulletinPost>(
                       stream: _postStream,
@@ -292,16 +328,6 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
                     const SizedBox(height: 16),
                   ],
 
-                  // タイトル
-                  Text(
-                    widget.post.title,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
                   // 説明
                   Card(
                     child: Padding(

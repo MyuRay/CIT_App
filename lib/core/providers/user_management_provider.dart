@@ -138,5 +138,5 @@ class UserManagementActions {
   }
 }
 
-// デフォルトのフィルター
-const defaultUserListFilter = UserListFilter(limit: 100);
+// デフォルトのフィルター（全ユーザーを表示）
+const defaultUserListFilter = UserListFilter();

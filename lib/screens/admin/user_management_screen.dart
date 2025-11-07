@@ -354,10 +354,9 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
   void _updateFilter() {
     setState(() {
       _currentFilter = UserListFilter(
-        limit: 100,
         isActiveFilter: _showActiveOnly ? true : null,
-        searchQuery: _searchController.text.trim().isNotEmpty 
-            ? _searchController.text.trim() 
+        searchQuery: _searchController.text.trim().isNotEmpty
+            ? _searchController.text.trim()
             : null,
       );
     });

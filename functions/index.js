@@ -9,9 +9,8 @@ const axios = require('axios');
 
 admin.initializeApp();
 
-// 優先順位: functions:config().app.region → env(FUNCTIONS_REGION / FUNCTION_REGION) → us-central1
+// 優先順位: env(FUNCTIONS_REGION / FUNCTION_REGION) → us-central1
 const REGION = (
-  (functions.config && functions.config().app && functions.config().app.region) ||
   process.env.FUNCTIONS_REGION ||
   process.env.FUNCTION_REGION ||
   'us-central1'
@@ -20,20 +19,17 @@ const REGION = (
 setGlobalOptions({region: REGION});
 
 function getWebhook(kind) {
-  // 優先順位: 種類別 env → 共通 env → functions.config()
+  // 優先順位: 種類別 env → 共通 env
   const envKey = {
     users: process.env.DISCORD_WEBHOOK_URL_USERS,
     contacts: process.env.DISCORD_WEBHOOK_URL_CONTACTS,
     bulletin: process.env.DISCORD_WEBHOOK_URL_BULLETIN,
   };
   const generic = process.env.DISCORD_WEBHOOK_URL;
-  const config = (functions.config && functions.config().discord) || {};
 
   return (
     envKey[kind] ||
     generic ||
-    config[`${kind}_webhook_url`] ||
-    config.webhook_url ||
     null
   );
 }
@@ -186,4 +182,80 @@ exports.notifyBulletinPendingOnUpdate = onDocumentUpdated('bulletin_posts/{id}',
   });
 
   await postToDiscord(getWebhook('bulletin'), payload);
+});
+
+// プッシュ通知送信
+exports.sendPushNotification = onDocumentCreated('notifications/{notificationId}', async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+
+  const notification = snap.data() || {};
+  const userId = notification.userId;
+
+  if (!userId) {
+    console.warn('通知にuserIdがありません');
+    return;
+  }
+
+  try {
+    // ユーザーのFCMトークンを取得
+    const tokenDoc = await admin.firestore()
+      .collection('user_tokens')
+      .doc(userId)
+      .get();
+
+    if (!tokenDoc.exists) {
+      console.log(`ユーザーのFCMトークンが見つかりません: ${userId}`);
+      return;
+    }
+
+    const tokenData = tokenDoc.data();
+    const fcmToken = tokenData && tokenData.fcmToken;
+    if (!fcmToken) {
+      console.log('FCMトークンが空です');
+      return;
+    }
+
+    // FCMメッセージを構築
+    const message = {
+      token: fcmToken,
+      notification: {
+        title: notification.title || 'CIT App',
+        body: notification.body || '',
+      },
+      data: {
+        notificationId: event.params.notificationId,
+        type: notification.type || 'general',
+        postId: notification.postId || '',
+        commentId: notification.commentId || '',
+        replyId: notification.replyId || '',
+      },
+      android: {
+        priority: 'high',
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+          },
+        },
+      },
+    };
+
+    // プッシュ通知を送信
+    await admin.messaging().send(message);
+    console.log(`プッシュ通知を送信しました: ${notification.title} -> ${userId}`);
+  } catch (error) {
+    console.error('プッシュ通知送信エラー:', error);
+
+    // 無効なトークンの場合は削除
+    if (error.code === 'messaging/invalid-registration-token' ||
+        error.code === 'messaging/registration-token-not-registered') {
+      console.log(`無効なトークンを削除します: ${userId}`);
+      await admin.firestore()
+        .collection('user_tokens')
+        .doc(userId)
+        .delete();
+    }
+  }
 });

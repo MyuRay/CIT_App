@@ -17,6 +17,7 @@ import '../admin/admin_management_screen.dart';
 import '../admin/cafeteria_management_screen.dart';
 import '../admin/bulletin_management_screen.dart';
 import '../admin/bus_admin_screen.dart';
+import '../admin/in_app_ad_management_screen.dart';
 import '../contact/contact_form_screen.dart';
 import '../reports/report_management_screen.dart';
 import '../contact/user_contact_list_screen.dart';
@@ -24,6 +25,9 @@ import '../legal/terms_of_service_screen.dart';
 import '../legal/privacy_policy_screen.dart';
 import '../../core/providers/settings_provider.dart';
 import '../user_block/blocked_user_list_screen.dart';
+import '../../core/providers/in_app_ad_provider.dart';
+import '../../models/ads/in_app_ad_model.dart';
+import '../../widgets/ads/in_app_ad_card.dart';
 
 class SimpleProfileScreen extends ConsumerWidget {
   const SimpleProfileScreen({super.key});
@@ -31,11 +35,12 @@ class SimpleProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     print('🔧 SimpleProfileScreen build開始');
-    
+
     final themeMode = ref.watch(themeModeProvider);
     final themeModeNotifier = ref.read(themeModeProvider.notifier);
     final preferredBusCampus = ref.watch(preferredBusCampusProvider);
-    
+    final profileAdAsync = ref.watch(inAppAdProvider(AdPlacement.profileTop));
+
     print('🔧 テーマモード取得成功: $themeMode');
 
     // 認証プロバイダーを監視して、表示名変更をリアルタイム反映
@@ -68,10 +73,7 @@ class SimpleProfileScreen extends ConsumerWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('マイページ'),
-        actions: const [],
-      ),
+      appBar: AppBar(title: const Text('マイページ'), actions: const []),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -102,17 +104,18 @@ class SimpleProfileScreen extends ConsumerWidget {
                     const SizedBox(height: 4),
                     Text(
                       currentUser?.email ?? 'ログインして全機能をご利用ください',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
-                      ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
                     ),
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
-                      onPressed: () => _showEditCommentNameDialog(
-                        context,
-                        ref,
-                        effectiveDisplayName,
-                      ),
+                      onPressed:
+                          () => _showEditCommentNameDialog(
+                            context,
+                            ref,
+                            effectiveDisplayName,
+                          ),
                       icon: const Icon(Icons.edit, size: 16),
                       label: const Text('表示名を編集'),
                     ),
@@ -120,9 +123,24 @@ class SimpleProfileScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+            profileAdAsync.when(
+              data:
+                  (ad) =>
+                      ad == null
+                          ? const SizedBox.shrink()
+                          : Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: InAppAdCard(
+                              ad: ad,
+                              placement: AdPlacement.profileTop,
+                            ),
+                          ),
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+
             // 設定セクション
             Card(
               child: Column(
@@ -138,12 +156,12 @@ class SimpleProfileScreen extends ConsumerWidget {
                     ),
                   ),
                   const Divider(height: 1),
-                  
+
                   // テーマ設定
                   ListTile(
                     leading: Icon(
-                      themeModeNotifier.isDarkMode(context) 
-                          ? Icons.dark_mode 
+                      themeModeNotifier.isDarkMode(context)
+                          ? Icons.dark_mode
                           : Icons.light_mode,
                     ),
                     title: const Text('テーマ設定'),
@@ -151,10 +169,14 @@ class SimpleProfileScreen extends ConsumerWidget {
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () {
                       print('🔧 テーマ設定タップ');
-                      _showThemeSelectionDialog(context, themeModeNotifier, themeMode);
+                      _showThemeSelectionDialog(
+                        context,
+                        themeModeNotifier,
+                        themeMode,
+                      );
                     },
                   ),
-                  
+
                   const Divider(height: 1),
 
                   // お問い合わせフォーム（ログインユーザー向け）
@@ -163,10 +185,17 @@ class SimpleProfileScreen extends ConsumerWidget {
                     leading: const Icon(Icons.directions_bus),
                     title: const Text('学バス表示の優先キャンパス'),
                     subtitle: Text(
-                      preferredBusCampus == 'narashino' ? '新習志野キャンパス' : '津田沼キャンパス',
+                      preferredBusCampus == 'narashino'
+                          ? '新習志野キャンパス'
+                          : '津田沼キャンパス',
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () => _showPreferredBusCampusDialog(context, ref, preferredBusCampus),
+                    onTap:
+                        () => _showPreferredBusCampusDialog(
+                          context,
+                          ref,
+                          preferredBusCampus,
+                        ),
                   ),
 
                   const Divider(height: 1),
@@ -174,7 +203,10 @@ class SimpleProfileScreen extends ConsumerWidget {
                   // お問い合わせフォーム（ログインユーザー向け）
                   if (currentUser != null) ...[
                     ListTile(
-                      leading: const Icon(Icons.help_center, color: Colors.blue),
+                      leading: const Icon(
+                        Icons.help_center,
+                        color: Colors.blue,
+                      ),
                       title: const Text('お問い合わせ'),
                       subtitle: const Text('質問・要望・不具合報告'),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
@@ -186,9 +218,9 @@ class SimpleProfileScreen extends ConsumerWidget {
                         );
                       },
                     ),
-                    
+
                     const Divider(height: 1),
-                    
+
                     // お問い合わせ履歴
                     ListTile(
                       leading: const Icon(Icons.history, color: Colors.green),
@@ -223,7 +255,7 @@ class SimpleProfileScreen extends ConsumerWidget {
 
                     const Divider(height: 1),
                   ],
-                  
+
                   // ログアウト（ユーザーがログインしている場合のみ）
                   if (currentUser != null) ...[
                     ListTile(
@@ -243,12 +275,12 @@ class SimpleProfileScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // 管理者セクション（管理者のみ表示）
             _buildAdminSection(context, ref, currentUser),
-            
+
             // アプリ情報
             _buildAppInfoCard(context),
           ],
@@ -257,15 +289,19 @@ class SimpleProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildAdminSection(BuildContext context, WidgetRef ref, User? currentUser) {
+  Widget _buildAdminSection(
+    BuildContext context,
+    WidgetRef ref,
+    User? currentUser,
+  ) {
     print('🔧 管理者セクション構築開始');
-    
+
     // ログインチェック
     if (currentUser == null) {
       print('🔧 未ログインのため管理者セクション非表示');
       return const SizedBox.shrink(); // 未ログイン時は非表示
     }
-    
+
     // 直接Firestoreアクセス（プロバイダーの問題により一時的に使用）
     return FutureBuilder<bool>(
       future: _checkAdminStatusDirectly(currentUser.uid),
@@ -274,21 +310,18 @@ class SimpleProfileScreen extends ConsumerWidget {
           print('🔧 管理者権限確認中...');
           return const SizedBox.shrink(); // ローディング中は非表示
         }
-        
+
         if (snapshot.hasError) {
           print('🔧 管理者権限確認エラー: ${snapshot.error}');
           return const SizedBox.shrink(); // エラー時は非表示
         }
-        
+
         final isAdmin = snapshot.data ?? false;
         print('🔧 管理者権限チェック結果: $isAdmin');
-        
+
         if (isAdmin) {
           return Column(
-            children: [
-              _buildAdminCard(context),
-              const SizedBox(height: 24),
-            ],
+            children: [_buildAdminCard(context), const SizedBox(height: 24)],
           );
         } else {
           return const SizedBox.shrink(); // 非管理者は非表示
@@ -306,21 +339,21 @@ class SimpleProfileScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(16),
             child: Text(
               'アプリ情報',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
           const Divider(height: 1),
-          
+
           const ListTile(
             leading: Icon(Icons.info),
             title: Text('バージョン'),
             subtitle: Text('1.16.3+49'),
           ),
-          
+
           const Divider(height: 1),
-          
+
           ListTile(
             leading: const Icon(Icons.school),
             title: const Text('千葉工業大学 学生支援アプリ'),
@@ -364,66 +397,69 @@ class SimpleProfileScreen extends ConsumerWidget {
     );
   }
 
-  void _showThemeSelectionDialog(BuildContext context, ThemeModeNotifier themeModeNotifier, ThemeMode currentThemeMode) {
+  void _showThemeSelectionDialog(
+    BuildContext context,
+    ThemeModeNotifier themeModeNotifier,
+    ThemeMode currentThemeMode,
+  ) {
     print('🔧 テーマ選択ダイアログ表示');
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('テーマ設定'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<ThemeMode>(
-              title: const Text('ライトモード'),
-              subtitle: const Text('明るいテーマ'),
-              value: ThemeMode.light,
-              groupValue: currentThemeMode,
-              onChanged: (value) {
-                if (value != null) {
-                  themeModeNotifier.setThemeMode(value);
-                  Navigator.of(context).pop();
-                }
-              },
+      builder:
+          (context) => AlertDialog(
+            title: const Text('テーマ設定'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RadioListTile<ThemeMode>(
+                  title: const Text('ライトモード'),
+                  subtitle: const Text('明るいテーマ'),
+                  value: ThemeMode.light,
+                  groupValue: currentThemeMode,
+                  onChanged: (value) {
+                    if (value != null) {
+                      themeModeNotifier.setThemeMode(value);
+                      Navigator.of(context).pop();
+                    }
+                  },
+                ),
+                RadioListTile<ThemeMode>(
+                  title: const Text('ダークモード'),
+                  subtitle: const Text('暗いテーマ'),
+                  value: ThemeMode.dark,
+                  groupValue: currentThemeMode,
+                  onChanged: (value) {
+                    if (value != null) {
+                      themeModeNotifier.setThemeMode(value);
+                      Navigator.of(context).pop();
+                    }
+                  },
+                ),
+                RadioListTile<ThemeMode>(
+                  title: const Text('システム設定に従う'),
+                  subtitle: const Text('端末の設定に連動'),
+                  value: ThemeMode.system,
+                  groupValue: currentThemeMode,
+                  onChanged: (value) {
+                    if (value != null) {
+                      themeModeNotifier.setThemeMode(value);
+                      Navigator.of(context).pop();
+                    }
+                  },
+                ),
+              ],
             ),
-            RadioListTile<ThemeMode>(
-              title: const Text('ダークモード'),
-              subtitle: const Text('暗いテーマ'),
-              value: ThemeMode.dark,
-              groupValue: currentThemeMode,
-              onChanged: (value) {
-                if (value != null) {
-                  themeModeNotifier.setThemeMode(value);
-                  Navigator.of(context).pop();
-                }
-              },
-            ),
-            RadioListTile<ThemeMode>(
-              title: const Text('システム設定に従う'),
-              subtitle: const Text('端末の設定に連動'),
-              value: ThemeMode.system,
-              groupValue: currentThemeMode,
-              onChanged: (value) {
-                if (value != null) {
-                  themeModeNotifier.setThemeMode(value);
-                  Navigator.of(context).pop();
-                }
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('キャンセル'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('キャンセル'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
-  
   Widget _buildAdminCard(BuildContext context) {
-    
     return Column(
       children: [
         Card(
@@ -450,7 +486,7 @@ class SimpleProfileScreen extends ConsumerWidget {
                 ),
               ),
               const Divider(height: 1),
-              
+
               // 通知管理
               ListTile(
                 leading: const Icon(Icons.campaign, color: Colors.blue),
@@ -460,12 +496,13 @@ class SimpleProfileScreen extends ConsumerWidget {
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (context) => const NotificationManagementScreen(),
+                      builder:
+                          (context) => const NotificationManagementScreen(),
                     ),
                   );
                 },
               ),
-              
+
               const Divider(height: 1),
 
               // 掲示板管理
@@ -516,9 +553,9 @@ class SimpleProfileScreen extends ConsumerWidget {
                   );
                 },
               ),
-              
+
               const Divider(height: 1),
-              
+
               // ユーザー管理
               ListTile(
                 leading: const Icon(Icons.people, color: Colors.purple),
@@ -533,12 +570,15 @@ class SimpleProfileScreen extends ConsumerWidget {
                   );
                 },
               ),
-              
+
               const Divider(height: 1),
 
               // 学食管理
               ListTile(
-                leading: const Icon(Icons.restaurant_menu, color: Colors.deepOrange),
+                leading: const Icon(
+                  Icons.restaurant_menu,
+                  color: Colors.deepOrange,
+                ),
                 title: const Text('学食管理'),
                 subtitle: const Text('津田沼・新習志野1F/2Fのメニュー画像管理'),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
@@ -550,9 +590,28 @@ class SimpleProfileScreen extends ConsumerWidget {
                   );
                 },
               ),
-              
+
               const Divider(height: 1),
-              
+
+              ListTile(
+                leading: const Icon(
+                  Icons.campaign_outlined,
+                  color: Colors.teal,
+                ),
+                title: const Text('広告管理'),
+                subtitle: const Text('アプリ内広告の作成・編集・削除'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const InAppAdManagementScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              const Divider(height: 1),
+
               // 学バス管理
               ListTile(
                 leading: const Icon(Icons.directions_bus, color: Colors.green),
@@ -578,11 +637,12 @@ class SimpleProfileScreen extends ConsumerWidget {
 
   Future<bool> _checkAdminStatusDirectly(String userId) async {
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('admin_permissions')
-          .doc(userId)
-          .get();
-      
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('admin_permissions')
+              .doc(userId)
+              .get();
+
       if (doc.exists) {
         final data = doc.data()!;
         return data['isAdmin'] as bool? ?? false;
@@ -597,22 +657,23 @@ class SimpleProfileScreen extends ConsumerWidget {
   void _showComingSoonDialog(BuildContext context, String feature) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.construction, color: Colors.orange),
-            const SizedBox(width: 8),
-            Text('$feature（開発中）'),
-          ],
-        ),
-        content: const Text('この機能は現在開発中です。\n近日中に実装予定です。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+      builder:
+          (context) => AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.construction, color: Colors.orange),
+                const SizedBox(width: 8),
+                Text('$feature（開発中）'),
+              ],
+            ),
+            content: const Text('この機能は現在開発中です。\n近日中に実装予定です。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -635,157 +696,167 @@ class SimpleProfileScreen extends ConsumerWidget {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('コメント表示名を編集'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            labelText: '表示名',
+      builder:
+          (context) => AlertDialog(
+            title: const Text('コメント表示名を編集'),
+            content: TextField(
+              controller: controller,
+              decoration: const InputDecoration(labelText: '表示名'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('キャンセル'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final newName = controller.text.trim();
+                  if (newName.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('表示名を入力してください')),
+                    );
+                    return;
+                  }
+                  try {
+                    final auth = FirebaseAuth.instance;
+                    final user = auth.currentUser;
+                    if (user == null) {
+                      throw Exception('ログインが必要です');
+                    }
+                    await user.updateDisplayName(newName);
+                    await user.reload();
+                    // Firestoreプロフィールも更新（存在しない場合は無視）
+                    try {
+                      await UserService.updateUserProfile(
+                        uid: user.uid,
+                        displayName: newName,
+                      );
+                    } catch (_) {}
+                    // 表示を即時反映
+                    ref.invalidate(authStateProvider);
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text('更新に失敗しました: $e')));
+                    }
+                  } finally {
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('表示名を更新しました')),
+                      );
+                    }
+                  }
+                },
+                child: const Text('保存'),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('キャンセル'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final newName = controller.text.trim();
-              if (newName.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('表示名を入力してください')),
-                );
-                return;
-              }
-              try {
-                final auth = FirebaseAuth.instance;
-                final user = auth.currentUser;
-                if (user == null) {
-                  throw Exception('ログインが必要です');
-                }
-                await user.updateDisplayName(newName);
-                await user.reload();
-                // Firestoreプロフィールも更新（存在しない場合は無視）
-                try {
-                  await UserService.updateUserProfile(uid: user.uid, displayName: newName);
-                } catch (_) {}
-                // 表示を即時反映
-                ref.invalidate(authStateProvider);
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('更新に失敗しました: $e')),
-                  );
-                }
-              } finally {
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('表示名を更新しました')),
-                  );
-                }
-              }
-            },
-            child: const Text('保存'),
-          ),
-        ],
-      ),
     );
   }
 
-  void _showPreferredBusCampusDialog(BuildContext context, WidgetRef ref, String current) {
+  void _showPreferredBusCampusDialog(
+    BuildContext context,
+    WidgetRef ref,
+    String current,
+  ) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('学バス優先キャンパス'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<String>(
-              title: const Text('津田沼キャンパスを優先'),
-              value: 'tsudanuma',
-              groupValue: current,
-              onChanged: (v) async {
-                if (v == null) return;
-                await ref.read(setPreferredBusCampusProvider)(v);
-                if (context.mounted) Navigator.of(context).pop();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('学バス表示を「津田沼」優先にしました')),
-                  );
-                }
-              },
+      builder:
+          (context) => AlertDialog(
+            title: const Text('学バス優先キャンパス'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RadioListTile<String>(
+                  title: const Text('津田沼キャンパスを優先'),
+                  value: 'tsudanuma',
+                  groupValue: current,
+                  onChanged: (v) async {
+                    if (v == null) return;
+                    await ref.read(setPreferredBusCampusProvider)(v);
+                    if (context.mounted) Navigator.of(context).pop();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('学バス表示を「津田沼」優先にしました')),
+                      );
+                    }
+                  },
+                ),
+                RadioListTile<String>(
+                  title: const Text('新習志野キャンパスを優先'),
+                  value: 'narashino',
+                  groupValue: current,
+                  onChanged: (v) async {
+                    if (v == null) return;
+                    await ref.read(setPreferredBusCampusProvider)(v);
+                    if (context.mounted) Navigator.of(context).pop();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('学バス表示を「新習志野」優先にしました')),
+                      );
+                    }
+                  },
+                ),
+              ],
             ),
-            RadioListTile<String>(
-              title: const Text('新習志野キャンパスを優先'),
-              value: 'narashino',
-              groupValue: current,
-              onChanged: (v) async {
-                if (v == null) return;
-                await ref.read(setPreferredBusCampusProvider)(v);
-                if (context.mounted) Navigator.of(context).pop();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('学バス表示を「新習志野」優先にしました')),
-                  );
-                }
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('閉じる'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('閉じる'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
   void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.warning, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('ログアウト'),
-          ],
-        ),
-        content: const Text('ログアウトしますか？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('キャンセル'),
+      builder:
+          (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.warning, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('ログアウト'),
+              ],
+            ),
+            content: const Text('ログアウトしますか？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('キャンセル'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  // サインアウト自体のみを監視
+                  try {
+                    await FirebaseAuth.instance.signOut();
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('ログアウトに失敗しました: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                    return;
+                  }
+                  // ナビゲーションは別処理（エラーでも失敗メッセージは出さない）
+                  if (context.mounted) {
+                    Navigator.of(
+                      context,
+                    ).pushNamedAndRemoveUntil('/login', (route) => false);
+                  }
+                },
+                child: const Text('ログアウト', style: TextStyle(color: Colors.red)),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              // サインアウト自体のみを監視
-              try {
-                await FirebaseAuth.instance.signOut();
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('ログアウトに失敗しました: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-                return;
-              }
-              // ナビゲーションは別処理（エラーでも失敗メッセージは出さない）
-              if (context.mounted) {
-                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
-              }
-            },
-            child: const Text('ログアウト', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
     );
   }
 }

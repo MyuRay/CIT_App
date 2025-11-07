@@ -12,8 +12,7 @@ service cloud.firestore {
 
     // 管理者判定関数（修正）
     function isAdmin() {
-      return isCITUser()
-        && request.auth != null
+      return request.auth != null
         && exists(/databases/$(database)/documents/admin_permissions/$(request.auth.uid))
         && get(/databases/$(database)/documents/admin_permissions/$(request.auth.uid)).data.get('isAdmin', false) == true;
     }
@@ -277,7 +276,7 @@ service cloud.firestore {
     // 学食メニュー情報のルール（新規追加）
     match /cafeteria_menu_items/{itemId} {
       // 読み取り: 認証済みCITユーザー
-      allow read: if isCITUser();
+      allow read: if isCITUser() || isAdmin();
 
       // 作成: 認証済みCITユーザー、必須フィールドを満たすこと
       allow create: if isCITUser()
@@ -296,15 +295,24 @@ service cloud.firestore {
             || (!(resource.data.viewCount is int) && request.resource.data.viewCount == 1)
           )
         );
-      allow update: if isAdmin()
-+        || (
-+          isCITUser()
-+          && request.auth != null
-+          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['viewCount'])
-+        );
 
       // 削除は管理者のみ
       allow delete: if isAdmin();
+    }
+
+    // アプリ内広告のルール
+    match /in_app_ads/{adId} {
+      // 読み取り: 認証済みCITユーザー
+      allow read: if isCITUser();
+
+      // 作成・更新: 管理者のみ
+      allow create, update: if isAdmin()
+        && request.auth != null
+        && hasRequiredInAppAdFields();
+
+      // 削除: 管理者のみ
+      allow delete: if isAdmin()
+        && request.auth != null;
     }
 
     // ヘルパー関数
@@ -530,6 +538,24 @@ service cloud.firestore {
         // 任意: 価格・画像URL（null も許容）
         && (!('price' in request.resource.data) || (request.resource.data.price is int || request.resource.data.price == null))
         && (!('photoUrl' in request.resource.data) || (request.resource.data.photoUrl is string || request.resource.data.photoUrl == null));
+    }
+
+    function hasRequiredInAppAdFields() {
+      return request.resource.data.keys().hasAll([
+          'title','body','targetType','actionType','actionPayload','isActive','weight'
+        ])
+        && request.resource.data.title is string
+        && request.resource.data.body is string
+        && request.resource.data.targetType is string
+        && request.resource.data.actionType is string
+        && request.resource.data.actionPayload is string
+        && request.resource.data.isActive is bool
+        && request.resource.data.weight is int
+        && request.resource.data.weight >= 1
+        && (!('imageUrl' in request.resource.data) || request.resource.data.imageUrl is string || request.resource.data.imageUrl == null)
+        && (!('ctaText' in request.resource.data) || request.resource.data.ctaText is string || request.resource.data.ctaText == null)
+        && (!('startAt' in request.resource.data) || request.resource.data.startAt is timestamp || request.resource.data.startAt == null)
+        && (!('endAt' in request.resource.data) || request.resource.data.endAt is timestamp || request.resource.data.endAt == null);
     }
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
 import '../../services/user/user_service.dart';
+import '../../services/notification/notification_service.dart';
 import '../../models/user/user_model.dart';
 import 'settings_provider.dart';
 
@@ -130,24 +131,18 @@ class AuthService {
       if (credential.user != null) {
         print('📝 Firestoreユーザー情報確認中...');
         await UserService.getCurrentUserOrCreate();
+        // 最終ログイン時刻を更新
+        await UserService.updateLastLogin(credential.user!.uid);
         print('✅ Firestoreユーザー情報確認完了');
-        
-        // SharedPreferencesにもログイン状態を保存（バックアップ）
+
+        // プッシュ通知を初期化
         try {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('user_logged_in', true);
-          await prefs.setString('user_uid', credential.user!.uid);
-          await prefs.setString('user_email', credential.user!.email ?? '');
-          
-          // ログイン時刻も記録（デバッグ用）
-          await prefs.setString('last_login_time', DateTime.now().toIso8601String());
-          
-          print('✅ SharedPreferencesにログイン状態を保存しました');
-          print('✅ UID: ${credential.user!.uid}');
-          print('✅ Email: ${credential.user!.email}');
-        } catch (prefsError) {
-          print('⚠️ SharedPreferences保存に失敗: $prefsError');
-          // SharedPreferencesエラーはログインを阻害しない
+          print('🔔 プッシュ通知サービス初期化中...');
+          await NotificationService.initialize();
+          print('🔔 プッシュ通知サービス初期化完了');
+        } catch (notificationError) {
+          print('⚠️ プッシュ通知初期化エラー: $notificationError');
+          // プッシュ通知エラーはログインを阻害しない
         }
       }
 
@@ -161,19 +156,11 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    print('🔓 ログアウト処理開始');
+
+    // Firebase Authからサインアウト
     await _auth.signOut();
-    
-    // SharedPreferencesからもログイン状態を削除
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('user_logged_in');
-      await prefs.remove('user_uid');
-      await prefs.remove('user_email');
-      print('✅ SharedPreferencesからログイン状態を削除しました');
-    } catch (prefsError) {
-      print('⚠️ SharedPreferences削除に失敗: $prefsError');
-      // SharedPreferencesエラーはサインアウトを阻害しない
-    }
+    print('✅ Firebase Authからサインアウトしました');
   }
 
   User? get currentUser => _auth.currentUser;

@@ -31,14 +31,22 @@ class CampusMapWidget extends ConsumerWidget {
       children: [
         campusMapAsync.when(
           data: (mapUrl) {
+            debugPrint('🗺️ Campus map data received | campus=$campus, url=$mapUrl');
             if (mapUrl == null || mapUrl.isEmpty) {
+              debugPrint('❌ Campus map URL is null or empty | campus=$campus');
               return _buildErrorWidget(context, 'キャンパスマップが見つかりません');
             }
             return _buildMapWidget(context, mapUrl, campusOptions);
           },
-          loading: () => _buildLoadingWidget(context),
-          error:
-              (error, _) => _buildErrorWidget(context, 'キャンパスマップの読み込みに失敗しました'),
+          loading: () {
+            debugPrint('⏳ Loading campus map | campus=$campus');
+            return _buildLoadingWidget(context);
+          },
+          error: (error, stackTrace) {
+            debugPrint('❌ Campus map error | campus=$campus, error=$error');
+            debugPrint('❌ StackTrace: $stackTrace');
+            return _buildErrorWidget(context, 'キャンパスマップの読み込みに失敗しました');
+          },
         ),
         if (showTitle)
           Padding(

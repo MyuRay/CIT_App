@@ -12,6 +12,9 @@ import '../../models/cafeteria/cafeteria_menu_item_model.dart';
 import '../../core/providers/firebase_menu_provider.dart';
 import 'cafeteria_menu_reviews_screen.dart';
 import 'cafeteria_menu_item_form_screen.dart';
+import '../../core/providers/in_app_ad_provider.dart';
+import '../../models/ads/in_app_ad_model.dart';
+import '../../widgets/ads/in_app_ad_card.dart';
 
 String? _campusCodeFromCafeteriaId(String cafeteriaId) {
   switch (cafeteriaId) {
@@ -39,23 +42,25 @@ Future<void> _showCampusMenuImage(
   );
 
   try {
-    final imageUrl =
-        await ref.read(firebaseTodayMenuProvider(campusCode).future);
+    final imageUrl = await ref.read(
+      firebaseTodayMenuProvider(campusCode).future,
+    );
     if (!context.mounted) {
       return;
     }
     Navigator.of(context, rootNavigator: true).pop();
 
     if (imageUrl == null || imageUrl.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$campusNameのメニュー画像が見つかりませんでした')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$campusNameのメニュー画像が見つかりませんでした')));
       return;
     }
 
-    final placeholder = campusName.characters.isNotEmpty
-        ? campusName.characters.first
-        : campusName;
+    final placeholder =
+        campusName.characters.isNotEmpty
+            ? campusName.characters.first
+            : campusName;
 
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -71,9 +76,9 @@ Future<void> _showCampusMenuImage(
       return;
     }
     Navigator.of(context, rootNavigator: true).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('メニュー画像の取得に失敗しました: $e')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('メニュー画像の取得に失敗しました: $e')));
   }
 }
 
@@ -153,17 +158,19 @@ class _CafeteriaReviewsScreenState extends ConsumerState<CafeteriaReviewsScreen>
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: TextButton.icon(
-                icon: Icon(Icons.photo_library_outlined, size: 18, color: buttonColor),
-                label: Text(
-                  'メニューを確認',
-                  style: TextStyle(color: buttonColor),
+                icon: Icon(
+                  Icons.photo_library_outlined,
+                  size: 18,
+                  color: buttonColor,
                 ),
-                onPressed: () => _showCampusMenuImage(
-                  context,
-                  ref,
-                  campusCode: campusCode,
-                  campusName: campusName,
-                ),
+                label: Text('メニューを確認', style: TextStyle(color: buttonColor)),
+                onPressed:
+                    () => _showCampusMenuImage(
+                      context,
+                      ref,
+                      campusCode: campusCode,
+                      campusName: campusName,
+                    ),
               ),
             ),
         ],
@@ -235,7 +242,8 @@ class _ReviewsListState extends ConsumerState<_ReviewsList> {
                 padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
                 child: Builder(
                   builder: (context) {
-                    final isDark = Theme.of(context).brightness == Brightness.dark;
+                    final isDark =
+                        Theme.of(context).brightness == Brightness.dark;
                     final buttonColor = isDark ? Colors.white : Colors.black;
                     return Row(
                       children: [
@@ -245,17 +253,22 @@ class _ReviewsListState extends ConsumerState<_ReviewsList> {
                         ),
                         const Spacer(),
                         TextButton.icon(
-                          icon: Icon(Icons.photo_library_outlined, size: 18, color: buttonColor),
+                          icon: Icon(
+                            Icons.photo_library_outlined,
+                            size: 18,
+                            color: buttonColor,
+                          ),
                           label: Text(
                             'メニューを確認',
                             style: TextStyle(fontSize: 12, color: buttonColor),
                           ),
-                          onPressed: () => _showCampusMenuImage(
-                            context,
-                            ref,
-                            campusCode: campusCode,
-                            campusName: campusName,
-                          ),
+                          onPressed:
+                              () => _showCampusMenuImage(
+                                context,
+                                ref,
+                                campusCode: campusCode,
+                                campusName: campusName,
+                              ),
                         ),
                       ],
                     );
@@ -289,28 +302,31 @@ class _ReviewsListState extends ConsumerState<_ReviewsList> {
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _refresh,
-                child: filtered.isEmpty
-                    ? ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(vertical: 48),
-                        children: [
-                          Center(
-                            child: Text(
-                              q.isEmpty
-                                  ? 'まだレビューがありません'
-                                  : '検索条件に一致するレビューがありません',
+                child:
+                    filtered.isEmpty
+                        ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(vertical: 48),
+                          children: [
+                            Center(
+                              child: Text(
+                                q.isEmpty
+                                    ? 'まだレビューがありません'
+                                    : '検索条件に一致するレビューがありません',
+                              ),
                             ),
-                          ),
-                        ],
-                      )
-                    : ListView.separated(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.all(12),
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemCount: filtered.length,
-                        itemBuilder: (context, index) =>
-                            _ReviewCard(review: filtered[index]),
-                      ),
+                          ],
+                        )
+                        : ListView.separated(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(12),
+                          separatorBuilder:
+                              (_, __) => const SizedBox(height: 8),
+                          itemCount: filtered.length,
+                          itemBuilder:
+                              (context, index) =>
+                                  _ReviewCard(review: filtered[index]),
+                        ),
               ),
             ),
           ],
@@ -357,13 +373,19 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
       cafeteriaMenuItemsListProvider(widget.cafeteriaId),
     );
     final campusName = Cafeterias.displayName(widget.cafeteriaId);
+    final cafeteriaAdAsync = ref.watch(inAppAdProvider(AdPlacement.cafeteria));
 
     return reviewsAsync.when(
       data: (reviews) {
         return menuItemsAsync.when(
           data:
-              (menuItems) =>
-                  _buildMenuList(context, reviews, menuItems, campusName),
+              (menuItems) => _buildMenuList(
+                context,
+                reviews,
+                menuItems,
+                campusName,
+                cafeteriaAdAsync,
+              ),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('メニュー情報の読み込みに失敗しました: $e')),
         );
@@ -378,6 +400,7 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
     List<CafeteriaReview> reviews,
     List<CafeteriaMenuItem> menuItems,
     String campusName,
+    AsyncValue<InAppAd?> adAsync,
   ) {
     final menuMap = <String, CafeteriaMenuItem>{};
     for (final item in menuItems) {
@@ -387,6 +410,43 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
     }
 
     final aggregated = <String, _MenuAgg>{};
+
+    Widget? buildAdTile() {
+      return adAsync.maybeWhen(
+        data:
+            (ad) =>
+                ad == null
+                    ? null
+                    : InAppAdCard(
+                      ad: ad,
+                      placement: AdPlacement.cafeteria,
+                      margin: EdgeInsets.zero,
+                    ),
+        orElse: () => null,
+      );
+    }
+
+    List<Widget> buildMenuRows(List<_MenuAgg> menus) {
+      final widgets = <Widget>[];
+      for (var i = 0; i < menus.length; i++) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _MenuRowCard(cafeteriaId: widget.cafeteriaId, agg: menus[i]),
+          ),
+        );
+        if ((i + 1) % 7 == 0) {
+          final adTile = buildAdTile();
+          if (adTile != null) {
+            widgets.add(
+              Padding(padding: const EdgeInsets.only(bottom: 8), child: adTile),
+            );
+          }
+        }
+      }
+      return widgets;
+    }
+
     for (final entry in menuMap.entries) {
       aggregated[entry.key] = _MenuAgg(
         entry.value.menuName,
@@ -560,120 +620,107 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
         Expanded(
           child: RefreshIndicator(
             onRefresh: _refresh,
-            child: filtered.isEmpty
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(vertical: 48),
-                    children: [
-                      Center(
-                        child: Text(
-                          q.isEmpty
-                              ? '表示できるメニューがありません'
-                              : '検索条件に一致するメニューがありません',
-                        ),
-                      ),
-                    ],
-                  )
-                : SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+            child:
+                filtered.isEmpty
+                    ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(vertical: 48),
                       children: [
-                        // 本日レビューされたメニューセクション
-                        if (todayReviewed.isNotEmpty) ...[
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.green.shade200),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.today,
-                                  size: 18,
-                                  color: Colors.green.shade700,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  '本日レビューされたメニュー (${todayReviewed.length}件)',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green.shade700,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
+                        Center(
+                          child: Text(
+                            q.isEmpty
+                                ? '表示できるメニューがありません'
+                                : '検索条件に一致するメニューがありません',
                           ),
-                          const SizedBox(height: 8),
-                          ...todayReviewed.map(
-                            (agg) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: _MenuRowCard(
-                                cafeteriaId: widget.cafeteriaId,
-                                agg: agg,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // その他のメニューセクション
-                        if (others.isNotEmpty) ...[
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.restaurant_menu,
-                                  size: 18,
-                                  color: Colors.grey.shade700,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'その他のメニュー (${others.length}件)',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.grey.shade700,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          ...others.map(
-                            (agg) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: _MenuRowCard(
-                                cafeteriaId: widget.cafeteriaId,
-                                agg: agg,
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ],
+                    )
+                    : SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 本日レビューされたメニューセクション
+                          if (todayReviewed.isNotEmpty) ...[
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.green.shade200,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.today,
+                                    size: 18,
+                                    color: Colors.green.shade700,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '本日レビューされたメニュー (${todayReviewed.length}件)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green.shade700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            ...buildMenuRows(todayReviewed),
+                            const SizedBox(height: 16),
+                          ],
+
+                          // その他のメニューセクション
+                          if (others.isNotEmpty) ...[
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.restaurant_menu,
+                                    size: 18,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'その他のメニュー (${others.length}件)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.grey.shade700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            ...buildMenuRows(others),
+                          ],
+                        ],
+                      ),
                     ),
-                  ),
           ),
         ),
       ],
@@ -1049,17 +1096,22 @@ class _ReviewCard extends ConsumerWidget {
                 ),
                 if (campusCode != null)
                   TextButton.icon(
-                    icon: const Icon(Icons.photo_library_outlined, size: 18, color: Colors.black),
+                    icon: const Icon(
+                      Icons.photo_library_outlined,
+                      size: 18,
+                      color: Colors.black,
+                    ),
                     label: const Text(
                       'メニューを確認',
                       style: TextStyle(fontSize: 12, color: Colors.black),
                     ),
-                    onPressed: () => _showCampusMenuImage(
-                      context,
-                      ref,
-                      campusCode: campusCode,
-                      campusName: campusName,
-                    ),
+                    onPressed:
+                        () => _showCampusMenuImage(
+                          context,
+                          ref,
+                          campusCode: campusCode,
+                          campusName: campusName,
+                        ),
                   ),
                 const SizedBox(width: 8),
                 Text(
@@ -1110,7 +1162,6 @@ class _ReviewCard extends ConsumerWidget {
     if (diff.inDays < 7) return '${diff.inDays}日前';
     return '${d.month}/${d.day}';
   }
-
 }
 
 class _ReviewLikeRow extends ConsumerWidget {
