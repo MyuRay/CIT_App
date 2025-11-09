@@ -1,0 +1,37 @@
+name: Discord Notifications
+
+on:
+  push:
+    branches:
+      - '**'  # 全てのブランチを対象
+    tags:
+      - 'v*'
+  pull_request:
+    types: [opened, closed, synchronize, reopened]
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Send Discord notification
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL_GITHUB || secrets.DISCORD_WEBHOOK_URL }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          node .github/scripts/discord-notify.js
