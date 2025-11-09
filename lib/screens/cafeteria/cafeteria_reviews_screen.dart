@@ -15,6 +15,7 @@ import 'cafeteria_menu_item_form_screen.dart';
 import '../../core/providers/in_app_ad_provider.dart';
 import '../../models/ads/in_app_ad_model.dart';
 import '../../widgets/ads/in_app_ad_card.dart';
+import '../../core/providers/settings_provider.dart';
 
 String? _campusCodeFromCafeteriaId(String cafeteriaId) {
   switch (cafeteriaId) {
@@ -95,6 +96,7 @@ class CafeteriaReviewsScreen extends ConsumerStatefulWidget {
 class _CafeteriaReviewsScreenState extends ConsumerState<CafeteriaReviewsScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  bool _initialIndexSet = false;
 
   int _indexForCafeteria(String? id) {
     switch (id) {
@@ -125,15 +127,35 @@ class _CafeteriaReviewsScreenState extends ConsumerState<CafeteriaReviewsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    final initial = _indexForCafeteria(widget.initialCafeteriaId);
-    _tabController.index = initial;
+    // initialCafeteriaIdが指定されている場合はそれを使用して初期インデックスを決定
+    int initialIndex = 0; // デフォルトは津田沼
+    if (widget.initialCafeteriaId != null) {
+      initialIndex = _indexForCafeteria(widget.initialCafeteriaId);
+      _initialIndexSet = true;
+    }
+    _tabController = TabController(length: 3, vsync: this, initialIndex: initialIndex);
     _tabController.addListener(() {
       if (!mounted) return;
       if (!_tabController.indexIsChanging) {
         setState(() {});
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 初期インデックスが設定されていない場合、優先キャンパスを確認
+    if (!_initialIndexSet) {
+      final preferredCampus = ref.read(preferredBusCampusProvider);
+      if (preferredCampus == 'narashino') {
+        // 新習志野が優先キャンパスの場合、新習志野1F（インデックス1）を表示
+        if (_tabController.index != 1) {
+          _tabController.index = 1;
+        }
+      }
+      _initialIndexSet = true;
+    }
   }
 
   @override
@@ -144,6 +166,7 @@ class _CafeteriaReviewsScreenState extends ConsumerState<CafeteriaReviewsScreen>
 
   @override
   Widget build(BuildContext context) {
+
     final campusId = _cafeteriaForIndex(_tabController.index);
     final campusCode = _campusCodeFromCafeteriaId(campusId);
     final campusName = Cafeterias.displayName(campusId);

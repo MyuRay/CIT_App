@@ -297,6 +297,8 @@ class _FullScreenMenuImageDialogState
   bool _isImageZoomed = false;
   late final PageController _pageController;
   final Map<String, TransformationController> _transformationControllers = {};
+  static const double _defaultScale = 1.0;
+  static const double _zoomedScale = 2.5;
 
   @override
   void initState() {
@@ -325,13 +327,58 @@ class _FullScreenMenuImageDialogState
     if (controller == null) return;
 
     final scale = controller.value.getMaxScaleOnAxis();
-    final isZoomed = scale > 1.0;
+    final isZoomed = scale > 1.1; // 少しマージンを持たせる
     if (_isImageZoomed != isZoomed) {
       setState(() => _isImageZoomed = isZoomed);
     }
   }
 
+  void _handleDoubleTap(String campusId, TapDownDetails details) {
+    final controller = _transformationControllers[campusId];
+    if (controller == null) return;
+
+    final scale = controller.value.getMaxScaleOnAxis();
+    final isCurrentlyZoomed = scale > 1.1;
+
+    if (isCurrentlyZoomed) {
+      // 拡大中の場合、元のサイズに戻す
+      controller.value = Matrix4.identity();
+    } else {
+      // 縮小時の場合、タップ位置を中心に拡大
+      // 画面サイズを取得
+      final screenSize = MediaQuery.of(context).size;
+      final screenCenterX = screenSize.width / 2;
+      final screenCenterY = screenSize.height / 2;
+
+      // GestureDetectorのローカル座標を画面座標に変換
+      final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+      if (renderBox == null) {
+        // フォールバック: 画面中心で拡大
+        controller.value = Matrix4.identity()..scale(_zoomedScale);
+        return;
+      }
+
+      final globalTapPosition = renderBox.localToGlobal(details.localPosition);
+      
+      // 画面中心からのオフセットを計算
+      final offsetX = globalTapPosition.dx - screenCenterX;
+      final offsetY = globalTapPosition.dy - screenCenterY;
+
+      final newScale = _zoomedScale;
+      
+      // InteractiveViewerの座標系で、タップ位置が拡大後も同じ位置に来るように調整
+      // 拡大によりオフセットが増えるため、それを考慮して調整
+      final translateX = -offsetX * (newScale - 1);
+      final translateY = -offsetY * (newScale - 1);
+      
+      controller.value = Matrix4.identity()
+        ..translate(translateX, translateY)
+        ..scale(newScale);
+    }
+  }
+
   void _handleDragUpdate(DragUpdateDetails details) {
+    // 垂直ドラッグで閉じる機能は、画像が拡大されていない場合のみ有効
     if (_isDismissing || _isImageZoomed) return;
     setState(() {
       _dragOffset += details.delta.dy;
@@ -339,6 +386,7 @@ class _FullScreenMenuImageDialogState
   }
 
   void _handleDragEnd(DragEndDetails details) {
+    // 垂直ドラッグで閉じる機能は、画像が拡大されていない場合のみ有効
     if (_isDismissing || _isImageZoomed) return;
     final velocity = details.velocity.pixelsPerSecond.dy;
     if (_dragOffset.abs() > 120 || velocity.abs() > 700) {
@@ -376,9 +424,21 @@ class _FullScreenMenuImageDialogState
               Positioned.fill(
                 child: PageView.builder(
                   controller: _pageController,
+                  // 画像が拡大されている場合はスワイプを無効化
+                  physics: _isImageZoomed
+                      ? const NeverScrollableScrollPhysics()
+                      : const PageScrollPhysics(),
                   itemCount: campuses.length,
                   onPageChanged: (index) {
                     if (index >= 0 && index < campuses.length) {
+                      // キャンパスが変更されたとき、前のキャンパスの拡大状態をリセット
+                      final previousCampus = _currentCampus;
+                      if (previousCampus != campuses[index]) {
+                        final previousController = _transformationControllers[previousCampus];
+                        if (previousController != null) {
+                          previousController.value = Matrix4.identity();
+                        }
+                      }
                       setState(() => _currentCampus = campuses[index]);
                     }
                   },
@@ -467,11 +527,17 @@ class _FullScreenMenuImageDialogState
         transitionOnUserGestures: true,
         child: Material(
           color: Colors.transparent,
-          child: InteractiveViewer(
-            transformationController: _transformationControllers[campusId],
-            minScale: 0.5,
-            maxScale: 4.0,
-            child: imageWidget,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onDoubleTapDown: (details) => _handleDoubleTap(campusId, details),
+            child: InteractiveViewer(
+              transformationController: _transformationControllers[campusId],
+              minScale: 0.5,
+              maxScale: 4.0,
+              // パン制限を無効化（拡大時も自由に移動可能）
+              panEnabled: true,
+              child: imageWidget,
+            ),
           ),
         ),
       ),
