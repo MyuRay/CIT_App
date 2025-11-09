@@ -4,6 +4,8 @@ import '../../models/schedule/academic_year_model.dart';
 import '../../services/schedule/schedule_service.dart';
 import 'auth_provider.dart';
 import '../../services/widget/home_widgets_service.dart';
+import '../../services/schedule/schedule_notification_service.dart';
+import 'settings_provider.dart';
 
 // グローバルなホーム画面リフレッシュ通知プロバイダー
 final homeRefreshNotifierProvider = StateProvider<int>((ref) => 0);
@@ -308,6 +310,24 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> {
         await HomeWidgetsService.updateWeeklyFullSchedule(schedule);
       }
     } catch (_) {}
+  }
+
+  // 通知を更新（通知設定が有効な場合）
+  Future<void> updateNotificationsIfEnabled(WidgetRef? ref) async {
+    try {
+      if (ref == null) return;
+      
+      // 通知設定が有効かチェック
+      final notificationEnabled = ref.read(scheduleNotificationEnabledProvider);
+      if (!notificationEnabled) return;
+
+      final schedule = await ScheduleService.getScheduleByUserId(_userId);
+      if (schedule != null) {
+        await ScheduleNotificationService.scheduleWeeklyNotifications(schedule);
+      }
+    } catch (_) {
+      // 通知更新エラーは無視
+    }
   }
 
   // 1週間分の時間割を取得

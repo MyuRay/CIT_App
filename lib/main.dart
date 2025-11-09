@@ -21,6 +21,7 @@ import 'core/services/simple_offline_service.dart';
 import 'services/cafeteria/menu_scheduler_service.dart';
 import 'services/widget/home_widgets_service.dart';
 import 'services/notification/notification_service.dart';
+import 'services/schedule/schedule_notification_service.dart';
 
 // バックグラウンド通知ハンドラー（トップレベル関数として定義）
 @pragma('vm:entry-point')
@@ -208,11 +209,23 @@ void main() async {
       'Firebase app names: ${Firebase.apps.map((app) => app.name).toList()}',
     );
 
+    // Firebase Analytics初期化と設定
     try {
-      await FirebaseAnalytics.instance.logAppOpen();
-      debugPrint('Firebase Analytics app_open logged');
+      final analytics = FirebaseAnalytics.instance;
+      
+      // Analyticsの収集を明示的に有効化（デフォルトで有効ですが、念のため）
+      await analytics.setAnalyticsCollectionEnabled(true);
+      debugPrint('✅ Firebase Analytics収集を有効化しました');
+      
+      // アプリオープンイベントを記録
+      await analytics.logAppOpen();
+      debugPrint('✅ Firebase Analytics app_open logged');
+      
+      if (kDebugMode) {
+        debugPrint('🔍 Firebase Analytics (Debug Mode) - デバッグビューで確認可能');
+      }
     } catch (analyticsError) {
-      debugPrint('Firebase Analytics ログ送信失敗: $analyticsError');
+      debugPrint('❌ Firebase Analytics ログ送信失敗: $analyticsError');
     }
 
     // Firebase App Check初期化
@@ -294,6 +307,9 @@ void _initializeBackgroundServices() {
 
       // ホームウィジェット初期化
       await HomeWidgetsService.initialize();
+
+      // 講義通知サービスを初期化
+      await ScheduleNotificationService.initialize();
 
       debugPrint('✅ バックグラウンドサービス初期化完了');
     } catch (e) {

@@ -87,6 +87,10 @@ dependencies:
   connectivity_plus: ^6.1.5
   crypto: ^3.0.3
   firebase_analytics: ^11.6.0
+  
+  # Local notifications
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.9.4
 
 dev_dependencies:
   flutter_test:

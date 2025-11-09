@@ -13,6 +13,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
           SettingsState(
             showSaturday: _prefs.getBool('showSaturday') ?? true,
             preferredBusCampus: _prefs.getString('preferredBusCampus') ?? 'tsudanuma',
+            scheduleNotificationEnabled: _prefs.getBool('scheduleNotificationEnabled') ?? false,
           ),
         );
 
@@ -36,6 +37,12 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     await _prefs.setString('preferredBusCampus', campus);
     state = state.copyWith(preferredBusCampus: campus);
   }
+
+  // 講義通知の有効/無効を設定
+  Future<void> setScheduleNotificationEnabled(bool enabled) async {
+    await _prefs.setBool('scheduleNotificationEnabled', enabled);
+    state = state.copyWith(scheduleNotificationEnabled: enabled);
+  }
 }
 
 // 設定状態クラス
@@ -43,18 +50,22 @@ class SettingsState {
   const SettingsState({
     required this.showSaturday,
     required this.preferredBusCampus,
+    required this.scheduleNotificationEnabled,
   });
 
   final bool showSaturday;
   final String preferredBusCampus; // 'tsudanuma' or 'narashino'
+  final bool scheduleNotificationEnabled; // 講義通知の有効/無効
 
   SettingsState copyWith({
     bool? showSaturday,
     String? preferredBusCampus,
+    bool? scheduleNotificationEnabled,
   }) {
     return SettingsState(
       showSaturday: showSaturday ?? this.showSaturday,
       preferredBusCampus: preferredBusCampus ?? this.preferredBusCampus,
+      scheduleNotificationEnabled: scheduleNotificationEnabled ?? this.scheduleNotificationEnabled,
     );
   }
 }
@@ -83,4 +94,14 @@ final preferredBusCampusProvider = Provider<String>((ref) {
 // 学バス優先キャンパス設定メソッドのプロバイダー
 final setPreferredBusCampusProvider = Provider<Future<void> Function(String)>((ref) {
   return (campus) => ref.read(settingsProvider.notifier).setPreferredBusCampus(campus);
+});
+
+// 講義通知設定のプロバイダー
+final scheduleNotificationEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(settingsProvider).scheduleNotificationEnabled;
+});
+
+// 講義通知設定切り替えメソッドのプロバイダー
+final setScheduleNotificationEnabledProvider = Provider<Future<void> Function(bool)>((ref) {
+  return (enabled) => ref.read(settingsProvider.notifier).setScheduleNotificationEnabled(enabled);
 });

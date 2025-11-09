@@ -17,6 +17,7 @@ import 'schedule_edit_screen.dart';
 import '../../core/providers/in_app_ad_provider.dart';
 import '../../models/ads/in_app_ad_model.dart';
 import '../../widgets/ads/in_app_ad_card.dart';
+import '../../services/schedule/schedule_notification_service.dart';
 
 class ScheduleScreen extends ConsumerStatefulWidget {
   const ScheduleScreen({super.key});
@@ -29,6 +30,27 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   bool _isEditMode = false;
   bool _isSharing = false; // 共有中フラグ
   final GlobalKey _scheduleKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    // 通知設定が有効な場合、通知を再スケジュール
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndScheduleNotifications();
+    });
+  }
+
+  Future<void> _checkAndScheduleNotifications() async {
+    final notificationEnabled = ref.read(scheduleNotificationEnabledProvider);
+    if (notificationEnabled) {
+      final scheduleAsync = ref.read(currentUserScheduleProvider);
+      scheduleAsync.whenData((schedule) async {
+        if (schedule != null) {
+          await ScheduleNotificationService.scheduleWeeklyNotifications(schedule);
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +70,30 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
         backgroundColor: _isEditMode ? Colors.orange.shade50 : null,
         foregroundColor: _isEditMode ? Colors.black : null,
         actions: [
+          // 講義通知ON/OFFボタン（表示モードのみ）
+          if (!_isEditMode)
+            Consumer(
+              builder: (context, ref, child) {
+                final notificationEnabled = ref.watch(scheduleNotificationEnabledProvider);
+                return IconButton(
+                  icon: Icon(
+                    notificationEnabled ? Icons.notifications_active : Icons.notifications_off,
+                    color: notificationEnabled ? Theme.of(context).colorScheme.primary : Colors.grey,
+                  ),
+                  onPressed: () {
+                    if (notificationEnabled) {
+                      // 既に有効な場合は無効化確認
+                      _showDisableNotificationDialog(context);
+                    } else {
+                      // 無効な場合は説明ポップアップを表示
+                      _showNotificationInfoDialog(context);
+                    }
+                  },
+                  tooltip: notificationEnabled ? '講義通知をOFF' : '講義通知をON',
+                );
+              },
+            ),
+
           // 土曜日表示切り替えボタン（編集モードのみ）
           if (_isEditMode)
             IconButton(
@@ -1020,7 +1066,292 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     );
 
     if (result == true) {
-      // 時間割が更新された場合の処理（必要に応じて）
+      // 時間割が更新された場合、通知を再スケジュール
+      final userId = ref.read(currentUserIdProvider);
+      if (userId != null) {
+        final notificationEnabled = ref.read(scheduleNotificationEnabledProvider);
+        if (notificationEnabled) {
+          final scheduleAsync = ref.read(currentUserScheduleProvider);
+          scheduleAsync.whenData((schedule) async {
+            if (schedule != null) {
+              await ScheduleNotificationService.scheduleWeeklyNotifications(schedule);
+            }
+          });
+        }
+      }
+    }
+  }
+
+  // 通知説明ポップアップを表示
+  void _showNotificationInfoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        // ダイアログ内でデータを取得
+        final scheduleAsync = ref.read(currentUserScheduleProvider);
+        
+        return scheduleAsync.when(
+          data: (schedule) {
+            // 次の講義を取得してサンプルとして表示
+            String sampleSubjectName = 'データ構造とアルゴリズム';
+            String sampleClassroom = '1号館 201';
+
+            if (schedule != null) {
+              // 次の講義を探す
+              final now = DateTime.now();
+              for (int dayOffset = 0; dayOffset < 7; dayOffset++) {
+                final targetDate = now.add(Duration(days: dayOffset));
+                final targetWeekday = targetDate.weekday;
+                String? weekdayKey;
+                switch (targetWeekday) {
+                  case 1:
+                    weekdayKey = 'monday';
+                    break;
+                  case 2:
+                    weekdayKey = 'tuesday';
+                    break;
+                  case 3:
+                    weekdayKey = 'wednesday';
+                    break;
+                  case 4:
+                    weekdayKey = 'thursday';
+                    break;
+                  case 5:
+                    weekdayKey = 'friday';
+                    break;
+                  case 6:
+                    weekdayKey = 'saturday';
+                    break;
+                }
+
+                if (weekdayKey != null) {
+                  final daySchedule = schedule.timetable[weekdayKey];
+                  if (daySchedule != null) {
+                    for (int period = 1; period <= 10; period++) {
+                      final scheduleClass = daySchedule[period];
+                      if (scheduleClass != null && scheduleClass.isStartCell) {
+                        sampleSubjectName = scheduleClass.subjectName;
+                        sampleClassroom = scheduleClass.classroom;
+                        break;
+                      }
+                    }
+                    if (sampleSubjectName != 'データ構造とアルゴリズム') break;
+                  }
+                }
+              }
+            }
+
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(
+                    Icons.notifications,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('講義通知について'),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '講義開始10分前に通知が届きます。',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Theme.of(context).dividerColor,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                size: 20,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '通知の例',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).scaffoldBackgroundColor,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '📚 講義開始10分前',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).colorScheme.onSurface,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '次の講義は「$sampleSubjectName」です。教室は「$sampleClassroom」です。出席ボタンを押しましょう！',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Theme.of(context).colorScheme.onSurface,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      '• 各講義の開始10分前に通知が届きます\n• 今週の全ての講義に対して通知をスケジュールします\n• 時間割を更新すると自動的に通知も更新されます',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('キャンセル'),
+                ),
+                FilledButton.icon(
+                  onPressed: () async {
+                    Navigator.of(dialogContext).pop();
+                    await _enableNotifications(context);
+                  },
+                  icon: const Icon(Icons.notifications_active),
+                  label: const Text('通知をオンにする'),
+                ),
+              ],
+            );
+          },
+          loading: () => AlertDialog(
+            title: const Text('講義通知について'),
+            content: const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(),
+              ),
+            ),
+          ),
+          error: (_, __) => AlertDialog(
+            title: const Text('講義通知について'),
+            content: const Text('時間割データの読み込みに失敗しました。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('閉じる'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // 通知無効化確認ダイアログを表示
+  void _showDisableNotificationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.notifications_off, color: Colors.grey),
+              SizedBox(width: 8),
+              Text('通知を無効にしますか？'),
+            ],
+          ),
+          content: const Text(
+            '講義通知を無効にすると、今後通知が届かなくなります。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('キャンセル'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _disableNotifications(context);
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.grey,
+              ),
+              child: const Text('無効にする'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // 通知を有効化
+  Future<void> _enableNotifications(BuildContext context) async {
+    await ref.read(setScheduleNotificationEnabledProvider)(true);
+
+    // 通知を有効化
+    final scheduleAsync = ref.read(currentUserScheduleProvider);
+    scheduleAsync.whenData((schedule) async {
+      if (schedule != null) {
+        await ScheduleNotificationService.scheduleWeeklyNotifications(schedule);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('講義通知を有効にしました。講義開始10分前に通知が届きます。'),
+              duration: Duration(seconds: 3),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('時間割データが見つかりません。時間割を設定してください。'),
+              duration: Duration(seconds: 3),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  // 通知を無効化
+  Future<void> _disableNotifications(BuildContext context) async {
+    await ref.read(setScheduleNotificationEnabledProvider)(false);
+    await ScheduleNotificationService.cancelAllNotifications();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('講義通知を無効にしました'),
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 }
