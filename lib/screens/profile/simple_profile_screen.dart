@@ -179,11 +179,10 @@ class SimpleProfileScreen extends ConsumerWidget {
 
                   const Divider(height: 1),
 
-                  // お問い合わせフォーム（ログインユーザー向け）
-                  // 学バス表示優先キャンパス
+                  // メインキャンパス設定
                   ListTile(
-                    leading: const Icon(Icons.directions_bus),
-                    title: const Text('学バス表示の優先キャンパス'),
+                    leading: const Icon(Icons.school),
+                    title: const Text('メインキャンパスを設定'),
                     subtitle: Text(
                       preferredBusCampus == 'narashino'
                           ? '新習志野キャンパス'
@@ -262,6 +261,13 @@ class SimpleProfileScreen extends ConsumerWidget {
                       leading: const Icon(Icons.logout, color: Colors.red),
                       title: const Text('ログアウト'),
                       onTap: () => _showLogoutDialog(context),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.delete_forever, color: Colors.red),
+                      title: const Text('アカウント削除'),
+                      subtitle: const Text('アカウントとすべてのデータを削除'),
+                      onTap: () => _showDeleteAccountDialog(context, ref),
                     ),
                   ] else ...[
                     ListTile(
@@ -765,12 +771,18 @@ class SimpleProfileScreen extends ConsumerWidget {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('学バス優先キャンパス'),
+            title: const Row(
+              children: [
+                Icon(Icons.school),
+                SizedBox(width: 8),
+                Text('メインキャンパスを設定'),
+              ],
+            ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 RadioListTile<String>(
-                  title: const Text('津田沼キャンパスを優先'),
+                  title: const Text('津田沼キャンパス'),
                   value: 'tsudanuma',
                   groupValue: current,
                   onChanged: (v) async {
@@ -779,13 +791,13 @@ class SimpleProfileScreen extends ConsumerWidget {
                     if (context.mounted) Navigator.of(context).pop();
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('学バス表示を「津田沼」優先にしました')),
+                        const SnackBar(content: Text('メインキャンパスを「津田沼」に設定しました')),
                       );
                     }
                   },
                 ),
                 RadioListTile<String>(
-                  title: const Text('新習志野キャンパスを優先'),
+                  title: const Text('新習志野キャンパス'),
                   value: 'narashino',
                   groupValue: current,
                   onChanged: (v) async {
@@ -794,7 +806,7 @@ class SimpleProfileScreen extends ConsumerWidget {
                     if (context.mounted) Navigator.of(context).pop();
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('学バス表示を「新習志野」優先にしました')),
+                        const SnackBar(content: Text('メインキャンパスを「新習志野」に設定しました')),
                       );
                     }
                   },
@@ -857,6 +869,143 @@ class SimpleProfileScreen extends ConsumerWidget {
               ),
             ],
           ),
+    );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning, color: Colors.red),
+            SizedBox(width: 8),
+            Text('アカウント削除'),
+          ],
+        ),
+        content: const Text(
+          'アカウントを削除すると、すべてのデータが完全に削除されます。\n\nこの操作は取り消せません。本当に削除しますか？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _showDeleteAccountConfirmationDialog(context, ref);
+            },
+            child: const Text(
+              'アカウント削除',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteAccountConfirmationDialog(
+    BuildContext context,
+    WidgetRef ref,
+  ) {
+    final confirmController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('最終確認'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '本当にアカウントを削除しますか？\n\n確認のため「削除する」と入力してください。',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: confirmController,
+              decoration: const InputDecoration(
+                labelText: '「削除する」と入力',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('キャンセル'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              if (confirmController.text.trim() != '削除する') {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('「削除する」と正確に入力してください'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              Navigator.of(context).pop();
+
+              // ローディング表示
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+
+              try {
+                final user = FirebaseAuth.instance.currentUser;
+                if (user == null) throw Exception('ログインが必要です');
+
+                // Firestoreのユーザーデータを削除
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(user.uid)
+                    .delete();
+
+                // Firebase Authenticationのアカウントを削除
+                await user.delete();
+
+                if (context.mounted) {
+                  Navigator.of(context).pop(); // ローディングを閉じる
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    '/login',
+                    (route) => false,
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('アカウントを削除しました'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.of(context).pop(); // ローディングを閉じる
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('アカウント削除に失敗しました: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('削除する'),
+          ),
+        ],
+      ),
     );
   }
 }

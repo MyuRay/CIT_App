@@ -206,6 +206,10 @@ class _FullScreenCampusMapDialogState
   late final PageController _pageController;
   double _dragOffset = 0;
   bool _isDismissing = false;
+  bool _isImageZoomed = false;
+  final Map<String, TransformationController> _transformationControllers = {};
+  static const double _defaultScale = 1.0;
+  static const double _zoomedScale = 2.5;
 
   @override
   void initState() {
@@ -238,23 +242,92 @@ class _FullScreenCampusMapDialogState
       _currentIndex = 0;
     }
     _pageController = PageController(initialPage: _currentIndex);
+
+    // 各キャンパスごとにTransformationControllerを作成
+    for (final entry in _entries) {
+      final controller = TransformationController();
+      controller.addListener(() => _onTransformationChanged(entry.key));
+      _transformationControllers[entry.key] = controller;
+    }
+  }
+
+  void _onTransformationChanged(String campusKey) {
+    final currentCampusKey = _entries[_currentIndex].key;
+    if (campusKey != currentCampusKey) return;
+    final controller = _transformationControllers[campusKey];
+    if (controller == null) return;
+
+    final scale = controller.value.getMaxScaleOnAxis();
+    final isZoomed = scale > 1.1; // 少しマージンを持たせる
+    if (_isImageZoomed != isZoomed) {
+      setState(() => _isImageZoomed = isZoomed);
+    }
+  }
+
+  void _handleDoubleTap(String campusKey, TapDownDetails details) {
+    final controller = _transformationControllers[campusKey];
+    if (controller == null) return;
+
+    final scale = controller.value.getMaxScaleOnAxis();
+    final isCurrentlyZoomed = scale > 1.1;
+
+    if (isCurrentlyZoomed) {
+      // 拡大中の場合、元のサイズに戻す
+      controller.value = Matrix4.identity();
+    } else {
+      // 縮小時の場合、タップ位置を中心に拡大
+      // 画面サイズを取得
+      final screenSize = MediaQuery.of(context).size;
+      final screenCenterX = screenSize.width / 2;
+      final screenCenterY = screenSize.height / 2;
+
+      // GestureDetectorのローカル座標を画面座標に変換
+      final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+      if (renderBox == null) {
+        // フォールバック: 画面中心で拡大
+        controller.value = Matrix4.identity()..scale(_zoomedScale);
+        return;
+      }
+
+      final globalTapPosition = renderBox.localToGlobal(details.localPosition);
+      
+      // 画面中心からのオフセットを計算
+      final offsetX = globalTapPosition.dx - screenCenterX;
+      final offsetY = globalTapPosition.dy - screenCenterY;
+
+      final newScale = _zoomedScale;
+      
+      // InteractiveViewerの座標系で、タップ位置が拡大後も同じ位置に来るように調整
+      // 拡大によりオフセットが増えるため、それを考慮して調整
+      final translateX = -offsetX * (newScale - 1);
+      final translateY = -offsetY * (newScale - 1);
+      
+      controller.value = Matrix4.identity()
+        ..translate(translateX, translateY)
+        ..scale(newScale);
+    }
   }
 
   @override
   void dispose() {
+    for (final controller in _transformationControllers.values) {
+      controller.dispose();
+    }
     _pageController.dispose();
     super.dispose();
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
-    if (_isDismissing) return;
+    // 垂直ドラッグで閉じる機能は、画像が拡大されていない場合のみ有効
+    if (_isDismissing || _isImageZoomed) return;
     setState(() {
       _dragOffset += details.delta.dy;
     });
   }
 
   void _handleDragEnd(DragEndDetails details) {
-    if (_isDismissing) return;
+    // 垂直ドラッグで閉じる機能は、画像が拡大されていない場合のみ有効
+    if (_isDismissing || _isImageZoomed) return;
     final velocity = details.velocity.pixelsPerSecond.dy;
     if (_dragOffset.abs() > 120 || velocity.abs() > 700) {
       _isDismissing = true;
@@ -271,64 +344,64 @@ class _FullScreenCampusMapDialogState
     final opacity = (1 - (_dragOffset.abs() / 400)).clamp(0.3, 1.0).toDouble();
 
     return Dialog.fullscreen(
-      backgroundColor: Colors.black.withOpacity(opacity),
+      backgroundColor: Colors.black.withValues(alpha: opacity),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onVerticalDragUpdate: _handleDragUpdate,
         onVerticalDragEnd: _handleDragEnd,
-        child: Stack(
-          children: [
-            PageView.builder(
-              controller: _pageController,
-              itemCount: _entries.length,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
-              },
-              itemBuilder: (context, index) {
-                final entry = _entries[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: _buildCampusPage(context, entry.key, entry.value),
-                );
-              },
-            ),
-            _buildTopControls(context),
-            if (_entries.length > 1) _buildCampusSelector(context),
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 16,
-              left: 24,
-              child: Text(
-                _entries[_currentIndex].value,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+        child: Transform.translate(
+          offset: Offset(0, _dragOffset),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: PageView.builder(
+                  controller: _pageController,
+                  // 画像が拡大されている場合はスワイプを無効化
+                  physics: _isImageZoomed
+                      ? const NeverScrollableScrollPhysics()
+                      : const PageScrollPhysics(),
+                  itemCount: _entries.length,
+                  onPageChanged: (index) {
+                    if (index >= 0 && index < _entries.length) {
+                      // キャンパスが変更されたとき、前のキャンパスの拡大状態をリセット
+                      final previousCampusKey = _entries[_currentIndex].key;
+                      if (previousCampusKey != _entries[index].key) {
+                        final previousController = _transformationControllers[previousCampusKey];
+                        if (previousController != null) {
+                          previousController.value = Matrix4.identity();
+                        }
+                      }
+                      setState(() {
+                        _currentIndex = index;
+                      });
+                    }
+                  },
+                  itemBuilder: (context, index) {
+                    final entry = _entries[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: _buildCampusPage(context, entry.key, entry.value),
+                    );
+                  },
                 ),
               ),
-            ),
-            Positioned(
-              bottom: MediaQuery.of(context).padding.bottom + 16,
-              left: 16,
-              right: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'ピンチで拡大・縮小、ドラッグで移動',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+              _buildTopControls(context),
+              if (_entries.length > 1) _buildCampusSelector(context),
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 16,
+                left: 24,
+                child: Text(
+                  _entries[_currentIndex].value,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
-          ],
+              _buildDoubleTapHint(context),
+            ],
+          ),
         ),
       ),
     );
@@ -349,48 +422,59 @@ class _FullScreenCampusMapDialogState
         if (effectiveUrl == null || effectiveUrl.isEmpty) {
           return _buildMessage(context, '${campusName}のマップが見つかりません');
         }
+        
+        final imageWidget = kIsWeb
+            ? Image.network(
+                effectiveUrl,
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return const AnimatedImagePlaceholder(
+                    width: 220,
+                    height: 220,
+                    borderRadius: 12,
+                    borderColor: Colors.white24,
+                  );
+                },
+                errorBuilder:
+                    (context, error, stackTrace) => _buildMessage(
+                      context,
+                      '${campusName}のマップの読み込みに失敗しました',
+                    ),
+              )
+            : CachedNetworkImage(
+                imageUrl: effectiveUrl,
+                fit: BoxFit.contain,
+                placeholder:
+                    (context, url) => const AnimatedImagePlaceholder(
+                      width: 220,
+                      height: 220,
+                      borderRadius: 12,
+                      borderColor: Colors.white24,
+                    ),
+                errorWidget:
+                    (context, url, error) => _buildMessage(
+                      context,
+                      '${campusName}のマップの読み込みに失敗しました',
+                    ),
+              );
+
         return Center(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: InteractiveViewer(
-              minScale: 0.5,
-              maxScale: 4.0,
-              child:
-                  kIsWeb
-                      ? Image.network(
-                        effectiveUrl,
-                        fit: BoxFit.contain,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return const AnimatedImagePlaceholder(
-                            width: 220,
-                            height: 220,
-                            borderRadius: 12,
-                            borderColor: Colors.white24,
-                          );
-                        },
-                        errorBuilder:
-                            (context, error, stackTrace) => _buildMessage(
-                              context,
-                              '${campusName}のマップの読み込みに失敗しました',
-                            ),
-                      )
-                      : CachedNetworkImage(
-                        imageUrl: effectiveUrl,
-                        fit: BoxFit.contain,
-                        placeholder:
-                            (context, url) => const AnimatedImagePlaceholder(
-                              width: 220,
-                              height: 220,
-                              borderRadius: 12,
-                              borderColor: Colors.white24,
-                            ),
-                        errorWidget:
-                            (context, url, error) => _buildMessage(
-                              context,
-                              '${campusName}のマップの読み込みに失敗しました',
-                            ),
-                      ),
+          child: Material(
+            color: Colors.transparent,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onDoubleTapDown: (details) => _handleDoubleTap(campusKey, details),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: InteractiveViewer(
+                  transformationController: _transformationControllers[campusKey],
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  panEnabled: true,
+                  child: imageWidget,
+                ),
+              ),
             ),
           ),
         );
@@ -406,6 +490,39 @@ class _FullScreenCampusMapDialogState
           ),
       error:
           (error, _) => _buildMessage(context, '${campusName}のマップの読み込みに失敗しました'),
+    );
+  }
+
+  Widget _buildDoubleTapHint(BuildContext context) {
+    // 画像が拡大されている場合は表示しない
+    if (_isImageZoomed) {
+      return const SizedBox.shrink();
+    }
+    
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    // キャンパスセレクタの上に表示
+    // キャンパスセレクタは bottomPadding + 72 に配置されているので、
+    // それより上（bottomPadding + 148）に配置
+    return Positioned(
+      left: 16,
+      right: 16,
+      bottom: bottomPadding + 148,
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Text(
+            'ダブルタップで拡大・縮小',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -435,7 +552,7 @@ class _FullScreenCampusMapDialogState
                         color:
                             selected
                                 ? Colors.white
-                                : Colors.white.withOpacity(0.8),
+                                : Colors.white.withValues(alpha: 0.8),
                         fontWeight:
                             selected ? FontWeight.bold : FontWeight.normal,
                       ),

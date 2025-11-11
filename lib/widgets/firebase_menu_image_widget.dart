@@ -471,8 +471,42 @@ class _FullScreenMenuImageDialogState
                 ),
               ),
               _buildTopControls(context),
+              _buildDoubleTapHint(context),
               _buildCampusSelector(context),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDoubleTapHint(BuildContext context) {
+    // 画像が拡大されている場合は表示しない
+    if (_isImageZoomed) {
+      return const SizedBox.shrink();
+    }
+    
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    // キャンパスセレクタの上に表示
+    // キャンパスセレクタは bottomPadding + 24 に配置されているので、
+    // それより上（bottomPadding + 100）に配置
+    return Positioned(
+      left: 16,
+      right: 16,
+      bottom: bottomPadding + 100,
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Text(
+            'ダブルタップで拡大・縮小',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+            ),
           ),
         ),
       ),

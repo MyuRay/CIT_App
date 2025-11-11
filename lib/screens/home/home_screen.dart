@@ -26,6 +26,7 @@ import '../../widgets/firebase_menu_image_widget.dart';
 import '../../widgets/firebase_bus_timetable_widget.dart';
 import '../bus/bus_information_screen.dart';
 import '../cafeteria/cafeteria_reviews_screen.dart';
+import '../cafeteria/cafeteria_camera_info_screen.dart';
 import '../../widgets/campus_map_widget.dart';
 import '../../widgets/performance/optimized_notification_badge.dart';
 import '../../widgets/common/pulsing_dot_badge.dart';
@@ -413,42 +414,60 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       const SizedBox(height: 12),
                       _buildCafeteriaInfo(context, ref),
                       const SizedBox(height: 12),
-                      // 学食レビュー（単一ボタン）
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            FilledButton.icon(
-                              onPressed: () => _openCafeteriaReviews(context),
-                              icon: const Icon(Icons.reviews, size: 16),
-                              label: const Text('学食レビュー'),
-                              style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
+                      // 学食レビューと食堂カメラボタン
+                      Row(
+                        children: [
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              FilledButton.icon(
+                                onPressed: () => _openCafeteriaReviews(context),
+                                icon: const Icon(Icons.reviews, size: 16),
+                                label: const Text('学食レビュー'),
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  textStyle: const TextStyle(fontSize: 13),
                                 ),
-                                textStyle: const TextStyle(fontSize: 13),
                               ),
+                              todayReviewExistsAsync.when(
+                                data:
+                                    (hasToday) =>
+                                        hasToday
+                                            ? const Positioned(
+                                              right: -6,
+                                              top: -6,
+                                              child: PulsingDotBadge(
+                                                size: 10,
+                                                tooltipMessage: '今日レビューされています',
+                                              ),
+                                            )
+                                            : const SizedBox.shrink(),
+                                error: (_, __) => const SizedBox.shrink(),
+                                loading: () => const SizedBox.shrink(),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 8),
+                          FilledButton.icon(
+                            onPressed: () => _openCafeteriaCamera(context),
+                            icon: const Icon(Icons.videocam, size: 16),
+                            label: const Text('食堂カメラ'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.secondary,
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.onSecondary,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              textStyle: const TextStyle(fontSize: 13),
                             ),
-                            todayReviewExistsAsync.when(
-                              data:
-                                  (hasToday) =>
-                                      hasToday
-                                          ? const Positioned(
-                                            right: -6,
-                                            top: -6,
-                                            child: PulsingDotBadge(
-                                              size: 10,
-                                              tooltipMessage: '今日レビューされています',
-                                            ),
-                                          )
-                                          : const SizedBox.shrink(),
-                              error: (_, __) => const SizedBox.shrink(),
-                              loading: () => const SizedBox.shrink(),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -548,6 +567,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void _openCafeteriaReviews(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => const CafeteriaReviewsScreen()),
+    );
+  }
+
+  // 食堂カメラ情報画面へ遷移
+  void _openCafeteriaCamera(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const CafeteriaCameraInfoScreen(),
+      ),
     );
   }
 
