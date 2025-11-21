@@ -213,6 +213,7 @@ class BulletinService {
   }
 
   /// クーポンを使用
+  /// 注意: Discord通知はFirebase FunctionsのonDocumentUpdatedトリガーで自動的に送信されます
   static Future<void> useCoupon(String postId, String userId) async {
     try {
       print('🎫 useCoupon start: postId=$postId, userId=$userId');
@@ -264,6 +265,7 @@ class BulletinService {
         });
         print('🎫 transaction.update called with only couponUsedCount & couponUsedBy');
       });
+      
       // 反映確認ログ（任意）
       try {
         final after = await _firestore.collection('bulletin_posts').doc(postId).get();

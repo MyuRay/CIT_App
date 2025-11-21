@@ -32,7 +32,20 @@ class _CafeteriaReviewFormScreenState extends ConsumerState<CafeteriaReviewFormS
   bool _anonymous = false;
   String _defaultDisplayName = '匿名';
   String _volumeGender = 'male'; // 'male' or 'female'
+  double _buttonRight = 16.0; // ボタンの右側からの距離
+  double _buttonBottom = 16.0; // ボタンの下部からの距離
   bool get _isEditing => widget.editingReview != null;
+
+  // 15文字で折り返すヘルパーメソッド
+  String _wrapText(String text, int maxLength) {
+    if (text.length <= maxLength) return text;
+    final buffer = StringBuffer();
+    for (int i = 0; i < text.length; i += maxLength) {
+      if (i > 0) buffer.write('\n');
+      buffer.write(text.substring(i, (i + maxLength).clamp(0, text.length)));
+    }
+    return buffer.toString();
+  }
 
   @override
   void initState() {
@@ -72,6 +85,14 @@ class _CafeteriaReviewFormScreenState extends ConsumerState<CafeteriaReviewFormS
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final padding = MediaQuery.of(context).padding;
+    // 初期位置を設定（右下固定）
+    if (_buttonRight == 16.0 && _buttonBottom == 16.0) {
+      _buttonRight = 16.0; // 右側から16px
+      _buttonBottom = padding.bottom + 16.0; // 下部から16px（パディング考慮）
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEditing ? 'レビューを更新' : 'レビューを書く'),
@@ -84,11 +105,13 @@ class _CafeteriaReviewFormScreenState extends ConsumerState<CafeteriaReviewFormS
             ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
             const Text('食堂', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
@@ -109,6 +132,9 @@ class _CafeteriaReviewFormScreenState extends ConsumerState<CafeteriaReviewFormS
                 hintText: '例: 唐揚げ定食、カレー など',
               ),
               enabled: !(widget.fixed || _isEditing),
+              minLines: 1,
+              maxLines: 2,
+              expands: false,
             ),
             const SizedBox(height: 16),
             _RatingPicker(label: '美味しさ', value: _taste, onChanged: (v) => setState(() => _taste = v)),
@@ -193,17 +219,63 @@ class _CafeteriaReviewFormScreenState extends ConsumerState<CafeteriaReviewFormS
             ),
               maxLines: 4,
             ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _submitting ? null : () => _submit(context),
-                icon: const Icon(Icons.send),
-                label: Text(_submitting ? '送信中...' : (_isEditing ? '更新する' : '投稿する')),
+                const SizedBox(height: 24),
+                // スペーサーを追加してボタン分のスペースを確保
+                const SizedBox(height: 80),
+              ],
+            ),
+          ),
+          // ドラッグ可能なボタン（右下固定）
+          Positioned(
+            right: _buttonRight,
+            bottom: _buttonBottom,
+            child: GestureDetector(
+              onPanUpdate: (details) {
+                setState(() {
+                  // 右下を固定してドラッグ（rightとbottomを更新）
+                  _buttonRight = (_buttonRight - details.delta.dx).clamp(0.0, screenSize.width - 200);
+                  _buttonBottom = (_buttonBottom - details.delta.dy).clamp(padding.bottom, screenSize.height - 80);
+                });
+              },
+              onTap: () {
+                if (!_submitting) {
+                  _submit(context);
+                }
+              },
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 200),
+                child: Material(
+                  color: Theme.of(context).colorScheme.primary,
+                  borderRadius: BorderRadius.circular(4),
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.send, color: Theme.of(context).colorScheme.onPrimary),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            _wrapText(
+                              _submitting ? '送信中...' : (_isEditing ? '更新する' : '投稿する'),
+                              25,
+                            ),
+                            maxLines: 2,
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

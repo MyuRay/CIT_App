@@ -3,6 +3,7 @@
     android:id="@+id/widget_container"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:minHeight="150dp"
     android:orientation="vertical"
     android:padding="8dp"
     android:background="@android:color/white">
@@ -20,6 +21,7 @@
         android:id="@+id/days_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:minHeight="120dp"
         android:orientation="horizontal">
 
         <!-- Monday -->

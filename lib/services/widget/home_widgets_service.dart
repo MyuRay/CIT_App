@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:home_widget/home_widget.dart';
 import '../../models/schedule/schedule_model.dart';
 import '../../models/bus/bus_model.dart';
@@ -18,39 +19,105 @@ class HomeWidgetsService {
       if (Platform.isIOS) {
         await HomeWidget.setAppGroupId('group.com.cit.app');
       }
-    } catch (_) {}
+      debugPrint('✅ ホームウィジェットサービスを初期化しました');
+    } catch (e) {
+      debugPrint('❌ ホームウィジェットサービス初期化エラー: $e');
+    }
   }
 
   /// 週間フル時間割ウィジェットを更新（空スロットは送らない）
-  static Future<void> updateWeeklyFullSchedule(Schedule schedule) async {
-    final weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    final weeklyData = <String, dynamic>{};
+  /// scheduleがnullの場合は空データを送信
+  static Future<void> updateWeeklyFullSchedule(Schedule? schedule) async {
+    try {
+      debugPrint('📱 週間時間割ウィジェット更新開始');
+      final weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      final weeklyData = <String, dynamic>{};
 
-    for (final day in weekdays) {
-      final daySchedule = schedule.timetable[day];
-      if (daySchedule != null) {
-        final list = <Map<String, dynamic>>[];
-        for (var i = 1; i <= 10; i++) {
-          final c = daySchedule[i];
-          if (c != null) {
-            list.add({
-              'period': i,
-              'subject': c.subjectName,
-              'classroom': c.classroom,
-              'color': c.color,
-              'duration': c.duration,
-            });
+      if (schedule == null) {
+        debugPrint('⚠️ スケジュールがnullのため、空データを送信');
+        for (final day in weekdays) {
+          weeklyData[day] = <Map<String, dynamic>>[];
+        }
+      } else {
+        for (final day in weekdays) {
+          final daySchedule = schedule.timetable[day];
+          if (daySchedule != null) {
+            final list = <Map<String, dynamic>>[];
+            for (var i = 1; i <= 10; i++) {
+              final c = daySchedule[i];
+              if (c != null) {
+                list.add({
+                  'period': i,
+                  'subject': c.subjectName.isNotEmpty ? c.subjectName : '未設定',
+                  'classroom': c.classroom.isNotEmpty ? c.classroom : '',
+                  'color': c.color.isNotEmpty ? c.color : '#2196F3',
+                  'duration': c.duration,
+                });
+              }
+            }
+            weeklyData[day] = list;
+            debugPrint('  $day: ${list.length}件の授業');
+          } else {
+            weeklyData[day] = <Map<String, dynamic>>[];
+            debugPrint('  $day: 授業なし');
           }
         }
-        weeklyData[day] = list;
-      } else {
-        weeklyData[day] = <Map<String, dynamic>>[];
+      }
+
+      final jsonString = jsonEncode(weeklyData);
+      debugPrint('📱 ウィジェットデータを保存: ${jsonString.length}文字');
+      debugPrint('📱 データ内容: ${jsonString.substring(0, jsonString.length > 200 ? 200 : jsonString.length)}...');
+      
+      // データを保存
+      try {
+        await HomeWidget.saveWidgetData<String>(_keyWeeklyFull, jsonString);
+        debugPrint('✅ ウィジェットデータ保存完了');
+        
+        // データ保存の確認（Androidで確実に保存されるように少し待つ）
+        if (Platform.isAndroid) {
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
+      } catch (e) {
+        debugPrint('❌ ウィジェットデータ保存エラー: $e');
+        rethrow;
+      }
+      
+      try {
+        await HomeWidget.saveWidgetData<String>(_keyLastUpdate, DateTime.now().millisecondsSinceEpoch.toString());
+        debugPrint('✅ 最終更新時刻保存完了');
+      } catch (e) {
+        debugPrint('⚠️ 最終更新時刻保存エラー: $e (続行)');
+      }
+      
+      // ウィジェットを更新（データ保存後に実行）
+      try {
+        await HomeWidget.updateWidget(name: _weeklyWidgetName, androidName: _weeklyWidgetName);
+        debugPrint('✅ 週間時間割ウィジェット更新完了');
+      } catch (e) {
+        debugPrint('❌ ウィジェット更新呼び出しエラー: $e');
+        // 更新呼び出しに失敗してもデータは保存されているので、次回の自動更新で表示される
+        // Androidの場合、ウィジェットは定期的に自動更新される
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ 週間時間割ウィジェット更新エラー: $e');
+      debugPrint('❌ StackTrace: $stackTrace');
+      // エラー時は空データを送信してウィジェットを更新
+      try {
+        final emptyData = <String, dynamic>{
+          'monday': <Map<String, dynamic>>[],
+          'tuesday': <Map<String, dynamic>>[],
+          'wednesday': <Map<String, dynamic>>[],
+          'thursday': <Map<String, dynamic>>[],
+          'friday': <Map<String, dynamic>>[],
+          'saturday': <Map<String, dynamic>>[],
+        };
+        await HomeWidget.saveWidgetData<String>(_keyWeeklyFull, jsonEncode(emptyData));
+        await HomeWidget.updateWidget(name: _weeklyWidgetName, androidName: _weeklyWidgetName);
+        debugPrint('⚠️ エラー時の空データでウィジェットを更新しました');
+      } catch (e2) {
+        debugPrint('❌ 空データ送信も失敗: $e2');
       }
     }
-
-    await HomeWidget.saveWidgetData<String>(_keyWeeklyFull, jsonEncode(weeklyData));
-    await HomeWidget.saveWidgetData<String>(_keyLastUpdate, DateTime.now().millisecondsSinceEpoch.toString());
-    await HomeWidget.updateWidget(name: _weeklyWidgetName, androidName: _weeklyWidgetName);
   }
 
   /// 学バスリアルタイムウィジェットを更新
