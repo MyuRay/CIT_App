@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../models/schedule/schedule_model.dart';
 import '../../models/schedule/academic_year_model.dart';
@@ -60,9 +61,16 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> {
       state = AsyncValue.data(schedule);
       
       // ウィジェット更新（週間フル時間割）
+      // エラーが発生してもウィジェットは更新する
       await _updateWidgets();
     } catch (e, stackTrace) {
       state = AsyncValue.error(e, stackTrace);
+      // エラー時もウィジェットを更新（空データで）
+      try {
+        await _updateWidgets();
+      } catch (widgetError) {
+        debugPrint('❌ エラー時のウィジェット更新も失敗: $widgetError');
+      }
     }
   }
 
@@ -306,10 +314,18 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> {
   Future<void> _updateWidgets() async {
     try {
       final schedule = await ScheduleService.getScheduleByUserId(_userId);
-      if (schedule != null) {
-        await HomeWidgetsService.updateWeeklyFullSchedule(schedule);
+      // scheduleがnullの場合でも空データを送信してウィジェットを更新
+      await HomeWidgetsService.updateWeeklyFullSchedule(schedule);
+    } catch (e, stackTrace) {
+      debugPrint('❌ ウィジェット更新エラー: $e');
+      debugPrint('❌ StackTrace: $stackTrace');
+      // エラー時も空データを送信してウィジェットを更新
+      try {
+        await HomeWidgetsService.updateWeeklyFullSchedule(null);
+      } catch (e2) {
+        debugPrint('❌ エラー時のウィジェット更新も失敗: $e2');
       }
-    } catch (_) {}
+    }
   }
 
   // 通知を更新（通知設定が有効な場合）

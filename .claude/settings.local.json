@@ -11,7 +11,10 @@
       "Bash(firebase functions:list:*)",
       "Bash(firebase functions:delete:*)",
       "Bash(gcloud functions delete:*)",
-      "Bash(adb:*)"
+      "Bash(adb:*)",
+      "Bash(firebase deploy:*)",
+      "Bash(gcloud functions deploy:*)",
+      "Bash(set FIREBASE_FUNCTIONS_HTTP_TIMEOUT=30000)"
     ],
     "deny": []
   }

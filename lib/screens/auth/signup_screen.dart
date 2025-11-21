@@ -197,7 +197,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 TextFormField(
                   controller: _displayNameController,
                   decoration: const InputDecoration(
-                    labelText: '表示名(任意)',
+                    labelText: '表示名',
                     hintText: '掲示板コメントや学食レビューで表示されます',
                   ),
                   textInputAction: TextInputAction.next,
@@ -267,6 +267,29 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     }
                     return null;
                   },
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'MARINEアカウント及び大学関連サービスとは違うパスワードを使うことを推奨します',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 24),
                 SizedBox(

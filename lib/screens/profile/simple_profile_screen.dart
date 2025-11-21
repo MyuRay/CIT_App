@@ -355,7 +355,7 @@ class SimpleProfileScreen extends ConsumerWidget {
           const ListTile(
             leading: Icon(Icons.info),
             title: Text('バージョン'),
-            subtitle: Text('1.16.3+49'),
+            subtitle: Text('1.17.9+59'),
           ),
 
           const Divider(height: 1),
