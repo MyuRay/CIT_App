@@ -5,7 +5,7 @@ import '../../models/convenience_link/convenience_link_model.dart';
 class ConvenienceLinkService {
   static const String _keyPrefix = 'convenience_links_';
   static const String _versionKey = 'convenience_links_version';
-  static const int _currentVersion = 2; // 順番変更を反映するためのバージョン
+  static const int _currentVersion = 3; // 新しいプリセットリンク追加を反映するためのバージョン
   
   /// ユーザー固有のキーを生成
   static String _getUserKey(String userId) => '${_keyPrefix}$userId';
@@ -77,6 +77,7 @@ class ConvenienceLinkService {
       // バージョンが古い場合は順番を更新
       if (currentVersionSaved < _currentVersion) {
         print('便利リンクのバージョンを $currentVersionSaved から $_currentVersion に更新中...');
+        print('更新前のリンク数: ${links.length}');
         await _updateLinksToNewOrderInternal(userId, links);
         await prefs.setInt(_versionKey, _currentVersion);
         
@@ -88,6 +89,7 @@ class ConvenienceLinkService {
               .map((json) => ConvenienceLink.fromJson(json as Map<String, dynamic>))
               .toList();
           updatedLinks.sort((a, b) => a.order.compareTo(b.order));
+          print('更新後のリンク数: ${updatedLinks.length}');
           return updatedLinks;
         }
       }
@@ -198,6 +200,10 @@ class ConvenienceLinkService {
         'preset_library': 2,       // 図書館
         'preset_manaba': 3,        // manaba
         'preset_portal': 4,        // CITポータル
+        'preset_certificate': 5,   // 証明書発行
+        'preset_student_portal': 6, // 学生資料室
+        'preset_job_system': 7,    // 就職システム
+        'preset_cjob': 8,          // CJOB
       };
       
       // titleベースでも対応（カスタムリンクの可能性）
@@ -206,7 +212,15 @@ class ConvenienceLinkService {
         '図書館': 2,
         'manaba': 3,
         'CITポータル': 4,
+        '証明書発行': 5,
+        '学生資料室': 6,
+        '就職システム': 7,
+        'CJOB': 8,
       };
+      
+      // 既存のリンクIDとtitleのセットを作成
+      final existingIds = links.map((l) => l.id).toSet();
+      final existingTitles = links.map((l) => l.title).toSet();
       
       // 順番を更新
       final updatedLinks = <ConvenienceLink>[];
@@ -228,17 +242,30 @@ class ConvenienceLinkService {
         ));
       }
       
+      // 存在しない新しいプリセットリンクを追加
+      final presetLinks = PresetLinks.defaultLinks;
+      for (final presetLink in presetLinks) {
+        // IDもtitleも存在しない場合は新しいリンクとして追加
+        if (!existingIds.contains(presetLink.id) && !existingTitles.contains(presetLink.title)) {
+          updatedLinks.add(presetLink.copyWith(
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ));
+          print('新しいプリセットリンクを追加: ${presetLink.title}');
+        }
+      }
+      
       // 他のカスタムリンクは既存の順番を維持、プリセット以降に配置
-      int maxPresetOrder = 4;
-      for (final link in updatedLinks) {
+      int maxPresetOrder = 8;
+      for (int i = 0; i < updatedLinks.length; i++) {
+        final link = updatedLinks[i];
         if (!newOrderMap.containsKey(link.id) && !titleOrderMap.containsKey(link.title)) {
-          if (link.order <= maxPresetOrder) {
-            final newLink = link.copyWith(
+          // プリセットリンクでない場合
+          if (link.order <= maxPresetOrder && !link.id.startsWith('preset_')) {
+            updatedLinks[i] = link.copyWith(
               order: link.order + maxPresetOrder,
               updatedAt: DateTime.now(),
             );
-            final index = updatedLinks.indexOf(link);
-            updatedLinks[index] = newLink;
           }
         }
       }

@@ -3256,6 +3256,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               Text('リンク管理', style: Theme.of(context).textTheme.titleLarge),
               const Spacer(),
               IconButton(
+                onPressed: () => _resetToDefaults(context, ref),
+                icon: const Icon(Icons.restore),
+                tooltip: 'デフォルトにリセット',
+              ),
+              IconButton(
                 onPressed: () => _addNewLink(context, ref),
                 icon: const Icon(Icons.add),
                 tooltip: '新しいリンクを追加',
@@ -3466,6 +3471,68 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('設定の変更に失敗しました: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // デフォルトにリセット
+  Future<void> _resetToDefaults(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('デフォルトにリセット'),
+        content: const Text('すべてのリンクをデフォルトの状態にリセットしますか？\nカスタムリンクは削除されます。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('リセット'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final authService = ref.read(authServiceProvider);
+    final currentUser = authService.currentUser;
+
+    if (currentUser?.uid.isEmpty != false) return;
+
+    final userId = currentUser!.uid;
+    final userEmail = currentUser.email;
+
+    try {
+      final notifier = ref.read(
+        convenienceLinkProvider((
+          userId: userId,
+          userEmail: userEmail,
+        )).notifier,
+      );
+      await notifier.resetToDefaults();
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('デフォルトにリセットしました'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('リセットに失敗しました: $e'),
             backgroundColor: Colors.red,
           ),
         );
