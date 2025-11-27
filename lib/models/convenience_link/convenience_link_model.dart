@@ -145,6 +145,7 @@ class LinkIcons {
     'info': Icons.info,
     'help': Icons.help,
     'settings': Icons.settings,
+    'work': Icons.work,
   };
 
   static IconData getIcon(String iconName) {
@@ -215,6 +216,38 @@ class PresetLinks {
       iconName: 'school',
       color: 'blue',
       order: 4,
+    ),
+    ConvenienceLink(
+      id: 'preset_certificate',
+      title: '証明書発行',
+      url: 'https://conveni.is.it-chiba.ac.jp/cert/z/z_login.html',
+      iconName: 'document',
+      color: 'teal',
+      order: 5,
+    ),
+    ConvenienceLink(
+      id: 'preset_student_portal',
+      title: '学生資料室',
+      url: 'https://kmsk.is.it-chiba.ac.jp/portal/?',
+      iconName: 'info',
+      color: 'indigo',
+      order: 6,
+    ),
+    ConvenienceLink(
+      id: 'preset_job_system',
+      title: '就職システム',
+      url: 'https://www2.kyujin-navi.com/GAKUGAI/MENU/menu.asp',
+      iconName: 'work',
+      color: 'deepOrange',
+      order: 7,
+    ),
+    ConvenienceLink(
+      id: 'preset_cjob',
+      title: 'CJOB',
+      url: 'https://cjob.tech/',
+      iconName: 'star',
+      color: 'amber',
+      order: 8,
     ),
   ];
 }
