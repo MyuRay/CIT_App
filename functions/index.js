@@ -29,6 +29,8 @@ function getWebhook(kind) {
     menu: process.env.DISCORD_WEBHOOK_URL_MENU,
     review: process.env.DISCORD_WEBHOOK_URL_REVIEW,
     report: process.env.DISCORD_WEBHOOK_URL_REPORT,
+    coupon: process.env.DISCORD_WEBHOOK_URL_COUPON,
+    comment: process.env.DISCORD_WEBHOOK_URL_COMMENT,
   };
   const generic = process.env.DISCORD_WEBHOOK_URL;
 
@@ -73,6 +75,20 @@ function embed({
   };
 }
 
+// メールアドレスをマスクする関数（@前の最初の3文字だけ表示、残りは*で表示）
+function maskEmail(email) {
+  if (!email || email === '（未設定）' || !email.includes('@')) {
+    return email;
+  }
+  const [localPart, domain] = email.split('@');
+  if (localPart.length <= 3) {
+    return email; // 3文字以下の場合はそのまま
+  }
+  const visiblePart = localPart.substring(0, 3);
+  const maskedPart = '*'.repeat(localPart.length - 3);
+  return `${visiblePart}${maskedPart}@${domain}`;
+}
+
 exports.notifyUserCreated = onDocumentCreated('users/{uid}', async (event) => {
   const snap = event.data;
   if (!snap) return;
@@ -80,6 +96,7 @@ exports.notifyUserCreated = onDocumentCreated('users/{uid}', async (event) => {
   const data = snap.data() || {};
   const name = data.displayName || '（未設定）';
   const email = data.email || '（未設定）';
+  const maskedEmail = maskEmail(email);
   const uid = event.params.uid;
 
   const payload = embed({
@@ -88,7 +105,7 @@ exports.notifyUserCreated = onDocumentCreated('users/{uid}', async (event) => {
     color: 0x57f287,
     fields: [
       {name: '名前', value: String(name), inline: true},
-      {name: 'メール', value: String(email), inline: true},
+      {name: 'メール', value: String(maskedEmail), inline: true},
       {name: 'UID', value: String(uid), inline: false},
     ],
   });
@@ -161,15 +178,65 @@ exports.notifyBulletinPendingOnUpdate = onDocumentUpdated('bulletin_posts/{id}',
   const prevPin = !!before.pinRequested;
   const currPin = !!after.pinRequested;
 
+  const prevCouponUsedCount = before.couponUsedCount || 0;
+  const currCouponUsedCount = after.couponUsedCount || 0;
+  const couponUsed = prevCouponUsedCount < currCouponUsedCount;
+
   const becamePending = prevStatus !== 'pending' && currStatus === 'pending';
   const becamePinRequested = !prevPin && currPin;
   const becameApproved = prevStatus !== 'approved' && currStatus === 'approved';
 
-  if (!becamePending && !becamePinRequested && !becameApproved) return;
+  if (!becamePending && !becamePinRequested && !becameApproved && !couponUsed) return;
 
   const title = after.title || '（無題）';
   const author = after.authorName || after.authorId || '匿名';
   const categoryName = after.category?.name || after.categoryName || after.category?.id || '未分類';
+
+  // クーポン利用の通知
+  if (couponUsed && after.isCoupon) {
+    // 使用したユーザーIDを取得（couponUsedByから最新の変更を検出）
+    const prevUsedBy = before.couponUsedBy || {};
+    const currUsedBy = after.couponUsedBy || {};
+    
+    // 新しく追加されたユーザーまたは使用回数が増えたユーザーを検出
+    let usedByUserId = '不明';
+    for (const [userId, count] of Object.entries(currUsedBy)) {
+      const prevCount = prevUsedBy[userId] || 0;
+      if (count > prevCount) {
+        usedByUserId = userId;
+        break;
+      }
+    }
+    
+    // ユーザー名を取得
+    let usedByUserName = '不明';
+    try {
+      if (usedByUserId !== '不明') {
+        const userDoc = await admin.firestore().collection('users').doc(usedByUserId).get();
+        if (userDoc.exists) {
+          usedByUserName = userDoc.data()?.displayName || usedByUserId;
+        }
+      }
+    } catch (error) {
+      console.error('ユーザー情報の取得に失敗:', error);
+    }
+
+    const payload = embed({
+      title: '🎫 クーポンが使用されました',
+      description: '掲示板のクーポンが使用されました。',
+      color: 0x57f287,
+      fields: [
+        {name: 'タイトル', value: String(title), inline: true},
+        {name: 'カテゴリー', value: String(categoryName), inline: true},
+        {name: '投稿者', value: String(author), inline: true},
+        {name: '使用したユーザー', value: String(usedByUserName), inline: true},
+        {name: '使用回数', value: `${currCouponUsedCount}回`, inline: true},
+        {name: 'ドキュメントID', value: event.params.id, inline: false},
+      ],
+    });
+
+    await postToDiscord(getWebhook('coupon'), payload);
+  }
 
   // Discord通知
   if (becamePending || becamePinRequested) {
@@ -209,6 +276,55 @@ exports.notifyBulletinPendingOnUpdate = onDocumentUpdated('bulletin_posts/{id}',
       console.error('承認通知の送信に失敗:', error);
     }
   }
+});
+
+// 掲示板コメント: 作成時に通知
+exports.notifyBulletinCommentCreated = onDocumentCreated('bulletin_comments/{id}', async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+
+  const comment = snap.data() || {};
+  const postId = comment.postId;
+  const authorName = comment.authorName || comment.authorId || '匿名';
+  const content = comment.content || '（内容なし）';
+  const isReply = !!comment.parentCommentId;
+
+  // 投稿情報を取得
+  let postTitle = '（タイトル不明）';
+  let postAuthor = '（投稿者不明）';
+  try {
+    if (postId) {
+      const postDoc = await admin.firestore().collection('bulletin_posts').doc(postId).get();
+      if (postDoc.exists) {
+        const postData = postDoc.data();
+        postTitle = postData?.title || '（タイトル不明）';
+        postAuthor = postData?.authorName || postData?.authorId || '（投稿者不明）';
+      }
+    }
+  } catch (error) {
+    console.error('投稿情報の取得に失敗:', error);
+  }
+
+  // コメント内容を100文字に制限（長すぎる場合）
+  const displayContent = content.length > 100 ? content.substring(0, 100) + '...' : content;
+
+  const payload = embed({
+    title: isReply ? '💬 掲示板に返信がつきました' : '💬 掲示板にコメントがつきました',
+    description: isReply 
+      ? '掲示板の投稿に返信が投稿されました。'
+      : '掲示板の投稿にコメントが投稿されました。',
+    color: 0x5865f2,
+    fields: [
+      {name: '投稿タイトル', value: String(postTitle), inline: false},
+      {name: '投稿者', value: String(postAuthor), inline: true},
+      {name: 'コメント投稿者', value: String(authorName), inline: true},
+      {name: 'コメント内容', value: String(displayContent), inline: false},
+      {name: '投稿ID', value: String(postId), inline: false},
+      {name: 'コメントID', value: event.params.id, inline: false},
+    ],
+  });
+
+  await postToDiscord(getWebhook('comment'), payload);
 });
 
 // 学食メニュー: 追加時に通知
