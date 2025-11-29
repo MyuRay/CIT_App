@@ -60,13 +60,13 @@ class AppNotification {
         orElse: () => NotificationType.system,
       ),
       title: json['title'] as String,
-      message: json['message'] as String,
+      message: json['message'] as String? ?? json['body'] as String? ?? '',
       postId: json['postId'] as String?,
       commentId: json['commentId'] as String?,
       fromUserId: json['fromUserId'] as String?,
       fromUserName: json['fromUserName'] as String?,
       createdAt: (json['createdAt'] as Timestamp).toDate(),
-      isRead: json['isRead'] as bool? ?? false,
+      isRead: json['isRead'] as bool? ?? json['read'] as bool? ?? false,
       data: json['data'] as Map<String, dynamic>?,
     );
   }
