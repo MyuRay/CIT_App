@@ -127,7 +127,7 @@ class AppTheme {
         backgroundColor: Colors.grey[900],
       ),
       // カードのテーマ
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: Colors.grey[800],
         elevation: 2,
       ),

@@ -264,12 +264,12 @@ exports.notifyBulletinPendingOnUpdate = onDocumentUpdated('bulletin_posts/{id}',
     try {
       await admin.firestore().collection('notifications').add({
         userId: after.authorId,
-        type: 'bulletin_approved',
+        type: 'post_approved',
         title: '掲示板投稿が承認されました',
-        body: `「${title}」が承認されました`,
+        message: `「${title}」が承認されました`,
         postId: event.params.id,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        read: false,
+        isRead: false,
       });
       console.log(`承認通知を送信: ユーザー ${after.authorId}, 投稿 ${event.params.id}`);
     } catch (error) {
@@ -694,7 +694,7 @@ exports.sendPushNotification = onDocumentCreated('notifications/{notificationId}
       token: fcmToken,
       notification: {
         title: notification.title || 'CIT App',
-        body: notification.body || '',
+        body: notification.message || notification.body || '',
       },
       data: {
         notificationId: event.params.notificationId,

@@ -15,6 +15,7 @@ import 'cafeteria_menu_item_form_screen.dart';
 import '../../core/providers/in_app_ad_provider.dart';
 import '../../models/ads/in_app_ad_model.dart';
 import '../../widgets/ads/in_app_ad_card.dart';
+import '../../core/providers/settings_provider.dart';
 
 String? _campusCodeFromCafeteriaId(String cafeteriaId) {
   switch (cafeteriaId) {
@@ -95,6 +96,7 @@ class CafeteriaReviewsScreen extends ConsumerStatefulWidget {
 class _CafeteriaReviewsScreenState extends ConsumerState<CafeteriaReviewsScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  bool _initialTabSet = false;
 
   int _indexForCafeteria(String? id) {
     switch (id) {
@@ -144,6 +146,19 @@ class _CafeteriaReviewsScreenState extends ConsumerState<CafeteriaReviewsScreen>
 
   @override
   Widget build(BuildContext context) {
+    // initialCafeteriaIdが指定されていない場合、メインキャンパス設定を確認
+    if (!_initialTabSet && widget.initialCafeteriaId == null) {
+      final preferredCampus = ref.read(preferredBusCampusProvider);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && preferredCampus == 'narashino') {
+          _tabController.animateTo(1); // 新習志野1F
+          _initialTabSet = true;
+        }
+      });
+    } else {
+      _initialTabSet = true;
+    }
+
     final campusId = _cafeteriaForIndex(_tabController.index);
     final campusCode = _campusCodeFromCafeteriaId(campusId);
     final campusName = Cafeterias.displayName(campusId);
