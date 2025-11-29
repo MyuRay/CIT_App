@@ -18,7 +18,7 @@
 ### 🍽️ 食堂メニュー
 - リアルタイムメニュー表示
 - 画像付きメニュー情報
-- 自動更新スケジューラー今後追加
+- 自動更新スケジューラー追加済み
 
 ### 📚 シラバス検索今後追加
 - 講義情報検索
@@ -31,12 +31,15 @@
 
 ## 🏗️ 技術スタック
 
-- **フレームワーク**: Flutter 3.7.0+
+- **フレームワーク**: Flutter 3.38.3 (stable)
 - **状態管理**: Riverpod + Hooks Riverpod
 - **バックエンド**: Firebase
   - Authentication（認証）
   - Firestore（データベース）
   - Storage（画像ストレージ）
+  - App Check（セキュリティ）
+  - Cloud Messaging（プッシュ通知）
+  - Analytics（分析）
 - **ナビゲーション**: Go Router
 - **UI**: Material Design 3
 - **プラットフォーム**: Android, iOS, Web
@@ -44,8 +47,8 @@
 ## 🚀 セットアップと起動
 
 ### 前提条件
-- Flutter SDK 3.7.0以降
-- Dart SDK
+- Flutter SDK 3.38.3 (stable)
+- Dart SDK 3.7.0以降
 - Android Studio / Xcode（モバイル開発時）
 - Firebase プロジェクト
 
