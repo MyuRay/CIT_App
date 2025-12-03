@@ -140,22 +140,28 @@ class _FirebaseBusTimetableWidgetState extends ConsumerState<FirebaseBusTimetabl
                       fit: widget.fit,
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
-                        return _buildLoadingWidget(context);
+                        // 読み込み中でもアセット画像を表示
+                        return _buildAssetImageWidget(context);
                       },
                       errorBuilder: (context, error, stackTrace) {
                         debugPrint('Firebase画像読み込みエラー: $error - アセット画像にフォールバック');
                         return _buildAssetImageWidget(context);
                       },
                     )
-                  : // モバイル版：CachedNetworkImageを使用
-                    CachedNetworkImage(
-                      imageUrl: imageUrl,
+                  : // モバイル版：Image.networkを使用（キャッシュなし）
+                    Image.network(
+                      imageUrl,
                       width: widget.width,
                       height: widget.height,
                       fit: widget.fit,
-                      placeholder: (context, url) => _buildLoadingWidget(context),
-                      errorWidget: (context, url, error) {
-                        debugPrint('CachedNetworkImage読み込みエラー: $error - アセット画像にフォールバック');
+                      cacheWidth: null, // キャッシュ無効化
+                      cacheHeight: null, // キャッシュ無効化
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return _buildLoadingWidget(context);
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        debugPrint('Firebase画像読み込みエラー: $error - アセット画像にフォールバック');
                         return _buildAssetImageWidget(context);
                       },
                     ),

@@ -1661,7 +1661,7 @@ class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
       } else if (e.toString().contains('network')) {
         errorMessage = 'ネットワークエラーが発生しました。接続を確認してください。';
       } else if (e.toString().contains('unavailable')) {
-        errorMessage = 'サーバーに接続できません。しばらく待ってから再度お試しください。';
+        errorMessage = 'サーバーに接続できません。';
       }
 
       if (mounted) {

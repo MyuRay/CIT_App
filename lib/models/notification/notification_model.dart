@@ -295,6 +295,29 @@ class NotificationFactory {
       data: reason != null ? {'reason': reason} : null,
     );
   }
+
+  static AppNotification createContactResponseNotification({
+    required String contactUserId,
+    required String contactSubject,
+    required String contactId,
+    required String response,
+    String? responderName,
+  }) {
+    return AppNotification(
+      id: '', // Firestoreで自動生成
+      userId: contactUserId,
+      type: NotificationType.general,
+      title: 'お問い合わせへの返信',
+      message: 'お問い合わせ「$contactSubject」への返信が届きました',
+      createdAt: DateTime.now(),
+      data: {
+        'contactId': contactId,
+        'response': response,
+        'type': 'contact_response',
+      },
+      fromUserName: responderName ?? '管理者',
+    );
+  }
 }
 
 // 全体通知モデル（アプリアップデート等の全ユーザー向け通知）

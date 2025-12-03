@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/admin/admin_model.dart';
+import '../../models/notification/notification_model.dart';
+import '../../core/providers/notification_provider.dart';
 
 class ContactService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -165,6 +167,21 @@ class ContactService {
         throw Exception('ログインが必要です');
       }
 
+      // お問い合わせ情報を取得（通知送信用）
+      final contactDoc = await _firestore
+          .collection(_collectionName)
+          .doc(contactId)
+          .get();
+      
+      if (!contactDoc.exists) {
+        throw Exception('お問い合わせが見つかりません');
+      }
+
+      final contactData = contactDoc.data()!;
+      final contactUserId = contactData['userId'] as String? ?? '';
+      final contactSubject = contactData['subject'] as String? ?? 'お問い合わせ';
+
+      // 返信を更新
       await _firestore
           .collection(_collectionName)
           .doc(contactId)
@@ -177,6 +194,46 @@ class ContactService {
       });
       
       print('✅ 返信を送信しました: $contactId');
+
+      // お問い合わせしたユーザーに通知を送信
+      if (contactUserId.isNotEmpty) {
+        try {
+          // 管理者の名前を取得（ユーザー情報から）
+          String? responderName;
+          try {
+            final responderDoc = await _firestore
+                .collection('users')
+                .doc(user.uid)
+                .get();
+            if (responderDoc.exists) {
+              final responderData = responderDoc.data();
+              responderName = responderData?['displayName'] as String? ?? 
+                             responderData?['name'] as String? ?? 
+                             user.displayName ?? 
+                             '管理者';
+            }
+          } catch (e) {
+            print('⚠️ 管理者名取得エラー（通知は送信します）: $e');
+            responderName = user.displayName ?? '管理者';
+          }
+
+          final notification = NotificationFactory.createContactResponseNotification(
+            contactUserId: contactUserId,
+            contactSubject: contactSubject,
+            contactId: contactId,
+            response: response.trim(),
+            responderName: responderName,
+          );
+
+          await NotificationService.sendNotification(notification);
+          print('✅ お問い合わせ返信通知を送信しました: $contactUserId');
+        } catch (notificationError) {
+          // 通知送信エラーは返信処理を阻害しない
+          print('⚠️ 通知送信エラー（返信は完了しています）: $notificationError');
+        }
+      } else {
+        print('⚠️ お問い合わせユーザーIDが空のため、通知を送信しませんでした');
+      }
     } catch (e) {
       print('❌ 返信送信エラー: $e');
       rethrow;

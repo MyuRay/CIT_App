@@ -91,6 +91,9 @@ dependencies:
   # Local notifications
   flutter_local_notifications: ^18.0.1
   timezone: ^0.9.4
+  
+  # In-app review
+  in_app_review: ^2.0.9
 
 dev_dependencies:
   flutter_test:
