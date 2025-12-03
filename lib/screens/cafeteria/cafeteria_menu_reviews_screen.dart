@@ -8,7 +8,7 @@ import '../../models/cafeteria/cafeteria_menu_item_model.dart';
 import 'cafeteria_review_form_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-class CafeteriaMenuReviewsScreen extends ConsumerStatefulWidget {
+class CafeteriaMenuReviewsScreen extends ConsumerWidget {
   const CafeteriaMenuReviewsScreen({
     super.key,
     required this.cafeteriaId,
@@ -19,33 +19,13 @@ class CafeteriaMenuReviewsScreen extends ConsumerStatefulWidget {
   final String menuName;
 
   @override
-  ConsumerState<CafeteriaMenuReviewsScreen> createState() => _CafeteriaMenuReviewsScreenState();
-}
-
-class _CafeteriaMenuReviewsScreenState extends ConsumerState<CafeteriaMenuReviewsScreen> {
-  double _buttonRight = 16.0; // ボタンの右側からの距離
-  double _buttonBottom = 16.0; // ボタンの下部からの距離
-
-  // 全角文字数を基準に折り返すヘルパーメソッド
-  String _wrapText(String text, int maxLength) {
-    if (text.length <= maxLength) return text;
-    
-    final buffer = StringBuffer();
-    for (int i = 0; i < text.length; i += maxLength) {
-      if (i > 0) buffer.write('\n');
-      buffer.write(text.substring(i, (i + maxLength).clamp(0, text.length)));
-    }
-    return buffer.toString();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final reviewsAsync = ref.watch(cafeteriaReviewsProvider(widget.cafeteriaId));
-    final itemsAsync = ref.watch(cafeteriaMenuItemsProvider(widget.cafeteriaId));
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reviewsAsync = ref.watch(cafeteriaReviewsProvider(cafeteriaId));
+    final itemsAsync = ref.watch(cafeteriaMenuItemsProvider(cafeteriaId));
 
     return reviewsAsync.when(
       data: (reviews) {
-        final normalized = widget.menuName.trim().toLowerCase();
+        final normalized = menuName.trim().toLowerCase();
         final filtered = reviews
             .where((r) => (r.menuName ?? '').trim().toLowerCase() == normalized)
             .toList();
@@ -85,107 +65,54 @@ class _CafeteriaMenuReviewsScreenState extends ConsumerState<CafeteriaMenuReview
           menuItem = map[normalized];
         });
 
-        final screenSize = MediaQuery.of(context).size;
-        final padding = MediaQuery.of(context).padding;
-        // 初期位置を設定（右下固定）
-        if (_buttonRight == 16.0 && _buttonBottom == 16.0) {
-          _buttonRight = 16.0; // 右側から16px
-          _buttonBottom = padding.bottom + 16.0; // 下部から16px（パディング考慮）
-        }
-
         return Scaffold(
           appBar: AppBar(
-            title: Text(widget.menuName),
+            title: Text(menuName),
           ),
-          body: Stack(
-            children: [
-              Column(
-                children: [
-                  _Header(
-                    cafeteriaId: widget.cafeteriaId,
-                    menuName: widget.menuName,
-                    menuItem: menuItem,
-                    avgTaste: avgTaste,
-                    avgVolume: avgVolume,
-                    avgRecommend: avgRecommend,
-                    avgVolumeMale: avgVolumeMale,
-                    avgVolumeFemale: avgVolumeFemale,
-                    count: count,
-                  ),
-                  const Divider(height: 0),
-                  Expanded(
-                    child: count == 0
-                        ? const Center(child: Text('まだレビューがありません'))
-                        : ListView.separated(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            separatorBuilder: (_, __) => const SizedBox(height: 6),
-                            itemCount: filtered.length,
-                            itemBuilder: (context, index) => _ReviewCard(review: filtered[index]),
-                          ),
-                  ),
-                ],
-              ),
-              // ドラッグ可能なボタン（右下固定）
-              Positioned(
-                right: _buttonRight,
-                bottom: _buttonBottom,
-                child: GestureDetector(
-                  onPanUpdate: (details) {
-                    setState(() {
-                      // 右下を固定してドラッグ（rightとbottomを更新）
-                      // ボタン幅400pxを考慮
-                      _buttonRight = (_buttonRight - details.delta.dx).clamp(0.0, screenSize.width - 400);
-                      _buttonBottom = (_buttonBottom - details.delta.dy).clamp(padding.bottom, screenSize.height - 80);
-                    });
-                  },
-                  onTap: () async {
-                    final result = await Navigator.of(context).push<bool>(
-                      MaterialPageRoute(
-                        builder: (_) => CafeteriaReviewFormScreen(
-                          initialCafeteriaId: widget.cafeteriaId,
-                          initialMenuName: widget.menuName,
-                          fixed: true,
-                          editingReview: existing,
-                        ),
-                      ),
-                    );
-                    if (result == true && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(existing == null ? 'レビューを投稿しました' : 'レビューを更新しました')),
-                      );
-                    }
-                  },
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 400), // 全角20文字が収まる幅
-                    child: Material(
-                      color: Theme.of(context).colorScheme.primary,
-                      borderRadius: BorderRadius.circular(28),
-                      elevation: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.rate_review, color: Theme.of(context).colorScheme.onPrimary),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                _wrapText(
-                                  existing == null ? '${widget.menuName}のレビューを作成' : '${widget.menuName}のレビューを編集',
-                                  20,
-                                ),
-                                style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
-                                maxLines: 2,
-                                textAlign: TextAlign.center,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () async {
+              final result = await Navigator.of(context).push<bool>(
+                MaterialPageRoute(
+                  builder: (_) => CafeteriaReviewFormScreen(
+                    initialCafeteriaId: cafeteriaId,
+                    initialMenuName: menuName,
+                    fixed: true,
+                    editingReview: existing,
                   ),
                 ),
+              );
+              if (result == true && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(existing == null ? 'レビューを投稿しました' : 'レビューを更新しました')),
+                );
+              }
+            },
+            icon: const Icon(Icons.rate_review),
+            label: Text(existing == null ? '${menuName}のレビューを作成' : '${menuName}のレビューを編集'),
+          ),
+          body: Column(
+            children: [
+              _Header(
+                cafeteriaId: cafeteriaId,
+                menuName: menuName,
+                menuItem: menuItem,
+                avgTaste: avgTaste,
+                avgVolume: avgVolume,
+                avgRecommend: avgRecommend,
+                avgVolumeMale: avgVolumeMale,
+                avgVolumeFemale: avgVolumeFemale,
+                count: count,
+              ),
+              const Divider(height: 0),
+              Expanded(
+                child: count == 0
+                    ? const Center(child: Text('まだレビューがありません'))
+                    : ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        separatorBuilder: (_, __) => const SizedBox(height: 6),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) => _ReviewCard(review: filtered[index]),
+                      ),
               ),
             ],
           ),
@@ -262,9 +189,8 @@ class _Header extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
+                        Flexible(
                           child: Text(
                             menuName,
                             maxLines: 2,
@@ -272,17 +198,18 @@ class _Header extends StatelessWidget {
                             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Text(
                           count == 0 ? 'レビューなし' : '(${count}件)',
-                          style: const TextStyle(color: Colors.grey),
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
                     _formatPrice(menuItem?.price),
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),

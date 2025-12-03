@@ -2548,7 +2548,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           dynamicNext.minute,
         );
         final timeUntilBus = nextBusTime.difference(now);
-        return _buildTimeDisplay(context, dynamicNext, timeUntilBus);
+        final nextNextBus = route.getNextNextBusTime();
+        return _buildTimeDisplay(context, route, dynamicNext, timeUntilBus, nextNextBus);
       },
     );
   }
@@ -2556,8 +2557,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // 時刻表示ウィジェット
   Widget _buildTimeDisplay(
     BuildContext context,
+    BusRoute route,
     BusTimeEntry nextBus,
-    Duration timeUntil, {
+    Duration timeUntil,
+    BusTimeEntry? nextNextBus, {
     bool isTomorrow = false,
   }) {
     final hours = timeUntil.inHours;
@@ -2581,11 +2584,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 size: 16,
               ),
               const SizedBox(width: 6),
-              Text(
-                '次の便: ${nextBus.timeString}${isTomorrow ? ' (明日)' : ''}',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+              Flexible(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '次の便: ${nextBus.timeString}${isTomorrow ? ' (明日)' : ''}',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      if (nextNextBus != null)
+                        TextSpan(
+                          text: ' (その次の便: ${nextNextBus.timeString})',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
               if (nextBus.note != null) ...[
                 const SizedBox(width: 6),
@@ -2712,31 +2733,120 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   // バスダイヤ画像を一発でフルスクリーン表示
   void _showBusTimetableImage(BuildContext context) {
-    final ref = ProviderScope.containerOf(context);
-    final imageUrlAsync = ref.read(firebaseBusTimetableProvider);
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      barrierDismissible: false,
+      builder: (dialogContext) => Consumer(
+        builder: (context, ref, child) {
+          final imageUrlAsync = ref.watch(firebaseBusTimetableProvider);
+          
+          return imageUrlAsync.when(
+            data: (imageUrl) {
+              // データが取得できたら画像を表示
+              if (imageUrl != null && imageUrl.isNotEmpty) {
+                return _buildFullScreenImageDialog(context, imageUrl, dialogContext);
+              } else {
+                return _buildFullScreenAssetImageDialog(context, dialogContext);
+              }
+            },
+            loading: () {
+              // 読み込み中はローディング表示
+              return Dialog.fullscreen(
+                backgroundColor: Colors.black87,
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                  ),
+                ),
+              );
+            },
+            error: (error, _) {
+              // エラー時はアセット画像を表示
+              return _buildFullScreenAssetImageDialog(context, dialogContext);
+            },
+          );
+        },
+      ),
+    );
+  }
 
-    void showUnavailableSnackBar([String? message]) {
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      messenger?.showSnackBar(
-        SnackBar(content: Text(message ?? 'オンラインの時刻表を取得できませんでした。')),
-      );
-    }
+  // フルスクリーン画像ダイアログを構築
+  Widget _buildFullScreenImageDialog(BuildContext context, String imageUrl, BuildContext dialogContext) {
+    return Dialog.fullscreen(
+      backgroundColor: Colors.black87,
+      child: Stack(
+        children: [
+          Center(
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 5.0,
+              child: kIsWeb
+                  ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Image.asset(
+                          'assets/images/bus_timetable.png',
+                          fit: BoxFit.contain,
+                        );
+                      },
+                    )
+                  : Image.network(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      cacheWidth: null,
+                      cacheHeight: null,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Image.asset(
+                          'assets/images/bus_timetable.png',
+                          fit: BoxFit.contain,
+                        );
+                      },
+                    ),
+            ),
+          ),
+          _buildFullScreenControls(dialogContext, '学バス時刻表'),
+        ],
+      ),
+    );
+  }
 
-    // Firebase画像が取得できた場合のみフルスクリーン表示する
-    imageUrlAsync.when(
-      data: (imageUrl) {
-        if (imageUrl != null && imageUrl.isNotEmpty) {
-          _showFullScreenFirebaseImage(context, imageUrl);
-        } else {
-          showUnavailableSnackBar();
-        }
-      },
-      loading: () {
-        showUnavailableSnackBar('時刻表を読み込み中です。しばらくしてからお試しください。');
-      },
-      error: (error, _) {
-        showUnavailableSnackBar();
-      },
+  // フルスクリーンアセット画像ダイアログを構築
+  Widget _buildFullScreenAssetImageDialog(BuildContext context, BuildContext dialogContext) {
+    return Dialog.fullscreen(
+      backgroundColor: Colors.black87,
+      child: Stack(
+        children: [
+          Center(
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 5.0,
+              child: Image.asset(
+                'assets/images/bus_timetable.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+          _buildFullScreenControls(dialogContext, '学バス時刻表（オフライン版）'),
+        ],
+      ),
     );
   }
 
@@ -2780,20 +2890,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                 );
                               },
                             )
-                            : CachedNetworkImage(
-                              imageUrl: imageUrl,
+                            : Image.network(
+                              imageUrl,
                               fit: BoxFit.contain,
-                              placeholder:
-                                  (context, url) => const Center(
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                    ),
+                              cacheWidth: null, // キャッシュ無効化
+                              cacheHeight: null, // キャッシュ無効化
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return const Center(
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
                                   ),
-                              errorWidget:
-                                  (context, url, error) => Image.asset(
-                                    'assets/images/bus_timetable.png',
-                                    fit: BoxFit.contain,
-                                  ),
+                                );
+                              },
+                              errorBuilder: (context, error, stackTrace) {
+                                return Image.asset(
+                                  'assets/images/bus_timetable.png',
+                                  fit: BoxFit.contain,
+                                );
+                              },
                             ),
                   ),
                 ),
@@ -2801,6 +2916,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ],
             ),
           ),
+    );
+  }
+
+  // ローディング画面をフルスクリーン表示
+  void _showFullScreenLoading(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      barrierDismissible: false,
+      builder: (context) => Dialog.fullscreen(
+        backgroundColor: Colors.black87,
+        child: const Center(
+          child: CircularProgressIndicator(
+            color: Colors.white,
+          ),
+        ),
+      ),
     );
   }
 

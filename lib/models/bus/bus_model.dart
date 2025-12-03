@@ -224,6 +224,26 @@ class BusRoute {
     return null;
   }
 
+  /// その次のバスの時刻を取得（次の次の便）
+  BusTimeEntry? getNextNextBusTime() {
+    final now = DateTime.now();
+    final activeEntries = activeTimeEntries;
+    bool foundFirst = false;
+    for (final entry in activeEntries) {
+      if (entry.todayDateTime.isAfter(now)) {
+        if (foundFirst) {
+          // 最初の次の便の次を見つけた
+          return entry;
+        } else {
+          // 最初の次の便を見つけた
+          foundFirst = true;
+        }
+      }
+    }
+    // その次の便が無ければ null
+    return null;
+  }
+
   // 現在日のダイヤ種別を取得
   static String _currentDayType() {
     final wd = DateTime.now().weekday;

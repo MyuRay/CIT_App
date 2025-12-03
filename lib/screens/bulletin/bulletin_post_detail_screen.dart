@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/bulletin/bulletin_model.dart';
 import '../../models/comment/comment_model.dart';
 import '../../services/bulletin/bulletin_service.dart';
@@ -36,6 +38,11 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
   String? _replyToAuthorName;
   bool _isCommentFormVisible = false;
   
+  // クーポン連続押下防止用
+  Timer? _couponCooldownTimer;
+  int _remainingCooldownSeconds = 0;
+  static const int _cooldownDurationSeconds = 300; // 5分 = 300秒
+  
   // リアルタイム更新用のStreamを取得
   Stream<BulletinPost> get _postStream {
     return FirebaseFirestore.instance
@@ -53,13 +60,55 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
     super.initState();
     // 閲覧数をインクリメント
     _incrementViewCount();
+    // クーポンクールダウン状態を確認
+    _checkCouponCooldown();
   }
 
   @override
   void dispose() {
     _commentController.dispose();
     _scrollController.dispose();
+    _couponCooldownTimer?.cancel();
     super.dispose();
+  }
+
+  // クーポンクールダウン状態を確認
+  Future<void> _checkCouponCooldown() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final lastUsedKey = 'coupon_last_used_${widget.post.id}_${currentUser.uid}';
+    final lastUsedTimestamp = prefs.getInt(lastUsedKey);
+
+    if (lastUsedTimestamp != null) {
+      final lastUsedTime = DateTime.fromMillisecondsSinceEpoch(lastUsedTimestamp);
+      final now = DateTime.now();
+      final elapsedSeconds = now.difference(lastUsedTime).inSeconds;
+
+      if (elapsedSeconds < _cooldownDurationSeconds) {
+        // まだクールダウン中
+        setState(() {
+          _remainingCooldownSeconds = _cooldownDurationSeconds - elapsedSeconds;
+        });
+        _startCooldownTimer();
+      }
+    }
+  }
+
+  // クールダウンタイマーを開始
+  void _startCooldownTimer() {
+    _couponCooldownTimer?.cancel();
+    _couponCooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingCooldownSeconds > 0) {
+        setState(() {
+          _remainingCooldownSeconds--;
+        });
+      } else {
+        timer.cancel();
+        setState(() {});
+      }
+    });
   }
 
   Future<void> _incrementViewCount() async {
@@ -1720,18 +1769,37 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
             // クーポン使用ボタン
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _canUseCoupon(post) ? () => _useCoupon(post) : null,
-                icon: const Icon(Icons.redeem),
-                label: Text(_getCouponButtonText(post)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.pink.shade600,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              child: Column(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _canUseCoupon(post) && _remainingCooldownSeconds == 0
+                        ? () => _useCoupon(post)
+                        : null,
+                    icon: const Icon(Icons.redeem),
+                    label: Text(_getCouponButtonText(post)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _remainingCooldownSeconds > 0
+                          ? Colors.grey
+                          : Colors.pink.shade600,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
                   ),
-                ),
+                  if (_remainingCooldownSeconds > 0) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '次回使用可能まであと ${_formatCooldownTime(_remainingCooldownSeconds)}',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           ],
@@ -1744,6 +1812,11 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
   bool _canUseCoupon(BulletinPost post) {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return false;
+    
+    // クールダウン中は使用不可
+    if (_remainingCooldownSeconds > 0) {
+      return false;
+    }
     
     // ユーザーごとの使用回数上限チェック
     final usedBy = post.couponUsedBy ?? <String, int>{};
@@ -1762,6 +1835,11 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return 'ログインが必要';
     
+    // 使用間隔制限中
+    if (_remainingCooldownSeconds > 0) {
+      return 'しばらくお待ちください';
+    }
+    
     // ユーザーごとの使用回数上限チェック
     final usedBy = post.couponUsedBy ?? <String, int>{};
     final currentUserUsageCount = usedBy[currentUser.uid] ?? 0;
@@ -1772,6 +1850,13 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
     }
     
     return 'クーポンを使用する';
+  }
+
+  // クールダウン時間をフォーマット
+  String _formatCooldownTime(int seconds) {
+    final minutes = seconds ~/ 60;
+    final remainingSeconds = seconds % 60;
+    return '${minutes}分${remainingSeconds.toString().padLeft(2, '0')}秒';
   }
 
   // クーポン使用処理
@@ -1795,7 +1880,42 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
             Text('クーポン使用確認'),
           ],
         ),
-        content: Text('「${post.title}」のクーポンを使用しますか？'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('「${post.title}」のクーポンを使用しますか？'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 20,
+                    color: Colors.orange.shade700,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '「使用する」を押すと連続使用防止のため5分間押せなくなります',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.orange.shade900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -1816,6 +1936,16 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
     if (confirmed == true) {
       try {
         await BulletinService.useCoupon(post.id, currentUser.uid);
+        
+        // クールダウンを開始
+        final prefs = await SharedPreferences.getInstance();
+        final lastUsedKey = 'coupon_last_used_${post.id}_${currentUser.uid}';
+        await prefs.setInt(lastUsedKey, DateTime.now().millisecondsSinceEpoch);
+        
+        setState(() {
+          _remainingCooldownSeconds = _cooldownDurationSeconds;
+        });
+        _startCooldownTimer();
         
         if (mounted) {
           // 成功ポップアップを表示（投稿者名も含む）

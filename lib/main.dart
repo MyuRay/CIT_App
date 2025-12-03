@@ -18,10 +18,14 @@ import 'core/providers/simple_auth_provider.dart';
 import 'core/services/performance_monitor.dart';
 import 'core/services/cache_service.dart';
 import 'core/services/simple_offline_service.dart';
+import 'core/services/app_review_service.dart';
 import 'services/cafeteria/menu_scheduler_service.dart';
 import 'services/widget/home_widgets_service.dart';
 import 'services/notification/notification_service.dart';
 import 'services/schedule/schedule_notification_service.dart';
+import 'services/firebase/firebase_menu_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:http/http.dart' as http;
 
 // バックグラウンド通知ハンドラー（トップレベル関数として定義）
 @pragma('vm:entry-point')
@@ -217,13 +221,20 @@ void main() async {
       await analytics.setAnalyticsCollectionEnabled(true);
       debugPrint('✅ Firebase Analytics収集を有効化しました');
       
+      // デバッグモードでDebug Viewを有効化
+      if (kDebugMode) {
+        // Android: ADBコマンドで有効化が必要
+        // adb shell setprop debug.firebase.analytics.app jp.ac.chibakoudai.citapp
+        // iOS: Xcodeのスキーム設定で -FIRDebugEnabled を追加
+        debugPrint('🔍 Firebase Analytics Debug Mode');
+        debugPrint('📱 Android: ADBコマンドを実行してください:');
+        debugPrint('   adb shell setprop debug.firebase.analytics.app jp.ac.chibakoudai.citapp');
+        debugPrint('🍎 iOS: Xcodeのスキーム設定で -FIRDebugEnabled を追加してください');
+      }
+      
       // アプリオープンイベントを記録
       await analytics.logAppOpen();
       debugPrint('✅ Firebase Analytics app_open logged');
-      
-      if (kDebugMode) {
-        debugPrint('🔍 Firebase Analytics (Debug Mode) - デバッグビューで確認可能');
-      }
     } catch (analyticsError) {
       debugPrint('❌ Firebase Analytics ログ送信失敗: $analyticsError');
     }
@@ -280,6 +291,9 @@ void main() async {
   // バックグラウンドで遅延初期化を実行（起動時間に影響しない）
   _initializeBackgroundServices();
 
+  // ストアレビュー管理：起動回数をカウント
+  _handleAppReview();
+
   // アプリ起動時間を記録
   final startupTime = monitor.stopTimer('app_startup');
   debugPrint('🚀 アプリ起動完了: ${startupTime}ms');
@@ -314,6 +328,56 @@ void _initializeBackgroundServices() {
       debugPrint('✅ バックグラウンドサービス初期化完了');
     } catch (e) {
       debugPrint('⚠️ バックグラウンドサービス初期化エラー: $e');
+    }
+  });
+}
+
+/// 学バス情報のダイヤ一覧画像を事前読み込み
+void _preloadBusTimetableImage() {
+  // バックグラウンドで非同期実行（アプリ起動をブロックしない）
+  Future.delayed(const Duration(milliseconds: 500), () async {
+    try {
+      debugPrint('🚌 学バス情報のダイヤ一覧画像を事前読み込み開始');
+      
+      // Firebase Storageから直接画像URLを取得
+      final url = await FirebaseMenuService.getBusTimetableImageUrl();
+      
+      if (url != null) {
+        // HTTPリクエストで画像をダウンロードしてキャッシュに保存
+        // CachedNetworkImageは自動的にキャッシュするので、事前にダウンロードしておく
+        final response = await http.get(Uri.parse(url));
+        if (response.statusCode == 200) {
+          // 画像をダウンロードしたので、次回表示時にキャッシュから読み込まれる
+          debugPrint('✅ 学バス情報のダイヤ一覧画像の事前読み込み完了: $url');
+        } else {
+          debugPrint('⚠️ 学バス情報のダイヤ一覧画像のダウンロード失敗: ${response.statusCode}');
+        }
+      } else {
+        debugPrint('ℹ️ 学バス情報のダイヤ一覧画像URLが取得できませんでした（アセット画像を使用）');
+      }
+    } catch (e) {
+      debugPrint('⚠️ 学バス情報のダイヤ一覧画像の事前読み込みエラー（無視）: $e');
+      // エラーは無視（フォールバックはアセット画像）
+    }
+  });
+}
+
+/// ストアレビュー管理：起動回数をカウントし、条件を満たしたらレビューを促す
+void _handleAppReview() {
+  // 遅延実行でアプリ起動に影響しないように
+  Future.delayed(const Duration(seconds: 3), () async {
+    try {
+      // 起動回数をカウント
+      await AppReviewService.incrementLaunchCount();
+
+      // レビューを促すべきかチェック
+      final shouldRequest = await AppReviewService.shouldRequestReview();
+      if (shouldRequest) {
+        // レビューを表示
+        await AppReviewService.requestReview();
+      }
+    } catch (e) {
+      debugPrint('⚠️ ストアレビュー処理エラー: $e');
     }
   });
 }
