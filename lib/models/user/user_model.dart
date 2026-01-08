@@ -12,6 +12,7 @@ class AppUser {
   final String? studentId; // 学籍番号
   final int? graduationYear; // 卒業年度
   final int reviewCount;
+  final bool emailVerified; // メール認証済みフラグ
 
   const AppUser({
     required this.uid,
@@ -25,6 +26,7 @@ class AppUser {
     this.studentId,
     this.graduationYear,
     this.reviewCount = 0,
+    this.emailVerified = false,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
@@ -40,6 +42,7 @@ class AppUser {
       studentId: json['studentId'] as String?,
       graduationYear: json['graduationYear'] as int?,
       reviewCount: (json['reviewCount'] as num?)?.toInt() ?? 0,
+      emailVerified: json['emailVerified'] as bool? ?? false,
     );
   }
 
@@ -56,6 +59,7 @@ class AppUser {
       'studentId': studentId,
       'graduationYear': graduationYear,
       'reviewCount': reviewCount,
+      'emailVerified': emailVerified,
     };
   }
 
@@ -96,6 +100,7 @@ class AppUser {
     String? studentId,
     int? graduationYear,
     int? reviewCount,
+    bool? emailVerified,
   }) {
     return AppUser(
       uid: uid ?? this.uid,
@@ -109,6 +114,7 @@ class AppUser {
       studentId: studentId ?? this.studentId,
       graduationYear: graduationYear ?? this.graduationYear,
       reviewCount: reviewCount ?? this.reviewCount,
+      emailVerified: emailVerified ?? this.emailVerified,
     );
   }
 }

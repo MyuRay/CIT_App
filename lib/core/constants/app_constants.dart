@@ -6,10 +6,11 @@ class AppConstants {
   static const List<String> allowedDomains = [
     '@s.chibakoudai.jp',
     '@p.chibakoudai.jp',
+    '@chibatech.ac.jp',
   ];
   
   static const String errorInvalidEmail = 'メールアドレスの形式が正しくありません';
-  static const String errorInvalidDomain = 'CITのメールアドレスを使用してください\n（@s.chibakoudai.jp または @p.chibakoudai.jp）';
+  static const String errorInvalidDomain = 'CITのメールアドレスを使用してください\n（@s.chibakoudai.jp / @p.chibakoudai.jp / @chibatech.ac.jp）';
   static const String errorWeakPassword = 'パスワードは6文字以上で入力してください';
   static const String errorPasswordMismatch = 'パスワードが一致しません';
   

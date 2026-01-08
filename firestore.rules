@@ -7,7 +7,8 @@ service cloud.firestore {
       return request.auth != null
         && request.auth.token.email != null
         && (request.auth.token.email.matches('.*@s\\.chibakoudai\\.jp$') ||
-            request.auth.token.email.matches('.*@p\\.chibakoudai\\.jp$'));
+            request.auth.token.email.matches('.*@p\\.chibakoudai\\.jp$') ||
+            request.auth.token.email.matches('.*@chibatech\\.ac\\.jp$'));
     }
 
     // 管理者判定関数（修正）
