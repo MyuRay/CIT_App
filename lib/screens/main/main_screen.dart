@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../home/home_screen.dart';
 import '../schedule/schedule_screen.dart';
 import '../bulletin/bulletin_post_form_screen.dart';
@@ -346,6 +347,22 @@ class _BulletinScreenState extends ConsumerState<BulletinScreen> {
       appBar: AppBar(
         title: const Text('掲示板'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            onPressed: () async {
+              final uri = Uri.parse('https://cit-app.com/features');
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              } else {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('リンクを開けませんでした')),
+                  );
+                }
+              }
+            },
+            tooltip: '掲示板投稿について',
+          ),
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () => _showAddPostDialog(context),
