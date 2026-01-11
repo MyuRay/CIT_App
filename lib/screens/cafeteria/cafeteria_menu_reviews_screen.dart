@@ -8,7 +8,7 @@ import '../../models/cafeteria/cafeteria_menu_item_model.dart';
 import 'cafeteria_review_form_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-class CafeteriaMenuReviewsScreen extends ConsumerWidget {
+class CafeteriaMenuReviewsScreen extends ConsumerStatefulWidget {
   const CafeteriaMenuReviewsScreen({
     super.key,
     required this.cafeteriaId,
@@ -19,13 +19,65 @@ class CafeteriaMenuReviewsScreen extends ConsumerWidget {
   final String menuName;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final reviewsAsync = ref.watch(cafeteriaReviewsProvider(cafeteriaId));
-    final itemsAsync = ref.watch(cafeteriaMenuItemsProvider(cafeteriaId));
+  ConsumerState<CafeteriaMenuReviewsScreen> createState() => _CafeteriaMenuReviewsScreenState();
+}
+
+class _CafeteriaMenuReviewsScreenState extends ConsumerState<CafeteriaMenuReviewsScreen> {
+  Offset? _fabPosition;
+  bool _isDragging = false;
+  final GlobalKey _fabKey = GlobalKey();
+  
+  Offset _getDefaultPosition(Size bodySize, EdgeInsets padding) {
+    // FloatingActionButtonのデフォルト位置（右下）
+    const buttonPadding = 16.0;
+    // ボタンの実際のサイズを取得するか、推定サイズを使用
+    const fabWidth = 240.0; // テキストを含む幅を考慮
+    const fabHeight = 56.0;
+    
+    // bodyのサイズに対して右下に配置
+    return Offset(
+      bodySize.width - fabWidth - buttonPadding - padding.right,
+      bodySize.height - fabHeight - buttonPadding - padding.bottom,
+    );
+  }
+
+  void _onPanStart(DragStartDetails details) {
+    setState(() {
+      _isDragging = true;
+    });
+  }
+
+  void _onPanUpdate(DragUpdateDetails details, Size bodySize, EdgeInsets padding) {
+    setState(() {
+      final currentPosition = _fabPosition ?? _getDefaultPosition(bodySize, padding);
+      final newPosition = currentPosition + details.delta;
+      
+      // 画面外に出ないように制限
+      const fabWidth = 240.0;
+      const fabHeight = 56.0;
+      const buttonPadding = 16.0;
+      
+      _fabPosition = Offset(
+        newPosition.dx.clamp(padding.left, bodySize.width - fabWidth - buttonPadding - padding.right),
+        newPosition.dy.clamp(padding.top, bodySize.height - fabHeight - buttonPadding - padding.bottom),
+      );
+    });
+  }
+
+  void _onPanEnd(DragEndDetails details) {
+    setState(() {
+      _isDragging = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reviewsAsync = ref.watch(cafeteriaReviewsProvider(widget.cafeteriaId));
+    final itemsAsync = ref.watch(cafeteriaMenuItemsProvider(widget.cafeteriaId));
 
     return reviewsAsync.when(
       data: (reviews) {
-        final normalized = menuName.trim().toLowerCase();
+        final normalized = widget.menuName.trim().toLowerCase();
         final filtered = reviews
             .where((r) => (r.menuName ?? '').trim().toLowerCase() == normalized)
             .toList();
@@ -67,54 +119,101 @@ class CafeteriaMenuReviewsScreen extends ConsumerWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(menuName),
+            title: Text(widget.menuName),
           ),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () async {
-              final result = await Navigator.of(context).push<bool>(
-                MaterialPageRoute(
-                  builder: (_) => CafeteriaReviewFormScreen(
-                    initialCafeteriaId: cafeteriaId,
-                    initialMenuName: menuName,
-                    fixed: true,
-                    editingReview: existing,
-                  ),
-                ),
-              );
-              if (result == true && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(existing == null ? 'レビューを投稿しました' : 'レビューを更新しました')),
-                );
-              }
-            },
-            icon: const Icon(Icons.rate_review),
-            label: Text(existing == null ? '${menuName}のレビューを作成' : '${menuName}のレビューを編集'),
-          ),
-          body: Column(
-            children: [
-              _Header(
-                cafeteriaId: cafeteriaId,
-                menuName: menuName,
-                menuItem: menuItem,
-                avgTaste: avgTaste,
-                avgVolume: avgVolume,
-                avgRecommend: avgRecommend,
-                avgVolumeMale: avgVolumeMale,
-                avgVolumeFemale: avgVolumeFemale,
-                count: count,
-              ),
-              const Divider(height: 0),
-              Expanded(
-                child: count == 0
-                    ? const Center(child: Text('まだレビューがありません'))
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        separatorBuilder: (_, __) => const SizedBox(height: 6),
-                        itemCount: filtered.length,
-                        itemBuilder: (context, index) => _ReviewCard(review: filtered[index]),
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              final mediaQuery = MediaQuery.of(context);
+              final bodySize = Size(constraints.maxWidth, constraints.maxHeight);
+              final safePadding = mediaQuery.padding;
+              final position = _fabPosition ?? _getDefaultPosition(bodySize, safePadding);
+              
+              return Stack(
+                children: [
+                  Column(
+                    children: [
+                      _Header(
+                        cafeteriaId: widget.cafeteriaId,
+                        menuName: widget.menuName,
+                        menuItem: menuItem,
+                        avgTaste: avgTaste,
+                        avgVolume: avgVolume,
+                        avgRecommend: avgRecommend,
+                        avgVolumeMale: avgVolumeMale,
+                        avgVolumeFemale: avgVolumeFemale,
+                        count: count,
                       ),
-              ),
-            ],
+                      const Divider(height: 0),
+                      Expanded(
+                        child: count == 0
+                            ? const Center(child: Text('まだレビューがありません'))
+                            : ListView.separated(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                separatorBuilder: (_, __) => const SizedBox(height: 6),
+                                itemCount: filtered.length,
+                                itemBuilder: (context, index) => _ReviewCard(review: filtered[index]),
+                              ),
+                      ),
+                    ],
+                  ),
+                  // ドラッグ可能なFloatingActionButton
+                  Positioned(
+                    left: position.dx,
+                    top: position.dy,
+                    child: GestureDetector(
+                      key: _fabKey,
+                      onPanStart: _onPanStart,
+                      onPanUpdate: (details) => _onPanUpdate(details, bodySize, safePadding),
+                      onPanEnd: _onPanEnd,
+                      child: Material(
+                        elevation: _isDragging ? 8 : 6,
+                        borderRadius: BorderRadius.circular(28),
+                        color: Theme.of(context).colorScheme.secondary,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(28),
+                          onTap: _isDragging ? null : () async {
+                            final result = await Navigator.of(context).push<bool>(
+                              MaterialPageRoute(
+                                builder: (_) => CafeteriaReviewFormScreen(
+                                  initialCafeteriaId: widget.cafeteriaId,
+                                  initialMenuName: widget.menuName,
+                                  fixed: true,
+                                  editingReview: existing,
+                                ),
+                              ),
+                            );
+                            if (result == true && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(existing == null ? 'レビューを投稿しました' : 'レビューを更新しました')),
+                              );
+                            }
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.rate_review, color: Colors.white),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    existing == null 
+                                        ? '${widget.menuName}のレビューを作成' 
+                                        : '${widget.menuName}のレビューを編集',
+                                    style: const TextStyle(color: Colors.white),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         );
       },
@@ -595,6 +694,55 @@ class _FullScreenImagePage extends StatefulWidget {
 class _FullScreenImagePageState extends State<_FullScreenImagePage> {
   double _dragOffset = 0;
   bool _isDismissing = false;
+  late final TransformationController _transformationController;
+  static const double _zoomedScale = 2.5;
+
+  @override
+  void initState() {
+    super.initState();
+    _transformationController = TransformationController();
+  }
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  void _handleDoubleTap(TapDownDetails details) {
+    final scale = _transformationController.value.getMaxScaleOnAxis();
+    final isCurrentlyZoomed = scale > 1.1;
+
+    if (isCurrentlyZoomed) {
+      // 拡大中の場合、元のサイズに戻す
+      _transformationController.value = Matrix4.identity();
+    } else {
+      // 縮小時の場合、タップ位置を中心に拡大
+      final screenSize = MediaQuery.of(context).size;
+      final screenCenterX = screenSize.width / 2;
+      final screenCenterY = screenSize.height / 2;
+
+      // タップ位置をローカル座標から取得
+      final tapPosition = details.localPosition;
+      
+      // 画面中心からのオフセットを計算
+      final offsetX = tapPosition.dx - screenCenterX;
+      final offsetY = tapPosition.dy - screenCenterY;
+
+      final newScale = _zoomedScale;
+      
+      // タップ位置が画面中心に来るように変換行列を計算
+      final translateX = -offsetX * (newScale - 1) / newScale;
+      final translateY = -offsetY * (newScale - 1) / newScale;
+      
+      // スケールを先に適用してから平行移動を適用するため、Matrix4を直接構築
+      final matrix = Matrix4.identity()
+        ..scale(newScale)
+        ..translate(translateX / newScale, translateY / newScale);
+      
+      _transformationController.value = matrix;
+    }
+  }
 
   void _handleDragUpdate(DragUpdateDetails details) {
     if (_isDismissing) return;
@@ -631,13 +779,18 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
             offset: Offset(0, _dragOffset),
             child: Hero(
               tag: widget.imageUrl ?? widget.placeholder,
-              child: InteractiveViewer(
-                minScale: 0.8,
-                maxScale: 3.0,
-                child: _buildMenuImage(
-                  imageUrl: widget.imageUrl,
-                  placeholder: widget.placeholder,
-                  fontSize: 48,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onDoubleTapDown: _handleDoubleTap,
+                child: InteractiveViewer(
+                  transformationController: _transformationController,
+                  minScale: 0.8,
+                  maxScale: 3.0,
+                  child: _buildMenuImage(
+                    imageUrl: widget.imageUrl,
+                    placeholder: widget.placeholder,
+                    fontSize: 48,
+                  ),
                 ),
               ),
             ),

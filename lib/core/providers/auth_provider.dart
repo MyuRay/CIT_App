@@ -42,6 +42,16 @@ final isLoggedInProvider = Provider<bool?>((ref) {
   );
 });
 
+// メール認証済みかどうかをチェックするプロバイダー
+final isEmailVerifiedProvider = Provider<bool?>((ref) {
+  final authState = ref.watch(authStateProvider);
+  return authState.when(
+    data: (user) => user?.emailVerified ?? false,
+    loading: () => null,
+    error: (_, __) => false,
+  );
+});
+
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService(ref.watch(firebaseAuthProvider));
 });
@@ -94,11 +104,21 @@ class AuthService {
         final refreshedUser = _auth.currentUser ?? credential.user!;
         final appUser = UserService.createAppUserFromFirebaseUser(refreshedUser)
             .copyWith(displayName: trimmedName);
+        // メール認証状態も含めて保存（初期はfalse）
         await UserService.createUser(appUser);
         print('✅ Firestoreにユーザー情報を保存しました: ${credential.user!.uid}');
       }
 
-      await credential.user?.sendEmailVerification();
+      // メール認証メールを送信
+      try {
+        await credential.user?.sendEmailVerification();
+        print('✅ 認証メールを送信しました: ${credential.user?.email}');
+      } catch (emailError) {
+        print('⚠️ 認証メール送信エラー: $emailError');
+        // メール送信エラーでもアカウント作成は成功しているため、続行
+        // ユーザーは認証待ち画面から再送信可能
+      }
+      
       return credential;
     } on FirebaseAuthException {
       rethrow;
@@ -129,8 +149,20 @@ class AuthService {
 
       // ログイン成功後、Firestoreにユーザー情報が存在するか確認し、なければ作成
       if (credential.user != null) {
+        // メール認証状態を確認
+        await credential.user!.reload();
+        final refreshedUser = _auth.currentUser ?? credential.user!;
+        print('📧 メール認証状態: ${refreshedUser.emailVerified}');
+        
         print('📝 Firestoreユーザー情報確認中...');
         await UserService.getCurrentUserOrCreate();
+        
+        // メール認証状態をFirestoreに同期
+        await UserService.syncEmailVerificationStatus(
+          refreshedUser.uid,
+          refreshedUser.emailVerified,
+        );
+        
         // 最終ログイン時刻を更新
         await UserService.updateLastLogin(credential.user!.uid);
         print('✅ Firestoreユーザー情報確認完了');
@@ -199,5 +231,28 @@ class AuthService {
     } catch (_) {
       // Firestore側が未作成のケース等は無視
     }
+  }
+
+  // メール認証状態をチェック（ユーザー情報を再読み込み）
+  Future<bool> checkEmailVerification() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      return false;
+    }
+    await user.reload();
+    final refreshedUser = _auth.currentUser;
+    return refreshedUser?.emailVerified ?? false;
+  }
+
+  // 認証メールを再送信
+  Future<void> resendVerificationEmail() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(code: 'not-logged-in', message: 'ログインが必要です');
+    }
+    if (user.emailVerified) {
+      throw FirebaseAuthException(code: 'already-verified', message: 'メールアドレスは既に認証済みです');
+    }
+    await user.sendEmailVerification();
   }
 }

@@ -55,11 +55,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('確認メールを送信しました。メールを確認してからログインしてください。'),
+            content: Text('確認メールを送信しました。メールを確認して認証を完了してください。'),
             duration: Duration(seconds: 5),
           ),
         );
-        context.go('/login');
+        // メール認証待ち画面へ遷移
+        context.go('/email-verification');
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) {
@@ -217,8 +218,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
                     labelText: 'CITメールアドレス',
-                    hintText: 'example@s.chibakoudai.jp または example@p.chibakoudai.jp',
-                    helperText: '※ @s.chibakoudai.jp または @p.chibakoudai.jp のみ利用可能',
+                    hintText: 'example@s.chibakoudai.jp / example@p.chibakoudai.jp / example@chibatech.ac.jp',
+                    helperText: '※ @s.chibakoudai.jp / @p.chibakoudai.jp / @chibatech.ac.jp のみ利用可能',
                     helperMaxLines: 2,
                   ),
                   validator: (value) {

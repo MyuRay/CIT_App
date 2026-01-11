@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/constants/app_constants.dart';
+import '../../services/user/user_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -71,8 +72,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         password: _passwordController.text,
       );
       
+      // ログイン後、メール認証状態をFirestoreに同期
+      // （ルーターがFirestoreの状態を監視して自動的にリダイレクトする）
       if (mounted) {
-        context.go('/home');
+        // メール認証状態をFirestoreに同期（ルーターが監視して遷移する）
+        await UserService.syncCurrentUserEmailVerification();
+        
+        // ルーターが自動的に遷移するまで少し待つ
+        await Future.delayed(const Duration(milliseconds: 300));
+        
+        // 念のため、Firebase Authの状態も確認して遷移
+        final isVerified = await authService.checkEmailVerification();
+        if (mounted) {
+          if (isVerified) {
+            // メール認証済みの場合、ホームへ
+            context.go('/home');
+          } else {
+            // メール認証未完了の場合、認証待ち画面へ
+            context.go('/email-verification');
+          }
+        }
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) {
@@ -205,7 +224,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         textInputAction: TextInputAction.next,
                                         decoration: const InputDecoration(
                                           labelText: 'CITメールアドレス',
-                                          hintText: 'example@s.chibakoudai.jp または example@p.chibakoudai.jp',
+                                          hintText: 'example@s.chibakoudai.jp / example@p.chibakoudai.jp / example@chibatech.ac.jp',
                                           prefixIcon: Icon(Icons.email_outlined),
                                           helperText: '※ 上記のドメインのみ利用可能',
                                           helperMaxLines: 2,

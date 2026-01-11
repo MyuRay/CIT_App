@@ -74,6 +74,7 @@ class UserService {
       createdAt: DateTime.now(),
       isActive: true,
       reviewCount: 0,
+      emailVerified: firebaseUser.emailVerified,
     );
   }
 
@@ -166,5 +167,61 @@ class UserService {
       print('⚠️ 最終ログイン時刻更新エラー: $e');
       // エラーが発生してもログインは継続
     }
+  }
+
+  /// メール認証状態をFirestoreに同期
+  static Future<void> syncEmailVerificationStatus(String uid, bool emailVerified) async {
+    try {
+      await _firestore.collection(_collection).doc(uid).update({
+        'emailVerified': emailVerified,
+        'updatedAt': Timestamp.now(),
+      });
+      print('✅ メール認証状態を同期しました: $uid -> $emailVerified');
+    } catch (e) {
+      print('⚠️ メール認証状態同期エラー: $e');
+      // エラーが発生しても処理は継続
+    }
+  }
+
+  /// 現在のユーザーのメール認証状態をFirebase Authから取得してFirestoreに同期
+  static Future<bool> syncCurrentUserEmailVerification() async {
+    try {
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser == null) return false;
+
+      // Firebase Authの状態を再読み込み
+      await firebaseUser.reload();
+      final refreshedUser = FirebaseAuth.instance.currentUser;
+      if (refreshedUser == null) return false;
+
+      final emailVerified = refreshedUser.emailVerified;
+      
+      // Firestoreに同期
+      await syncEmailVerificationStatus(refreshedUser.uid, emailVerified);
+      
+      return emailVerified;
+    } catch (e) {
+      print('⚠️ メール認証状態確認エラー: $e');
+      return false;
+    }
+  }
+
+  /// ユーザードキュメントをリアルタイム監視するストリーム
+  static Stream<AppUser?> watchUser(String uid) {
+    return _firestore
+        .collection(_collection)
+        .doc(uid)
+        .snapshots()
+        .map((doc) {
+      if (doc.exists && doc.data() != null) {
+        try {
+          return AppUser.fromJson(doc.data()!);
+        } catch (e) {
+          print('❌ ユーザー情報パースエラー: $e');
+          return null;
+        }
+      }
+      return null;
+    });
   }
 }
