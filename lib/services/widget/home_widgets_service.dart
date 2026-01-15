@@ -8,10 +8,12 @@ import '../../models/bus/bus_model.dart';
 class HomeWidgetsService {
   static const String _weeklyWidgetName = 'FullScheduleWidgetProvider';
   static const String _busWidgetName = 'BusRealtimeWidgetProvider';
+  static const String _todayScheduleWidgetName = 'TodayScheduleWidgetProvider';
 
   // Keys
   static const String _keyWeeklyFull = 'weekly_full_schedule';
   static const String _keyBusRealtime = 'bus_realtime';
+  static const String _keyTodaySchedule = 'today_schedule';
   static const String _keyLastUpdate = 'last_update';
 
   static Future<void> initialize() async {
@@ -166,6 +168,135 @@ class HomeWidgetsService {
     await HomeWidget.saveWidgetData<String>(_keyBusRealtime, jsonEncode(payload));
     await HomeWidget.saveWidgetData<String>(_keyLastUpdate, DateTime.now().millisecondsSinceEpoch.toString());
     await HomeWidget.updateWidget(name: _busWidgetName, androidName: _busWidgetName);
+  }
+
+  /// 今日の時間割ウィジェットを更新
+  /// todayClassesがnullまたは空の場合は空データを送信
+  static Future<void> updateTodaySchedule(List<ScheduleClass?>? todayClasses, {int? currentPeriod}) async {
+    try {
+      debugPrint('📱 今日の時間割ウィジェット更新開始');
+      
+      final now = DateTime.now();
+      final weekdayNames = ['月', '火', '水', '木', '金', '土'];
+      final weekdayIndex = now.weekday - 1; // Monday = 0
+      final weekdayName = weekdayIndex < weekdayNames.length ? weekdayNames[weekdayIndex] : '';
+
+      final todayData = <String, dynamic>{
+        'weekday': weekdayName,
+        'date': '${now.month}/${now.day}',
+        'currentPeriod': currentPeriod,
+        'classes': <Map<String, dynamic>>[],
+      };
+
+      if (todayClasses != null && todayClasses.isNotEmpty) {
+        final classes = <Map<String, dynamic>>[];
+        for (int i = 0; i < todayClasses.length; i++) {
+          final scheduleClass = todayClasses[i];
+          if (scheduleClass != null) {
+            // 連続講義の開始セルのみ表示
+            if (scheduleClass.isStartCell) {
+              classes.add({
+                'period': i + 1,
+                'subject': scheduleClass.subjectName.isNotEmpty ? scheduleClass.subjectName : '未設定',
+                'classroom': scheduleClass.classroom.isNotEmpty ? scheduleClass.classroom : '',
+                'color': scheduleClass.color.isNotEmpty ? scheduleClass.color : '#2196F3',
+                'duration': scheduleClass.duration,
+                'startTime': _getPeriodStartTime(i + 1),
+                'endTime': _getPeriodEndTime(i + 1, scheduleClass.duration),
+              });
+            }
+          }
+        }
+        todayData['classes'] = classes;
+        debugPrint('  ${classes.length}件の授業を登録');
+      } else {
+        debugPrint('  今日は授業なし');
+      }
+
+      final jsonString = jsonEncode(todayData);
+      debugPrint('📱 今日の時間割ウィジェットデータを保存: ${jsonString.length}文字');
+      
+      // データを保存
+      try {
+        await HomeWidget.saveWidgetData<String>(_keyTodaySchedule, jsonString);
+        debugPrint('✅ ウィジェットデータ保存完了');
+        
+        // データ保存の確認（Androidで確実に保存されるように少し待つ）
+        if (Platform.isAndroid) {
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
+      } catch (e) {
+        debugPrint('❌ ウィジェットデータ保存エラー: $e');
+        rethrow;
+      }
+      
+      try {
+        await HomeWidget.saveWidgetData<String>(_keyLastUpdate, DateTime.now().millisecondsSinceEpoch.toString());
+        debugPrint('✅ 最終更新時刻保存完了');
+      } catch (e) {
+        debugPrint('⚠️ 最終更新時刻保存エラー: $e (続行)');
+      }
+      
+      // ウィジェットを更新（データ保存後に実行）
+      try {
+        await HomeWidget.updateWidget(name: _todayScheduleWidgetName, androidName: _todayScheduleWidgetName);
+        debugPrint('✅ 今日の時間割ウィジェット更新完了');
+      } catch (e) {
+        debugPrint('❌ ウィジェット更新呼び出しエラー: $e');
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ 今日の時間割ウィジェット更新エラー: $e');
+      debugPrint('❌ StackTrace: $stackTrace');
+      // エラー時は空データを送信してウィジェットを更新
+      try {
+        final emptyData = <String, dynamic>{
+          'weekday': '',
+          'date': '',
+          'currentPeriod': null,
+          'classes': <Map<String, dynamic>>[],
+        };
+        await HomeWidget.saveWidgetData<String>(_keyTodaySchedule, jsonEncode(emptyData));
+        await HomeWidget.updateWidget(name: _todayScheduleWidgetName, androidName: _todayScheduleWidgetName);
+        debugPrint('⚠️ エラー時の空データでウィジェットを更新しました');
+      } catch (e2) {
+        debugPrint('❌ 空データ送信も失敗: $e2');
+      }
+    }
+  }
+
+  /// 時限の開始時刻を取得（CITの時間割に基づく）
+  static String _getPeriodStartTime(int period) {
+    const times = [
+      '9:00',  // 1限
+      '10:40', // 2限
+      '13:00', // 3限
+      '14:40', // 4限
+      '16:20', // 5限
+      '18:00', // 6限
+      '19:40', // 7限
+      '21:20', // 8限
+      '9:00',  // 9限（未使用）
+      '9:00',  // 10限（未使用）
+    ];
+    return period >= 1 && period <= times.length ? times[period - 1] : '9:00';
+  }
+
+  /// 時限の終了時刻を取得（連続講義を考慮）
+  static String _getPeriodEndTime(int period, int duration) {
+    const times = [
+      '10:30', // 1限
+      '12:10', // 2限
+      '14:30', // 3限
+      '16:10', // 4限
+      '17:50', // 5限
+      '19:30', // 6限
+      '21:10', // 7限
+      '22:50', // 8限
+      '10:30', // 9限（未使用）
+      '10:30', // 10限（未使用）
+    ];
+    final endPeriod = period + duration - 1;
+    return endPeriod >= 1 && endPeriod <= times.length ? times[endPeriod - 1] : '10:30';
   }
 }
 

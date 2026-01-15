@@ -310,18 +310,30 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> {
     }
   }
 
-  // ウィジェット更新（週間フル時間割）
+  // ウィジェット更新（週間フル時間割 + 今日の時間割）
   Future<void> _updateWidgets() async {
     try {
       final schedule = await ScheduleService.getScheduleByUserId(_userId);
       // scheduleがnullの場合でも空データを送信してウィジェットを更新
       await HomeWidgetsService.updateWeeklyFullSchedule(schedule);
+      
+      // 今日の時間割ウィジェットも更新
+      try {
+        final todayClasses = await ScheduleService.getTodaySchedule(_userId);
+        final currentPeriod = await ScheduleService.getCurrentPeriod(_userId);
+        await HomeWidgetsService.updateTodaySchedule(todayClasses, currentPeriod: currentPeriod);
+      } catch (todayError) {
+        debugPrint('⚠️ 今日の時間割ウィジェット更新エラー: $todayError');
+        // エラー時は空データを送信
+        await HomeWidgetsService.updateTodaySchedule(null);
+      }
     } catch (e, stackTrace) {
       debugPrint('❌ ウィジェット更新エラー: $e');
       debugPrint('❌ StackTrace: $stackTrace');
       // エラー時も空データを送信してウィジェットを更新
       try {
         await HomeWidgetsService.updateWeeklyFullSchedule(null);
+        await HomeWidgetsService.updateTodaySchedule(null);
       } catch (e2) {
         debugPrint('❌ エラー時のウィジェット更新も失敗: $e2');
       }
