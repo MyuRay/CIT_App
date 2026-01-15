@@ -138,8 +138,13 @@ void main() async {
       debugPrint('Web版Firebase初期化完了');
     } else {
       debugPrint('モバイル版Firebase初期化開始');
-      await Firebase.initializeApp();
-      debugPrint('モバイル版Firebase初期化完了');
+      // 既に初期化されている場合はスキップ
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp();
+        debugPrint('モバイル版Firebase初期化完了');
+      } else {
+        debugPrint('Firebaseは既に初期化済みです');
+      }
 
       // バックグラウンド通知ハンドラーを設定
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
