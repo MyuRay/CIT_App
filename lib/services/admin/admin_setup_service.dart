@@ -40,7 +40,9 @@ class AdminSetupService {
         canManagePosts: true,
         canViewContacts: true,
         canManageUsers: true,
-        createdAt: DateTime.now(),
+        canManageCategories: true,
+        grantedAt: DateTime.now(),
+        grantedBy: userId, // 自分自身が付与者
       );
       
       await _firestore
