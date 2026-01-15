@@ -16,6 +16,7 @@ import '../../core/providers/in_app_ad_provider.dart';
 import '../../models/ads/in_app_ad_model.dart';
 import '../../widgets/ads/in_app_ad_card.dart';
 import '../../core/providers/settings_provider.dart';
+import '../../services/cafeteria/cafeteria_favorite_service.dart';
 
 String? _campusCodeFromCafeteriaId(String cafeteriaId) {
   switch (cafeteriaId) {
@@ -894,26 +895,125 @@ class _MenuAgg {
   }
 }
 
-class _MenuRowCard extends ConsumerWidget {
+class _MenuRowCard extends ConsumerStatefulWidget {
   const _MenuRowCard({required this.cafeteriaId, required this.agg});
   final String cafeteriaId;
   final _MenuAgg agg;
 
+  @override
+  ConsumerState<_MenuRowCard> createState() => _MenuRowCardState();
+}
+
+class _MenuRowCardState extends ConsumerState<_MenuRowCard> {
   String _formatPrice() {
-    final price = agg.menuItem?.price;
+    final price = widget.agg.menuItem?.price;
     if (price == null) {
       return '価格未設定';
     }
     return '¥${price.toString()}';
   }
 
+  Future<void> _toggleFavorite() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ログインが必要です')),
+        );
+      }
+      return;
+    }
+
+    final menuItem = widget.agg.menuItem;
+    try {
+      if (menuItem != null && menuItem.id.isNotEmpty) {
+        final isFavorite = await CafeteriaFavoriteService.isFavorite(
+          userId: uid,
+          type: 'menu',
+          menuItemId: menuItem.id,
+        );
+        if (isFavorite) {
+          await CafeteriaFavoriteService.removeFavorite(
+            userId: uid,
+            type: 'menu',
+            menuItemId: menuItem.id,
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('お気に入りから削除しました')),
+            );
+          }
+        } else {
+          await CafeteriaFavoriteService.addFavorite(
+            userId: uid,
+            type: 'menu',
+            cafeteriaId: widget.cafeteriaId,
+            menuItemId: menuItem.id,
+            menuName: widget.agg.menuName,
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('お気に入りに追加しました')),
+            );
+          }
+        }
+      } else {
+        // メニューアイテムが存在しない場合は、メニュー名のみで保存
+        final isFavorite = await CafeteriaFavoriteService.isFavorite(
+          userId: uid,
+          type: 'menu',
+          menuItemId: null,
+        );
+        if (isFavorite) {
+          await CafeteriaFavoriteService.removeFavorite(
+            userId: uid,
+            type: 'menu',
+            menuItemId: null,
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('お気に入りから削除しました')),
+            );
+          }
+        } else {
+          await CafeteriaFavoriteService.addFavorite(
+            userId: uid,
+            type: 'menu',
+            cafeteriaId: widget.cafeteriaId,
+            menuName: widget.agg.menuName,
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('お気に入りに追加しました')),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e')),
+        );
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final menuItem = agg.menuItem;
+  Widget build(BuildContext context) {
+    final menuItem = widget.agg.menuItem;
     final priceText = _formatPrice();
     final placeholder =
-        agg.menuName.isNotEmpty ? agg.menuName.substring(0, 1) : '?';
+        widget.agg.menuName.isNotEmpty ? widget.agg.menuName.substring(0, 1) : '?';
     final viewCount = menuItem?.viewCount ?? 0;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final isFavoriteFuture = menuItem != null && menuItem.id.isNotEmpty && uid != null
+        ? FutureProvider((ref) => CafeteriaFavoriteService.isFavorite(
+            userId: uid,
+            type: 'menu',
+            menuItemId: menuItem.id,
+          ))
+        : null;
+    final isFavoriteAsync = isFavoriteFuture != null ? ref.watch(isFavoriteFuture) : null;
 
     return Card(
       child: InkWell(
@@ -928,8 +1028,8 @@ class _MenuRowCard extends ConsumerWidget {
             MaterialPageRoute(
               builder:
                   (context) => CafeteriaMenuReviewsScreen(
-                    cafeteriaId: cafeteriaId,
-                    menuName: agg.menuName,
+                    cafeteriaId: widget.cafeteriaId,
+                    menuName: widget.agg.menuName,
                   ),
             ),
           );
@@ -969,7 +1069,7 @@ class _MenuRowCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      agg.menuName,
+                      widget.agg.menuName,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.bold),
@@ -977,16 +1077,16 @@ class _MenuRowCard extends ConsumerWidget {
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        _Stars(rating: agg.avgRecommend),
+                        _Stars(rating: widget.agg.avgRecommend),
                         const SizedBox(width: 6),
-                        if (agg.count == 0)
+                        if (widget.agg.count == 0)
                           const Text(
                             'レビューなし',
                             style: TextStyle(fontSize: 12, color: Colors.grey),
                           )
                         else
                           Text(
-                            '(${agg.count}件)',
+                            '(${widget.agg.count}件)',
                             style: const TextStyle(
                               fontSize: 12,
                               color: Colors.grey,
@@ -1018,9 +1118,48 @@ class _MenuRowCard extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                priceText,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    priceText,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  if (uid != null) ...[
+                    const SizedBox(height: 4),
+                    IconButton(
+                      iconSize: 20,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: isFavoriteAsync != null
+                          ? isFavoriteAsync.when(
+                              data: (isFavorite) => Icon(
+                                isFavorite ? Icons.favorite : Icons.favorite_border,
+                                color: isFavorite ? Colors.red : Colors.grey,
+                                size: 20,
+                              ),
+                              loading: () => const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              error: (_, __) => const Icon(
+                                Icons.favorite_border,
+                                color: Colors.grey,
+                                size: 20,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.favorite_border,
+                              color: Colors.grey,
+                              size: 20,
+                            ),
+                      onPressed: () {
+                        _toggleFavorite();
+                      },
+                    ),
+                  ],
+                ],
               ),
             ],
           ),
