@@ -185,6 +185,32 @@ service cloud.firestore {
       allow write: if isCITUser() && request.auth.uid == userId;
     }
 
+    // 学食お気に入りのルール（サブコレクション）
+    match /users/{userId}/cafeteria_favorites/{favoriteId} {
+      // 読み取り: 自分のお気に入りのみ
+      allow read: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == userId;
+
+      // 作成: 自分のお気に入りのみ、必須フィールドを満たすこと
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == userId
+        && hasRequiredCafeteriaFavoriteFields();
+
+      // 更新: 自分のお気に入りのみ
+      allow update: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == userId
+        && resource.data.userId == request.auth.uid;
+
+      // 削除: 自分のお気に入りのみ
+      allow delete: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == userId
+        && resource.data.userId == request.auth.uid;
+    }
+
     // 管理者のルール
     match /admins/{adminId} {
       allow read, write: if isAdmin();
@@ -557,6 +583,28 @@ service cloud.firestore {
         && (!('ctaText' in request.resource.data) || request.resource.data.ctaText is string || request.resource.data.ctaText == null)
         && (!('startAt' in request.resource.data) || request.resource.data.startAt is timestamp || request.resource.data.startAt == null)
         && (!('endAt' in request.resource.data) || request.resource.data.endAt is timestamp || request.resource.data.endAt == null);
+    }
+
+    // 学食お気に入り必須フィールド確認関数
+    function hasRequiredCafeteriaFavoriteFields() {
+      return request.resource.data.keys().hasAll(['userId', 'type', 'createdAt'])
+        && request.resource.data.userId is string
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.type is string
+        && (request.resource.data.type == 'cafeteria' || request.resource.data.type == 'menu')
+        && request.resource.data.createdAt is timestamp
+        // type == 'cafeteria' の場合は cafeteriaId が必要
+        && (
+          (request.resource.data.type == 'cafeteria' && request.resource.data.cafeteriaId is string)
+          || (request.resource.data.type == 'menu' && (
+            request.resource.data.menuItemId is string
+            || request.resource.data.menuName is string
+          ))
+        )
+        // 任意フィールドの型チェック
+        && (!('cafeteriaId' in request.resource.data) || request.resource.data.cafeteriaId is string || request.resource.data.cafeteriaId == null)
+        && (!('menuItemId' in request.resource.data) || request.resource.data.menuItemId is string || request.resource.data.menuItemId == null)
+        && (!('menuName' in request.resource.data) || request.resource.data.menuName is string || request.resource.data.menuName == null);
     }
   }
 }

@@ -71,6 +71,18 @@
                 android:resource="@xml/bus_realtime_widget_info" />
         </receiver>
 
+        <!-- Today Schedule Widget -->
+        <receiver
+            android:name=".widget.TodayScheduleWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/today_schedule_widget_info" />
+        </receiver>
+
         <!-- Firebase Cloud Messaging -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"

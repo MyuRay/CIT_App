@@ -7,6 +7,7 @@ import '../../models/cafeteria/cafeteria_review_model.dart';
 import '../../models/cafeteria/cafeteria_menu_item_model.dart';
 import 'cafeteria_review_form_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/cafeteria/cafeteria_favorite_service.dart';
 
 class CafeteriaMenuReviewsScreen extends ConsumerStatefulWidget {
   const CafeteriaMenuReviewsScreen({
@@ -310,6 +311,14 @@ class _Header extends StatelessWidget {
                     _formatPrice(menuItem?.price),
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
+                  if (FirebaseAuth.instance.currentUser != null) ...[
+                    const SizedBox(width: 8),
+                    _FavoriteButton(
+                      cafeteriaId: cafeteriaId,
+                      menuItem: menuItem,
+                      menuName: menuName,
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 4),
@@ -797,6 +806,134 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _FavoriteButton extends ConsumerStatefulWidget {
+  const _FavoriteButton({
+    required this.cafeteriaId,
+    required this.menuItem,
+    required this.menuName,
+  });
+
+  final String cafeteriaId;
+  final CafeteriaMenuItem? menuItem;
+  final String menuName;
+
+  @override
+  ConsumerState<_FavoriteButton> createState() => _FavoriteButtonState();
+}
+
+class _FavoriteButtonState extends ConsumerState<_FavoriteButton> {
+  Future<void> _toggleFavorite() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ログインが必要です')),
+        );
+      }
+      return;
+    }
+
+    try {
+      if (widget.menuItem != null && widget.menuItem!.id.isNotEmpty) {
+        final isFavorite = await CafeteriaFavoriteService.isFavorite(
+          userId: uid,
+          type: 'menu',
+          menuItemId: widget.menuItem!.id,
+        );
+        if (isFavorite) {
+          await CafeteriaFavoriteService.removeFavorite(
+            userId: uid,
+            type: 'menu',
+            menuItemId: widget.menuItem!.id,
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('お気に入りから削除しました')),
+            );
+          }
+        } else {
+          await CafeteriaFavoriteService.addFavorite(
+            userId: uid,
+            type: 'menu',
+            cafeteriaId: widget.cafeteriaId,
+            menuItemId: widget.menuItem!.id,
+            menuName: widget.menuName,
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('お気に入りに追加しました')),
+            );
+          }
+        }
+      } else {
+        await CafeteriaFavoriteService.addFavorite(
+          userId: uid,
+          type: 'menu',
+          cafeteriaId: widget.cafeteriaId,
+          menuName: widget.menuName,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('お気に入りに追加しました')),
+          );
+        }
+      }
+      // 状態を更新（ref.invalidateは使えないので、setStateで再ビルド）
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      return const SizedBox.shrink();
+    }
+
+    final isFavoriteFuture = widget.menuItem != null && widget.menuItem!.id.isNotEmpty
+        ? FutureProvider((ref) => CafeteriaFavoriteService.isFavorite(
+            userId: uid,
+            type: 'menu',
+            menuItemId: widget.menuItem!.id,
+          ))
+        : null;
+    final isFavoriteAsync = isFavoriteFuture != null ? ref.watch(isFavoriteFuture) : null;
+
+    return IconButton(
+      icon: isFavoriteAsync != null
+          ? isFavoriteAsync.when(
+              data: (isFavorite) => Icon(
+                isFavorite ? Icons.favorite : Icons.favorite_border,
+                color: isFavorite ? Colors.red : Colors.grey,
+              ),
+              loading: () => const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              error: (_, __) => const Icon(
+                Icons.favorite_border,
+                color: Colors.grey,
+              ),
+            )
+          : const Icon(
+              Icons.favorite_border,
+              color: Colors.grey,
+            ),
+      onPressed: _toggleFavorite,
+      tooltip: 'お気に入り',
     );
   }
 }
