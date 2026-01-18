@@ -49,8 +49,21 @@ app.*.map.json
 **/GoogleService-Info.plist
 **/.env
 **/.env.local
+**/.env.yaml
+**/.env.*.yaml
 **/firebase_options.dart
 lib/firebase_options.dart
+**/service-account-key.json
+**/serviceAccountKey.json
+scripts/*-key.json
+
+# User data (個人情報を含む可能性のあるファイル)
+scripts/user-id-prefixes.json
+scripts/user-growth-stats.json
+scripts/*.csv
+email-prefixes*.csv
+email-prefixes*.json
+email-prefixes-summary.csv
 
 # iOS specific
 **/ios/Pods/
