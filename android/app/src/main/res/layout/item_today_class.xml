@@ -25,8 +25,8 @@
             android:textColor="#1976D2"
             android:minWidth="32dp" />
 
-        <!-- 色のドット -->
-        <View
+        <!-- 色のドット（RemoteViewsではViewが使えないためFrameLayoutで代用） -->
+        <FrameLayout
             android:id="@+id/color_dot"
             android:layout_width="6dp"
             android:layout_height="6dp"

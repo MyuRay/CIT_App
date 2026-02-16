@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 小さいときは上寄せ、大きいときはコンテンツが正しい位置に表示 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_container"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:minHeight="150dp"
+    android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="8dp"
+    android:paddingTop="4dp"
+    android:paddingStart="4dp"
+    android:paddingEnd="4dp"
+    android:paddingBottom="0dp"
+    android:gravity="top"
+    android:clipChildren="false"
+    android:clipToPadding="false"
     android:background="@android:color/white">
 
     <TextView
@@ -14,15 +20,15 @@
         android:layout_height="wrap_content"
         android:text="週間時間割"
         android:textStyle="bold"
-        android:textSize="16sp"
-        android:paddingBottom="6dp" />
+        android:textSize="14sp"
+        android:paddingBottom="2dp" />
 
     <LinearLayout
         android:id="@+id/days_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:minHeight="120dp"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:clipChildren="false">
 
         <!-- Monday -->
         <LinearLayout
@@ -31,7 +37,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:padding="4dp">
+            android:padding="2dp">
 
             <TextView
                 android:id="@+id/monday_label"
@@ -55,7 +61,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:padding="4dp">
+            android:padding="2dp">
 
             <TextView
                 android:id="@+id/tuesday_label"
@@ -79,7 +85,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:padding="4dp">
+            android:padding="2dp">
 
             <TextView
                 android:id="@+id/wednesday_label"
@@ -103,7 +109,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:padding="4dp">
+            android:padding="2dp">
 
             <TextView
                 android:id="@+id/thursday_label"
@@ -127,7 +133,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:padding="4dp">
+            android:padding="2dp">
 
             <TextView
                 android:id="@+id/friday_label"
@@ -151,7 +157,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:padding="4dp">
+            android:padding="2dp">
 
             <TextView
                 android:id="@+id/saturday_label"

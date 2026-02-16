@@ -93,7 +93,11 @@ class HomeWidgetsService {
       
       // ウィジェットを更新（データ保存後に実行）
       try {
-        await HomeWidget.updateWidget(name: _weeklyWidgetName, androidName: _weeklyWidgetName);
+        await HomeWidget.updateWidget(
+          name: _weeklyWidgetName,
+          androidName: _weeklyWidgetName,
+          qualifiedAndroidName: 'jp.ac.chibakoudai.citapp.widget.$_weeklyWidgetName',
+        );
         debugPrint('✅ 週間時間割ウィジェット更新完了');
       } catch (e) {
         debugPrint('❌ ウィジェット更新呼び出しエラー: $e');
@@ -114,7 +118,11 @@ class HomeWidgetsService {
           'saturday': <Map<String, dynamic>>[],
         };
         await HomeWidget.saveWidgetData<String>(_keyWeeklyFull, jsonEncode(emptyData));
-        await HomeWidget.updateWidget(name: _weeklyWidgetName, androidName: _weeklyWidgetName);
+        await HomeWidget.updateWidget(
+          name: _weeklyWidgetName,
+          androidName: _weeklyWidgetName,
+          qualifiedAndroidName: 'jp.ac.chibakoudai.citapp.widget.$_weeklyWidgetName',
+        );
         debugPrint('⚠️ エラー時の空データでウィジェットを更新しました');
       } catch (e2) {
         debugPrint('❌ 空データ送信も失敗: $e2');
@@ -167,7 +175,11 @@ class HomeWidgetsService {
 
     await HomeWidget.saveWidgetData<String>(_keyBusRealtime, jsonEncode(payload));
     await HomeWidget.saveWidgetData<String>(_keyLastUpdate, DateTime.now().millisecondsSinceEpoch.toString());
-    await HomeWidget.updateWidget(name: _busWidgetName, androidName: _busWidgetName);
+    await HomeWidget.updateWidget(
+      name: _busWidgetName,
+      androidName: _busWidgetName,
+      qualifiedAndroidName: 'jp.ac.chibakoudai.citapp.widget.$_busWidgetName',
+    );
   }
 
   /// 今日の時間割ウィジェットを更新
@@ -239,7 +251,11 @@ class HomeWidgetsService {
       
       // ウィジェットを更新（データ保存後に実行）
       try {
-        await HomeWidget.updateWidget(name: _todayScheduleWidgetName, androidName: _todayScheduleWidgetName);
+        await HomeWidget.updateWidget(
+          name: _todayScheduleWidgetName,
+          androidName: _todayScheduleWidgetName,
+          qualifiedAndroidName: 'jp.ac.chibakoudai.citapp.widget.$_todayScheduleWidgetName',
+        );
         debugPrint('✅ 今日の時間割ウィジェット更新完了');
       } catch (e) {
         debugPrint('❌ ウィジェット更新呼び出しエラー: $e');
@@ -256,7 +272,11 @@ class HomeWidgetsService {
           'classes': <Map<String, dynamic>>[],
         };
         await HomeWidget.saveWidgetData<String>(_keyTodaySchedule, jsonEncode(emptyData));
-        await HomeWidget.updateWidget(name: _todayScheduleWidgetName, androidName: _todayScheduleWidgetName);
+        await HomeWidget.updateWidget(
+          name: _todayScheduleWidgetName,
+          androidName: _todayScheduleWidgetName,
+          qualifiedAndroidName: 'jp.ac.chibakoudai.citapp.widget.$_todayScheduleWidgetName',
+        );
         debugPrint('⚠️ エラー時の空データでウィジェットを更新しました');
       } catch (e2) {
         debugPrint('❌ 空データ送信も失敗: $e2');
