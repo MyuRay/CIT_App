@@ -7,6 +7,7 @@ import '../../models/cafeteria/cafeteria_review_model.dart';
 import '../../models/cafeteria/cafeteria_menu_item_model.dart';
 import 'cafeteria_review_form_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../core/providers/cafeteria_favorite_provider.dart';
 import '../../services/cafeteria/cafeteria_favorite_service.dart';
 
 class CafeteriaMenuReviewsScreen extends ConsumerStatefulWidget {
@@ -851,6 +852,8 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton> {
             menuItemId: widget.menuItem!.id,
           );
           if (mounted) {
+            ref.invalidate(isMenuFavoriteProvider(widget.menuItem!.id));
+            ref.invalidate(userCafeteriaFavoritesProvider);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('お気に入りから削除しました')),
             );
@@ -864,6 +867,8 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton> {
             menuName: widget.menuName,
           );
           if (mounted) {
+            ref.invalidate(isMenuFavoriteProvider(widget.menuItem!.id));
+            ref.invalidate(userCafeteriaFavoritesProvider);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('お気に入りに追加しました')),
             );
@@ -877,14 +882,11 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton> {
           menuName: widget.menuName,
         );
         if (mounted) {
+          ref.invalidate(userCafeteriaFavoritesProvider);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('お気に入りに追加しました')),
           );
         }
-      }
-      // 状態を更新（ref.invalidateは使えないので、setStateで再ビルド）
-      if (mounted) {
-        setState(() {});
       }
     } catch (e) {
       if (mounted) {
@@ -902,14 +904,9 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton> {
       return const SizedBox.shrink();
     }
 
-    final isFavoriteFuture = widget.menuItem != null && widget.menuItem!.id.isNotEmpty
-        ? FutureProvider((ref) => CafeteriaFavoriteService.isFavorite(
-            userId: uid,
-            type: 'menu',
-            menuItemId: widget.menuItem!.id,
-          ))
+    final isFavoriteAsync = widget.menuItem != null && widget.menuItem!.id.isNotEmpty
+        ? ref.watch(isMenuFavoriteProvider(widget.menuItem!.id))
         : null;
-    final isFavoriteAsync = isFavoriteFuture != null ? ref.watch(isFavoriteFuture) : null;
 
     return IconButton(
       icon: isFavoriteAsync != null

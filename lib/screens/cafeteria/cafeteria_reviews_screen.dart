@@ -16,6 +16,7 @@ import '../../core/providers/in_app_ad_provider.dart';
 import '../../models/ads/in_app_ad_model.dart';
 import '../../widgets/ads/in_app_ad_card.dart';
 import '../../core/providers/settings_provider.dart';
+import '../../core/providers/cafeteria_favorite_provider.dart';
 import '../../services/cafeteria/cafeteria_favorite_service.dart';
 
 String? _campusCodeFromCafeteriaId(String cafeteriaId) {
@@ -939,6 +940,8 @@ class _MenuRowCardState extends ConsumerState<_MenuRowCard> {
             menuItemId: menuItem.id,
           );
           if (mounted) {
+            ref.invalidate(isMenuFavoriteProvider(menuItem.id));
+            ref.invalidate(userCafeteriaFavoritesProvider);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('お気に入りから削除しました')),
             );
@@ -952,6 +955,8 @@ class _MenuRowCardState extends ConsumerState<_MenuRowCard> {
             menuName: widget.agg.menuName,
           );
           if (mounted) {
+            ref.invalidate(isMenuFavoriteProvider(menuItem.id));
+            ref.invalidate(userCafeteriaFavoritesProvider);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('お気に入りに追加しました')),
             );
@@ -971,6 +976,7 @@ class _MenuRowCardState extends ConsumerState<_MenuRowCard> {
             menuItemId: null,
           );
           if (mounted) {
+            ref.invalidate(userCafeteriaFavoritesProvider);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('お気に入りから削除しました')),
             );
@@ -983,6 +989,7 @@ class _MenuRowCardState extends ConsumerState<_MenuRowCard> {
             menuName: widget.agg.menuName,
           );
           if (mounted) {
+            ref.invalidate(userCafeteriaFavoritesProvider);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('お気に入りに追加しました')),
             );
@@ -1006,14 +1013,9 @@ class _MenuRowCardState extends ConsumerState<_MenuRowCard> {
         widget.agg.menuName.isNotEmpty ? widget.agg.menuName.substring(0, 1) : '?';
     final viewCount = menuItem?.viewCount ?? 0;
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    final isFavoriteFuture = menuItem != null && menuItem.id.isNotEmpty && uid != null
-        ? FutureProvider((ref) => CafeteriaFavoriteService.isFavorite(
-            userId: uid,
-            type: 'menu',
-            menuItemId: menuItem.id,
-          ))
+    final isFavoriteAsync = menuItem != null && menuItem.id.isNotEmpty && uid != null
+        ? ref.watch(isMenuFavoriteProvider(menuItem.id))
         : null;
-    final isFavoriteAsync = isFavoriteFuture != null ? ref.watch(isFavoriteFuture) : null;
 
     return Card(
       child: InkWell(
