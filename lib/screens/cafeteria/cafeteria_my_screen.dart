@@ -7,6 +7,8 @@ import '../../core/providers/cafeteria_favorite_provider.dart';
 import '../../models/cafeteria/cafeteria_review_model.dart';
 import '../../models/cafeteria/cafeteria_menu_item_model.dart';
 import '../../services/cafeteria/cafeteria_menu_item_service.dart';
+import 'cafeteria_reviews_screen.dart';
+import 'cafeteria_menu_reviews_screen.dart';
 
 /// My食堂画面
 /// - 自分のレビュー一覧
@@ -215,6 +217,17 @@ class _FavoritesTab extends ConsumerWidget {
                   child: ListTile(
                     leading: const Icon(Icons.restaurant),
                     title: Text(name),
+                    onTap: f.cafeteriaId != null
+                        ? () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => CafeteriaReviewsScreen(
+                                  initialCafeteriaId: f.cafeteriaId,
+                                ),
+                              ),
+                            );
+                          }
+                        : null,
                   ),
                 );
               }),
@@ -228,6 +241,21 @@ class _FavoritesTab extends ConsumerWidget {
               const SizedBox(height: 8),
               ...menuFavorites.map(
                 (f) {
+                  final cafeteriaId = f.cafeteriaId;
+                  final menuName = f.menuName ?? 'メニュー';
+                  final onTap = cafeteriaId != null && menuName.isNotEmpty
+                      ? () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => CafeteriaMenuReviewsScreen(
+                                cafeteriaId: cafeteriaId,
+                                menuName: menuName,
+                              ),
+                            ),
+                          );
+                        }
+                      : null;
+
                   if (f.menuItemId != null) {
                     return FutureBuilder<CafeteriaMenuItem?>(
                       future: CafeteriaMenuItemService.getMenuItem(f.menuItemId!),
@@ -249,6 +277,7 @@ class _FavoritesTab extends ConsumerWidget {
                             title: Text(title),
                             subtitle:
                                 subtitle != null ? Text(subtitle) : null,
+                            onTap: onTap,
                           ),
                         );
                       },
@@ -263,6 +292,7 @@ class _FavoritesTab extends ConsumerWidget {
                         leading: const Icon(Icons.ramen_dining),
                         title: Text(title),
                         subtitle: subtitle != null ? Text(subtitle) : null,
+                        onTap: onTap,
                       ),
                     );
                   }

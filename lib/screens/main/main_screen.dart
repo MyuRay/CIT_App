@@ -60,7 +60,9 @@ class MockImagePainter extends CustomPainter {
 }
 
 class MainScreen extends ConsumerStatefulWidget {
-  const MainScreen({super.key});
+  const MainScreen({super.key, this.initialTabIndex = 0});
+
+  final int initialTabIndex;
 
   @override
   ConsumerState<MainScreen> createState() => _MainScreenState();
@@ -76,8 +78,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   @override
   void initState() {
     super.initState();
-    // 強制的に0にリセット（シラバス削除後の対応）
-    _currentIndex = 0;
+    _currentIndex = widget.initialTabIndex.clamp(0, 3);
 
     // 次のフレームでも確実にリセット
     WidgetsBinding.instance.addPostFrameCallback((_) {

@@ -31,3 +31,15 @@ final isCafeteriaFavoriteProvider =
   );
 });
 
+/// 特定のメニューがお気に入りかどうか（menuItemId でキー）
+final isMenuFavoriteProvider =
+    FutureProvider.family<bool, String>((ref, menuItemId) async {
+  final uid = ref.watch(_favoriteUserIdProvider);
+  if (uid == null) return false;
+  return CafeteriaFavoriteService.isFavorite(
+    userId: uid,
+    type: 'menu',
+    menuItemId: menuItemId,
+  );
+});
+

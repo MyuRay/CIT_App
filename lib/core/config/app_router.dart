@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../providers/auth_provider.dart';
 import '../providers/simple_auth_provider.dart';
@@ -12,15 +15,19 @@ import '../../screens/legal/terms_of_service_screen.dart';
 import '../../screens/legal/privacy_policy_screen.dart';
 import '../../screens/user_block/blocked_user_list_screen.dart';
 
+/// ウィジェットから起動時の初期ルート（override用）
+final initialRouteFromWidgetProvider = Provider<String>((ref) => '/home');
+
 final routerProvider = Provider<GoRouter>((ref) {
   // シンプルな認証プロバイダーを使用
   final isLoggedIn = ref.watch(isLoggedInSimpleProvider);
   final isEmailVerified = ref.watch(isEmailVerifiedSyncProvider);
   final currentUser = ref.watch(currentUserSimpleProvider);
   final analyticsObserver = ref.watch(firebaseAnalyticsObserverProvider);
+  final initialRoute = ref.watch(initialRouteFromWidgetProvider);
 
   return GoRouter(
-    initialLocation: '/home',
+    initialLocation: initialRoute,
     redirect: (context, state) {
       // 認証画面（ログイン/サインアップ等）と、誰でも見られる公開画面（規約/ポリシー）を分けて扱う
       final authPages = ['/login', '/signup', '/forgot-password'];
@@ -93,7 +100,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/home',
         name: 'home',
-        builder: (context, state) => const MainScreen(),
+        builder: (context, state) {
+          final tab = state.uri.queryParameters['tab'];
+          final initialTabIndex = tab == 'schedule' ? 1 : 0;
+          return MainScreen(initialTabIndex: initialTabIndex);
+        },
       ),
       GoRoute(
         path: '/blocked-users',
