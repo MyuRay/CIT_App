@@ -143,6 +143,7 @@ class BusRoute {
   final String id;
   final String name; // 例: "津田沼 → 新習志野", "新習志野 → 津田沼"
   final String description; // 詳細説明
+  final String color; // 表示色（HEX形式）
   final List<BusTimeEntry> timeEntries; // 時刻表
   final int sortOrder; // 表示順序
   final bool isActive;
@@ -151,6 +152,7 @@ class BusRoute {
     required this.id,
     required this.name,
     required this.description,
+    this.color = '#2196F3',
     required this.timeEntries,
     required this.sortOrder,
     required this.isActive,
@@ -161,6 +163,7 @@ class BusRoute {
       id: (json['id'] as String?) ?? '',
       name: (json['name'] as String?) ?? '',
       description: json['description'] as String? ?? '',
+      color: json['color'] as String? ?? '#2196F3',
       timeEntries: (json['timeEntries'] as List<dynamic>?)
           ?.map((e) => BusTimeEntry.fromJson(e as Map<String, dynamic>))
           .toList() ?? [],
@@ -174,6 +177,7 @@ class BusRoute {
       'id': id,
       'name': name,
       'description': description,
+      'color': color,
       'timeEntries': timeEntries.map((e) => e.toJson()).toList(),
       'sortOrder': sortOrder,
       'isActive': isActive,
@@ -197,6 +201,7 @@ class BusRoute {
     String? id,
     String? name,
     String? description,
+    String? color,
     List<BusTimeEntry>? timeEntries,
     int? sortOrder,
     bool? isActive,
@@ -205,6 +210,7 @@ class BusRoute {
       id: id ?? this.id,
       name: name ?? this.name,
       description: description ?? this.description,
+      color: color ?? this.color,
       timeEntries: timeEntries ?? this.timeEntries,
       sortOrder: sortOrder ?? this.sortOrder,
       isActive: isActive ?? this.isActive,

@@ -5,7 +5,7 @@ import '../../models/convenience_link/convenience_link_model.dart';
 class ConvenienceLinkService {
   static const String _keyPrefix = 'convenience_links_';
   static const String _versionKey = 'convenience_links_version';
-  static const int _currentVersion = 3; // 新しいプリセットリンク追加を反映するためのバージョン
+  static const int _currentVersion = 7; // 新しいプリセットリンク追加を反映するためのバージョン
   
   /// ユーザー固有のキーを生成
   static String _getUserKey(String userId) => '${_keyPrefix}$userId';
@@ -202,8 +202,10 @@ class ConvenienceLinkService {
         'preset_portal': 4,        // CITポータル
         'preset_certificate': 5,   // 証明書発行
         'preset_student_portal': 6, // 学生資料室
-        'preset_job_system': 7,    // 就職システム
+        'preset_papercut': 7,      // ウェブプリントPaperCut（学内専用）
         'preset_cjob': 8,          // CJOB
+        'preset_cit_app_hp': 9,    // CIT App HP
+        'preset_cit_app_x': 10,    // CIT App X
       };
       
       // titleベースでも対応（カスタムリンクの可能性）
@@ -214,9 +216,13 @@ class ConvenienceLinkService {
         'CITポータル': 4,
         '証明書発行': 5,
         '学生資料室': 6,
-        '就職システム': 7,
+        'ウェブプリントPaperCut（学内専用）': 7,
         'CJOB': 8,
+        'CIT App HP': 9,
+        'CIT App X': 10,
       };
+      final removedPresetIds = {'preset_job_system'};
+      final removedPresetTitles = {'就職システム'};
       
       // 既存のリンクIDとtitleのセットを作成
       final existingIds = links.map((l) => l.id).toSet();
@@ -225,6 +231,9 @@ class ConvenienceLinkService {
       // 順番を更新
       final updatedLinks = <ConvenienceLink>[];
       for (final link in links) {
+        if (removedPresetIds.contains(link.id) || removedPresetTitles.contains(link.title)) {
+          continue;
+        }
         int newOrder = link.order; // デフォルトは既存の順番
         
         // IDで一致する場合
@@ -256,7 +265,7 @@ class ConvenienceLinkService {
       }
       
       // 他のカスタムリンクは既存の順番を維持、プリセット以降に配置
-      int maxPresetOrder = 8;
+      int maxPresetOrder = 10;
       for (int i = 0; i < updatedLinks.length; i++) {
         final link = updatedLinks[i];
         if (!newOrderMap.containsKey(link.id) && !titleOrderMap.containsKey(link.title)) {

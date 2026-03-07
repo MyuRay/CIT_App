@@ -234,11 +234,11 @@ class PresetLinks {
       order: 6,
     ),
     ConvenienceLink(
-      id: 'preset_job_system',
-      title: '就職システム',
-      url: 'https://www2.kyujin-navi.com/GAKUGAI/MENU/menu.asp',
-      iconName: 'work',
-      color: 'deepOrange',
+      id: 'preset_papercut',
+      title: 'ウェブプリントPaperCut（学内専用）',
+      url: 'https://www.papercut.it-chiba.ac.jp/user?',
+      iconName: 'document',
+      color: 'teal',
       order: 7,
     ),
     ConvenienceLink(
@@ -248,6 +248,22 @@ class PresetLinks {
       iconName: 'star',
       color: 'amber',
       order: 8,
+    ),
+    ConvenienceLink(
+      id: 'preset_cit_app_hp',
+      title: 'CIT App HP',
+      url: 'https://cit-app.com/',
+      iconName: 'link',
+      color: 'blue',
+      order: 9,
+    ),
+    ConvenienceLink(
+      id: 'preset_cit_app_x',
+      title: 'CIT App X',
+      url: 'https://x.com/citapp',
+      iconName: 'chat',
+      color: 'grey',
+      order: 10,
     ),
   ];
 }
