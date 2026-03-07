@@ -411,15 +411,16 @@ class _FullScreenMenuImageDialogState
                   itemCount: campuses.length,
                   onPageChanged: (index) {
                     if (index >= 0 && index < campuses.length) {
-                      // キャンパスが変更されたとき、前のキャンパスの拡大状態をリセット
-                      final previousCampus = _currentCampus;
-                      if (previousCampus != campuses[index]) {
-                        final previousController = _transformationControllers[previousCampus];
-                        if (previousController != null) {
-                          previousController.value = Matrix4.identity();
-                        }
+                      final newCampus = campuses[index];
+                      // 切り替え先の画像のズームをリセット
+                      final newController = _transformationControllers[newCampus];
+                      if (newController != null) {
+                        newController.value = Matrix4.identity();
                       }
-                      setState(() => _currentCampus = campuses[index]);
+                      setState(() {
+                        _currentCampus = newCampus;
+                        _isImageZoomed = false;
+                      });
                     }
                   },
                   itemBuilder: (context, index) {

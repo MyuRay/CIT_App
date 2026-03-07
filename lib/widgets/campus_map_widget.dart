@@ -343,16 +343,15 @@ class _FullScreenCampusMapDialogState
                   itemCount: _entries.length,
                   onPageChanged: (index) {
                     if (index >= 0 && index < _entries.length) {
-                      // キャンパスが変更されたとき、前のキャンパスの拡大状態をリセット
-                      final previousCampusKey = _entries[_currentIndex].key;
-                      if (previousCampusKey != _entries[index].key) {
-                        final previousController = _transformationControllers[previousCampusKey];
-                        if (previousController != null) {
-                          previousController.value = Matrix4.identity();
-                        }
+                      final newCampusKey = _entries[index].key;
+                      // 切り替え先のマップのズームをリセット
+                      final newController = _transformationControllers[newCampusKey];
+                      if (newController != null) {
+                        newController.value = Matrix4.identity();
                       }
                       setState(() {
                         _currentIndex = index;
+                        _isImageZoomed = false;
                       });
                     }
                   },
