@@ -47,6 +47,14 @@ final firebaseTodayMenuProvider = FutureProvider.family<String?, String>((
   });
 });
 
+// Firebase Storage から学食備考を取得
+final firebaseTodayMenuNoteProvider = FutureProvider.family<String?, String>((
+  ref,
+  campus,
+) async {
+  return await FirebaseMenuService.getMenuNote(campus);
+});
+
 // Firebase Storage から今週のメニュー画像URLsを取得（キャッシュ・パフォーマンス監視付き）
 final firebaseWeeklyMenuProvider =
     FutureProvider.family<Map<String, String?>, String>((ref, campus) async {
