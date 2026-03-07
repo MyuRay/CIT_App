@@ -374,7 +374,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           border: Border.all(color: Colors.amber.shade700),
                         ),
                         child: Text(
-                          '(テスト用)ビルド番号2',
+                          '(テスト用)ビルド番号3',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Colors.black87,
                             fontWeight: FontWeight.w700,
@@ -724,80 +724,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       children: [
         // 今日のメニュー画像
         _buildTodayMenuImage(context, ref),
-        const SizedBox(height: 10),
-        _buildCafeteriaNotes(context, ref),
       ],
-    );
-  }
-
-  Widget _buildCafeteriaNotes(BuildContext context, WidgetRef ref) {
-    final tdNoteAsync = ref.watch(firebaseTodayMenuNoteProvider('td'));
-    final sd1NoteAsync = ref.watch(firebaseTodayMenuNoteProvider('sd1'));
-    final sd2NoteAsync = ref.watch(firebaseTodayMenuNoteProvider('sd2'));
-
-    final tdNote = tdNoteAsync.valueOrNull?.trim();
-    final sd1Note = sd1NoteAsync.valueOrNull?.trim();
-    final sd2Note = sd2NoteAsync.valueOrNull?.trim();
-    final hasAnyNote =
-        (tdNote != null && tdNote.isNotEmpty) ||
-        (sd1Note != null && sd1Note.isNotEmpty) ||
-        (sd2Note != null && sd2Note.isNotEmpty);
-    final isLoading =
-        tdNoteAsync.isLoading || sd1NoteAsync.isLoading || sd2NoteAsync.isLoading;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Theme.of(context).dividerColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '備考',
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
-          if (isLoading && !hasAnyNote)
-            const SizedBox(
-              height: 18,
-              width: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else if (!hasAnyNote)
-            Text(
-              '現在、備考はありません',
-              style: Theme.of(context).textTheme.bodySmall,
-            )
-          else ...[
-            if (tdNote != null && tdNote.isNotEmpty)
-              _buildCafeteriaNoteRow(context, '津田沼', tdNote),
-            if (sd1Note != null && sd1Note.isNotEmpty)
-              _buildCafeteriaNoteRow(context, '新習志野1F', sd1Note),
-            if (sd2Note != null && sd2Note.isNotEmpty)
-              _buildCafeteriaNoteRow(context, '新習志野2F', sd2Note),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCafeteriaNoteRow(
-    BuildContext context,
-    String campusName,
-    String note,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Text(
-        '・$campusName: $note',
-        style: Theme.of(context).textTheme.bodySmall,
-      ),
     );
   }
 
@@ -2184,7 +2111,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   (data) =>
                       data == null
                           ? _buildNoBusDataState(context)
-                          : _buildInteractiveBusInfoContent(context, data),
+                          : Column(
+                            children: [
+                              _buildInteractiveBusInfoContent(context, data),
+                              if (data.description.trim().isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                _buildBusTimetableNote(context, data.description),
+                              ],
+                            ],
+                          ),
               loading:
                   () => const Center(
                     child: Padding(
@@ -2196,6 +2131,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBusTimetableNote(BuildContext context, String note) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.info_outline,
+            size: 16,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              note,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
       ),
     );
   }
