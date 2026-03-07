@@ -704,7 +704,80 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       children: [
         // 今日のメニュー画像
         _buildTodayMenuImage(context, ref),
+        const SizedBox(height: 10),
+        _buildCafeteriaNotes(context, ref),
       ],
+    );
+  }
+
+  Widget _buildCafeteriaNotes(BuildContext context, WidgetRef ref) {
+    final tdNoteAsync = ref.watch(firebaseTodayMenuNoteProvider('td'));
+    final sd1NoteAsync = ref.watch(firebaseTodayMenuNoteProvider('sd1'));
+    final sd2NoteAsync = ref.watch(firebaseTodayMenuNoteProvider('sd2'));
+
+    final tdNote = tdNoteAsync.valueOrNull?.trim();
+    final sd1Note = sd1NoteAsync.valueOrNull?.trim();
+    final sd2Note = sd2NoteAsync.valueOrNull?.trim();
+    final hasAnyNote =
+        (tdNote != null && tdNote.isNotEmpty) ||
+        (sd1Note != null && sd1Note.isNotEmpty) ||
+        (sd2Note != null && sd2Note.isNotEmpty);
+    final isLoading =
+        tdNoteAsync.isLoading || sd1NoteAsync.isLoading || sd2NoteAsync.isLoading;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '備考',
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          if (isLoading && !hasAnyNote)
+            const SizedBox(
+              height: 18,
+              width: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else if (!hasAnyNote)
+            Text(
+              '現在、備考はありません',
+              style: Theme.of(context).textTheme.bodySmall,
+            )
+          else ...[
+            if (tdNote != null && tdNote.isNotEmpty)
+              _buildCafeteriaNoteRow(context, '津田沼', tdNote),
+            if (sd1Note != null && sd1Note.isNotEmpty)
+              _buildCafeteriaNoteRow(context, '新習志野1F', sd1Note),
+            if (sd2Note != null && sd2Note.isNotEmpty)
+              _buildCafeteriaNoteRow(context, '新習志野2F', sd2Note),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCafeteriaNoteRow(
+    BuildContext context,
+    String campusName,
+    String note,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Text(
+        '・$campusName: $note',
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
     );
   }
 
@@ -2201,7 +2274,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
 
     if (!isOperating || activeRoutes.isEmpty) {
-      return _buildStaticBusStatus(context, busInfo);
+      return _buildStaticBusStatus(
+        context,
+        busInfo,
+        noActiveRoutes: activeRoutes.isEmpty,
+      );
     }
 
     // 当日の次の便が無ければ、本日の運行終了表示
@@ -2298,8 +2375,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   // 静的な運行状況表示（運行していない場合）
-  Widget _buildStaticBusStatus(BuildContext context, BusInformation busInfo) {
+  Widget _buildStaticBusStatus(
+    BuildContext context,
+    BusInformation busInfo, {
+    bool noActiveRoutes = false,
+  }) {
     final isOperating = busInfo.isCurrentlyOperating;
+    final showNotOperating = !isOperating || noActiveRoutes;
     final currentPeriod = busInfo.currentOperationPeriod;
 
     // 学バスウィジェットも空データ含め更新
@@ -2312,17 +2394,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isOperating ? Colors.green.shade50 : Colors.orange.shade50,
+        color: showNotOperating ? Colors.orange.shade50 : Colors.green.shade50,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isOperating ? Colors.green.shade200 : Colors.orange.shade200,
+          color:
+              showNotOperating ? Colors.orange.shade200 : Colors.green.shade200,
         ),
       ),
       child: Row(
         children: [
           Icon(
-            isOperating ? Icons.check_circle : Icons.cancel,
-            color: isOperating ? Colors.green.shade600 : Colors.orange.shade600,
+            showNotOperating ? Icons.cancel : Icons.check_circle,
+            color:
+                showNotOperating
+                    ? Colors.orange.shade600
+                    : Colors.green.shade600,
             size: 20,
           ),
           const SizedBox(width: 8),
@@ -2331,13 +2417,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isOperating ? '運行中（運行時刻外）' : '現在運行しておりません',
+                  showNotOperating ? '現在運行しておりません' : '運行中（運行時刻外）',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color:
-                        isOperating
-                            ? Colors.green.shade700
-                            : Colors.orange.shade700,
+                        showNotOperating
+                            ? Colors.orange.shade700
+                            : Colors.green.shade700,
                   ),
                 ),
                 if (currentPeriod != null) ...[
@@ -2347,9 +2433,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     style: TextStyle(
                       fontSize: 12,
                       color:
-                          isOperating
-                              ? Colors.green.shade600
-                              : Colors.orange.shade600,
+                          showNotOperating
+                              ? Colors.orange.shade600
+                              : Colors.green.shade600,
                     ),
                   ),
                 ],
@@ -2773,80 +2859,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   // フルスクリーン画像ダイアログを構築
   Widget _buildFullScreenImageDialog(BuildContext context, String imageUrl, BuildContext dialogContext) {
-    return Dialog.fullscreen(
-      backgroundColor: Colors.black87,
-      child: Stack(
-        children: [
-          Center(
-            child: InteractiveViewer(
-              minScale: 0.5,
-              maxScale: 5.0,
-              child: kIsWeb
-                  ? Image.network(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return Image.asset(
-                          'assets/images/bus_timetable.png',
-                          fit: BoxFit.contain,
-                        );
-                      },
-                    )
-                  : Image.network(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      cacheWidth: null,
-                      cacheHeight: null,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return Image.asset(
-                          'assets/images/bus_timetable.png',
-                          fit: BoxFit.contain,
-                        );
-                      },
-                    ),
-            ),
-          ),
-          _buildFullScreenControls(dialogContext, '学バス時刻表'),
-        ],
-      ),
+    return _HomeScreenImageViewer(
+      imageUrl: imageUrl,
+      isAsset: false,
+      title: '学バス時刻表',
     );
   }
 
   // フルスクリーンアセット画像ダイアログを構築
   Widget _buildFullScreenAssetImageDialog(BuildContext context, BuildContext dialogContext) {
-    return Dialog.fullscreen(
-      backgroundColor: Colors.black87,
-      child: Stack(
-        children: [
-          Center(
-            child: InteractiveViewer(
-              minScale: 0.5,
-              maxScale: 5.0,
-              child: Image.asset(
-                'assets/images/bus_timetable.png',
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
-          _buildFullScreenControls(dialogContext, '学バス時刻表（オフライン版）'),
-        ],
-      ),
+    return _HomeScreenImageViewer(
+      imageUrl: 'assets/images/bus_timetable.png',
+      isAsset: true,
+      title: '学バス時刻表（オフライン版）',
     );
   }
 
@@ -2855,67 +2880,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     showDialog(
       context: context,
       barrierColor: Colors.black87,
-      builder:
-          (context) => Dialog.fullscreen(
-            backgroundColor: Colors.black87,
-            child: Stack(
-              children: [
-                // フルスクリーン画像（ズーム・パン対応）
-                Center(
-                  child: InteractiveViewer(
-                    minScale: 0.5,
-                    maxScale: 5.0,
-                    child:
-                        kIsWeb
-                            ? Image.network(
-                              imageUrl,
-                              fit: BoxFit.contain,
-                              loadingBuilder: (
-                                context,
-                                child,
-                                loadingProgress,
-                              ) {
-                                if (loadingProgress == null) return child;
-                                return const Center(
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                  ),
-                                );
-                              },
-                              errorBuilder: (context, error, stackTrace) {
-                                // エラー時はアセット画像にフォールバック
-                                return Image.asset(
-                                  'assets/images/bus_timetable.png',
-                                  fit: BoxFit.contain,
-                                );
-                              },
-                            )
-                            : Image.network(
-                              imageUrl,
-                              fit: BoxFit.contain,
-                              cacheWidth: null, // キャッシュ無効化
-                              cacheHeight: null, // キャッシュ無効化
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return const Center(
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                  ),
-                                );
-                              },
-                              errorBuilder: (context, error, stackTrace) {
-                                return Image.asset(
-                                  'assets/images/bus_timetable.png',
-                                  fit: BoxFit.contain,
-                                );
-                              },
-                            ),
-                  ),
-                ),
-                _buildFullScreenControls(context, '学バス時刻表'),
-              ],
-            ),
-          ),
+      builder: (context) => _HomeScreenImageViewer(
+        imageUrl: imageUrl,
+        isAsset: false,
+        title: '学バス時刻表',
+      ),
     );
   }
 
@@ -2941,41 +2910,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     showDialog(
       context: context,
       barrierColor: Colors.black87,
-      builder:
-          (context) => Dialog.fullscreen(
-            backgroundColor: Colors.black87,
-            child: Stack(
-              children: [
-                // フルスクリーン画像（ズーム・パン対応）
-                Center(
-                  child: InteractiveViewer(
-                    minScale: 0.5,
-                    maxScale: 5.0,
-                    child: Image.asset(
-                      'assets/images/bus_timetable.png',
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.error, color: Colors.white, size: 48),
-                              SizedBox(height: 16),
-                              Text(
-                                'バス時刻表の読み込みに失敗しました',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                _buildFullScreenControls(context, '学バス時刻表（オフライン版）'),
-              ],
-            ),
-          ),
+      builder: (context) => _HomeScreenImageViewer(
+        imageUrl: 'assets/images/bus_timetable.png',
+        isAsset: true,
+        title: '学バス時刻表（オフライン版）',
+      ),
     );
   }
 
@@ -3787,5 +3726,217 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     } else {
       return '今週(${mondayMonth}/${mondayDay}-${sundayMonth}/${sundayDay})の学食情報';
     }
+  }
+}
+
+class _HomeScreenImageViewer extends StatefulWidget {
+  final String imageUrl;
+  final bool isAsset;
+  final String title;
+
+  const _HomeScreenImageViewer({
+    required this.imageUrl,
+    required this.isAsset,
+    required this.title,
+  });
+
+  @override
+  State<_HomeScreenImageViewer> createState() => _HomeScreenImageViewerState();
+}
+
+class _HomeScreenImageViewerState extends State<_HomeScreenImageViewer> {
+  late final TransformationController _transformationController;
+  static const double _zoomedScale = 2.5;
+
+  @override
+  void initState() {
+    super.initState();
+    _transformationController = TransformationController();
+  }
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  void _handleDoubleTap(TapDownDetails details) {
+    final scale = _transformationController.value.getMaxScaleOnAxis();
+    final isCurrentlyZoomed = scale > 1.1;
+
+    if (isCurrentlyZoomed) {
+      // 拡大中の場合、元のサイズに戻す
+      _transformationController.value = Matrix4.identity();
+    } else {
+      // 縮小時の場合、タップ位置を中心に拡大
+      final screenSize = MediaQuery.of(context).size;
+      final screenCenterX = screenSize.width / 2;
+      final screenCenterY = screenSize.height / 2;
+
+      // タップ位置をローカル座標から取得
+      final tapPosition = details.localPosition;
+      
+      // 画面中心からのオフセットを計算
+      final offsetX = tapPosition.dx - screenCenterX;
+      final offsetY = tapPosition.dy - screenCenterY;
+
+      final newScale = _zoomedScale;
+      
+      // タップ位置が画面中心に来るように変換行列を計算
+      final translateX = -offsetX * (newScale - 1) / newScale;
+      final translateY = -offsetY * (newScale - 1) / newScale;
+      
+      // スケールを先に適用してから平行移動を適用するため、Matrix4を直接構築
+      final matrix = Matrix4.identity()
+        ..scale(newScale)
+        ..translate(translateX / newScale, translateY / newScale);
+      
+      _transformationController.value = matrix;
+    }
+  }
+
+  Widget _buildFullScreenControls(BuildContext context, String title) {
+    return Stack(
+      children: [
+        // 閉じるボタン
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 8,
+          right: 16,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ),
+        // タイトル
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 8,
+          left: 16,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        // ピンチアウトのヒント（下部）
+        Positioned(
+          bottom: MediaQuery.of(context).padding.bottom + 16,
+          left: 16,
+          right: 16,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text(
+              'ダブルタップで拡大・縮小、ピンチで拡大・縮小、ドラッグで移動できます',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog.fullscreen(
+      backgroundColor: Colors.black87,
+      child: Stack(
+        children: [
+          Center(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onDoubleTapDown: _handleDoubleTap,
+              child: InteractiveViewer(
+                transformationController: _transformationController,
+                minScale: 0.5,
+                maxScale: 5.0,
+                child: widget.isAsset
+                    ? Image.asset(
+                        widget.imageUrl,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.error, color: Colors.white, size: 48),
+                                SizedBox(height: 16),
+                                Text(
+                                  'バス時刻表の読み込みに失敗しました',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      )
+                    : (kIsWeb
+                        ? Image.network(
+                            widget.imageUrl,
+                            fit: BoxFit.contain,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return Image.asset(
+                                'assets/images/bus_timetable.png',
+                                fit: BoxFit.contain,
+                              );
+                            },
+                          )
+                        : Image.network(
+                            widget.imageUrl,
+                            fit: BoxFit.contain,
+                            cacheWidth: null,
+                            cacheHeight: null,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return Image.asset(
+                                'assets/images/bus_timetable.png',
+                                fit: BoxFit.contain,
+                              );
+                            },
+                          )),
+              ),
+            ),
+          ),
+          _buildFullScreenControls(context, widget.title),
+        ],
+      ),
+    );
   }
 }

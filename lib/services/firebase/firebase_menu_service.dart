@@ -1,11 +1,13 @@
-import 'dart:typed_data';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class FirebaseMenuService {
   static final _storage = FirebaseStorage.instance;
+  static final _firestore = FirebaseFirestore.instance;
   static const String _menuImagesPath = 'menu_images';
+  static const String _menuNotesCollection = 'cafeteria_menu_notes';
   static const Duration _timeout = Duration(seconds: 30);
 
   // CIT公式のメニュー画像URL生成
@@ -27,6 +29,11 @@ class FirebaseMenuService {
     try {
       final campusCode = _campusFileNames[campus] ?? campus;
       final ref = _storage.ref().child('$_menuImagesPath/$campusCode.png');
+      String? existingNote;
+      try {
+        final existingMeta = await ref.getMetadata();
+        existingNote = existingMeta.customMetadata?['note'];
+      } catch (_) {}
 
       final metadata = SettableMetadata(
         contentType: 'image/png',
@@ -34,6 +41,8 @@ class FirebaseMenuService {
           'campus': campusCode,
           'uploaded_at': DateTime.now().toIso8601String(),
           'uploaded_by': 'admin_manual_upload',
+          if (existingNote != null && existingNote.trim().isNotEmpty)
+            'note': existingNote.trim(),
         },
       );
 
@@ -70,6 +79,69 @@ class FirebaseMenuService {
       return url;
     } catch (_) {
       return null;
+    }
+  }
+
+  /// ホーム表示用: 指定キャンパスの備考を取得
+  static Future<String?> getMenuNote(String campus) async {
+    try {
+      final campusCode = _campusFileNames[campus] ?? campus;
+      final doc =
+          await _firestore.collection(_menuNotesCollection).doc(campusCode).get();
+      final data = doc.data();
+      final note = (data?['note'] as String?)?.trim();
+      if (note != null && note.isNotEmpty) {
+        return note;
+      }
+    } catch (_) {}
+
+    try {
+      final campusCode = _campusFileNames[campus] ?? campus;
+      final ref = _storage.ref().child('$_menuImagesPath/$campusCode.png');
+      final metadata = await ref.getMetadata();
+      final note = metadata.customMetadata?['note']?.trim();
+      if (note == null || note.isEmpty) return null;
+      return note;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 管理者用: 指定キャンパスの備考を更新
+  /// 画像未登録の場合は false を返す
+  static Future<bool> updateMenuNote(String campus, String note) async {
+    try {
+      final campusCode = _campusFileNames[campus] ?? campus;
+      final trimmedNote = note.trim();
+
+      // まずFirestoreへ保存（画像の有無に依存せず備考管理できる）
+      await _firestore.collection(_menuNotesCollection).doc(campusCode).set({
+        'campus': campusCode,
+        'note': trimmedNote,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      // 画像がある場合はStorage metadataにも反映（互換用）
+      try {
+        final ref = _storage.ref().child('$_menuImagesPath/$campusCode.png');
+        final metadata = await ref.getMetadata();
+        final customMetadata = <String, String>{
+          ...?metadata.customMetadata,
+          'campus': campusCode,
+          'note_updated_at': DateTime.now().toIso8601String(),
+        };
+        if (trimmedNote.isEmpty) {
+          customMetadata.remove('note');
+        } else {
+          customMetadata['note'] = trimmedNote;
+        }
+        await ref.updateMetadata(SettableMetadata(customMetadata: customMetadata));
+      } catch (_) {}
+
+      return true;
+    } catch (e) {
+      debugPrint('❌ 備考更新失敗: $e');
+      return false;
     }
   }
 
