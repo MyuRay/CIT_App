@@ -1375,7 +1375,7 @@ class _BusManagementScreenState extends ConsumerState<BusManagementScreen>
                 controller: descriptionController,
                 maxLines: 3,
                 decoration: const InputDecoration(
-                  labelText: '説明',
+                  labelText: '備考（ホーム表示）',
                   border: OutlineInputBorder(),
                 ),
               ),
