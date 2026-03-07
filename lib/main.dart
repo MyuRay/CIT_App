@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -20,6 +21,7 @@ import 'core/services/cache_service.dart';
 import 'core/services/simple_offline_service.dart';
 import 'core/services/app_review_service.dart';
 import 'services/cafeteria/menu_scheduler_service.dart';
+import 'package:home_widget/home_widget.dart';
 import 'services/widget/home_widgets_service.dart';
 import 'services/notification/notification_service.dart';
 import 'services/schedule/schedule_notification_service.dart';
@@ -138,8 +140,13 @@ void main() async {
       debugPrint('Web版Firebase初期化完了');
     } else {
       debugPrint('モバイル版Firebase初期化開始');
-      await Firebase.initializeApp();
-      debugPrint('モバイル版Firebase初期化完了');
+      // 既に初期化されている場合はスキップ
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp();
+        debugPrint('モバイル版Firebase初期化完了');
+      } else {
+        debugPrint('Firebaseは既に初期化済みです');
+      }
 
       // バックグラウンド通知ハンドラーを設定
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -303,9 +310,23 @@ void main() async {
     monitor.startFrameRateMonitoring();
   }
 
+  // ウィジェットから起動した場合は時間割タブを開く
+  String initialRoute = '/home';
+  if (!kIsWeb) {
+    try {
+      final uri = await HomeWidget.initiallyLaunchedFromHomeWidget();
+      if (uri != null && uri.toString().contains('schedule')) {
+        initialRoute = '/home?tab=schedule';
+      }
+    } catch (_) {}
+  }
+
   runApp(
     ProviderScope(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        initialRouteFromWidgetProvider.overrideWithValue(initialRoute),
+      ],
       child: const CITApp(),
     ),
   );
@@ -395,6 +416,18 @@ class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
     super.initState();
     // アプリライフサイクル監視を開始
     WidgetsBinding.instance.addObserver(this);
+    // ウィジェットタップ時（アプリ起動中）に時間割タブへ遷移
+    if (!kIsWeb) {
+      HomeWidget.widgetClicked.listen((uri) {
+        if (uri != null && uri.toString().contains('schedule')) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              ref.read(routerProvider).go('/home?tab=schedule');
+            }
+          });
+        }
+      });
+    }
   }
 
   @override

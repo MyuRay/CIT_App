@@ -167,7 +167,7 @@ class OptimizedBulletinNotifier extends StateNotifier<AsyncValue<List<BulletinPo
     
     return posts.where((post) {
       return post.title.toLowerCase().contains(lowercaseQuery) ||
-          post.content.toLowerCase().contains(lowercaseQuery) ||
+          post.description.toLowerCase().contains(lowercaseQuery) ||
           post.category.name.toLowerCase().contains(lowercaseQuery);
     }).toList();
   }

@@ -344,36 +344,16 @@ class _FullScreenMenuImageDialogState
       // 拡大中の場合、元のサイズに戻す
       controller.value = Matrix4.identity();
     } else {
-      // 縮小時の場合、タップ位置を中心に拡大
-      // 画面サイズを取得
-      final screenSize = MediaQuery.of(context).size;
-      final screenCenterX = screenSize.width / 2;
-      final screenCenterY = screenSize.height / 2;
+      // 縮小時の場合、タップした位置を中心に拡大（X風の挙動）
+      final tapPosition = details.localPosition;
+      final translationCorrection = _zoomedScale - 1;
 
-      // GestureDetectorのローカル座標を画面座標に変換
-      final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
-      if (renderBox == null) {
-        // フォールバック: 画面中心で拡大
-        controller.value = Matrix4.identity()..scale(_zoomedScale);
-        return;
-      }
-
-      final globalTapPosition = renderBox.localToGlobal(details.localPosition);
-      
-      // 画面中心からのオフセットを計算
-      final offsetX = globalTapPosition.dx - screenCenterX;
-      final offsetY = globalTapPosition.dy - screenCenterY;
-
-      final newScale = _zoomedScale;
-      
-      // InteractiveViewerの座標系で、タップ位置が拡大後も同じ位置に来るように調整
-      // 拡大によりオフセットが増えるため、それを考慮して調整
-      final translateX = -offsetX * (newScale - 1);
-      final translateY = -offsetY * (newScale - 1);
-      
       controller.value = Matrix4.identity()
-        ..translate(translateX, translateY)
-        ..scale(newScale);
+        ..translate(
+          -tapPosition.dx * translationCorrection,
+          -tapPosition.dy * translationCorrection,
+        )
+        ..scale(_zoomedScale);
     }
   }
 
@@ -431,15 +411,16 @@ class _FullScreenMenuImageDialogState
                   itemCount: campuses.length,
                   onPageChanged: (index) {
                     if (index >= 0 && index < campuses.length) {
-                      // キャンパスが変更されたとき、前のキャンパスの拡大状態をリセット
-                      final previousCampus = _currentCampus;
-                      if (previousCampus != campuses[index]) {
-                        final previousController = _transformationControllers[previousCampus];
-                        if (previousController != null) {
-                          previousController.value = Matrix4.identity();
-                        }
+                      final newCampus = campuses[index];
+                      // 切り替え先の画像のズームをリセット
+                      final newController = _transformationControllers[newCampus];
+                      if (newController != null) {
+                        newController.value = Matrix4.identity();
                       }
-                      setState(() => _currentCampus = campuses[index]);
+                      setState(() {
+                        _currentCampus = newCampus;
+                        _isImageZoomed = false;
+                      });
                     }
                   },
                   itemBuilder: (context, index) {

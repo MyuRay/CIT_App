@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../core/services/simple_offline_service.dart';
+import '../../core/services/performance_monitor.dart';
 
 /// オフライン対応ウィジェット
 class OfflineAwareWidget extends ConsumerWidget {

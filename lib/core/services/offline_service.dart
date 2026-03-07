@@ -15,7 +15,7 @@ class OfflineService {
   final CacheService _cache = CacheService();
   
   bool _isOnline = true;
-  StreamSubscription<ConnectivityResult>? _connectivitySubscription;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   final StreamController<bool> _connectionController = StreamController<bool>.broadcast();
   
   final List<OfflineAction> _pendingActions = [];
@@ -43,8 +43,8 @@ class OfflineService {
   /// 初期接続状態をチェック
   Future<void> _checkInitialConnectivity() async {
     try {
-      final ConnectivityResult result = await _connectivity.checkConnectivity();
-      _updateConnectionStatus([result]);
+      final List<ConnectivityResult> results = await _connectivity.checkConnectivity();
+      _updateConnectionStatus(results);
     } catch (e) {
       if (kDebugMode) {
         print('❌ Initial connectivity check failed: $e');
@@ -56,7 +56,7 @@ class OfflineService {
   /// 接続監視を開始
   void _startConnectivityMonitoring() {
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
-      (result) => _updateConnectionStatus([result]),
+      (results) => _updateConnectionStatus(results),
       onError: (error) {
         if (kDebugMode) {
           print('❌ Connectivity monitoring error: $error');

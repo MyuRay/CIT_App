@@ -7,6 +7,8 @@ import '../../models/cafeteria/cafeteria_review_model.dart';
 import '../../models/cafeteria/cafeteria_menu_item_model.dart';
 import 'cafeteria_review_form_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../core/providers/cafeteria_favorite_provider.dart';
+import '../../services/cafeteria/cafeteria_favorite_service.dart';
 
 class CafeteriaMenuReviewsScreen extends ConsumerStatefulWidget {
   const CafeteriaMenuReviewsScreen({
@@ -310,6 +312,14 @@ class _Header extends StatelessWidget {
                     _formatPrice(menuItem?.price),
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
+                  if (FirebaseAuth.instance.currentUser != null) ...[
+                    const SizedBox(width: 8),
+                    _FavoriteButton(
+                      cafeteriaId: cafeteriaId,
+                      menuItem: menuItem,
+                      menuName: menuName,
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 4),
@@ -717,30 +727,16 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
       // 拡大中の場合、元のサイズに戻す
       _transformationController.value = Matrix4.identity();
     } else {
-      // 縮小時の場合、タップ位置を中心に拡大
-      final screenSize = MediaQuery.of(context).size;
-      final screenCenterX = screenSize.width / 2;
-      final screenCenterY = screenSize.height / 2;
-
-      // タップ位置をローカル座標から取得
+      // 縮小時の場合、タップした位置を中心に拡大（X風の挙動）
       final tapPosition = details.localPosition;
-      
-      // 画面中心からのオフセットを計算
-      final offsetX = tapPosition.dx - screenCenterX;
-      final offsetY = tapPosition.dy - screenCenterY;
+      final translationCorrection = _zoomedScale - 1;
 
-      final newScale = _zoomedScale;
-      
-      // タップ位置が画面中心に来るように変換行列を計算
-      final translateX = -offsetX * (newScale - 1) / newScale;
-      final translateY = -offsetY * (newScale - 1) / newScale;
-      
-      // スケールを先に適用してから平行移動を適用するため、Matrix4を直接構築
-      final matrix = Matrix4.identity()
-        ..scale(newScale)
-        ..translate(translateX / newScale, translateY / newScale);
-      
-      _transformationController.value = matrix;
+      _transformationController.value = Matrix4.identity()
+        ..translate(
+          -tapPosition.dx * translationCorrection,
+          -tapPosition.dy * translationCorrection,
+        )
+        ..scale(_zoomedScale);
     }
   }
 
@@ -797,6 +793,130 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _FavoriteButton extends ConsumerStatefulWidget {
+  const _FavoriteButton({
+    required this.cafeteriaId,
+    required this.menuItem,
+    required this.menuName,
+  });
+
+  final String cafeteriaId;
+  final CafeteriaMenuItem? menuItem;
+  final String menuName;
+
+  @override
+  ConsumerState<_FavoriteButton> createState() => _FavoriteButtonState();
+}
+
+class _FavoriteButtonState extends ConsumerState<_FavoriteButton> {
+  Future<void> _toggleFavorite() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ログインが必要です')),
+        );
+      }
+      return;
+    }
+
+    try {
+      if (widget.menuItem != null && widget.menuItem!.id.isNotEmpty) {
+        final isFavorite = await CafeteriaFavoriteService.isFavorite(
+          userId: uid,
+          type: 'menu',
+          menuItemId: widget.menuItem!.id,
+        );
+        if (isFavorite) {
+          await CafeteriaFavoriteService.removeFavorite(
+            userId: uid,
+            type: 'menu',
+            menuItemId: widget.menuItem!.id,
+          );
+          if (mounted) {
+            ref.invalidate(isMenuFavoriteProvider(widget.menuItem!.id));
+            ref.invalidate(userCafeteriaFavoritesProvider);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('お気に入りから削除しました')),
+            );
+          }
+        } else {
+          await CafeteriaFavoriteService.addFavorite(
+            userId: uid,
+            type: 'menu',
+            cafeteriaId: widget.cafeteriaId,
+            menuItemId: widget.menuItem!.id,
+            menuName: widget.menuName,
+          );
+          if (mounted) {
+            ref.invalidate(isMenuFavoriteProvider(widget.menuItem!.id));
+            ref.invalidate(userCafeteriaFavoritesProvider);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('お気に入りに追加しました')),
+            );
+          }
+        }
+      } else {
+        await CafeteriaFavoriteService.addFavorite(
+          userId: uid,
+          type: 'menu',
+          cafeteriaId: widget.cafeteriaId,
+          menuName: widget.menuName,
+        );
+        if (mounted) {
+          ref.invalidate(userCafeteriaFavoritesProvider);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('お気に入りに追加しました')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      return const SizedBox.shrink();
+    }
+
+    final isFavoriteAsync = widget.menuItem != null && widget.menuItem!.id.isNotEmpty
+        ? ref.watch(isMenuFavoriteProvider(widget.menuItem!.id))
+        : null;
+
+    return IconButton(
+      icon: isFavoriteAsync != null
+          ? isFavoriteAsync.when(
+              data: (isFavorite) => Icon(
+                isFavorite ? Icons.favorite : Icons.favorite_border,
+                color: isFavorite ? Colors.red : Colors.grey,
+              ),
+              loading: () => const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              error: (_, __) => const Icon(
+                Icons.favorite_border,
+                color: Colors.grey,
+              ),
+            )
+          : const Icon(
+              Icons.favorite_border,
+              color: Colors.grey,
+            ),
+      onPressed: _toggleFavorite,
+      tooltip: 'お気に入り',
     );
   }
 }
