@@ -727,30 +727,16 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
       // 拡大中の場合、元のサイズに戻す
       _transformationController.value = Matrix4.identity();
     } else {
-      // 縮小時の場合、タップ位置を中心に拡大
-      final screenSize = MediaQuery.of(context).size;
-      final screenCenterX = screenSize.width / 2;
-      final screenCenterY = screenSize.height / 2;
-
-      // タップ位置をローカル座標から取得
+      // 縮小時の場合、タップした位置を中心に拡大（X風の挙動）
       final tapPosition = details.localPosition;
-      
-      // 画面中心からのオフセットを計算
-      final offsetX = tapPosition.dx - screenCenterX;
-      final offsetY = tapPosition.dy - screenCenterY;
+      final translationCorrection = _zoomedScale - 1;
 
-      final newScale = _zoomedScale;
-      
-      // タップ位置が画面中心に来るように変換行列を計算
-      final translateX = -offsetX * (newScale - 1) / newScale;
-      final translateY = -offsetY * (newScale - 1) / newScale;
-      
-      // スケールを先に適用してから平行移動を適用するため、Matrix4を直接構築
-      final matrix = Matrix4.identity()
-        ..scale(newScale)
-        ..translate(translateX / newScale, translateY / newScale);
-      
-      _transformationController.value = matrix;
+      _transformationController.value = Matrix4.identity()
+        ..translate(
+          -tapPosition.dx * translationCorrection,
+          -tapPosition.dy * translationCorrection,
+        )
+        ..scale(_zoomedScale);
     }
   }
 
