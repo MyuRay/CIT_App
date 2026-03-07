@@ -1,6 +1,3 @@
-import 'dart:typed_data';
-
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -25,7 +22,17 @@ class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementS
   ];
 
   final Map<String, bool> _loading = {};
+  final Map<String, TextEditingController> _noteControllers = {};
+  final Map<String, bool> _noteLoaded = {};
   int _refreshTick = 0;
+
+  @override
+  void dispose() {
+    for (final controller in _noteControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,6 +106,63 @@ class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementS
                           return ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: Image.network(url, height: 160, fit: BoxFit.cover),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      FutureBuilder<String?>(
+                        key: ValueKey('note_${t.campusCode}_$_refreshTick'),
+                        future: FirebaseMenuService.getMenuNote(t.campusCode),
+                        builder: (context, snapshot) {
+                          final controller = _controllerFor(t.campusCode);
+                          if ((_noteLoaded[t.campusCode] != true) &&
+                              snapshot.connectionState == ConnectionState.done) {
+                            controller.text = snapshot.data ?? '';
+                            _noteLoaded[t.campusCode] = true;
+                          }
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '備考（ホームに表示）',
+                                style: Theme.of(context).textTheme.labelLarge,
+                              ),
+                              const SizedBox(height: 6),
+                              TextField(
+                                controller: controller,
+                                enabled: !busy,
+                                maxLines: 2,
+                                decoration: const InputDecoration(
+                                  hintText: '例）本日は短縮営業です',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  ElevatedButton.icon(
+                                    onPressed:
+                                        busy
+                                            ? null
+                                            : () => _onSaveNotePressed(t.campusCode),
+                                    icon: const Icon(Icons.save_outlined),
+                                    label: const Text('備考を保存'),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  TextButton(
+                                    onPressed:
+                                        busy
+                                            ? null
+                                            : () {
+                                              controller.clear();
+                                            },
+                                    child: const Text('入力クリア'),
+                                  ),
+                                ],
+                              ),
+                            ],
                           );
                         },
                       ),
@@ -187,6 +251,9 @@ class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementS
           // 関連キャッシュを無効化
           await CacheService().removePersistentCache('firebase_today_menu_$campus');
           try { ref.invalidate(firebaseTodayMenuProvider(campus)); } catch (_) {}
+          try { ref.invalidate(firebaseTodayMenuNoteProvider(campus)); } catch (_) {}
+          _noteLoaded[campus] = false;
+          if (!mounted) return;
 
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('アップロードしました')));
           setState(() => _refreshTick++);
@@ -228,6 +295,9 @@ class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementS
         if (success) {
           await CacheService().removePersistentCache('firebase_today_menu_$campus');
           try { ref.invalidate(firebaseTodayMenuProvider(campus)); } catch (_) {}
+          try { ref.invalidate(firebaseTodayMenuNoteProvider(campus)); } catch (_) {}
+          _noteLoaded[campus] = false;
+          if (!mounted) return;
 
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('削除しました')));
           setState(() => _refreshTick++);
@@ -238,6 +308,40 @@ class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementS
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラー: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _loading[campus] = false);
+    }
+  }
+
+  TextEditingController _controllerFor(String campus) {
+    return _noteControllers.putIfAbsent(campus, TextEditingController.new);
+  }
+
+  Future<void> _onSaveNotePressed(String campus) async {
+    try {
+      setState(() => _loading[campus] = true);
+      final controller = _controllerFor(campus);
+      final success = await FirebaseMenuService.updateMenuNote(
+        campus,
+        controller.text,
+      );
+      if (!mounted) return;
+      if (success) {
+        try { ref.invalidate(firebaseTodayMenuNoteProvider(campus)); } catch (_) {}
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('備考を保存しました')));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('備考の保存に失敗しました（画像未登録の可能性があります）')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('エラー: $e')));
       }
     } finally {
       if (mounted) setState(() => _loading[campus] = false);
