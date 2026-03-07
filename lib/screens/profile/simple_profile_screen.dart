@@ -14,7 +14,6 @@ import '../admin/notification_management_screen.dart';
 import '../admin/user_management_screen.dart';
 import '../admin/contact_management_screen.dart';
 import '../admin/admin_management_screen.dart';
-import '../admin/cafeteria_management_screen.dart';
 import '../admin/bulletin_management_screen.dart';
 import '../admin/bus_admin_screen.dart';
 import '../admin/in_app_ad_management_screen.dart';
@@ -23,6 +22,7 @@ import '../reports/report_management_screen.dart';
 import '../contact/user_contact_list_screen.dart';
 import '../legal/terms_of_service_screen.dart';
 import '../legal/privacy_policy_screen.dart';
+import '../cafeteria/cafeteria_my_screen.dart';
 import '../../core/providers/settings_provider.dart';
 import '../user_block/blocked_user_list_screen.dart';
 import '../../core/providers/in_app_ad_provider.dart';
@@ -195,6 +195,23 @@ class SimpleProfileScreen extends ConsumerWidget {
                           ref,
                           preferredBusCampus,
                         ),
+                  ),
+
+                  const Divider(height: 1),
+
+                  // My食堂
+                  ListTile(
+                    leading: const Icon(Icons.favorite),
+                    title: const Text('My食堂'),
+                    subtitle: const Text('お気に入りの学食レビューを見る'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const MyCafeteriaScreen(),
+                        ),
+                      );
+                    },
                   ),
 
                   const Divider(height: 1),
@@ -572,26 +589,6 @@ class SimpleProfileScreen extends ConsumerWidget {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => const UserManagementScreen(),
-                    ),
-                  );
-                },
-              ),
-
-              const Divider(height: 1),
-
-              // 学食管理
-              ListTile(
-                leading: const Icon(
-                  Icons.restaurant_menu,
-                  color: Colors.deepOrange,
-                ),
-                title: const Text('学食管理'),
-                subtitle: const Text('津田沼・新習志野1F/2Fのメニュー画像管理'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const CafeteriaManagementScreen(),
                     ),
                   );
                 },

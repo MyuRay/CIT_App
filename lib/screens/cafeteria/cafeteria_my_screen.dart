@@ -107,66 +107,92 @@ class _MyReviewsTab extends ConsumerWidget {
           itemBuilder: (context, index) {
             final r = reviews[index];
             final campusName = Cafeterias.displayName(r.cafeteriaId);
+            final canOpenMenuDetail =
+                r.menuName != null &&
+                r.menuName!.trim().isNotEmpty &&
+                r.menuName != 'メニュー未指定';
             return Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .primary
-                                .withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            campusName,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.primary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  if (canOpenMenuDetail) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => CafeteriaMenuReviewsScreen(
+                          cafeteriaId: r.cafeteriaId,
+                          menuName: r.menuName!.trim(),
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          CafeteriaReviewsScreen(initialCafeteriaId: r.cafeteriaId),
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              campusName,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            r.menuName?.isNotEmpty == true
-                                ? r.menuName!
-                                : 'メニュー未指定',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              r.menuName?.isNotEmpty == true
+                                  ? r.menuName!
+                                  : 'メニュー未指定',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _formatDate(r.createdAt),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
+                          const SizedBox(width: 8),
+                          Text(
+                            _formatDate(r.createdAt),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
                           ),
-                        ),
+                        ],
+                      ),
+                      if (r.comment != null && r.comment!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(r.comment!),
                       ],
-                    ),
-                    if (r.comment != null && r.comment!.isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      Text(r.comment!),
+                      Text(
+                        '美味しさ: ${r.taste} / 量: ${r.volume} / おすすめ: ${r.recommend}',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
                     ],
-                    const SizedBox(height: 8),
-                    Text(
-                      '美味しさ: ${r.taste} / 量: ${r.volume} / おすすめ: ${r.recommend}',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             );

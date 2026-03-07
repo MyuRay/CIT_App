@@ -11,7 +11,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'contact_management_screen.dart';
 import 'user_management_screen.dart';
 import 'bus_management_screen.dart';
-import 'cafeteria_management_screen.dart';
 import '../reports/report_management_screen.dart';
 
 class AdminManagementScreen extends ConsumerStatefulWidget {
@@ -30,7 +29,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 9, vsync: this);
+    _tabController = TabController(length: 8, vsync: this);
   }
 
   @override
@@ -87,7 +86,6 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                 Tab(icon: Icon(Icons.flag), text: '通報管理'),
                 Tab(icon: Icon(Icons.help_center), text: 'お問い合わせ'),
                 Tab(icon: Icon(Icons.notification_important), text: '通知管理'),
-                Tab(icon: Icon(Icons.restaurant_menu), text: '学食管理'),
                 Tab(icon: Icon(Icons.directions_bus), text: '学バス管理'),
                 Tab(icon: Icon(Icons.admin_panel_settings), text: '管理者設定'),
               ],
@@ -102,7 +100,6 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
               _buildReportManagementTab(),
               _buildContactManagementTab(),
               _buildNotificationManagementTab(),
-              _buildCafeteriaManagementTab(),
               _buildBusManagementTab(),
               _buildAdminSettingsTab(),
             ],
@@ -878,12 +875,6 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
   // 学バス管理タブ
   Widget _buildBusManagementTab() {
     return const BusManagementScreen();
-  }
-
-  // 学食管理タブ
-  Widget _buildCafeteriaManagementTab() {
-    // 遅延読み込みのため動的importは不要、直接画面を返す
-    return const CafeteriaManagementScreen();
   }
 
   // 管理者設定タブ（既存の管理者一覧機能を移動）

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class BusAdminScreen extends ConsumerStatefulWidget {
   const BusAdminScreen({super.key});
@@ -40,6 +41,11 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
       appBar: AppBar(
         title: const Text('学バス管理'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_note),
+            onPressed: _openHomeRemarkEditorFromAppBar,
+            tooltip: 'ホーム備考を編集',
+          ),
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: _addBusRoute,
@@ -405,6 +411,24 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
     );
   }
 
+  Future<void> _openHomeRemarkEditorFromAppBar() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('bus_information')
+          .doc('main')
+          .get();
+      final data = doc.data() ?? <String, dynamic>{};
+      final remark = (data['description'] as String?)?.trim() ?? '';
+      if (!mounted) return;
+      _showEditHomeRemarkDialog(remark);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('備考の読み込みに失敗しました: $e')),
+      );
+    }
+  }
+
   Widget _buildTimetableCard(QueryDocumentSnapshot routeDoc) {
     final route = routeDoc.data() as Map<String, dynamic>;
     // 対象ダイヤの時刻を抽出
@@ -586,6 +610,8 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
                   ),
                   const SizedBox(height: 16),
                   const Text('運行状況の変更、遅延情報、運休情報などを管理できます。'),
+                  const SizedBox(height: 12),
+                  _buildHomeRemarkEditor(),
                 ],
               ),
             ),
@@ -692,6 +718,100 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
             ),
           ),
           Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHomeRemarkEditor() {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('bus_information')
+          .doc('main')
+          .snapshots(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data() as Map<String, dynamic>? ?? {};
+        final remark = (data['description'] as String?)?.trim() ?? '';
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.edit_note, size: 18),
+                  const SizedBox(width: 6),
+                  const Expanded(
+                    child: Text(
+                      'ホーム表示の備考',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => _showEditHomeRemarkDialog(remark),
+                    child: const Text('編集'),
+                  ),
+                ],
+              ),
+              Text(
+                remark.isEmpty ? '未設定（ホームには表示されません）' : remark,
+                style: TextStyle(
+                  color: remark.isEmpty ? Colors.grey[600] : null,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showEditHomeRemarkDialog(String currentRemark) {
+    final controller = TextEditingController(text: currentRemark);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('ホーム表示の備考を編集'),
+        content: TextField(
+          controller: controller,
+          maxLines: 4,
+          decoration: const InputDecoration(
+            labelText: '備考（ホーム表示）',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final user = FirebaseAuth.instance.currentUser;
+              await FirebaseFirestore.instance
+                  .collection('bus_information')
+                  .doc('main')
+                  .set({
+                'description': controller.text.trim(),
+                'updatedAt': FieldValue.serverTimestamp(),
+                'updatedBy': user?.displayName ?? user?.email ?? '管理者',
+              }, SetOptions(merge: true));
+              if (context.mounted) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('備考を保存しました')),
+                );
+              }
+            },
+            child: const Text('保存'),
+          ),
         ],
       ),
     );
@@ -828,6 +948,14 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
     } catch (e) {
       return Colors.blue;
     }
+  }
+
+  String _normalizeHexColor(String? input) {
+    final raw = (input ?? '').trim().toUpperCase();
+    if (raw.isEmpty) return '#2196F3';
+    final normalized = raw.startsWith('#') ? raw : '#$raw';
+    final valid = RegExp(r'^#[0-9A-F]{6}$').hasMatch(normalized);
+    return valid ? normalized : '#2196F3';
   }
 
   Color _getStatusColor(String type) {
@@ -994,9 +1122,22 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
   void _showRouteDialog({QueryDocumentSnapshot? routeDoc}) {
     final isEdit = routeDoc != null;
     final data = (routeDoc?.data() as Map<String, dynamic>?) ?? {};
+    const presetColors = [
+      '#2196F3',
+      '#4CAF50',
+      '#FF9800',
+      '#9C27B0',
+      '#E91E63',
+      '#607D8B',
+      '#F44336',
+      '#009688',
+    ];
     final nameCtrl = TextEditingController(text: data['name'] ?? '');
     final fromCtrl = TextEditingController(text: data['fromStation'] ?? '');
     final toCtrl = TextEditingController(text: data['toStation'] ?? '');
+    final colorCtrl = TextEditingController(
+      text: _normalizeHexColor(data['color'] as String?),
+    );
     bool isActive = data['isActive'] ?? true;
     DateTime? startDate = (data['startDate'] is Timestamp)
         ? (data['startDate'] as Timestamp).toDate()
@@ -1016,6 +1157,62 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
                 TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: '路線名')),
                 TextField(controller: fromCtrl, decoration: const InputDecoration(labelText: '出発')),
                 TextField(controller: toCtrl, decoration: const InputDecoration(labelText: '到着')),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: colorCtrl,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: InputDecoration(
+                    labelText: 'カード色 (HEX)',
+                    hintText: '#2196F3',
+                    prefixIcon: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: CircleAvatar(
+                        radius: 10,
+                        backgroundColor: _parseColor(
+                          _normalizeHexColor(colorCtrl.text),
+                        ),
+                      ),
+                    ),
+                    suffixIcon: IconButton(
+                      tooltip: 'デフォルト色に戻す',
+                      onPressed: () {
+                        setStateDialog(() {
+                          colorCtrl.text = '#2196F3';
+                        });
+                      },
+                      icon: const Icon(Icons.refresh),
+                    ),
+                    helperText: '#RRGGBB 形式で入力',
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => setStateDialog(() {}),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children:
+                      presetColors.map((hex) {
+                        final selected =
+                            _normalizeHexColor(colorCtrl.text) == hex;
+                        return ChoiceChip(
+                          label: Text(
+                            hex,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          selected: selected,
+                          avatar: CircleAvatar(
+                            radius: 8,
+                            backgroundColor: _parseColor(hex),
+                          ),
+                          onSelected: (_) {
+                            setStateDialog(() {
+                              colorCtrl.text = hex;
+                            });
+                          },
+                        );
+                      }).toList(),
+                ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -1088,6 +1285,7 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
                   'name': nameCtrl.text.trim(),
                   'fromStation': fromCtrl.text.trim(),
                   'toStation': toCtrl.text.trim(),
+                  'color': _normalizeHexColor(colorCtrl.text),
                   'isActive': isActive,
                   'startDate': startDate != null ? Timestamp.fromDate(startDate!) : null,
                   'endDate': endDate != null ? Timestamp.fromDate(endDate!) : null,

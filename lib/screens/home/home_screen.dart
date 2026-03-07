@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -26,7 +27,6 @@ import '../../widgets/firebase_menu_image_widget.dart';
 import '../../widgets/firebase_bus_timetable_widget.dart';
 import '../bus/bus_information_screen.dart';
 import '../cafeteria/cafeteria_reviews_screen.dart';
-import '../cafeteria/cafeteria_my_screen.dart';
 import '../cafeteria/cafeteria_camera_info_screen.dart';
 import '../../widgets/campus_map_widget.dart';
 import '../../widgets/performance/optimized_notification_badge.dart';
@@ -53,8 +53,19 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
+  static const String _homeCardLayoutPrefsKey = 'home_card_layout_v1';
+  static const List<String> _defaultHomeCardOrder = [
+    'timetable',
+    'cafeteria',
+    'bus',
+    'campus_map',
+    'convenience_links',
+  ];
+
   // ホーム上部のTextMatch広告は非表示にする
   bool _showTextMatchAd = false;
+  List<String> _homeCardOrder = List<String>.from(_defaultHomeCardOrder);
+  Set<String> _hiddenHomeCards = <String>{};
   int _selectedRouteIndex = 0; // 選択中の路線インデックス
   bool _busInitialRouteSet = false; // 学バス初期表示の適用有無
   late AnimationController _flipAnimationController;
@@ -79,6 +90,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     // _loadAdPreference(); // 広告は常に非表示にするため読み込みを無効化
+    _loadHomeCardLayout();
 
     // フリップアニメーション初期化
     _flipAnimationController = AnimationController(
@@ -166,6 +178,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       appBar: AppBar(
         title: const Text('ホーム'),
         actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.menu),
+            tooltip: 'ホームカード設定',
+            onSelected: (value) {
+              if (value == 'edit_home_cards') {
+                _showHomeCardLayoutEditor(context);
+              }
+            },
+            itemBuilder:
+                (context) => const [
+                  PopupMenuItem<String>(
+                    value: 'edit_home_cards',
+                    child: Text('ホームカードを編集'),
+                  ),
+                ],
+          ),
           // 最適化された通知ボタン（未読数バッジ付き）
           OptimizedNotificationBadge(onTap: () => _showNotifications(context)),
         ],
@@ -341,240 +369,419 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                 ),
               if (_showTextMatchAd) const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            _getTodayWeekdayText(),
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const Spacer(),
-                          TextButton(
-                            onPressed: widget.onNavigateToSchedule,
-                            child: const Text('詳細を見る'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTodaySchedule(context, ref),
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.shade100,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.amber.shade700),
-                        ),
-                        child: Text(
-                          '(テスト用)ビルド番号3',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // 学食情報カード
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.ramen_dining,
-                            size: 24,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _getWeeklyMenuTitle(),
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                          ),
-                          TextButton.icon(
-                            onPressed: () => _openCafeteriaWebsite(context),
-                            icon: Icon(
-                              Icons.open_in_browser,
-                              size: 16,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            label: Text(
-                              '公式サイト',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                            ),
-                            style: TextButton.styleFrom(
-                              minimumSize: const Size(0, 28),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _buildCafeteriaInfo(context, ref),
-                      const SizedBox(height: 12),
-                      // 学食レビュー / My食堂 / 食堂カメラボタン
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                FilledButton.icon(
-                                  onPressed: () => _openCafeteriaReviews(context),
-                                  icon: const Icon(Icons.reviews, size: 16),
-                                  label: const Text('学食レビュー'),
-                                  style: FilledButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    textStyle: const TextStyle(fontSize: 13),
-                                  ),
-                                ),
-                                todayReviewExistsAsync.when(
-                                  data:
-                                      (hasToday) =>
-                                          hasToday
-                                              ? const Positioned(
-                                                right: -6,
-                                                top: -6,
-                                                child: PulsingDotBadge(
-                                                  size: 10,
-                                                  tooltipMessage: '今日レビューされています',
-                                                ),
-                                              )
-                                              : const SizedBox.shrink(),
-                                  error: (_, __) => const SizedBox.shrink(),
-                                  loading: () => const SizedBox.shrink(),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: FilledButton.icon(
-                              onPressed: () => _openMyCafeteria(context),
-                              icon: const Icon(Icons.favorite, size: 16),
-                              label: const Text('My食堂'),
-                              style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                                textStyle: const TextStyle(fontSize: 13),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: FilledButton.icon(
-                              onPressed: () => _openCafeteriaCamera(context),
-                              icon: const Icon(Icons.videocam, size: 16),
-                              label: const Text('食堂カメラ'),
-                              style: FilledButton.styleFrom(
-                                backgroundColor:
-                                    Theme.of(context).colorScheme.secondary,
-                                foregroundColor:
-                                    Theme.of(context).colorScheme.onSecondary,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                                textStyle: const TextStyle(fontSize: 13),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // 学バス情報カード
-              _buildBusInfoCard(context, ref),
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.map_outlined,
-                            size: 24,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'キャンパスマップ',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const Spacer(),
-                          TextButton.icon(
-                            onPressed: () => _openCampusWebsite(context),
-                            icon: Icon(
-                              Icons.open_in_browser,
-                              size: 16,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            label: Text(
-                              '詳細',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                            ),
-                            style: TextButton.styleFrom(
-                              minimumSize: const Size(0, 28),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const SizedBox(height: 12),
-                      _buildCampusMaps(context),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // 便利リンクカード
-              _buildConvenienceLinksCard(context, ref),
+              ..._buildOrderedHomeCards(context, ref, todayReviewExistsAsync),
             ],
           ),
         ),
       ),
     );
+  }
+
+  List<Widget> _buildOrderedHomeCards(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<bool> todayReviewExistsAsync,
+  ) {
+    final visibleCardIds =
+        _homeCardOrder.where((id) => !_hiddenHomeCards.contains(id)).toList();
+    if (visibleCardIds.isEmpty) {
+      return [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Theme.of(context).dividerColor),
+          ),
+          child: Text(
+            '現在すべてのカードが非表示にされている状態です。表示を変更する場合は右上の≡ボタンから編集をお願いします。',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.5,
+            ),
+          ),
+        ),
+      ];
+    }
+    final widgets = <Widget>[];
+
+    for (int i = 0; i < visibleCardIds.length; i++) {
+      widgets.add(
+        _buildHomeCardById(context, ref, visibleCardIds[i], todayReviewExistsAsync),
+      );
+      if (i < visibleCardIds.length - 1) {
+        widgets.add(const SizedBox(height: 16));
+      }
+    }
+    return widgets;
+  }
+
+  Widget _buildHomeCardById(
+    BuildContext context,
+    WidgetRef ref,
+    String cardId,
+    AsyncValue<bool> todayReviewExistsAsync,
+  ) {
+    switch (cardId) {
+      case 'timetable':
+        return _buildTimetableCard(context, ref);
+      case 'cafeteria':
+        return _buildCafeteriaCard(context, ref, todayReviewExistsAsync);
+      case 'bus':
+        return _buildBusInfoCard(context, ref);
+      case 'campus_map':
+        return _buildCampusMapCard(context);
+      case 'convenience_links':
+        return _buildConvenienceLinksCard(context, ref);
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildTimetableCard(BuildContext context, WidgetRef ref) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  _getTodayWeekdayText(),
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: widget.onNavigateToSchedule,
+                  child: const Text('詳細を見る'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildTodaySchedule(context, ref),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCafeteriaCard(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<bool> todayReviewExistsAsync,
+  ) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.ramen_dining,
+                  size: 24,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _getWeeklyMenuTitle(),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => _openCafeteriaWebsite(context),
+                  icon: Icon(
+                    Icons.open_in_browser,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  label: Text(
+                    '公式サイト',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 28),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _buildCafeteriaInfo(context, ref),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: () => _openCafeteriaReviews(context),
+                          icon: const Icon(Icons.reviews, size: 16),
+                          label: const Text('学食レビュー'),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            textStyle: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ),
+                      todayReviewExistsAsync.when(
+                        data:
+                            (hasToday) =>
+                                hasToday
+                                    ? const Positioned(
+                                      right: -6,
+                                      top: -6,
+                                      child: PulsingDotBadge(
+                                        size: 10,
+                                        tooltipMessage: '今日レビューされています',
+                                      ),
+                                    )
+                                    : const SizedBox.shrink(),
+                        error: (_, __) => const SizedBox.shrink(),
+                        loading: () => const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => _openCafeteriaCamera(context),
+                    icon: const Icon(Icons.videocam, size: 16),
+                    label: const Text('食堂カメラ'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.secondary,
+                      foregroundColor: Theme.of(context).colorScheme.onSecondary,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      textStyle: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCampusMapCard(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.map_outlined,
+                  size: 24,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'キャンパスマップ',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () => _openCampusWebsite(context),
+                  icon: Icon(
+                    Icons.open_in_browser,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  label: Text(
+                    '詳細',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 28),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const SizedBox(height: 12),
+            _buildCampusMaps(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showHomeCardLayoutEditor(BuildContext context) async {
+    final tempOrder = List<String>.from(_homeCardOrder);
+    final tempHidden = Set<String>.from(_hiddenHomeCards);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.78,
+                child: Column(
+                  children: [
+                    ListTile(
+                      title: const Text(
+                        'ホームカードを編集',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: const Text('表示/非表示と順序を変更できます'),
+                      trailing: TextButton(
+                        onPressed: () async {
+                          setState(() {
+                            _homeCardOrder = List<String>.from(tempOrder);
+                            _hiddenHomeCards = Set<String>.from(tempHidden);
+                          });
+                          await _saveHomeCardLayout();
+                          if (context.mounted) {
+                            Navigator.of(context).pop();
+                          }
+                        },
+                        child: const Text('保存'),
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: ReorderableListView.builder(
+                        itemCount: tempOrder.length,
+                        onReorder: (oldIndex, newIndex) {
+                          setModalState(() {
+                            if (newIndex > oldIndex) newIndex -= 1;
+                            final item = tempOrder.removeAt(oldIndex);
+                            tempOrder.insert(newIndex, item);
+                          });
+                        },
+                        itemBuilder: (context, index) {
+                          final cardId = tempOrder[index];
+                          final isVisible = !tempHidden.contains(cardId);
+                          return ListTile(
+                            key: ValueKey(cardId),
+                            leading: const Icon(Icons.drag_handle),
+                            title: Text(_homeCardTitle(cardId)),
+                            subtitle: Text(isVisible ? '表示中' : '非表示'),
+                            trailing: Switch(
+                              value: isVisible,
+                              onChanged: (value) {
+                                setModalState(() {
+                                  if (value) {
+                                    tempHidden.remove(cardId);
+                                  } else {
+                                    tempHidden.add(cardId);
+                                  }
+                                });
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _homeCardTitle(String cardId) {
+    switch (cardId) {
+      case 'timetable':
+        return '時間割';
+      case 'cafeteria':
+        return '学食情報';
+      case 'bus':
+        return '学バス情報';
+      case 'campus_map':
+        return 'キャンパスマップ';
+      case 'convenience_links':
+        return '便利リンク';
+      default:
+        return cardId;
+    }
+  }
+
+  List<String> _normalizeHomeCardOrder(List<dynamic>? rawOrder) {
+    final incoming =
+        (rawOrder ?? const <dynamic>[])
+            .whereType<String>()
+            .where((id) => _defaultHomeCardOrder.contains(id))
+            .toList();
+    final result = List<String>.from(incoming);
+    for (final id in _defaultHomeCardOrder) {
+      if (!result.contains(id)) {
+        result.add(id);
+      }
+    }
+    return result;
+  }
+
+  Future<void> _loadHomeCardLayout() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_homeCardLayoutPrefsKey);
+      if (raw == null || raw.isEmpty) return;
+
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) return;
+
+      final order = _normalizeHomeCardOrder(decoded['order'] as List<dynamic>?);
+      final hidden =
+          ((decoded['hidden'] as List<dynamic>?) ?? const <dynamic>[])
+              .whereType<String>()
+              .where((id) => _defaultHomeCardOrder.contains(id))
+              .toSet();
+
+      if (!mounted) return;
+      setState(() {
+        _homeCardOrder = order;
+        _hiddenHomeCards = hidden;
+      });
+    } catch (_) {
+      // 設定読み込みエラー時はデフォルト順を使用
+    }
+  }
+
+  Future<void> _saveHomeCardLayout() async {
+    final prefs = await SharedPreferences.getInstance();
+    final payload = <String, dynamic>{
+      'order': _homeCardOrder,
+      'hidden': _hiddenHomeCards.toList(),
+    };
+    await prefs.setString(_homeCardLayoutPrefsKey, jsonEncode(payload));
   }
 
   // TextMatchのWebサイトを開く
@@ -607,13 +814,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void _openCafeteriaReviews(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => const CafeteriaReviewsScreen()),
-    );
-  }
-
-  // My食堂画面へ遷移
-  void _openMyCafeteria(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => const MyCafeteriaScreen()),
     );
   }
 
@@ -2437,7 +2637,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             : Colors.green.shade700,
                   ),
                 ),
-                if (currentPeriod != null) ...[
+                if (currentPeriod != null && !showNotOperating) ...[
                   const SizedBox(height: 2),
                   Text(
                     '期間: ${currentPeriod.name}',
@@ -2517,12 +2717,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     BusRoute route,
     bool isFlipped,
   ) {
-    // 新習志野→津田沼のパターンを正確に判定
-    final isNarashinoToTsudanuma =
-        route.name.contains('新習志野') &&
-        route.name.contains('→') &&
-        route.name.contains('津田沼') &&
-        route.name.indexOf('新習志野') < route.name.indexOf('津田沼');
+    final baseColor = _parseRouteHexColor(route.color);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final routeLabelBgColor =
+        isDarkMode ? Colors.black.withOpacity(0.82) : Colors.white.withOpacity(0.90);
+    final routeLabelTextColor = isDarkMode ? Colors.white : Colors.black;
+    final routeColorHsl = HSLColor.fromColor(baseColor);
+    final cardColorStart = routeColorHsl
+        .withLightness((routeColorHsl.lightness + 0.30).clamp(0.0, 1.0))
+        .toColor();
+    final cardColorEnd = routeColorHsl
+        .withLightness((routeColorHsl.lightness + 0.40).clamp(0.0, 1.0))
+        .toColor();
 
     return Container(
       width: double.infinity,
@@ -2531,29 +2737,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors:
-              isNarashinoToTsudanuma
-                  ? [Colors.green.shade100, Colors.green.shade50]
-                  : [
-                    Theme.of(context).colorScheme.primaryContainer,
-                    Theme.of(
-                      context,
-                    ).colorScheme.primaryContainer.withOpacity(0.7),
-                  ],
+          colors: [cardColorStart, cardColorEnd],
         ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color:
-              isNarashinoToTsudanuma
-                  ? Colors.green.withOpacity(0.3)
-                  : Theme.of(context).colorScheme.primary.withOpacity(0.3),
-        ),
+        border: Border.all(color: baseColor.withOpacity(0.45)),
         boxShadow: [
           BoxShadow(
-            color:
-                isNarashinoToTsudanuma
-                    ? Colors.green.withOpacity(0.1)
-                    : Theme.of(context).colorScheme.primary.withOpacity(0.1),
+            color: baseColor.withOpacity(0.18),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -2562,31 +2752,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 路線名
-          Row(
-            children: [
-              Icon(
-                Icons.route,
-                color:
-                    isNarashinoToTsudanuma
-                        ? Colors.green.shade700
-                        : Theme.of(context).colorScheme.primary,
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  route.name,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color:
-                        isNarashinoToTsudanuma
-                            ? Colors.green.shade800
-                            : Theme.of(context).colorScheme.onPrimaryContainer,
+          // 路線名（背景色の影響を受けないよう白背景上に固定）
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: routeLabelBgColor,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.route,
+                  color: routeLabelTextColor,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    route.name,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: routeLabelTextColor,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
 
           const SizedBox(height: 12),
@@ -2596,6 +2788,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ],
       ),
     );
+  }
+
+  Color _parseRouteHexColor(String? hex) {
+    final normalized = (hex ?? '').trim();
+    final sanitized = normalized.startsWith('#')
+        ? normalized.substring(1)
+        : normalized;
+    if (RegExp(r'^[0-9A-Fa-f]{6}$').hasMatch(sanitized)) {
+      return Color(int.parse('FF$sanitized', radix: 16));
+    }
+    return Theme.of(context).colorScheme.primary;
   }
 
   // カウントダウンセクション
@@ -2992,6 +3195,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildRouteCard(BuildContext context, BusRoute route) {
     final nextBus = route.getNextBusTime();
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final routeTextColor = isDarkMode ? Colors.white : Colors.black;
 
     return Container(
       width: double.infinity,
@@ -3010,7 +3215,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               Icon(
                 Icons.route,
                 size: 16,
-                color: Theme.of(context).colorScheme.primary,
+                color: routeTextColor,
               ),
               const SizedBox(width: 6),
               Expanded(
@@ -3018,7 +3223,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   route.name,
                   style: Theme.of(
                     context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                  ).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: routeTextColor,
+                  ),
                 ),
               ),
             ],
@@ -3485,9 +3693,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final authService = ref.read(authServiceProvider);
     final currentUser = authService.currentUser;
 
-    if (currentUser?.email == null) return;
+    if (currentUser?.uid.isEmpty != false) return;
 
-    final userId = currentUser!.email!.split('@').first;
+    final userId = currentUser!.uid;
 
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -3496,7 +3704,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
 
     if (result == true) {
-      ref.invalidate(currentUserConvenienceLinksProvider);
+      _refreshConvenienceLinkProviders(ref, currentUser.uid, currentUser.email);
     }
   }
 
@@ -3509,9 +3717,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final authService = ref.read(authServiceProvider);
     final currentUser = authService.currentUser;
 
-    if (currentUser?.email == null) return;
+    if (currentUser?.uid.isEmpty != false) return;
 
-    final userId = currentUser!.email!.split('@').first;
+    final userId = currentUser!.uid;
 
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -3522,8 +3730,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
 
     if (result == true) {
-      ref.invalidate(currentUserConvenienceLinksProvider);
+      _refreshConvenienceLinkProviders(ref, currentUser.uid, currentUser.email);
     }
+  }
+
+  void _refreshConvenienceLinkProviders(
+    WidgetRef ref,
+    String userId,
+    String? userEmail,
+  ) {
+    ref.invalidate(
+      convenienceLinkProvider((userId: userId, userEmail: userEmail)),
+    );
+    ref.invalidate(currentUserConvenienceLinksProvider);
+    ref.invalidate(enabledConvenienceLinksProvider);
   }
 
   // リンクの有効/無効を切り替え
@@ -3548,6 +3768,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         )).notifier,
       );
       await notifier.toggleLinkEnabled(linkId);
+      ref.invalidate(currentUserConvenienceLinksProvider);
+      ref.invalidate(enabledConvenienceLinksProvider);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -3601,6 +3823,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         )).notifier,
       );
       await notifier.resetToDefaults();
+      ref.invalidate(currentUserConvenienceLinksProvider);
+      ref.invalidate(enabledConvenienceLinksProvider);
       
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
