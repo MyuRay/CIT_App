@@ -1,13 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- CIT App launch splash screen -->
+<!-- CIT App rich launch splash screen -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Green background color matching bunny icon -->
-    <item android:drawable="@color/launch_background" />
+    <item android:drawable="@drawable/launch_gradient" />
 
-    <!-- Future: Add bunny logo here when image file is ready -->
-    <!-- <item>
+    <!-- Soft glow behind icon -->
+    <item android:gravity="center">
+        <shape android:shape="oval">
+            <size android:width="220dp" android:height="220dp" />
+            <solid android:color="#66FFFFFF" />
+        </shape>
+    </item>
+
+    <!-- App icon -->
+    <item>
         <bitmap
             android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+            android:src="@mipmap/ic_launcher" />
+    </item>
 </layer-list>

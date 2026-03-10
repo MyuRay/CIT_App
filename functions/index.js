@@ -5,6 +5,7 @@ const {
   onDocumentUpdated,
 } = require('firebase-functions/v2/firestore');
 const {onSchedule} = require('firebase-functions/v2/scheduler');
+const {onRequest} = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const axios = require('axios');
 const cheerio = require('cheerio');
@@ -730,5 +731,97 @@ exports.sendPushNotification = onDocumentCreated('notifications/{notificationId}
         .doc(userId)
         .delete();
     }
+  }
+});
+
+// ユーザー数推移を取得するCloud Function
+exports.getUserGrowthStats = onRequest(async (req, res) => {
+  try {
+    // CORS設定
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+
+    console.log('📊 ユーザー数推移の取得を開始...');
+
+    // 全ユーザーを取得
+    let allUsers = [];
+    let nextPageToken;
+    
+    do {
+      const listUsersResult = await admin.auth().listUsers(1000, nextPageToken);
+      allUsers = allUsers.concat(listUsersResult.users);
+      nextPageToken = listUsersResult.pageToken;
+    } while (nextPageToken);
+
+    console.log(`✅ 合計 ${allUsers.length} 人のユーザーを取得しました`);
+
+    // 日付ごとに集計
+    const dailyStats = {};
+    const monthlyStats = {};
+
+    allUsers.forEach((user) => {
+      const creationTime = user.metadata.creationTime;
+      if (!creationTime) return;
+
+      const date = new Date(creationTime);
+      
+      // 日付ごとの集計（YYYY-MM-DD形式）
+      const dateKey = date.toISOString().split('T')[0];
+      dailyStats[dateKey] = (dailyStats[dateKey] || 0) + 1;
+
+      // 月ごとの集計（YYYY-MM形式）
+      const monthKey = date.toISOString().substring(0, 7);
+      monthlyStats[monthKey] = (monthlyStats[monthKey] || 0) + 1;
+    });
+
+    // 日付順にソート
+    const dailyArray = Object.entries(dailyStats)
+      .map(([date, count]) => ({date, count}))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const monthlyArray = Object.entries(monthlyStats)
+      .map(([month, count]) => ({month, count}))
+      .sort((a, b) => a.month.localeCompare(b.month));
+
+    // 累積ユーザー数を計算
+    let cumulativeCount = 0;
+    const dailyWithCumulative = dailyArray.map((item) => {
+      cumulativeCount += item.count;
+      return {
+        ...item,
+        cumulative: cumulativeCount,
+      };
+    });
+
+    let monthlyCumulativeCount = 0;
+    const monthlyWithCumulative = monthlyArray.map((item) => {
+      monthlyCumulativeCount += item.count;
+      return {
+        ...item,
+        cumulative: monthlyCumulativeCount,
+      };
+    });
+
+    const result = {
+      totalUsers: allUsers.length,
+      daily: dailyWithCumulative,
+      monthly: monthlyWithCumulative,
+      generatedAt: new Date().toISOString(),
+    };
+
+    console.log(`✅ ユーザー数推移の取得が完了しました`);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('❌ ユーザー数推移の取得エラー:', error);
+    res.status(500).json({
+      error: 'ユーザー数推移の取得に失敗しました',
+      message: error.message,
+    });
   }
 });

@@ -25,7 +25,7 @@
 - ブックマーク機能
 
 ### 👤 ユーザー管理
-- CITメールアドレス認証（@s.chibakoudai.jp, @p.chibakoudai.jp）
+- CITメールアドレス認証（@s.chibakoudai.jp, @p.chibakoudai.jp, @chibatech.ac.jp）
 - 管理者権限システム
 - お問い合わせ機能
 
@@ -160,10 +160,6 @@ flutter build web --release
    - `flutter clean && flutter pub get` を実行
    - 依存関係の競合を確認
 
-3. **ウィジェット表示されない**
-   - Android の権限設定を確認
-   - ホーム画面ウィジェットの初期化状態を確認
-
 ## 📋 変更ログ
 
 ### v1.17.10+60
@@ -224,8 +220,4 @@ flutter build web --release
 
 ## 👥 コントリビューション
 
-バグ報告や機能提案は、アプリ内のお問い合わせ機能からご連絡ください。
-
-## 📞 サポート
-
-技術的な問題やご質問がございましたら、アプリ内のお問い合わせフォームをご利用ください。
+バグ報告や機能提案は、https://cit-app.com/ お問い合わせフォームよりご連絡ください。

@@ -93,12 +93,43 @@ class ScheduleService {
     }
   }
 
+  /// 名前付き時間割を作成
+  static Future<Schedule> createNamedSchedule({
+    required String userId,
+    required String name,
+    required String semester,
+  }) async {
+    final trimmedName = name.trim();
+    final trimmedSemester = semester.trim();
+    if (trimmedName.isEmpty) {
+      throw Exception('時間割名を入力してください');
+    }
+    if (trimmedSemester.isEmpty) {
+      throw Exception('semesterを入力してください');
+    }
+
+    final scheduleId = _firestore.collection(_collection).doc().id;
+    final schedule = Schedule(
+      id: scheduleId,
+      userId: userId,
+      name: trimmedName,
+      semester: trimmedSemester,
+      timetable: DefaultTimeSlots.createEmptyTimetable(),
+      timeSlots: DefaultTimeSlots.citTimeSlots,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    await saveSchedule(schedule);
+    return schedule;
+  }
+
   /// 時間割を更新
   static Future<void> updateSchedule(Schedule schedule) async {
     try {
       final updatedSchedule = Schedule(
         id: schedule.id,
         userId: schedule.userId,
+        name: schedule.name,
         semester: schedule.semester,
         timetable: schedule.timetable,
         timeSlots: schedule.timeSlots,
@@ -134,12 +165,24 @@ class ScheduleService {
       final querySnapshot = await _firestore
           .collection(_collection)
           .where('userId', isEqualTo: userId)
-          .orderBy('semester', descending: true)
           .get();
 
-      return querySnapshot.docs
+      final schedules = querySnapshot.docs
           .map((doc) => Schedule.fromFirestore(doc))
           .toList();
+
+      // userId配下の全時間割を返しつつ、更新日時が新しい順に表示する
+      schedules.sort((a, b) {
+        final aCreated = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final aUpdated = a.updatedAt ?? aCreated;
+        final aTime = aUpdated.isAfter(aCreated) ? aUpdated : aCreated;
+        final bCreated = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bUpdated = b.updatedAt ?? bCreated;
+        final bTime = bUpdated.isAfter(bCreated) ? bUpdated : bCreated;
+        return bTime.compareTo(aTime);
+      });
+
+      return schedules;
     } catch (e) {
       print('❌ 時間割一覧取得エラー: $e');
       return [];
@@ -244,6 +287,7 @@ class ScheduleService {
       final updatedSchedule = Schedule(
         id: schedule.id,
         userId: schedule.userId,
+        name: schedule.name,
         semester: schedule.semester,
         timetable: updatedTimetable,
         timeSlots: schedule.timeSlots,
@@ -337,6 +381,7 @@ class ScheduleService {
       final updatedSchedule = Schedule(
         id: schedule.id,
         userId: schedule.userId,
+        name: schedule.name,
         semester: schedule.semester,
         timetable: updatedTimetable,
         timeSlots: schedule.timeSlots,
@@ -380,6 +425,20 @@ class ScheduleService {
     }
   }
 
+  /// 指定した時間割IDの今日の時間割を取得
+  static Future<List<ScheduleClass?>> getTodayScheduleByScheduleId(
+    String scheduleId,
+  ) async {
+    try {
+      final schedule = await getScheduleById(scheduleId);
+      if (schedule == null) return [];
+      return ScheduleUtils.getTodayClasses(schedule);
+    } catch (e) {
+      print('❌ 指定時間割の今日の時間割取得エラー: $e');
+      return [];
+    }
+  }
+
   /// 次の授業を取得
   static Future<ScheduleClass?> getNextClass(String userId) async {
     try {
@@ -417,6 +476,7 @@ class ScheduleService {
       final clearedSchedule = Schedule(
         id: schedule.id,
         userId: schedule.userId,
+        name: schedule.name,
         semester: schedule.semester,
         timetable: DefaultTimeSlots.createEmptyTimetable(),
         timeSlots: schedule.timeSlots,

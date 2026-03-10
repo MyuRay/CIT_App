@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/providers/cafeteria_provider.dart';
@@ -20,6 +21,7 @@ import '../../core/providers/settings_provider.dart';
 import '../../core/providers/in_app_ad_provider.dart';
 import '../../models/cafeteria/cafeteria_model.dart';
 import '../../models/schedule/schedule_model.dart';
+import '../../models/schedule/lecture_period_model.dart';
 import '../../models/bus/bus_model.dart';
 import '../../models/ads/in_app_ad_model.dart';
 import '../../widgets/ads/in_app_ad_card.dart';
@@ -41,6 +43,20 @@ const Map<String, String> _campusNavigationOptions = {
   'tsudanuma': '津田沼',
   'narashino': '新習志野',
 };
+const Map<String, _WeatherCampusLocation> _weatherCampusLocations = {
+  'tsudanuma': _WeatherCampusLocation(
+    key: 'tsudanuma',
+    label: '津田沼',
+    latitude: 35.6916,
+    longitude: 140.0207,
+  ),
+  'narashino': _WeatherCampusLocation(
+    key: 'narashino',
+    label: '新習志野',
+    latitude: 35.6690,
+    longitude: 140.0259,
+  ),
+};
 
 class HomeScreen extends ConsumerStatefulWidget {
   final VoidCallback? onNavigateToSchedule;
@@ -55,10 +71,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   static const String _homeCardLayoutPrefsKey = 'home_card_layout_v1';
   static const List<String> _defaultHomeCardOrder = [
+    'weather',
     'timetable',
     'cafeteria',
     'bus',
     'campus_map',
+    'academic_calendar',
     'convenience_links',
   ];
 
@@ -71,6 +89,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   late AnimationController _flipAnimationController;
   late Animation<double> _flipAnimation;
   Timer? _scheduleRefreshTimer;
+  late final PageController _academicCalendarPageController;
+  int _currentAcademicMonthIndex = 0;
+  String _selectedWeatherCampusKey = 'tsudanuma';
+  late Future<_CampusWeather> _weatherFuture;
   void _invalidateScheduleProviders() {
     final userId = ref.read(currentUserIdProvider);
     if (userId != null) {
@@ -103,6 +125,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         curve: Curves.easeInOut,
       ),
     );
+    _currentAcademicMonthIndex = _getCurrentAcademicMonthIndex();
+    _academicCalendarPageController = PageController(
+      initialPage: _currentAcademicMonthIndex,
+    );
+    final preferredCampus = ref.read(preferredBusCampusProvider);
+    if (_weatherCampusLocations.containsKey(preferredCampus)) {
+      _selectedWeatherCampusKey = preferredCampus;
+    }
+    _weatherFuture = _fetchCampusWeather(_selectedWeatherCampusKey);
 
     // 初回更新はフレーム後に実行してInherited依存を避ける
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -122,6 +153,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void dispose() {
     _scheduleRefreshTimer?.cancel();
     _flipAnimationController.dispose();
+    _academicCalendarPageController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -377,6 +409,338 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
+  Widget _buildWeatherCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final isNarashinoWeather = _selectedWeatherCampusKey == 'narashino';
+    final accentColor = isNarashinoWeather ? Colors.green.shade700 : theme.colorScheme.primary;
+    final weatherCardGradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: isNarashinoWeather
+          ? [
+              Colors.green.shade100.withOpacity(0.95),
+              Colors.green.shade300.withOpacity(0.85),
+            ]
+          : [
+              theme.colorScheme.primaryContainer.withOpacity(0.85),
+              theme.colorScheme.secondaryContainer.withOpacity(0.80),
+            ],
+    );
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: EdgeInsets.zero,
+        child: Container(
+          decoration: BoxDecoration(gradient: weatherCardGradient),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface.withOpacity(0.75),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Icon(
+                      Icons.wb_sunny_outlined,
+                      color: accentColor,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '天気',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  SegmentedButton<String>(
+                    segments:
+                        _weatherCampusLocations.values
+                            .map(
+                              (location) => ButtonSegment<String>(
+                                value: location.key,
+                                label: Text(location.label),
+                              ),
+                            )
+                            .toList(),
+                    selected: {_selectedWeatherCampusKey},
+                    onSelectionChanged: (selection) {
+                      if (selection.isEmpty) return;
+                      final selected = selection.first;
+                      if (selected == _selectedWeatherCampusKey) {
+                        return;
+                      }
+                      setState(() {
+                        _selectedWeatherCampusKey = selected;
+                        _weatherFuture = _fetchCampusWeather(selected);
+                      });
+                    },
+                    style: ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              FutureBuilder<_CampusWeather>(
+                future: _weatherFuture,
+                builder: (context, snapshot) {
+                  Widget content;
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    content = const SizedBox(
+                      key: ValueKey('weather_loading'),
+                      height: 80,
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  } else if (snapshot.hasError || !snapshot.hasData) {
+                    content = Container(
+                      key: const ValueKey('weather_error'),
+                      height: 80,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface.withOpacity(0.70),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '天気情報を取得できませんでした',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    );
+                  } else {
+                    final weather = snapshot.data!;
+                    content = Container(
+                      key: ValueKey(
+                        'weather_${_selectedWeatherCampusKey}_${weather.observedAt.toIso8601String()}',
+                      ),
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface.withOpacity(0.78),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${weather.emoji} ${weather.description}',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '${weather.observedAt.month}月${weather.observedAt.day}日の情報',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '${weather.currentTemp.toStringAsFixed(1)}°C',
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: accentColor.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  '↑${weather.maxTemp.toStringAsFixed(1)}°C  ↓${weather.minTemp.toStringAsFixed(1)}°C',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 320),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) {
+                      final offsetAnimation = Tween<Offset>(
+                        begin: const Offset(0, 0.06),
+                        end: Offset.zero,
+                      ).animate(animation);
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: offsetAnimation,
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: content,
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<_CampusWeather> _fetchCampusWeather(String campusKey) async {
+    final location = _weatherCampusLocations[campusKey] ??
+        _weatherCampusLocations['tsudanuma']!;
+    final uri = Uri.parse('https://api.open-meteo.com/v1/forecast').replace(
+      queryParameters: {
+        'latitude': location.latitude.toString(),
+        'longitude': location.longitude.toString(),
+        'current': 'temperature_2m,weather_code',
+        'hourly': 'weather_code',
+        'daily': 'temperature_2m_max,temperature_2m_min',
+        'timezone': 'Asia/Tokyo',
+        'forecast_days': '1',
+      },
+    );
+    final response = await http.get(uri).timeout(const Duration(seconds: 8));
+    if (response.statusCode != 200) {
+      throw Exception('status=${response.statusCode}');
+    }
+    final Map<String, dynamic> json = jsonDecode(response.body);
+    final current = json['current'] as Map<String, dynamic>?;
+    final hourly = json['hourly'] as Map<String, dynamic>?;
+    final daily = json['daily'] as Map<String, dynamic>?;
+    if (current == null || daily == null) {
+      throw Exception('invalid payload');
+    }
+    final currentTemp = (current['temperature_2m'] as num?)?.toDouble();
+    final weatherCode = (current['weather_code'] as num?)?.toInt();
+    final currentTimeRaw = current['time'] as String?;
+    final observedAt =
+        DateTime.tryParse(currentTimeRaw ?? '')?.toLocal() ?? DateTime.now();
+    final maxTemp = ((daily['temperature_2m_max'] as List?)?.first as num?)
+        ?.toDouble();
+    final minTemp = ((daily['temperature_2m_min'] as List?)?.first as num?)
+        ?.toDouble();
+    if (currentTemp == null ||
+        weatherCode == null ||
+        maxTemp == null ||
+        minTemp == null) {
+      throw Exception('missing weather fields');
+    }
+    final mapped = _mapWeatherCode(weatherCode);
+    final description = _buildWeatherDescriptionForToday(
+      currentDescription: mapped.$1,
+      observedAt: observedAt,
+      hourlyTimes: hourly?['time'] as List<dynamic>?,
+      hourlyCodes: hourly?['weather_code'] as List<dynamic>?,
+    );
+    return _CampusWeather(
+      description: description,
+      emoji: mapped.$2,
+      currentTemp: currentTemp,
+      maxTemp: maxTemp,
+      minTemp: minTemp,
+      observedAt: observedAt,
+    );
+  }
+
+  (String, String) _mapWeatherCode(int code) {
+    if (code == 0) return ('快晴', '☀️');
+    if (code == 1 || code == 2) return ('晴れ', '🌤️');
+    if (code == 3) return ('くもり', '☁️');
+    if (code == 45 || code == 48) return ('霧', '🌫️');
+    if (code >= 51 && code <= 67) return ('雨', '🌧️');
+    if (code >= 71 && code <= 77) return ('雪', '❄️');
+    if (code >= 80 && code <= 82) return ('にわか雨', '🌦️');
+    if (code >= 95) return ('雷雨', '⛈️');
+    return ('不明', '🌈');
+  }
+
+  String _buildWeatherDescriptionForToday({
+    required String currentDescription,
+    required DateTime observedAt,
+    required List<dynamic>? hourlyTimes,
+    required List<dynamic>? hourlyCodes,
+  }) {
+    if (hourlyTimes == null || hourlyCodes == null) return currentDescription;
+    final count =
+        hourlyTimes.length < hourlyCodes.length
+            ? hourlyTimes.length
+            : hourlyCodes.length;
+    if (count == 0) return currentDescription;
+
+    final morningCounts = <String, int>{};
+    final afternoonCounts = <String, int>{};
+
+    for (int i = 0; i < count; i++) {
+      final timeRaw = hourlyTimes[i];
+      final codeRaw = hourlyCodes[i];
+      if (timeRaw is! String || codeRaw is! num) continue;
+      final dateTime = DateTime.tryParse(timeRaw)?.toLocal();
+      if (dateTime == null) continue;
+      if (dateTime.year != observedAt.year ||
+          dateTime.month != observedAt.month ||
+          dateTime.day != observedAt.day) {
+        continue;
+      }
+
+      final label = _toSimpleWeatherLabel(codeRaw.toInt());
+      final target = dateTime.hour < 12 ? morningCounts : afternoonCounts;
+      target[label] = (target[label] ?? 0) + 1;
+    }
+
+    String pickDominant(Map<String, int> counts, String fallback) {
+      if (counts.isEmpty) return fallback;
+      var topLabel = fallback;
+      var topCount = -1;
+      counts.forEach((label, c) {
+        if (c > topCount) {
+          topLabel = label;
+          topCount = c;
+        }
+      });
+      return topLabel;
+    }
+
+    final morning = pickDominant(morningCounts, currentDescription);
+    final afternoon = pickDominant(afternoonCounts, morning);
+    if (morning == afternoon) return morning;
+    return '$morningのち$afternoon';
+  }
+
+  String _toSimpleWeatherLabel(int code) {
+    if (code == 0 || code == 1 || code == 2) return '晴れ';
+    if (code == 3) return 'くもり';
+    if (code == 45 || code == 48) return '霧';
+    if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return '雨';
+    if (code >= 71 && code <= 77) return '雪';
+    if (code >= 95) return '雷雨';
+    return '不明';
+  }
+
   List<Widget> _buildOrderedHomeCards(
     BuildContext context,
     WidgetRef ref,
@@ -424,6 +788,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     AsyncValue<bool> todayReviewExistsAsync,
   ) {
     switch (cardId) {
+      case 'weather':
+        return _buildWeatherCard(context);
       case 'timetable':
         return _buildTimetableCard(context, ref);
       case 'cafeteria':
@@ -432,6 +798,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return _buildBusInfoCard(context, ref);
       case 'campus_map':
         return _buildCampusMapCard(context);
+      case 'academic_calendar':
+        return _buildAcademicCalendarCard(context);
       case 'convenience_links':
         return _buildConvenienceLinksCard(context, ref);
       default:
@@ -440,6 +808,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildTimetableCard(BuildContext context, WidgetRef ref) {
+    final lecturePeriodAsync = ref.watch(lecturePeriodSettingsProvider);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -451,6 +820,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 Text(
                   _getTodayWeekdayText(),
                   style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(width: 8),
+                lecturePeriodAsync.when(
+                  data: (settings) {
+                    if (settings == null) return const SizedBox.shrink();
+                    return _buildLectureWeekChip(context, settings);
+                  },
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
                 ),
                 const Spacer(),
                 TextButton(
@@ -465,6 +843,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
       ),
     );
+  }
+
+  Widget _buildLectureWeekChip(
+    BuildContext context,
+    LecturePeriodSettings settings,
+  ) {
+    final label = _buildLectureWeekLabel(settings);
+    if (label == null) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: Theme.of(context).colorScheme.onPrimaryContainer,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  String? _buildLectureWeekLabel(LecturePeriodSettings settings) {
+    final now = DateTime.now();
+    final day = DateTime(now.year, now.month, now.day);
+
+    String? weekLabel(String semesterName, DateTime? startRaw, DateTime? endRaw) {
+      if (startRaw == null || endRaw == null) return null;
+      final start = DateTime(startRaw.year, startRaw.month, startRaw.day);
+      final end = DateTime(endRaw.year, endRaw.month, endRaw.day);
+      if (day.isBefore(start) || day.isAfter(end)) return null;
+      final diffDays = day.difference(start).inDays;
+      final week = (diffDays ~/ 7) + 1;
+      return '$semesterName 第$week週';
+    }
+
+    return weekLabel('前期', settings.springStartDate, settings.springEndDate) ??
+        weekLabel('後期', settings.fallStartDate, settings.fallEndDate) ??
+        // 旧データ互換
+        weekLabel('前期', settings.lectureStartDate, settings.lectureEndDate);
   }
 
   Widget _buildCafeteriaCard(
@@ -637,6 +1058,318 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
+  Widget _buildAcademicCalendarCard(BuildContext context) {
+    final months = _buildAcademicYearMonths();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.event_note,
+                  size: 24,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '学年歴',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () => _showAcademicYearCalendar(context),
+                  icon: Icon(
+                    Icons.calendar_month,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  label: Text(
+                    'カレンダー',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 28),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '対象期間: 2026年4月 - 2027年3月',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Theme.of(context).dividerColor),
+              ),
+              child: SizedBox(
+                height: 250,
+                child: PageView.builder(
+                  controller: _academicCalendarPageController,
+                  itemCount: months.length,
+                  onPageChanged: (index) {
+                    if (!mounted) return;
+                    setState(() {
+                      _currentAcademicMonthIndex = index;
+                    });
+                  },
+                  itemBuilder: (context, index) {
+                    final month = months[index];
+                    return _buildAcademicMonthCalendarInline(
+                      context,
+                      month.year,
+                      month.month,
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text(
+                  '${months[_currentAcademicMonthIndex].year}年${months[_currentAcademicMonthIndex].month}月',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '左右にスワイプで切替',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<DateTime> _buildAcademicYearMonths() {
+    return List<DateTime>.generate(12, (index) {
+      final zeroBasedMonth = 3 + index; // 2026年4月開始
+      final year = 2026 + (zeroBasedMonth ~/ 12);
+      final month = (zeroBasedMonth % 12) + 1;
+      return DateTime(year, month, 1);
+    });
+  }
+
+  Future<void> _showAcademicYearCalendar(BuildContext context) async {
+    final months = _buildAcademicYearMonths();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return DefaultTabController(
+          length: months.length,
+          initialIndex: _getCurrentAcademicMonthIndex(),
+          child: SafeArea(
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height * 0.82,
+              child: Column(
+                children: [
+                  const ListTile(
+                    title: Text(
+                      '学年歴カレンダー',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text('2026年4月 - 2027年3月'),
+                  ),
+                  TabBar(
+                    isScrollable: true,
+                    tabs:
+                        months.map((monthDate) {
+                          return Tab(text: '${monthDate.month}月');
+                        }).toList(),
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children:
+                          months.map((monthDate) {
+                            return _buildAcademicMonthCalendar(
+                              context,
+                              monthDate.year,
+                              monthDate.month,
+                            );
+                          }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  int _getCurrentAcademicMonthIndex() {
+    final months = _buildAcademicYearMonths();
+    final now = DateTime.now();
+    final exactIndex = months.indexWhere(
+      (month) => month.year == now.year && month.month == now.month,
+    );
+    if (exactIndex >= 0) return exactIndex;
+    if (now.isBefore(months.first)) return 0;
+    return months.length - 1;
+  }
+
+  Widget _buildAcademicMonthCalendar(BuildContext context, int year, int month) {
+    const weekdayLabels = ['月', '火', '水', '木', '金', '土', '日'];
+    final daysInMonth = DateUtils.getDaysInMonth(year, month);
+    final firstWeekday = DateTime(year, month, 1).weekday; // 1=Mon
+    final leadingEmptyCells = firstWeekday - 1;
+    final totalCells =
+        ((leadingEmptyCells + daysInMonth + 6) ~/ 7) * 7; // 7の倍数に丸める
+
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$year年$month月',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children:
+                weekdayLabels.map((label) {
+                  return Expanded(
+                    child: Center(
+                      child: Text(
+                        label,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+          ),
+          const SizedBox(height: 6),
+          Expanded(
+            child: GridView.builder(
+              itemCount: totalCells,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 7,
+                mainAxisSpacing: 4,
+                crossAxisSpacing: 4,
+                childAspectRatio: 1.2,
+              ),
+              itemBuilder: (context, index) {
+                final dayNumber = index - leadingEmptyCells + 1;
+                final isInCurrentMonth = dayNumber >= 1 && dayNumber <= daysInMonth;
+
+                return Container(
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(6),
+                    color:
+                        isInCurrentMonth
+                            ? Theme.of(context).colorScheme.surfaceContainerHighest
+                            : Colors.transparent,
+                  ),
+                  child: Text(
+                    isInCurrentMonth ? '$dayNumber' : '',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAcademicMonthCalendarInline(
+    BuildContext context,
+    int year,
+    int month,
+  ) {
+    const weekdayLabels = ['月', '火', '水', '木', '金', '土', '日'];
+    final daysInMonth = DateUtils.getDaysInMonth(year, month);
+    final leadingEmptyCells = DateTime(year, month, 1).weekday - 1;
+    final totalCells = ((leadingEmptyCells + daysInMonth + 6) ~/ 7) * 7;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$year年$month月',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children:
+              weekdayLabels.map((label) {
+                return Expanded(
+                  child: Center(
+                    child: Text(
+                      label,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+        ),
+        const SizedBox(height: 6),
+        GridView.builder(
+          itemCount: totalCells,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7,
+            mainAxisSpacing: 4,
+            crossAxisSpacing: 4,
+            childAspectRatio: 1.25,
+          ),
+          itemBuilder: (context, index) {
+            final dayNumber = index - leadingEmptyCells + 1;
+            final isInCurrentMonth = dayNumber >= 1 && dayNumber <= daysInMonth;
+            return Container(
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                color:
+                    isInCurrentMonth
+                        ? Theme.of(context).colorScheme.surfaceContainerHighest
+                        : Colors.transparent,
+              ),
+              child: Text(
+                isInCurrentMonth ? '$dayNumber' : '',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
   Future<void> _showHomeCardLayoutEditor(BuildContext context) async {
     final tempOrder = List<String>.from(_homeCardOrder);
     final tempHidden = Set<String>.from(_hiddenHomeCards);
@@ -658,18 +1391,69 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: const Text('表示/非表示と順序を変更できます'),
-                      trailing: TextButton(
-                        onPressed: () async {
-                          setState(() {
-                            _homeCardOrder = List<String>.from(tempOrder);
-                            _hiddenHomeCards = Set<String>.from(tempHidden);
-                          });
-                          await _saveHomeCardLayout();
-                          if (context.mounted) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                        child: const Text('保存'),
+                      trailing: Wrap(
+                        spacing: 4,
+                        children: [
+                          IconButton(
+                            onPressed: () async {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder:
+                                    (dialogContext) => AlertDialog(
+                                      title: const Text('デフォルトに戻す'),
+                                      content: const Text(
+                                        'カードの表示設定と並び順を初期状態に戻します。よろしいですか？',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed:
+                                              () => Navigator.of(
+                                                dialogContext,
+                                              ).pop(false),
+                                          child: const Text('キャンセル'),
+                                        ),
+                                        TextButton(
+                                          onPressed:
+                                              () => Navigator.of(
+                                                dialogContext,
+                                              ).pop(true),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: Colors.red,
+                                          ),
+                                          child: const Text('戻す'),
+                                        ),
+                                      ],
+                                    ),
+                              );
+                              if (confirmed != true) return;
+                              setState(() {
+                                _homeCardOrder = List<String>.from(
+                                  _defaultHomeCardOrder,
+                                );
+                                _hiddenHomeCards = <String>{};
+                              });
+                              await _saveHomeCardLayout();
+                              if (context.mounted) {
+                                Navigator.of(context).pop();
+                              }
+                            },
+                            icon: const Icon(Icons.restore),
+                            tooltip: 'デフォルトに戻す',
+                          ),
+                          TextButton(
+                            onPressed: () async {
+                              setState(() {
+                                _homeCardOrder = List<String>.from(tempOrder);
+                                _hiddenHomeCards = Set<String>.from(tempHidden);
+                              });
+                              await _saveHomeCardLayout();
+                              if (context.mounted) {
+                                Navigator.of(context).pop();
+                              }
+                            },
+                            child: const Text('保存'),
+                          ),
+                        ],
                       ),
                     ),
                     const Divider(height: 1),
@@ -719,6 +1503,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   String _homeCardTitle(String cardId) {
     switch (cardId) {
+      case 'weather':
+        return '天気';
       case 'timetable':
         return '時間割';
       case 'cafeteria':
@@ -727,6 +1513,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return '学バス情報';
       case 'campus_map':
         return 'キャンパスマップ';
+      case 'academic_calendar':
+        return '学年歴';
       case 'convenience_links':
         return '便利リンク';
       default:
@@ -741,6 +1529,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             .where((id) => _defaultHomeCardOrder.contains(id))
             .toList();
     final result = List<String>.from(incoming);
+    if (!result.contains('weather')) {
+      result.insert(0, 'weather');
+    }
+    if (!result.contains('academic_calendar')) {
+      final convenienceIndex = result.indexOf('convenience_links');
+      if (convenienceIndex >= 0) {
+        result.insert(convenienceIndex, 'academic_calendar');
+      } else {
+        result.add('academic_calendar');
+      }
+    }
     for (final id in _defaultHomeCardOrder) {
       if (!result.contains(id)) {
         result.add(id);
@@ -1507,7 +2306,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildTodaySchedule(BuildContext context, WidgetRef ref) {
-    final todayScheduleAsync = ref.watch(currentUserTodayScheduleProvider);
+    final todayScheduleAsync = ref.watch(currentUserSelectedTodayScheduleProvider);
     final timeSlotsAsync = ref.watch(timeSlotsProvider);
     final currentPeriodAsync = ref.watch(currentUserCurrentPeriodProvider);
     final isSchoolDay = ref.watch(isSchoolDayProvider);
@@ -2291,6 +3090,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // 学バス情報カードを構築
   Widget _buildBusInfoCard(BuildContext context, WidgetRef ref) {
     final busInfo = ref.watch(busInformationProvider);
+    final hasEnabledBusTimetable = busInfo.when(
+      data: _hasEnabledBusTimetable,
+      loading: () => false,
+      error: (_, __) => false,
+    );
 
     return Card(
       child: Padding(
@@ -2308,28 +3112,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 const SizedBox(width: 8),
                 Text('学バス情報', style: Theme.of(context).textTheme.titleMedium),
                 const Spacer(),
-                TextButton.icon(
-                  onPressed: () => _showBusTimetableImage(context),
-                  icon: Icon(
-                    Icons.schedule,
-                    size: 16,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  label: Text(
-                    'ダイヤ一覧',
-                    style: TextStyle(
-                      fontSize: 12,
+                if (hasEnabledBusTimetable)
+                  TextButton.icon(
+                    onPressed: () => _showBusTimetableImage(context),
+                    icon: Icon(
+                      Icons.schedule,
+                      size: 16,
                       color: Theme.of(context).colorScheme.primary,
                     ),
-                  ),
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(0, 28),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+                    label: Text(
+                      'ダイヤ一覧',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(0, 28),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -2388,6 +3193,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ],
       ),
+    );
+  }
+
+  bool _hasEnabledBusTimetable(BusInformation? data) {
+    if (data == null) return false;
+    return data.activeRoutes.any(
+      (route) => route.timeEntries.any((entry) => entry.isActive),
     );
   }
 
@@ -3866,6 +4678,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // プルツーリフレッシュでデータを更新
   Future<void> _refreshData(WidgetRef ref) async {
     try {
+      if (mounted) {
+        setState(() {
+          _weatherFuture = _fetchCampusWeather(_selectedWeatherCampusKey);
+        });
+      }
       // 各プロバイダーを無効化して再取得
       ref.invalidate(currentUserTodayScheduleProvider);
       ref.invalidate(currentUserCurrentPeriodProvider);
@@ -3977,6 +4794,38 @@ class _HomeScreenImageViewer extends StatefulWidget {
 
   @override
   State<_HomeScreenImageViewer> createState() => _HomeScreenImageViewerState();
+}
+
+class _WeatherCampusLocation {
+  final String key;
+  final String label;
+  final double latitude;
+  final double longitude;
+
+  const _WeatherCampusLocation({
+    required this.key,
+    required this.label,
+    required this.latitude,
+    required this.longitude,
+  });
+}
+
+class _CampusWeather {
+  final String description;
+  final String emoji;
+  final double currentTemp;
+  final double maxTemp;
+  final double minTemp;
+  final DateTime observedAt;
+
+  const _CampusWeather({
+    required this.description,
+    required this.emoji,
+    required this.currentTemp,
+    required this.maxTemp,
+    required this.minTemp,
+    required this.observedAt,
+  });
 }
 
 class _HomeScreenImageViewerState extends State<_HomeScreenImageViewer> {

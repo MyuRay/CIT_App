@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../models/schedule/schedule_model.dart';
 import '../../core/providers/schedule_provider.dart';
+import '../../services/schedule/schedule_service.dart';
 
 class ScheduleEditScreen extends ConsumerStatefulWidget {
+  final String scheduleId;
   final String weekdayKey;
   final int period;
   final ScheduleClass? initialClass;
 
   const ScheduleEditScreen({
     super.key,
+    required this.scheduleId,
     required this.weekdayKey,
     required this.period,
     this.initialClass,
@@ -410,11 +413,9 @@ class _ScheduleEditScreenState extends ConsumerState<ScheduleEditScreen> {
       if (userId == null) {
         throw Exception('ユーザーが認証されていません');
       }
-      // 年度別切り替えを削除して、常にメインのScheduleNotifierを使用
-      final notifier = ref.read(scheduleNotifierProvider(userId).notifier);
-
+      final classId = widget.initialClass?.id ?? DateTime.now().millisecondsSinceEpoch.toString();
       final scheduleClass = ScheduleClass(
-        id: widget.initialClass?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        id: classId,
         subjectName: _subjectController.text.trim(),
         classroom: _classroomController.text.trim(),
         instructor: _instructorController.text.trim(),
@@ -423,13 +424,49 @@ class _ScheduleEditScreenState extends ConsumerState<ScheduleEditScreen> {
         duration: _selectedDuration,
         isStartCell: true,
       );
+      // 編集時はいったん既存の同一講義を削除してから再配置する
+      if (widget.initialClass != null) {
+        await ScheduleService.removeClass(
+          scheduleId: widget.scheduleId,
+          weekdayKey: widget.weekdayKey,
+          period: widget.period,
+        );
+      }
 
-      await notifier.addClass(
-        weekdayKey: widget.weekdayKey,
-        period: widget.period,
-        scheduleClass: scheduleClass,
-        ref: ref,
-      );
+      final latest = await ScheduleService.getScheduleById(widget.scheduleId);
+      if (latest == null) {
+        throw Exception('対象の時間割が見つかりません');
+      }
+      for (int i = 0; i < _selectedDuration; i++) {
+        final currentPeriod = widget.period + i;
+        if (currentPeriod > 10) {
+          throw Exception('${_selectedDuration}時間連続講義は${widget.period}限から開始できません（10限を超えます）');
+        }
+        final existingClass = latest.timetable[widget.weekdayKey]?[currentPeriod];
+        if (existingClass != null && existingClass.id != classId) {
+          throw Exception('${currentPeriod}限には既に「${existingClass.subjectName}」が登録されています');
+        }
+      }
+
+      for (int i = 0; i < _selectedDuration; i++) {
+        final currentPeriod = widget.period + i;
+        final classToAdd = ScheduleClass(
+          id: classId,
+          subjectName: scheduleClass.subjectName,
+          classroom: scheduleClass.classroom,
+          instructor: scheduleClass.instructor,
+          color: scheduleClass.color,
+          notes: scheduleClass.notes,
+          duration: scheduleClass.duration,
+          isStartCell: i == 0,
+        );
+        await ScheduleService.addOrUpdateClass(
+          scheduleId: widget.scheduleId,
+          weekdayKey: widget.weekdayKey,
+          period: currentPeriod,
+          scheduleClass: classToAdd,
+        );
+      }
 
       // ホーム画面のプロバイダーを無効化（即時反映のため）
       // 年度別切り替え機能を削除したので、常に現在の年度・学期を使用
@@ -449,6 +486,7 @@ class _ScheduleEditScreenState extends ConsumerState<ScheduleEditScreen> {
         ref.invalidate(currentPeriodProvider(userId));
         ref.invalidate(scheduleProvider(userId));
         ref.invalidate(weeklyScheduleProvider(userId));
+        ref.invalidate(scheduleListProvider(userId));
       }
       
       // さらに、便利プロバイダーも無効化
@@ -537,13 +575,10 @@ class _ScheduleEditScreenState extends ConsumerState<ScheduleEditScreen> {
       if (userId == null) {
         throw Exception('ユーザーが認証されていません');
       }
-      // 年度別切り替えを削除して、常にメインのScheduleNotifierを使用
-      final notifier = ref.read(scheduleNotifierProvider(userId).notifier);
-
-      await notifier.removeClass(
+      await ScheduleService.removeClass(
+        scheduleId: widget.scheduleId,
         weekdayKey: widget.weekdayKey,
         period: widget.period,
-        ref: ref,
       );
 
       // ホーム画面のプロバイダーを無効化（即時反映のため）
@@ -564,6 +599,7 @@ class _ScheduleEditScreenState extends ConsumerState<ScheduleEditScreen> {
         ref.invalidate(currentPeriodProvider(userId));
         ref.invalidate(scheduleProvider(userId));
         ref.invalidate(weeklyScheduleProvider(userId));
+        ref.invalidate(scheduleListProvider(userId));
       }
       
       // さらに、便利プロバイダーも無効化

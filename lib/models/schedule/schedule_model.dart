@@ -97,6 +97,7 @@ enum Weekday {
 class Schedule {
   final String id;
   final String userId;
+  final String? name; // 時間割名（任意）
   final String semester;  // 学期（例: "2024年度前期"）
   final Map<String, Map<int, ScheduleClass?>> timetable; // [曜日][時限] = クラス
   final List<TimeSlot> timeSlots;  // 時間枠の定義
@@ -106,6 +107,7 @@ class Schedule {
   const Schedule({
     required this.id,
     required this.userId,
+    this.name,
     required this.semester,
     required this.timetable,
     this.timeSlots = const [],
@@ -156,6 +158,7 @@ class Schedule {
       return Schedule(
         id: json['id'] ?? '',
         userId: json['userId'] ?? '',
+        name: json['name'] as String?,
         semester: json['semester'] ?? '${DateTime.now().year}年度',
         timetable: parsedTimetable,
         timeSlots: parsedTimeSlots,
@@ -205,6 +208,7 @@ class Schedule {
     return {
       'id': id,
       'userId': userId,
+      'name': name,
       'semester': semester,
       'timetable': timetableJson,
       // Firestoreルール準拠のため、timeSlotsはMapとして保存
@@ -287,6 +291,7 @@ class DefaultTimeSlots {
     return Schedule(
       id: id,
       userId: userId,
+      name: null,
       semester: semester ?? '${DateTime.now().year}年度',
       timetable: createEmptyTimetable(),
       timeSlots: citTimeSlots,

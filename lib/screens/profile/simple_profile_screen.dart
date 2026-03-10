@@ -22,7 +22,7 @@ import '../reports/report_management_screen.dart';
 import '../contact/user_contact_list_screen.dart';
 import '../legal/terms_of_service_screen.dart';
 import '../legal/privacy_policy_screen.dart';
-import '../cafeteria/cafeteria_my_screen.dart';
+import '../cafeteria/cafeteria_reviews_screen.dart';
 import '../../core/providers/settings_provider.dart';
 import '../user_block/blocked_user_list_screen.dart';
 import '../../core/providers/in_app_ad_provider.dart';
@@ -208,7 +208,7 @@ class SimpleProfileScreen extends ConsumerWidget {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => const MyCafeteriaScreen(),
+                          builder: (context) => const CafeteriaReviewsScreen(),
                         ),
                       );
                     },

@@ -20,6 +20,11 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
   String _scheduleSearch = '';
   String _scheduleDayType = 'weekday'; // weekday, saturday, sunday
   bool _scheduleHideInactive = true;
+  DateTime? _springStartDate;
+  DateTime? _springEndDate;
+  DateTime? _fallStartDate;
+  DateTime? _fallEndDate;
+  bool _isSavingLecturePeriod = false;
 
   @override
   void initState() {
@@ -612,6 +617,8 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
                   const Text('運行状況の変更、遅延情報、運休情報などを管理できます。'),
                   const SizedBox(height: 12),
                   _buildHomeRemarkEditor(),
+                  const SizedBox(height: 12),
+                  _buildLecturePeriodEditor(),
                 ],
               ),
             ),
@@ -771,6 +778,235 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
         );
       },
     );
+  }
+
+  Widget _buildLecturePeriodEditor() {
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.doc('app_settings/lecture_period').snapshots(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data();
+        if (data != null &&
+            _springStartDate == null &&
+            _springEndDate == null &&
+            _fallStartDate == null &&
+            _fallEndDate == null) {
+          _springStartDate = (data['springStartDate'] as Timestamp?)?.toDate();
+          _springEndDate = (data['springEndDate'] as Timestamp?)?.toDate();
+          _fallStartDate = (data['fallStartDate'] as Timestamp?)?.toDate();
+          _fallEndDate = (data['fallEndDate'] as Timestamp?)?.toDate();
+        }
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.calendar_month, size: 18),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '講義期間設定（前期・後期）',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _buildLecturePeriodRow(
+                label: '前期',
+                start: _springStartDate,
+                end: _springEndDate,
+                onEdit: () => _showLecturePeriodDialog(isSpring: true),
+              ),
+              const SizedBox(height: 6),
+              _buildLecturePeriodRow(
+                label: '後期',
+                start: _fallStartDate,
+                end: _fallEndDate,
+                onEdit: () => _showLecturePeriodDialog(isSpring: false),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _isSavingLecturePeriod ? null : _saveLecturePeriod,
+                  icon: _isSavingLecturePeriod
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save),
+                  label: Text(_isSavingLecturePeriod ? '保存中...' : '講義期間を保存'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLecturePeriodRow({
+    required String label,
+    required DateTime? start,
+    required DateTime? end,
+    required VoidCallback onEdit,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            '$label: ${_formatDateRange(start, end)}',
+            style: TextStyle(color: Colors.grey[800], fontSize: 13),
+          ),
+        ),
+        TextButton(onPressed: onEdit, child: const Text('編集')),
+      ],
+    );
+  }
+
+  Future<void> _showLecturePeriodDialog({required bool isSpring}) async {
+    DateTime? localStart = isSpring ? _springStartDate : _fallStartDate;
+    DateTime? localEnd = isSpring ? _springEndDate : _fallEndDate;
+    final now = DateTime.now();
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text('${isSpring ? '前期' : '後期'}の講義期間を編集'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              OutlinedButton.icon(
+                icon: const Icon(Icons.play_arrow),
+                label: Text('開始日: ${localStart != null ? _formatDate(localStart!) : '未設定'}'),
+                onPressed: () async {
+                  final picked = await showDatePicker(
+                    context: ctx,
+                    initialDate: localStart ?? now,
+                    firstDate: DateTime(now.year - 2, 1, 1),
+                    lastDate: DateTime(now.year + 3, 12, 31),
+                  );
+                  if (picked == null) return;
+                  setDialogState(() {
+                    localStart = picked;
+                    if (localEnd != null && localEnd!.isBefore(localStart!)) {
+                      localEnd = localStart;
+                    }
+                  });
+                },
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.stop),
+                label: Text('終了日: ${localEnd != null ? _formatDate(localEnd!) : '未設定'}'),
+                onPressed: () async {
+                  final picked = await showDatePicker(
+                    context: ctx,
+                    initialDate: localEnd ?? (localStart ?? now),
+                    firstDate: DateTime(now.year - 2, 1, 1),
+                    lastDate: DateTime(now.year + 3, 12, 31),
+                  );
+                  if (picked == null) return;
+                  setDialogState(() => localEnd = picked);
+                },
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _formatDateRange(localStart, localEnd),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('キャンセル'),
+            ),
+            FilledButton(
+              onPressed: () {
+                setState(() {
+                  if (isSpring) {
+                    _springStartDate = localStart;
+                    _springEndDate = localEnd;
+                  } else {
+                    _fallStartDate = localStart;
+                    _fallEndDate = localEnd;
+                  }
+                });
+                Navigator.pop(ctx);
+              },
+              child: const Text('反映'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _saveLecturePeriod() async {
+    final hasOnlySpringOne = (_springStartDate == null) != (_springEndDate == null);
+    final hasOnlyFallOne = (_fallStartDate == null) != (_fallEndDate == null);
+    if (hasOnlySpringOne || hasOnlyFallOne) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('各学期は開始日と終了日をセットで設定してください')),
+      );
+      return;
+    }
+    if (_springStartDate != null &&
+        _springEndDate != null &&
+        _springStartDate!.isAfter(_springEndDate!)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('前期の終了日は開始日以降にしてください')),
+      );
+      return;
+    }
+    if (_fallStartDate != null &&
+        _fallEndDate != null &&
+        _fallStartDate!.isAfter(_fallEndDate!)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('後期の終了日は開始日以降にしてください')),
+      );
+      return;
+    }
+
+    setState(() => _isSavingLecturePeriod = true);
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      await FirebaseFirestore.instance.doc('app_settings/lecture_period').set({
+        'springStartDate':
+            _springStartDate != null ? Timestamp.fromDate(_springStartDate!) : null,
+        'springEndDate':
+            _springEndDate != null ? Timestamp.fromDate(_springEndDate!) : null,
+        'fallStartDate':
+            _fallStartDate != null ? Timestamp.fromDate(_fallStartDate!) : null,
+        'fallEndDate':
+            _fallEndDate != null ? Timestamp.fromDate(_fallEndDate!) : null,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': user?.displayName ?? user?.email ?? '管理者',
+      }, SetOptions(merge: true));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('講義期間を保存しました')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('講義期間の保存に失敗しました: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSavingLecturePeriod = false);
+    }
   }
 
   void _showEditHomeRemarkDialog(String currentRemark) {

@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../models/schedule/schedule_model.dart';
 import '../../models/schedule/academic_year_model.dart';
+import '../../models/schedule/lecture_period_model.dart';
 import '../../services/schedule/schedule_service.dart';
+import '../../services/schedule/lecture_period_service.dart';
 import 'auth_provider.dart';
 import '../../services/widget/home_widgets_service.dart';
 import '../../services/schedule/schedule_notification_service.dart';
@@ -448,6 +450,11 @@ final currentUserWeeklyScheduleProvider = Provider<AsyncValue<Map<String, List<S
     return const AsyncValue.loading();
   }
   return ref.watch(weeklyScheduleProvider(userId));
+});
+
+// 講義期間設定（春学期・秋学期）
+final lecturePeriodSettingsProvider = StreamProvider<LecturePeriodSettings?>((ref) {
+  return LecturePeriodService.watchLecturePeriod();
 });
 
 // 科目リクエストクラス

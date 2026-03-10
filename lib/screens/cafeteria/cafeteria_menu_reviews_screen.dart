@@ -28,19 +28,28 @@ class _CafeteriaMenuReviewsScreenState extends ConsumerState<CafeteriaMenuReview
   Offset? _fabPosition;
   bool _isDragging = false;
   final GlobalKey _fabKey = GlobalKey();
+  Size? _fabSize; // ボタンの実際のサイズを保持
   
-  Offset _getDefaultPosition(Size bodySize, EdgeInsets padding) {
+  Offset _getDefaultPosition(Size bodySize, EdgeInsets padding, Size? fabSize) {
     // FloatingActionButtonのデフォルト位置（右下）
     const buttonPadding = 16.0;
-    // ボタンの実際のサイズを取得するか、推定サイズを使用
-    const fabWidth = 240.0; // テキストを含む幅を考慮
-    const fabHeight = 56.0;
     
-    // bodyのサイズに対して右下に配置
-    return Offset(
-      bodySize.width - fabWidth - buttonPadding - padding.right,
-      bodySize.height - fabHeight - buttonPadding - padding.bottom,
-    );
+    // ボタンのサイズを取得（未測定の場合は推定サイズを使用）
+    final fabWidth = fabSize?.width ?? 240.0;
+    final fabHeight = fabSize?.height ?? 56.0;
+    
+    // 右端を画面の右端に合わせて位置を計算
+    double left = bodySize.width - fabWidth - buttonPadding - padding.right;
+    
+    // 左端が画面外に出る場合は、右端を画面の右端に合わせる
+    if (left < padding.left) {
+      left = bodySize.width - fabWidth - padding.right;
+    }
+    
+    // 下の位置
+    final top = bodySize.height - fabHeight - buttonPadding - padding.bottom;
+    
+    return Offset(left, top);
   }
 
   void _onPanStart(DragStartDetails details) {
@@ -51,19 +60,47 @@ class _CafeteriaMenuReviewsScreenState extends ConsumerState<CafeteriaMenuReview
 
   void _onPanUpdate(DragUpdateDetails details, Size bodySize, EdgeInsets padding) {
     setState(() {
-      final currentPosition = _fabPosition ?? _getDefaultPosition(bodySize, padding);
+      final currentPosition = _fabPosition ?? _getDefaultPosition(bodySize, padding, _fabSize);
       final newPosition = currentPosition + details.delta;
       
-      // 画面外に出ないように制限
-      const fabWidth = 240.0;
-      const fabHeight = 56.0;
+      // ボタンのサイズを取得（未測定の場合は推定サイズを使用）
+      final fabWidth = _fabSize?.width ?? 240.0;
+      final fabHeight = _fabSize?.height ?? 56.0;
       const buttonPadding = 16.0;
       
+      // 位置を計算（右端が画面外に出ないように）
+      double left = newPosition.dx.clamp(padding.left, bodySize.width - fabWidth - padding.right);
+      
+      // 右端が画面外に出る場合は、右端を画面の右端に合わせる
+      if (left + fabWidth + padding.right > bodySize.width) {
+        left = bodySize.width - fabWidth - padding.right;
+      }
+      
       _fabPosition = Offset(
-        newPosition.dx.clamp(padding.left, bodySize.width - fabWidth - buttonPadding - padding.right),
+        left,
         newPosition.dy.clamp(padding.top, bodySize.height - fabHeight - buttonPadding - padding.bottom),
       );
     });
+  }
+  
+  // ボタンのサイズを測定
+  void _measureFabSize(Size bodySize, EdgeInsets padding) {
+    if (_fabKey.currentContext != null) {
+      final RenderBox? renderBox = _fabKey.currentContext!.findRenderObject() as RenderBox?;
+      if (renderBox != null && mounted) {
+        final newSize = renderBox.size;
+        // サイズが変更された場合のみ更新
+        if (_fabSize != newSize) {
+          setState(() {
+            _fabSize = newSize;
+            // サイズが測定された後、位置を再計算して右端に合わせる
+            if (_fabPosition == null) {
+              _fabPosition = _getDefaultPosition(bodySize, padding, newSize);
+            }
+          });
+        }
+      }
+    }
   }
 
   void _onPanEnd(DragEndDetails details) {
@@ -128,7 +165,28 @@ class _CafeteriaMenuReviewsScreenState extends ConsumerState<CafeteriaMenuReview
               final mediaQuery = MediaQuery.of(context);
               final bodySize = Size(constraints.maxWidth, constraints.maxHeight);
               final safePadding = mediaQuery.padding;
-              final position = _fabPosition ?? _getDefaultPosition(bodySize, safePadding);
+              
+              // ボタンのサイズを測定（初回のみ）
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _measureFabSize(bodySize, safePadding);
+              });
+              
+              // 位置を計算（サイズが測定済みの場合はそれを使用）
+              final fabWidth = _fabSize?.width ?? 240.0;
+              final fabHeight = _fabSize?.height ?? 56.0;
+              final currentPosition = _fabPosition ?? _getDefaultPosition(bodySize, safePadding, _fabSize);
+              
+              // 右端が画面外に出る場合は、右端を画面の右端に合わせる
+              double finalLeft = currentPosition.dx;
+              final rightEdge = finalLeft + fabWidth;
+              final maxRight = bodySize.width - safePadding.right;
+              
+              if (rightEdge > maxRight) {
+                finalLeft = maxRight - fabWidth;
+              }
+              
+              // 左端も画面内に収める
+              finalLeft = finalLeft.clamp(safePadding.left, bodySize.width - fabWidth - safePadding.right);
               
               return Stack(
                 children: [
@@ -160,8 +218,8 @@ class _CafeteriaMenuReviewsScreenState extends ConsumerState<CafeteriaMenuReview
                   ),
                   // ドラッグ可能なFloatingActionButton
                   Positioned(
-                    left: position.dx,
-                    top: position.dy,
+                    left: finalLeft,
+                    top: currentPosition.dy,
                     child: GestureDetector(
                       key: _fabKey,
                       onPanStart: _onPanStart,
@@ -197,13 +255,19 @@ class _CafeteriaMenuReviewsScreenState extends ConsumerState<CafeteriaMenuReview
                               children: [
                                 const Icon(Icons.rate_review, color: Colors.white),
                                 const SizedBox(width: 8),
-                                Flexible(
+                                ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth: bodySize.width * 0.6, // 画面幅の60%を最大幅とする
+                                  ),
                                   child: Text(
                                     existing == null 
                                         ? '${widget.menuName}のレビューを作成' 
                                         : '${widget.menuName}のレビューを編集',
                                     style: const TextStyle(color: Colors.white),
+                                    maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
+                                    softWrap: true,
+                                    textAlign: TextAlign.start,
                                   ),
                                 ),
                               ],
@@ -705,18 +769,35 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
   double _dragOffset = 0;
   bool _isDismissing = false;
   late final TransformationController _transformationController;
+  double _currentScale = 1.0; // 現在のスケールを追跡
   static const double _zoomedScale = 2.5;
 
   @override
   void initState() {
     super.initState();
     _transformationController = TransformationController();
+    // スケール変更を監視
+    _transformationController.addListener(_onTransformationChanged);
   }
 
   @override
   void dispose() {
+    _transformationController.removeListener(_onTransformationChanged);
     _transformationController.dispose();
     super.dispose();
+  }
+
+  void _onTransformationChanged() {
+    final scale = _transformationController.value.getMaxScaleOnAxis();
+    if (_currentScale != scale) {
+      setState(() {
+        _currentScale = scale;
+        // スケールが1.0に戻ったら、ドラッグオフセットもリセット
+        if (scale <= 1.0 && _dragOffset != 0) {
+          _dragOffset = 0;
+        }
+      });
+    }
   }
 
   void _handleDoubleTap(TapDownDetails details) {
@@ -742,6 +823,8 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
 
   void _handleDragUpdate(DragUpdateDetails details) {
     if (_isDismissing) return;
+    // 拡大中（スケール > 1.0）の場合は画面を閉じない
+    if (_currentScale > 1.0) return;
     setState(() {
       _dragOffset += details.delta.dy;
     });
@@ -749,6 +832,13 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
 
   void _handleDragEnd(DragEndDetails details) {
     if (_isDismissing) return;
+    // 拡大中（スケール > 1.0）の場合は画面を閉じない
+    if (_currentScale > 1.0) {
+      setState(() {
+        _dragOffset = 0;
+      });
+      return;
+    }
     final velocity = details.velocity.pixelsPerSecond.dy;
     if (_dragOffset.abs() > 120 || velocity.abs() > 700) {
       _isDismissing = true;
@@ -763,13 +853,15 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
   @override
   Widget build(BuildContext context) {
     final opacity = (1 - (_dragOffset.abs() / 400)).clamp(0.3, 1.0).toDouble();
+    // 拡大中（スケール > 1.0）の場合は画面を閉じない
+    final bool canDismiss = _currentScale <= 1.0;
     return Scaffold(
       backgroundColor: Colors.black.withOpacity(opacity),
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => Navigator.of(context).pop(),
-        onVerticalDragUpdate: _handleDragUpdate,
-        onVerticalDragEnd: _handleDragEnd,
+        onTap: canDismiss ? () => Navigator.of(context).pop() : null,
+        onVerticalDragUpdate: canDismiss ? _handleDragUpdate : null,
+        onVerticalDragEnd: canDismiss ? _handleDragEnd : null,
         child: Center(
           child: Transform.translate(
             offset: Offset(0, _dragOffset),
@@ -782,6 +874,9 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
                   transformationController: _transformationController,
                   minScale: 0.8,
                   maxScale: 3.0,
+                  panEnabled: true, // パン（ドラッグ）を有効化
+                  scaleEnabled: true, // スケール（ピンチ）を有効化
+                  boundaryMargin: const EdgeInsets.all(double.infinity), // 境界マージンを設定
                   child: _buildMenuImage(
                     imageUrl: widget.imageUrl,
                     placeholder: widget.placeholder,
