@@ -187,6 +187,29 @@ class AuthService {
     }
   }
 
+  Future<void> sendPasswordResetEmail({required String email}) async {
+    final normalizedEmail = email.trim();
+    if (normalizedEmail.isEmpty) {
+      throw FirebaseAuthException(
+        code: 'invalid-email',
+        message: 'メールアドレスを入力してください',
+      );
+    }
+    if (!normalizedEmail.contains('@')) {
+      throw FirebaseAuthException(
+        code: 'invalid-email',
+        message: AppConstants.errorInvalidEmail,
+      );
+    }
+    if (!isValidCITEmail(normalizedEmail)) {
+      throw FirebaseAuthException(
+        code: 'invalid-domain',
+        message: AppConstants.errorInvalidDomain,
+      );
+    }
+    await _auth.sendPasswordResetEmail(email: normalizedEmail);
+  }
+
   Future<void> signOut() async {
     print('🔓 ログアウト処理開始');
 

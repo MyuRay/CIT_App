@@ -15,6 +15,7 @@ class EmailVerificationScreen extends ConsumerStatefulWidget {
 }
 
 class _EmailVerificationScreenState extends ConsumerState<EmailVerificationScreen> {
+  static const Duration _autoCheckInterval = Duration(seconds: 10);
   bool _isChecking = false;
   bool _isResending = false;
   Timer? _checkTimer;
@@ -25,12 +26,12 @@ class _EmailVerificationScreenState extends ConsumerState<EmailVerificationScree
     super.initState();
     // 画面表示時に即座に認証状態をチェック
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkVerificationStatus();
+      _checkVerificationStatus(showLoading: false);
       _startWatchingUser();
     });
-    // 5秒ごとに認証状態をチェック（Firebase Authとの同期）
-    _checkTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      _checkVerificationStatus();
+    // 10秒ごとに認証状態をチェック（Firebase Authとの同期）
+    _checkTimer = Timer.periodic(_autoCheckInterval, (_) {
+      _checkVerificationStatus(showLoading: false);
     });
   }
 
@@ -63,10 +64,12 @@ class _EmailVerificationScreenState extends ConsumerState<EmailVerificationScree
     });
   }
 
-  Future<void> _checkVerificationStatus() async {
+  Future<void> _checkVerificationStatus({bool showLoading = true}) async {
     if (_isChecking) return;
-    
-    setState(() => _isChecking = true);
+
+    if (showLoading && mounted) {
+      setState(() => _isChecking = true);
+    }
     
     try {
       // Firebase Authの状態を確認してFirestoreに同期
@@ -84,7 +87,7 @@ class _EmailVerificationScreenState extends ConsumerState<EmailVerificationScree
     } catch (e) {
       print('❌ 認証状態チェックエラー: $e');
     } finally {
-      if (mounted) {
+      if (showLoading && mounted) {
         setState(() => _isChecking = false);
       }
     }
@@ -262,7 +265,9 @@ class _EmailVerificationScreenState extends ConsumerState<EmailVerificationScree
               SizedBox(
                 height: 48,
                 child: FilledButton.icon(
-                  onPressed: _isChecking ? null : _checkVerificationStatus,
+                  onPressed: _isChecking
+                      ? null
+                      : () => _checkVerificationStatus(showLoading: true),
                   icon: _isChecking
                       ? const SizedBox(
                           width: 20,

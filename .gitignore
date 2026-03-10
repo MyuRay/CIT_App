@@ -70,3 +70,9 @@ email-prefixes-summary.csv
 **/ios/.symlinks/
 **/ios/Flutter/Flutter.framework
 **/ios/Flutter/Flutter.podspec
+
+# Temporary files
+*.tmp
+*.diff
+ersmmuracit_app
+ChatGPT*.png

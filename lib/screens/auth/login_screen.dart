@@ -106,6 +106,93 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  Future<void> _showForgotPasswordDialog() async {
+    final emailController = TextEditingController(text: _emailController.text.trim());
+    String? errorText;
+    bool sending = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('パスワードを再設定'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '登録済みのCITメールアドレスに再設定リンクを送信します。\n'
+                    '届かない場合は迷惑メールフォルダも確認してください。',
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    enabled: !sending,
+                    decoration: InputDecoration(
+                      labelText: 'メールアドレス',
+                      errorText: errorText,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: sending ? null : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('キャンセル'),
+                ),
+                FilledButton(
+                  onPressed: sending
+                      ? null
+                      : () async {
+                          setDialogState(() {
+                            sending = true;
+                            errorText = null;
+                          });
+                          try {
+                            await ref.read(authServiceProvider).sendPasswordResetEmail(
+                                  email: emailController.text,
+                                );
+                            if (!dialogContext.mounted) return;
+                            Navigator.of(dialogContext).pop();
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  '再設定メールを送信しました（迷惑メールフォルダも確認してください）',
+                                ),
+                              ),
+                            );
+                          } on FirebaseAuthException catch (e) {
+                            setDialogState(() {
+                              sending = false;
+                              errorText = e.message ?? '送信に失敗しました';
+                            });
+                          } catch (_) {
+                            setDialogState(() {
+                              sending = false;
+                              errorText = '送信に失敗しました';
+                            });
+                          }
+                        },
+                  child: sending
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('送信'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    emailController.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -131,6 +218,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ),
               ),
+              Positioned(
+                top: -40,
+                right: -30,
+                child: _buildGlowCircle(
+                  color: Colors.white.withOpacity(0.18),
+                  size: 170,
+                ),
+              ),
+              Positioned(
+                top: 90,
+                left: -36,
+                child: _buildGlowCircle(
+                  color: Colors.white.withOpacity(0.12),
+                  size: 130,
+                ),
+              ),
 
               // Scrollable content
               LayoutBuilder(
@@ -140,55 +243,88 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     child: Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 520),
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 8),
-                            // Logo + App name
-                            Column(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.15),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Image.asset(
-                                    'assets/icons/app_icon.png',
-                                    height: 64,
-                                    width: 64,
-                                    errorBuilder: (_, __, ___) => Icon(
-                                      Icons.school,
-                                      size: 56,
-                                      color: Colors.white,
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0, end: 1),
+                          duration: const Duration(milliseconds: 550),
+                          curve: Curves.easeOutCubic,
+                          builder: (context, t, child) {
+                            return Opacity(
+                              opacity: t,
+                              child: Transform.translate(
+                                offset: Offset(0, (1 - t) * 26),
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 8),
+                              // Logo + App name
+                              Column(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.20),
+                                      borderRadius: BorderRadius.circular(22),
+                                      border: Border.all(
+                                        color: Colors.white.withOpacity(0.45),
+                                        width: 1.4,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.14),
+                                          blurRadius: 14,
+                                          offset: const Offset(0, 6),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Container(
+                                      width: 72,
+                                      height: 72,
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(18),
+                                      ),
+                                      child: Image.asset(
+                                        'assets/icons/app_icon.png',
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (_, __, ___) => Icon(
+                                          Icons.school,
+                                          size: 56,
+                                          color: colorScheme.primary,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  AppConstants.appName,
-                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 24),
-
-                            // Card with form
-                            Card(
-                              elevation: 3,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    AppConstants.appName,
+                                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                ],
                               ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-                                child: Form(
-                                  key: _formKey,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
+
+                              const SizedBox(height: 24),
+
+                              // Card with form
+                              Card(
+                                elevation: 10,
+                                shadowColor: colorScheme.primary.withOpacity(0.30),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                                  child: Form(
+                                    key: _formKey,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
                                       Text(
                                         'ログイン',
                                         textAlign: TextAlign.center,
@@ -268,6 +404,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     },
                                   ),
                                   const SizedBox(height: 8),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton(
+                                      onPressed: _isLoading ? null : _showForgotPasswordDialog,
+                                      child: const Text('パスワードを忘れた方'),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
                                   Row(
                                     children: [
                                       Checkbox(
@@ -294,19 +438,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                               : const Text('ログイン'),
                                         ),
                                       ),
-                                      const SizedBox(height: 8),
-                                      TextButton(
-                                        onPressed: _isLoading ? null : () => context.go('/signup'),
-                                        child: const Text('アカウントをお持ちでない方はこちら'),
-                                      ),
-                                    ],
+                                        const SizedBox(height: 8),
+                                        TextButton(
+                                          onPressed: _isLoading ? null : () => context.go('/signup'),
+                                          child: const Text('アカウントをお持ちでない方はこちら'),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-
-                            const SizedBox(height: 16),
-                          ],
+                              const SizedBox(height: 16),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -314,6 +458,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 },
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGlowCircle({required Color color, required double size}) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [color, color.withOpacity(0)],
           ),
         ),
       ),

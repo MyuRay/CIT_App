@@ -239,6 +239,14 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/admin_permissions/$(request.auth.uid)).data.get('isAdmin', false) == true;
     }
 
+    // アプリ設定（講義期間）
+    match /app_settings/lecture_period {
+      // ホーム時間割で週表示に使うため、認証済みCITユーザーは読み取り可
+      allow read: if isCITUser();
+      // 管理者機能からのみ更新可
+      allow write: if isAdmin();
+    }
+
     // 時間割のルール
     match /schedules/{scheduleId} {
       allow read: if isCITUser()
