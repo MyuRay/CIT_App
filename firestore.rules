@@ -239,6 +239,20 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/admin_permissions/$(request.auth.uid)).data.get('isAdmin', false) == true;
     }
 
+    // アプリ設定（講義期間）
+    match /app_settings/lecture_period {
+      // ホーム時間割で週表示に使うため、認証済みCITユーザーは読み取り可
+      allow read: if isCITUser();
+      // 管理者機能からのみ更新可
+      allow write: if isAdmin();
+    }
+
+    // 学年暦イベント（ホーム表示 + 管理者編集）
+    match /academic_calendar_events/{eventId} {
+      allow read: if isCITUser();
+      allow write: if isAdmin();
+    }
+
     // 時間割のルール
     match /schedules/{scheduleId} {
       allow read: if isCITUser()
@@ -258,6 +272,27 @@ service cloud.firestore {
       allow delete: if isCITUser()
         && request.auth != null
         && resource.data.userId == request.auth.uid;
+    }
+
+    // 出欠記録
+    match /attendance_records/{recordId} {
+      allow read: if isCITUser()
+        && request.auth != null
+        && (resource.data.userId == request.auth.uid || isAdmin());
+
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredAttendanceFields();
+
+      allow update: if isCITUser()
+        && request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredAttendanceFields();
+
+      allow delete: if isCITUser()
+        && request.auth != null
+        && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
     // お問い合わせフォームのルール
@@ -583,6 +618,51 @@ service cloud.firestore {
         && (!('ctaText' in request.resource.data) || request.resource.data.ctaText is string || request.resource.data.ctaText == null)
         && (!('startAt' in request.resource.data) || request.resource.data.startAt is timestamp || request.resource.data.startAt == null)
         && (!('endAt' in request.resource.data) || request.resource.data.endAt is timestamp || request.resource.data.endAt == null);
+    }
+
+    // 出欠記録必須フィールド確認関数
+    function hasRequiredAttendanceFields() {
+      return request.resource.data.keys().hasAll([
+          'userId',
+          'scheduleId',
+          'classId',
+          'subjectName',
+          'weekdayKey',
+          'startPeriod',
+          'duration',
+          'status',
+          'attendanceDate',
+          'recordedAt'
+        ])
+        && request.resource.data.userId is string
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.scheduleId is string
+        && request.resource.data.classId is string
+        && request.resource.data.subjectName is string
+        && request.resource.data.weekdayKey is string
+        && (
+          request.resource.data.weekdayKey == 'monday' ||
+          request.resource.data.weekdayKey == 'tuesday' ||
+          request.resource.data.weekdayKey == 'wednesday' ||
+          request.resource.data.weekdayKey == 'thursday' ||
+          request.resource.data.weekdayKey == 'friday' ||
+          request.resource.data.weekdayKey == 'saturday'
+        )
+        && request.resource.data.startPeriod is int
+        && request.resource.data.startPeriod >= 1
+        && request.resource.data.startPeriod <= 10
+        && request.resource.data.duration is int
+        && request.resource.data.duration >= 1
+        && request.resource.data.duration <= 10
+        && request.resource.data.status is string
+        && (
+          request.resource.data.status == 'present' ||
+          request.resource.data.status == 'late' ||
+          request.resource.data.status == 'absent' ||
+          request.resource.data.status == 'cancelled'
+        )
+        && request.resource.data.attendanceDate is timestamp
+        && request.resource.data.recordedAt is timestamp;
     }
 
     // 学食お気に入り必須フィールド確認関数

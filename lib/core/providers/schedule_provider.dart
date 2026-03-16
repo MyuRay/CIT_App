@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../models/schedule/schedule_model.dart';
 import '../../models/schedule/academic_year_model.dart';
+import '../../models/schedule/lecture_period_model.dart';
 import '../../services/schedule/schedule_service.dart';
+import '../../services/schedule/lecture_period_service.dart';
 import 'auth_provider.dart';
 import '../../services/widget/home_widgets_service.dart';
 import '../../services/schedule/schedule_notification_service.dart';
@@ -44,6 +46,21 @@ final currentPeriodProvider = FutureProvider.family<int?, String>((ref, userId) 
 // ユーザーの全時間割リストプロバイダー
 final scheduleListProvider = FutureProvider.family<List<Schedule>, String>((ref, userId) async {
   return await ScheduleService.getAllSchedulesByUserId(userId);
+});
+
+// 時間割タブで現在選択中の時間割ID
+final selectedScheduleIdProvider = StateProvider<String?>((ref) => null);
+
+// 指定した時間割IDの今日の時間割
+final todayScheduleByIdProvider =
+    FutureProvider.family<List<ScheduleClass?>, String>((ref, scheduleId) async {
+  return await ScheduleService.getTodayScheduleByScheduleId(scheduleId);
+});
+
+final lecturePeriodSettingsProvider = StreamProvider<LecturePeriodSettings?>((
+  ref,
+) {
+  return LecturePeriodService.watchLecturePeriod();
 });
 
 // 時間割管理のStateNotifier
@@ -404,6 +421,32 @@ final currentUserTodayScheduleProvider = Provider<AsyncValue<List<ScheduleClass?
     return const AsyncValue.loading();
   }
   return ref.watch(todayScheduleProvider(userId));
+});
+
+// 現在選択中（未選択時は先頭）の時間割の「今日の時間割」
+final currentUserSelectedTodayScheduleProvider =
+    Provider<AsyncValue<List<ScheduleClass?>>>((ref) {
+  final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) {
+    return const AsyncValue.loading();
+  }
+
+  final selectedId = ref.watch(selectedScheduleIdProvider);
+  final schedulesAsync = ref.watch(scheduleListProvider(userId));
+  return schedulesAsync.when(
+    data: (schedules) {
+      if (schedules.isEmpty) {
+        return const AsyncValue.data(<ScheduleClass?>[]);
+      }
+      final activeId = (selectedId != null &&
+              schedules.any((schedule) => schedule.id == selectedId))
+          ? selectedId
+          : schedules.first.id;
+      return ref.watch(todayScheduleByIdProvider(activeId));
+    },
+    loading: () => const AsyncValue.loading(),
+    error: (error, stackTrace) => AsyncValue.error(error, stackTrace),
+  );
 });
 
 final currentUserNextClassProvider = Provider<AsyncValue<ScheduleClass?>>((ref) {

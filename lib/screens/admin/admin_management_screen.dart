@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/admin/admin_model.dart';
+import '../../models/schedule/lecture_period_model.dart';
 import '../../core/providers/bulletin_provider.dart';
 import '../../core/providers/comment_provider.dart';
 import '../../core/providers/user_provider.dart';
@@ -12,6 +13,7 @@ import 'contact_management_screen.dart';
 import 'user_management_screen.dart';
 import 'bus_management_screen.dart';
 import '../reports/report_management_screen.dart';
+import '../../services/schedule/lecture_period_service.dart';
 
 class AdminManagementScreen extends ConsumerStatefulWidget {
   const AdminManagementScreen({super.key});
@@ -25,6 +27,9 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
   late TabController _tabController;
   final _userIdController = TextEditingController();
   bool _isLoading = false;
+  DateTime? _lectureStartDate;
+  DateTime? _lectureEndDate;
+  bool _isSavingLecturePeriod = false;
 
   @override
   void initState() {
@@ -917,6 +922,9 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
           ),
           const SizedBox(height: 16),
 
+          _buildLecturePeriodSettingsCard(),
+          const SizedBox(height: 16),
+
           // 管理者追加フォーム
           Card(
             child: Padding(
@@ -993,6 +1001,159 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
         ],
       ),
     );
+  }
+
+  Widget _buildLecturePeriodSettingsCard() {
+    return StreamBuilder<LecturePeriodSettings?>(
+      stream: LecturePeriodService.watchLecturePeriod(),
+      builder: (context, snapshot) {
+        final current = snapshot.data;
+        final effectiveStart = _lectureStartDate ?? current?.lectureStartDate;
+        final effectiveEnd = _lectureEndDate ?? current?.lectureEndDate;
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.calendar_month),
+                    SizedBox(width: 8),
+                    Text(
+                      '講義期間設定',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '講義開始日と講義終了日を設定すると、ホーム時間割カードに第何週かを表示できます。',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _pickLectureDate(isStart: true),
+                        icon: const Icon(Icons.event_available),
+                        label: Text(
+                          effectiveStart == null
+                              ? '開始日を選択'
+                              : '開始: ${_formatDate(effectiveStart)}',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _pickLectureDate(isStart: false),
+                        icon: const Icon(Icons.event_busy),
+                        label: Text(
+                          effectiveEnd == null
+                              ? '終了日を選択'
+                              : '終了: ${_formatDate(effectiveEnd)}',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSavingLecturePeriod
+                        ? null
+                        : () => _saveLecturePeriod(
+                              effectiveStart: effectiveStart,
+                              effectiveEnd: effectiveEnd,
+                            ),
+                    icon: _isSavingLecturePeriod
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save),
+                    label: const Text('講義期間を保存'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickLectureDate({required bool isStart}) async {
+    final now = DateTime.now();
+    final initial =
+        (isStart ? _lectureStartDate : _lectureEndDate) ?? DateTime(now.year, now.month, now.day);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020, 1, 1),
+      lastDate: DateTime(2100, 12, 31),
+    );
+    if (picked == null) return;
+    if (!mounted) return;
+    setState(() {
+      if (isStart) {
+        _lectureStartDate = DateTime(picked.year, picked.month, picked.day);
+      } else {
+        _lectureEndDate = DateTime(picked.year, picked.month, picked.day);
+      }
+    });
+  }
+
+  Future<void> _saveLecturePeriod({
+    required DateTime? effectiveStart,
+    required DateTime? effectiveEnd,
+  }) async {
+    if (effectiveStart == null || effectiveEnd == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('開始日と終了日の両方を設定してください')),
+      );
+      return;
+    }
+    if (effectiveEnd.isBefore(effectiveStart)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('終了日は開始日以降を設定してください')),
+      );
+      return;
+    }
+    setState(() => _isSavingLecturePeriod = true);
+    try {
+      await LecturePeriodService.updateLecturePeriod(
+        lectureStartDate: effectiveStart,
+        lectureEndDate: effectiveEnd,
+        updatedBy: FirebaseAuth.instance.currentUser?.uid,
+      );
+      if (!mounted) return;
+      setState(() {
+        _lectureStartDate = effectiveStart;
+        _lectureEndDate = effectiveEnd;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('講義期間を保存しました')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('保存に失敗しました: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSavingLecturePeriod = false);
+      }
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
   }
 
   Widget _buildAdminList() {

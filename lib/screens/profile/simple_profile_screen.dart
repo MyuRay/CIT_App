@@ -17,12 +17,14 @@ import '../admin/admin_management_screen.dart';
 import '../admin/bulletin_management_screen.dart';
 import '../admin/bus_admin_screen.dart';
 import '../admin/in_app_ad_management_screen.dart';
+import '../admin/lecture_period_settings_screen.dart';
+import '../admin/academic_calendar_settings_screen.dart';
 import '../contact/contact_form_screen.dart';
 import '../reports/report_management_screen.dart';
 import '../contact/user_contact_list_screen.dart';
 import '../legal/terms_of_service_screen.dart';
 import '../legal/privacy_policy_screen.dart';
-import '../cafeteria/cafeteria_my_screen.dart';
+import '../cafeteria/cafeteria_reviews_screen.dart';
 import '../../core/providers/settings_provider.dart';
 import '../user_block/blocked_user_list_screen.dart';
 import '../../core/providers/in_app_ad_provider.dart';
@@ -208,7 +210,7 @@ class SimpleProfileScreen extends ConsumerWidget {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => const MyCafeteriaScreen(),
+                          builder: (context) => const CafeteriaReviewsScreen(),
                         ),
                       );
                     },
@@ -608,6 +610,40 @@ class SimpleProfileScreen extends ConsumerWidget {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => const InAppAdManagementScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              const Divider(height: 1),
+
+              // 講義期間設定
+              ListTile(
+                leading: const Icon(Icons.calendar_month, color: Colors.indigo),
+                title: const Text('講義期間設定'),
+                subtitle: const Text('前期・後期の開始日/終了日を設定'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const LecturePeriodSettingsScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              const Divider(height: 1),
+
+              // 学年暦予定管理
+              ListTile(
+                leading: const Icon(Icons.event_note, color: Colors.deepOrange),
+                title: const Text('学年暦予定管理'),
+                subtitle: const Text('ホームの学年暦予定を編集'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const AcademicCalendarSettingsScreen(),
                     ),
                   );
                 },
