@@ -288,97 +288,10 @@ class _FirebaseBusTimetableWidgetState extends ConsumerState<FirebaseBusTimetabl
     showDialog(
       context: context,
       barrierColor: Colors.black87,
-      builder: (context) => Dialog.fullscreen(
-        backgroundColor: Colors.black87,
-        child: Stack(
-          children: [
-            // フルスクリーン画像（ズーム・パン対応）
-            Center(
-              child: InteractiveViewer(
-                minScale: 0.5,
-                maxScale: 5.0, // バス時刻表は詳細が多いので5倍まで拡大可能
-                child: kIsWeb
-                    ? Image.network(
-                        imageUrl,
-                        fit: BoxFit.contain,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return const Center(
-                            child: CircularProgressIndicator(color: Colors.white),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          return _buildFullScreenError();
-                        },
-                      )
-                    : CachedNetworkImage(
-                        imageUrl: imageUrl,
-                        fit: BoxFit.contain,
-                        placeholder: (context, url) => const Center(
-                          child: CircularProgressIndicator(color: Colors.white),
-                        ),
-                        errorWidget: (context, url, error) => _buildFullScreenError(),
-                      ),
-              ),
-            ),
-            // 閉じるボタン
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 8,
-              right: 16,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ),
-            ),
-            // タイトル
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 8,
-              left: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  '学バス時刻表',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            // ピンチアウトのヒント（下部）
-            Positioned(
-              bottom: MediaQuery.of(context).padding.bottom + 16,
-              left: 16,
-              right: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'ピンチで拡大・縮小、ドラッグで移動できます',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+      builder: (context) => _FullScreenImageViewer(
+        imageUrl: imageUrl,
+        isAsset: isAsset,
+        title: '学バス時刻表',
       ),
     );
   }
@@ -387,82 +300,186 @@ class _FirebaseBusTimetableWidgetState extends ConsumerState<FirebaseBusTimetabl
     showDialog(
       context: context,
       barrierColor: Colors.black87,
-      builder: (context) => Dialog.fullscreen(
-        backgroundColor: Colors.black87,
-        child: Stack(
-          children: [
-            // フルスクリーン画像（ズーム・パン対応）
-            Center(
+      builder: (context) => _FullScreenImageViewer(
+        imageUrl: 'assets/images/bus_timetable.png',
+        isAsset: true,
+        title: '学バス時刻表（オフライン版）',
+      ),
+    );
+  }
+}
+
+class _FullScreenImageViewer extends StatefulWidget {
+  final String imageUrl;
+  final bool isAsset;
+  final String title;
+
+  const _FullScreenImageViewer({
+    required this.imageUrl,
+    required this.isAsset,
+    required this.title,
+  });
+
+  @override
+  State<_FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
+  late final TransformationController _transformationController;
+  static const double _zoomedScale = 2.5;
+
+  @override
+  void initState() {
+    super.initState();
+    _transformationController = TransformationController();
+  }
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  void _handleDoubleTap(TapDownDetails details) {
+    final scale = _transformationController.value.getMaxScaleOnAxis();
+    final isCurrentlyZoomed = scale > 1.1;
+
+    if (isCurrentlyZoomed) {
+      // 拡大中の場合、元のサイズに戻す
+      _transformationController.value = Matrix4.identity();
+    } else {
+      // 縮小時の場合、タップ位置を中心に拡大
+      final screenSize = MediaQuery.of(context).size;
+      final screenCenterX = screenSize.width / 2;
+      final screenCenterY = screenSize.height / 2;
+
+      // タップ位置をローカル座標から取得
+      final tapPosition = details.localPosition;
+      
+      // 画面中心からのオフセットを計算
+      final offsetX = tapPosition.dx - screenCenterX;
+      final offsetY = tapPosition.dy - screenCenterY;
+
+      final newScale = _zoomedScale;
+      
+      // タップ位置が画面中心に来るように変換行列を計算
+      final translateX = -offsetX * (newScale - 1) / newScale;
+      final translateY = -offsetY * (newScale - 1) / newScale;
+      
+      // スケールを先に適用してから平行移動を適用するため、Matrix4を直接構築
+      final matrix = Matrix4.identity()
+        ..scale(newScale)
+        ..translate(translateX / newScale, translateY / newScale);
+      
+      _transformationController.value = matrix;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog.fullscreen(
+      backgroundColor: Colors.black87,
+      child: Stack(
+        children: [
+          // フルスクリーン画像（ズーム・パン対応）
+          Center(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onDoubleTapDown: _handleDoubleTap,
               child: InteractiveViewer(
+                transformationController: _transformationController,
                 minScale: 0.5,
-                maxScale: 5.0,
-                child: Image.asset(
-                  'assets/images/bus_timetable.png',
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return _buildFullScreenError();
-                  },
+                maxScale: 5.0, // バス時刻表は詳細が多いので5倍まで拡大可能
+                child: widget.isAsset
+                    ? Image.asset(
+                        widget.imageUrl,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return _buildFullScreenError();
+                        },
+                      )
+                    : (kIsWeb
+                        ? Image.network(
+                            widget.imageUrl,
+                            fit: BoxFit.contain,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(
+                                child: CircularProgressIndicator(color: Colors.white),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return _buildFullScreenError();
+                            },
+                          )
+                        : CachedNetworkImage(
+                            imageUrl: widget.imageUrl,
+                            fit: BoxFit.contain,
+                            placeholder: (context, url) => const Center(
+                              child: CircularProgressIndicator(color: Colors.white),
+                            ),
+                            errorWidget: (context, url, error) => _buildFullScreenError(),
+                          )),
+              ),
+            ),
+          ),
+          // 閉じるボタン
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            right: 16,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ),
+          // タイトル
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            left: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                widget.title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-            // 閉じるボタン
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 8,
-              right: 16,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => Navigator.of(context).pop(),
+          ),
+          // ピンチアウトのヒント（下部）
+          Positioned(
+            bottom: MediaQuery.of(context).padding.bottom + 16,
+            left: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'ダブルタップで拡大・縮小、ピンチで拡大・縮小、ドラッグで移動できます',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
                 ),
               ),
             ),
-            // タイトル（オフライン版）
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 8,
-              left: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  '学バス時刻表（オフライン版）',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            // ピンチアウトのヒント（下部）
-            Positioned(
-              bottom: MediaQuery.of(context).padding.bottom + 16,
-              left: 16,
-              right: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'ピンチで拡大・縮小、ドラッグで移動できます',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

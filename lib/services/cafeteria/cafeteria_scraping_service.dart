@@ -176,20 +176,6 @@ class CafeteriaScrapeService {
     }
   }
 
-  static String _categorizeMenuItem(String name) {
-    final lowerName = name.toLowerCase();
-    
-    if (lowerName.contains('定食')) return '定食';
-    if (lowerName.contains('丼') || lowerName.contains('どん')) return '丼物';
-    if (lowerName.contains('ラーメン') || lowerName.contains('うどん') || lowerName.contains('そば')) return '麺類';
-    if (lowerName.contains('カレー')) return 'カレー';
-    if (lowerName.contains('パスタ')) return 'パスタ';
-    if (lowerName.contains('サラダ')) return 'サラダ';
-    if (lowerName.contains('デザート') || lowerName.contains('スイーツ')) return 'デザート';
-    
-    return 'その他';
-  }
-
   static Future<CafeteriaCongestion?> fetchCongestionStatus(String campus) async {
     try {
       final campusData = _campusInfo[campus];
@@ -353,32 +339,5 @@ class CafeteriaScrapeService {
   static String _getTodayDateString() {
     final now = DateTime.now();
     return '${now.year}年${now.month}月${now.day}日';
-  }
-
-  // モックデータ（開発・テスト用）
-  static CafeteriaMenu getMockMenu(String campus) {
-    return CafeteriaMenu(
-      date: _getTodayDateString(),
-      campus: campus,
-      items: [
-        MenuItem(name: '日替わり定食', price: '550円', category: '定食'),
-        MenuItem(name: '唐揚げ丼', price: '480円', category: '丼物'),
-        MenuItem(name: '醤油ラーメン', price: '420円', category: '麺類'),
-        MenuItem(name: 'ハンバーグカレー', price: '580円', category: 'カレー'),
-        MenuItem(name: 'ミックスサラダ', price: '280円', category: 'サラダ'),
-        MenuItem(name: 'チーズケーキ', price: '250円', category: 'デザート'),
-      ],
-      fetchedAt: DateTime.now(),
-    );
-  }
-
-  static CafeteriaCongestion getMockCongestion(String campus) {
-    return CafeteriaCongestion(
-      campus: campus,
-      location: '学食',
-      level: CongestionLevel.low,
-      timestamp: DateTime.now(),
-      cameraUrl: _cameraUrl,
-    );
   }
 }

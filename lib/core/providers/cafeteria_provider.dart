@@ -4,20 +4,12 @@ import '../../services/cafeteria/cafeteria_scraping_service.dart';
 
 // 学食メニュープロバイダー
 final cafeteriaMenuProvider = FutureProvider.family<CafeteriaMenu?, String>((ref, campus) async {
-  // 実際のCITサイトからスクレイピング
   return await CafeteriaScrapeService.fetchTodayMenu(campus);
-  
-  // テスト用にモックデータを使いたい場合は以下をコメントイン
-  // return CafeteriaScrapeService.getMockMenu(campus);
 });
 
 // 学食混雑状況プロバイダー
 final cafeteriaCongestionProvider = FutureProvider.family<CafeteriaCongestion?, String>((ref, campus) async {
-  // 実際のCITサイトから混雑状況を取得（時間帯ベースで推定）
   return await CafeteriaScrapeService.fetchCongestionStatus(campus);
-  
-  // テスト用にモックデータを使いたい場合は以下をコメントイン
-  // return CafeteriaScrapeService.getMockCongestion(campus);
 });
 
 // 津田沼キャンパスの学食情報

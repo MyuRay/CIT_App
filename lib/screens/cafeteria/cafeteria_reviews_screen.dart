@@ -808,9 +808,41 @@ class _FullScreenImagePage extends StatefulWidget {
 class _FullScreenImagePageState extends State<_FullScreenImagePage> {
   double _dragOffset = 0;
   bool _isDismissing = false;
+  late final TransformationController _transformationController;
+  double _currentScale = 1.0; // 現在のスケールを追跡
+
+  @override
+  void initState() {
+    super.initState();
+    _transformationController = TransformationController();
+    // スケール変更を監視
+    _transformationController.addListener(_onTransformationChanged);
+  }
+
+  @override
+  void dispose() {
+    _transformationController.removeListener(_onTransformationChanged);
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  void _onTransformationChanged() {
+    final scale = _transformationController.value.getMaxScaleOnAxis();
+    if (_currentScale != scale) {
+      setState(() {
+        _currentScale = scale;
+        // スケールが1.0に戻ったら、ドラッグオフセットもリセット
+        if (scale <= 1.0 && _dragOffset != 0) {
+          _dragOffset = 0;
+        }
+      });
+    }
+  }
 
   void _handleDragUpdate(DragUpdateDetails details) {
     if (_isDismissing) return;
+    // 拡大中（スケール > 1.0）の場合は画面を閉じない
+    if (_currentScale > 1.0) return;
     setState(() {
       _dragOffset += details.delta.dy;
     });
@@ -818,6 +850,13 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
 
   void _handleDragEnd(DragEndDetails details) {
     if (_isDismissing) return;
+    // 拡大中（スケール > 1.0）の場合は画面を閉じない
+    if (_currentScale > 1.0) {
+      setState(() {
+        _dragOffset = 0;
+      });
+      return;
+    }
     final velocity = details.velocity.pixelsPerSecond.dy;
     if (_dragOffset.abs() > 120 || velocity.abs() > 700) {
       _isDismissing = true;
@@ -832,21 +871,27 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
   @override
   Widget build(BuildContext context) {
     final opacity = (1 - (_dragOffset.abs() / 400)).clamp(0.3, 1.0).toDouble();
+    // 拡大中（スケール > 1.0）の場合は画面を閉じない
+    final bool canDismiss = _currentScale <= 1.0;
     return Scaffold(
       backgroundColor: Colors.black.withOpacity(opacity),
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => Navigator.of(context).pop(),
-        onVerticalDragUpdate: _handleDragUpdate,
-        onVerticalDragEnd: _handleDragEnd,
+        onTap: canDismiss ? () => Navigator.of(context).pop() : null,
+        onVerticalDragUpdate: canDismiss ? _handleDragUpdate : null,
+        onVerticalDragEnd: canDismiss ? _handleDragEnd : null,
         child: Center(
           child: Transform.translate(
             offset: Offset(0, _dragOffset),
             child: Hero(
               tag: widget.imageUrl ?? widget.placeholder,
               child: InteractiveViewer(
+                transformationController: _transformationController,
                 minScale: 0.8,
                 maxScale: 3.0,
+                panEnabled: true, // パン（ドラッグ）を有効化
+                scaleEnabled: true, // スケール（ピンチ）を有効化
+                boundaryMargin: const EdgeInsets.all(double.infinity), // 境界マージンを設定
                 child: _buildMenuImage(
                   imageUrl: widget.imageUrl,
                   placeholder: widget.placeholder,
