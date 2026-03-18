@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:characters/characters.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -24,7 +26,7 @@ import '../reports/report_management_screen.dart';
 import '../contact/user_contact_list_screen.dart';
 import '../legal/terms_of_service_screen.dart';
 import '../legal/privacy_policy_screen.dart';
-import '../cafeteria/cafeteria_reviews_screen.dart';
+import '../cafeteria/cafeteria_my_screen.dart';
 import '../../core/providers/settings_provider.dart';
 import '../user_block/blocked_user_list_screen.dart';
 import '../../core/providers/in_app_ad_provider.dart';
@@ -205,12 +207,12 @@ class SimpleProfileScreen extends ConsumerWidget {
                   ListTile(
                     leading: const Icon(Icons.favorite),
                     title: const Text('My食堂'),
-                    subtitle: const Text('お気に入りの学食レビューを見る'),
+                    subtitle: const Text('自分のレビュー履歴とお気に入りを確認'),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => const CafeteriaReviewsScreen(),
+                          builder: (context) => const MyCafeteriaScreen(),
                         ),
                       );
                     },
@@ -997,42 +999,66 @@ class SimpleProfileScreen extends ConsumerWidget {
                 ),
               );
 
+              bool isAccountDeleted = false;
+              String? completedWithWarning;
+              String? errorMessage;
+
               try {
                 final user = FirebaseAuth.instance.currentUser;
                 if (user == null) throw Exception('ログインが必要です');
 
-                // Firestoreのユーザーデータを削除
-                await FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(user.uid)
-                    .delete();
+                // Firestore削除は失敗してもAuth削除は継続し、退会不能を避ける
+                try {
+                  await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid)
+                      .delete()
+                      .timeout(const Duration(seconds: 12));
+                } on TimeoutException {
+                  completedWithWarning = 'ユーザーデータ削除がタイムアウトしました（アカウント削除は継続）';
+                } catch (_) {
+                  completedWithWarning = '一部データの削除に失敗しましたが、アカウント削除は継続します';
+                }
 
                 // Firebase Authenticationのアカウントを削除
-                await user.delete();
-
-                if (context.mounted) {
-                  Navigator.of(context).pop(); // ローディングを閉じる
-                  Navigator.of(context).pushNamedAndRemoveUntil(
-                    '/login',
-                    (route) => false,
-                  );
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('アカウントを削除しました'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
+                await user.delete().timeout(const Duration(seconds: 12));
+                isAccountDeleted = true;
+              } on FirebaseAuthException catch (e) {
+                if (e.code == 'requires-recent-login') {
+                  errorMessage = 'セキュリティ保護のため、再ログイン後にもう一度お試しください';
+                } else {
+                  errorMessage = e.message ?? '認証アカウントの削除に失敗しました';
                 }
+              } on TimeoutException {
+                errorMessage = '通信がタイムアウトしました。ネットワークをご確認のうえ再試行してください';
               } catch (e) {
+                errorMessage = 'アカウント削除に失敗しました: $e';
+              } finally {
                 if (context.mounted) {
                   Navigator.of(context).pop(); // ローディングを閉じる
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('アカウント削除に失敗しました: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
                 }
+              }
+
+              if (!context.mounted) return;
+
+              if (isAccountDeleted) {
+                Navigator.of(
+                  context,
+                ).pushNamedAndRemoveUntil('/login', (route) => false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(completedWithWarning ?? 'アカウントを削除しました'),
+                    backgroundColor:
+                        completedWithWarning == null ? Colors.green : Colors.orange,
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(errorMessage ?? 'アカウント削除に失敗しました'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
               }
             },
             child: const Text('削除する'),
