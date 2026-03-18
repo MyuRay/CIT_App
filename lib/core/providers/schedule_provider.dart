@@ -48,6 +48,21 @@ final scheduleListProvider = FutureProvider.family<List<Schedule>, String>((ref,
   return await ScheduleService.getAllSchedulesByUserId(userId);
 });
 
+// 時間割タブで現在選択中の時間割ID
+final selectedScheduleIdProvider = StateProvider<String?>((ref) => null);
+
+// 指定した時間割IDの今日の時間割
+final todayScheduleByIdProvider =
+    FutureProvider.family<List<ScheduleClass?>, String>((ref, scheduleId) async {
+  return await ScheduleService.getTodayScheduleByScheduleId(scheduleId);
+});
+
+final lecturePeriodSettingsProvider = StreamProvider<LecturePeriodSettings?>((
+  ref,
+) {
+  return LecturePeriodService.watchLecturePeriod();
+});
+
 // 時間割管理のStateNotifier
 class ScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> {
   ScheduleNotifier(this._userId) : super(const AsyncValue.loading()) {
@@ -406,6 +421,32 @@ final currentUserTodayScheduleProvider = Provider<AsyncValue<List<ScheduleClass?
     return const AsyncValue.loading();
   }
   return ref.watch(todayScheduleProvider(userId));
+});
+
+// 現在選択中（未選択時は先頭）の時間割の「今日の時間割」
+final currentUserSelectedTodayScheduleProvider =
+    Provider<AsyncValue<List<ScheduleClass?>>>((ref) {
+  final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) {
+    return const AsyncValue.loading();
+  }
+
+  final selectedId = ref.watch(selectedScheduleIdProvider);
+  final schedulesAsync = ref.watch(scheduleListProvider(userId));
+  return schedulesAsync.when(
+    data: (schedules) {
+      if (schedules.isEmpty) {
+        return const AsyncValue.data(<ScheduleClass?>[]);
+      }
+      final activeId = (selectedId != null &&
+              schedules.any((schedule) => schedule.id == selectedId))
+          ? selectedId
+          : schedules.first.id;
+      return ref.watch(todayScheduleByIdProvider(activeId));
+    },
+    loading: () => const AsyncValue.loading(),
+    error: (error, stackTrace) => AsyncValue.error(error, stackTrace),
+  );
 });
 
 final currentUserNextClassProvider = Provider<AsyncValue<ScheduleClass?>>((ref) {

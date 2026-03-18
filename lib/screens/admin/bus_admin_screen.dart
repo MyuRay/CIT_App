@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/schedule/lecture_period_service.dart';
 
 class BusAdminScreen extends ConsumerStatefulWidget {
   const BusAdminScreen({super.key});
@@ -46,6 +47,11 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
       appBar: AppBar(
         title: const Text('学バス管理'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_month),
+            onPressed: _openLecturePeriodEditorFromAppBar,
+            tooltip: '講義期間設定',
+          ),
           IconButton(
             icon: const Icon(Icons.edit_note),
             onPressed: _openHomeRemarkEditorFromAppBar,
@@ -434,6 +440,47 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
     }
   }
 
+  Future<void> _openLecturePeriodEditorFromAppBar() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 16,
+              bottom: 16 + MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_month),
+                      const SizedBox(width: 8),
+                      Text(
+                        '講義期間設定',
+                        style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _buildLecturePeriodEditor(),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildTimetableCard(QueryDocumentSnapshot routeDoc) {
     final route = routeDoc.data() as Map<String, dynamic>;
     // 対象ダイヤの時刻を抽出
@@ -790,8 +837,10 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
             _springEndDate == null &&
             _fallStartDate == null &&
             _fallEndDate == null) {
-          _springStartDate = (data['springStartDate'] as Timestamp?)?.toDate();
-          _springEndDate = (data['springEndDate'] as Timestamp?)?.toDate();
+          _springStartDate = (data['springStartDate'] as Timestamp?)?.toDate() ??
+              (data['lectureStartDate'] as Timestamp?)?.toDate();
+          _springEndDate = (data['springEndDate'] as Timestamp?)?.toDate() ??
+              (data['lectureEndDate'] as Timestamp?)?.toDate();
           _fallStartDate = (data['fallStartDate'] as Timestamp?)?.toDate();
           _fallEndDate = (data['fallEndDate'] as Timestamp?)?.toDate();
         }
@@ -982,19 +1031,13 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
 
     setState(() => _isSavingLecturePeriod = true);
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      await FirebaseFirestore.instance.doc('app_settings/lecture_period').set({
-        'springStartDate':
-            _springStartDate != null ? Timestamp.fromDate(_springStartDate!) : null,
-        'springEndDate':
-            _springEndDate != null ? Timestamp.fromDate(_springEndDate!) : null,
-        'fallStartDate':
-            _fallStartDate != null ? Timestamp.fromDate(_fallStartDate!) : null,
-        'fallEndDate':
-            _fallEndDate != null ? Timestamp.fromDate(_fallEndDate!) : null,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': user?.displayName ?? user?.email ?? '管理者',
-      }, SetOptions(merge: true));
+      await LecturePeriodService.updateLecturePeriod(
+        springStartDate: _springStartDate,
+        springEndDate: _springEndDate,
+        fallStartDate: _fallStartDate,
+        fallEndDate: _fallEndDate,
+        updatedBy: FirebaseAuth.instance.currentUser?.uid,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('講義期間を保存しました')),

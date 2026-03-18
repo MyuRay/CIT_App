@@ -22,6 +22,7 @@ import '../../core/providers/in_app_ad_provider.dart';
 import '../../models/cafeteria/cafeteria_model.dart';
 import '../../models/schedule/schedule_model.dart';
 import '../../models/schedule/lecture_period_model.dart';
+import '../../models/schedule/academic_calendar_event_model.dart';
 import '../../models/bus/bus_model.dart';
 import '../../models/ads/in_app_ad_model.dart';
 import '../../widgets/ads/in_app_ad_card.dart';
@@ -30,6 +31,7 @@ import '../../widgets/firebase_bus_timetable_widget.dart';
 import '../bus/bus_information_screen.dart';
 import '../cafeteria/cafeteria_reviews_screen.dart';
 import '../cafeteria/cafeteria_camera_info_screen.dart';
+import '../schedule/attendance_qr_reader_screen.dart';
 import '../../widgets/campus_map_widget.dart';
 import '../../widgets/performance/optimized_notification_badge.dart';
 import '../../widgets/common/pulsing_dot_badge.dart';
@@ -38,6 +40,9 @@ import '../notification/notification_list_screen.dart';
 import '../convenience_link/convenience_link_edit_screen.dart';
 import '../notification/unified_notification_screen.dart';
 import '../../services/widget/home_widgets_service.dart';
+import '../../services/schedule/academic_calendar_service.dart';
+import '../../services/schedule/schedule_service.dart';
+import '../../services/schedule/attendance_service.dart';
 
 const Map<String, String> _campusNavigationOptions = {
   'tsudanuma': '津田沼',
@@ -1060,103 +1065,172 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildAcademicCalendarCard(BuildContext context) {
     final months = _buildAcademicYearMonths();
+    final startDate = months.first;
+    final endDate = DateTime(
+      months.last.year,
+      months.last.month + 1,
+      0,
+      23,
+      59,
+      59,
+    );
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        child: StreamBuilder<List<AcademicCalendarEvent>>(
+          stream: AcademicCalendarService.watchEventsInRange(
+            startDate: startDate,
+            endDate: endDate,
+          ),
+          builder: (context, snapshot) {
+            final events = snapshot.data ?? const <AcademicCalendarEvent>[];
+            final currentMonth = months[_currentAcademicMonthIndex];
+            final currentMonthEvents = _eventsForMonth(
+              events,
+              currentMonth.year,
+              currentMonth.month,
+            );
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.event_note,
-                  size: 24,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '学年歴',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: () => _showAcademicYearCalendar(context),
-                  icon: Icon(
-                    Icons.calendar_month,
-                    size: 16,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  label: Text(
-                    'カレンダー',
-                    style: TextStyle(
-                      fontSize: 12,
+                Row(
+                  children: [
+                    Icon(
+                      Icons.event_note,
+                      size: 24,
                       color: Theme.of(context).colorScheme.primary,
                     ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '学年歴',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed:
+                          () => _showAcademicYearCalendar(
+                            context,
+                            allEvents: events,
+                          ),
+                      icon: Icon(
+                        Icons.calendar_month,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      label: Text(
+                        'カレンダー',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(0, 28),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '対象期間: 2026年4月 - 2027年3月',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Theme.of(context).dividerColor),
                   ),
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(0, 28),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+                  child: SizedBox(
+                    height: 250,
+                    child: PageView.builder(
+                      controller: _academicCalendarPageController,
+                      itemCount: months.length,
+                      onPageChanged: (index) {
+                        if (!mounted) return;
+                        setState(() {
+                          _currentAcademicMonthIndex = index;
+                        });
+                      },
+                      itemBuilder: (context, index) {
+                        final month = months[index];
+                        return _buildAcademicMonthCalendarInline(
+                          context,
+                          month.year,
+                          month.month,
+                          events,
+                        );
+                      },
                     ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '対象期間: 2026年4月 - 2027年3月',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Theme.of(context).dividerColor),
-              ),
-              child: SizedBox(
-                height: 250,
-                child: PageView.builder(
-                  controller: _academicCalendarPageController,
-                  itemCount: months.length,
-                  onPageChanged: (index) {
-                    if (!mounted) return;
-                    setState(() {
-                      _currentAcademicMonthIndex = index;
-                    });
-                  },
-                  itemBuilder: (context, index) {
-                    final month = months[index];
-                    return _buildAcademicMonthCalendarInline(
-                      context,
-                      month.year,
-                      month.month,
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      '${months[_currentAcademicMonthIndex].year}年${months[_currentAcademicMonthIndex].month}月',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '左右にスワイプで切替',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  const SizedBox(
+                    height: 24,
+                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                  )
+                else if (currentMonthEvents.isEmpty)
+                  Text(
+                    '今月の予定はありません',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  )
+                else
+                  ...currentMonthEvents.take(4).map((event) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _colorFromHex(event.colorHex),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${event.date.day}日 ${event.title}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                        ],
+                      ),
                     );
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Text(
-                  '${months[_currentAcademicMonthIndex].year}年${months[_currentAcademicMonthIndex].month}月',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  '左右にスワイプで切替',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
+                  }),
               ],
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -1171,7 +1245,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     });
   }
 
-  Future<void> _showAcademicYearCalendar(BuildContext context) async {
+  Future<void> _showAcademicYearCalendar(
+    BuildContext context, {
+    required List<AcademicCalendarEvent> allEvents,
+  }) async {
     final months = _buildAcademicYearMonths();
     await showModalBottomSheet<void>(
       context: context,
@@ -1207,6 +1284,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               context,
                               monthDate.year,
                               monthDate.month,
+                              allEvents,
                             );
                           }).toList(),
                     ),
@@ -1231,13 +1309,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return months.length - 1;
   }
 
-  Widget _buildAcademicMonthCalendar(BuildContext context, int year, int month) {
+  Widget _buildAcademicMonthCalendar(
+    BuildContext context,
+    int year,
+    int month,
+    List<AcademicCalendarEvent> allEvents,
+  ) {
     const weekdayLabels = ['月', '火', '水', '木', '金', '土', '日'];
     final daysInMonth = DateUtils.getDaysInMonth(year, month);
     final firstWeekday = DateTime(year, month, 1).weekday; // 1=Mon
     final leadingEmptyCells = firstWeekday - 1;
     final totalCells =
         ((leadingEmptyCells + daysInMonth + 6) ~/ 7) * 7; // 7の倍数に丸める
+    final monthEvents = _eventsForMonth(allEvents, year, month);
+    final eventByDate = <String, AcademicCalendarEvent>{
+      for (final event in monthEvents) _dateKey(event.date): event,
+    };
 
     return Padding(
       padding: const EdgeInsets.all(12),
@@ -1278,6 +1365,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               itemBuilder: (context, index) {
                 final dayNumber = index - leadingEmptyCells + 1;
                 final isInCurrentMonth = dayNumber >= 1 && dayNumber <= daysInMonth;
+                final cellDate =
+                    isInCurrentMonth ? DateTime(year, month, dayNumber) : null;
+                final event =
+                    cellDate == null ? null : eventByDate[_dateKey(cellDate)];
 
                 return Container(
                   alignment: Alignment.center,
@@ -1285,17 +1376,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     borderRadius: BorderRadius.circular(6),
                     color:
                         isInCurrentMonth
-                            ? Theme.of(context).colorScheme.surfaceContainerHighest
+                            ? (event != null
+                                ? _colorFromHex(event.colorHex).withOpacity(0.2)
+                                : Theme.of(context).colorScheme.surfaceContainerHighest)
                             : Colors.transparent,
                   ),
-                  child: Text(
-                    isInCurrentMonth ? '$dayNumber' : '',
-                    style: Theme.of(context).textTheme.bodyMedium,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        isInCurrentMonth ? '$dayNumber' : '',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      if (event != null)
+                        Container(
+                          margin: const EdgeInsets.only(top: 2),
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: _colorFromHex(event.colorHex),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                    ],
                   ),
                 );
               },
             ),
           ),
+          const SizedBox(height: 8),
+          if (monthEvents.isNotEmpty)
+            ...monthEvents.take(5).map((event) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '・${event.date.day}日 ${event.title}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              );
+            }),
         ],
       ),
     );
@@ -1305,11 +1426,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     BuildContext context,
     int year,
     int month,
+    List<AcademicCalendarEvent> allEvents,
   ) {
     const weekdayLabels = ['月', '火', '水', '木', '金', '土', '日'];
     final daysInMonth = DateUtils.getDaysInMonth(year, month);
     final leadingEmptyCells = DateTime(year, month, 1).weekday - 1;
     final totalCells = ((leadingEmptyCells + daysInMonth + 6) ~/ 7) * 7;
+    final monthEvents = _eventsForMonth(allEvents, year, month);
+    final eventByDate = <String, AcademicCalendarEvent>{
+      for (final event in monthEvents) _dateKey(event.date): event,
+    };
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1350,24 +1476,68 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           itemBuilder: (context, index) {
             final dayNumber = index - leadingEmptyCells + 1;
             final isInCurrentMonth = dayNumber >= 1 && dayNumber <= daysInMonth;
+            final cellDate =
+                isInCurrentMonth ? DateTime(year, month, dayNumber) : null;
+            final event =
+                cellDate == null ? null : eventByDate[_dateKey(cellDate)];
             return Container(
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(6),
                 color:
                     isInCurrentMonth
-                        ? Theme.of(context).colorScheme.surfaceContainerHighest
+                        ? (event != null
+                            ? _colorFromHex(event.colorHex).withOpacity(0.2)
+                            : Theme.of(context).colorScheme.surfaceContainerHighest)
                         : Colors.transparent,
               ),
-              child: Text(
-                isInCurrentMonth ? '$dayNumber' : '',
-                style: Theme.of(context).textTheme.bodySmall,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    isInCurrentMonth ? '$dayNumber' : '',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  if (event != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 1),
+                      width: 4,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: _colorFromHex(event.colorHex),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                ],
               ),
             );
           },
         ),
       ],
     );
+  }
+
+  List<AcademicCalendarEvent> _eventsForMonth(
+    List<AcademicCalendarEvent> events,
+    int year,
+    int month,
+  ) {
+    final result =
+        events
+            .where((e) => e.date.year == year && e.date.month == month)
+            .toList();
+    result.sort((a, b) => a.date.compareTo(b.date));
+    return result;
+  }
+
+  String _dateKey(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  static Color _colorFromHex(String hex) {
+    final raw = hex.replaceAll('#', '');
+    final normalized = raw.length == 6 ? 'FF$raw' : raw;
+    return Color(int.tryParse(normalized, radix: 16) ?? 0xFFE53935);
   }
 
   Future<void> _showHomeCardLayoutEditor(BuildContext context) async {
@@ -2306,6 +2476,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildTodaySchedule(BuildContext context, WidgetRef ref) {
+    final userId = ref.watch(currentUserIdProvider);
+    final selectedScheduleId = ref.watch(selectedScheduleIdProvider);
+    final scheduleListAsync =
+        userId == null
+            ? const AsyncValue<List<Schedule>>.loading()
+            : ref.watch(scheduleListProvider(userId));
     final todayScheduleAsync = ref.watch(currentUserSelectedTodayScheduleProvider);
     final timeSlotsAsync = ref.watch(timeSlotsProvider);
     final currentPeriodAsync = ref.watch(currentUserCurrentPeriodProvider);
@@ -2343,6 +2519,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       data: (todayClasses) {
         return currentPeriodAsync.when(
           data: (currentPeriod) {
+            final activeScheduleId = scheduleListAsync.maybeWhen(
+              data: (schedules) {
+                if (schedules.isEmpty) return null;
+                if (selectedScheduleId != null &&
+                    schedules.any((s) => s.id == selectedScheduleId)) {
+                  return selectedScheduleId;
+                }
+                return schedules.first.id;
+              },
+              orElse: () => null,
+            );
+            final todayWeekdayKey = _weekdayKeyFromDate(DateTime.now());
+
             // 今日授業がある科目のみをフィルター
             final scheduledClasses = <int, ScheduleClass>{};
             for (int i = 0; i < todayClasses.length; i++) {
@@ -2436,6 +2625,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         isNext = period == futurePeriods.first;
                       }
                     }
+                    final canQuickAttend =
+                        activeScheduleId != null &&
+                        todayWeekdayKey != null &&
+                        _isAttendanceTapAvailableForSlot(
+                          now: DateTime.now(),
+                          timeSlot: timeSlot,
+                        );
 
                     return GestureDetector(
                       onTap:
@@ -2445,6 +2641,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             period,
                             timeSlot,
                             timeSlotsAsync,
+                            scheduleId: activeScheduleId,
                           ),
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 8),
@@ -2610,7 +2807,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                   ),
                                   const SizedBox(height: 4),
                                   Row(
-                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisSize: MainAxisSize.max,
                                     children: [
                                       Flexible(
                                         flex: 0,
@@ -2661,7 +2858,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                               ).colorScheme.onSurfaceVariant,
                                         ),
                                         const SizedBox(width: 4),
-                                        Expanded(
+                                        Flexible(
                                           child: Text(
                                             scheduleClass.instructor,
                                             style: Theme.of(
@@ -2677,8 +2874,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                           ),
                                         ),
                                       ],
+                                      if (canQuickAttend) ...[
+                                        const SizedBox(width: 8),
+                                        FilledButton.icon(
+                                          onPressed: () async {
+                                            await _openAttendanceQrReaderAndMark(
+                                              context: context,
+                                              scheduleId: activeScheduleId,
+                                              weekdayKey: todayWeekdayKey,
+                                              period: period,
+                                              scheduleClass: scheduleClass,
+                                            );
+                                          },
+                                          icon: const Icon(Icons.qr_code_scanner, size: 14),
+                                          label: const Text('出席'),
+                                          style: FilledButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            minimumSize: const Size(0, 28),
+                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            visualDensity: VisualDensity.compact,
+                                            textStyle: const TextStyle(fontSize: 11),
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ),
+                                  if (scheduleClass.notes != null &&
+                                      scheduleClass.notes!.trim().isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.note_alt_outlined,
+                                          size: 13,
+                                          color:
+                                              Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                          child: Text(
+                                            scheduleClass.notes!.trim(),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color:
+                                                      Theme.of(context)
+                                                          .colorScheme
+                                                          .onSurfaceVariant,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -2718,9 +2974,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     int period,
     TimeSlot timeSlot,
     List<TimeSlot> timeSlots,
+    {
+      String? scheduleId,
+    }
   ) {
     final now = DateTime.now();
     final weekday = Weekday.values[now.weekday - 1];
+    final weekdayKey = _weekdayKeyFromDate(now);
+    final canTapAttendance = _isAttendanceTapAvailableForSlot(
+      now: now,
+      timeSlot: timeSlot,
+    );
+    final summaryFuture =
+        (scheduleId != null)
+            ? _loadAttendanceSummaryForClass(
+              scheduleId: scheduleId,
+              classId: scheduleClass.id,
+            )
+            : null;
     final weekdayNames = {
       Weekday.monday: '月曜日',
       Weekday.tuesday: '火曜日',
@@ -2741,81 +3012,458 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Row(
-              children: [
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: Color(
-                      int.parse('0xff${scheduleClass.color.substring(1)}'),
+      builder: (context) {
+        final notesController = TextEditingController(text: scheduleClass.notes ?? '');
+        bool isEditingMemo = false;
+        bool isSaving = false;
+        return StatefulBuilder(
+          builder:
+              (context, setDialogState) => AlertDialog(
+                title: Row(
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: Color(
+                          int.parse('0xff${scheduleClass.color.substring(1)}'),
+                        ),
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                    shape: BoxShape.circle,
-                  ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        scheduleClass.subjectName,
+                        style: const TextStyle(fontSize: 18),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    scheduleClass.subjectName,
-                    style: const TextStyle(fontSize: 18),
-                  ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildDetailRow(
+                      context,
+                      Icons.schedule,
+                      '時間',
+                      '${weekdayNames[weekday] ?? ''} $periodRange\n$timeRange',
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDetailRow(
+                      context,
+                      Icons.location_on,
+                      '教室',
+                      scheduleClass.classroom,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDetailRow(
+                      context,
+                      Icons.person,
+                      '担当教員',
+                      scheduleClass.instructor,
+                    ),
+                    if (scheduleClass.duration > 1) ...[
+                      const SizedBox(height: 12),
+                      _buildDetailRow(
+                        context,
+                        Icons.timer,
+                        '講義時間',
+                        '${scheduleClass.duration}時間連続',
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    if (!isEditingMemo) ...[
+                      if (scheduleClass.notes != null &&
+                          scheduleClass.notes!.isNotEmpty)
+                        _buildDetailRowLinkified(
+                          context,
+                          Icons.note,
+                          'メモ',
+                          scheduleClass.notes!,
+                        )
+                      else
+                        _buildDetailRow(context, Icons.note, 'メモ', '未設定'),
+                    ] else ...[
+                      const Text(
+                        'メモ',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: notesController,
+                        maxLines: 4,
+                        decoration: const InputDecoration(
+                          hintText: 'メモを入力',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ],
+                    if (scheduleId != null && weekdayKey != null) ...[
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: canTapAttendance
+                              ? () async {
+                            Navigator.of(context).pop();
+                            await _openAttendanceQrReaderAndMark(
+                              context: context,
+                              scheduleId: scheduleId,
+                              weekdayKey: weekdayKey,
+                              period: period,
+                              scheduleClass: scheduleClass,
+                            );
+                          }
+                              : null,
+                          icon: const Icon(Icons.qr_code_scanner, size: 18),
+                          label: const Text('QRを読み取って出席'),
+                        ),
+                      ),
+                      if (!canTapAttendance)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            '講義開始20分前〜開始1時間後のみ操作できます',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color:
+                                      Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                ),
+                          ),
+                        ),
+                    ],
+                    if (summaryFuture != null) ...[
+                      const SizedBox(height: 12),
+                      FutureBuilder<AttendanceClassSummary>(
+                        future: summaryFuture,
+                        builder: (context, snapshot) {
+                          final summary = snapshot.data;
+                          if (summary == null) return const SizedBox.shrink();
+                          return _buildDetailRow(
+                            context,
+                            Icons.analytics_outlined,
+                            '出欠集計',
+                            '出席 ${summary.presentCount}回 / 遅刻 ${summary.lateCount}回 / 欠席 ${summary.absentCount}回',
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 4),
+                      RichText(
+                        text: TextSpan(
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color:
+                                    Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                              ),
+                          children: [
+                            const TextSpan(text: '※ 出欠集計を編集するには、時間割タブ画面右上の'),
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 2),
+                                child: Icon(
+                                  Icons.fact_check_outlined,
+                                  size: 14,
+                                  color:
+                                      Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                            const TextSpan(text: 'より編集してください。'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildDetailRow(
-                  context,
-                  Icons.schedule,
-                  '時間',
-                  '${weekdayNames[weekday] ?? ''} $periodRange\n$timeRange',
-                ),
-                const SizedBox(height: 12),
-                _buildDetailRow(
-                  context,
-                  Icons.location_on,
-                  '教室',
-                  scheduleClass.classroom,
-                ),
-                const SizedBox(height: 12),
-                _buildDetailRow(
-                  context,
-                  Icons.person,
-                  '担当教員',
-                  scheduleClass.instructor,
-                ),
-                if (scheduleClass.duration > 1) ...[
-                  const SizedBox(height: 12),
-                  _buildDetailRow(
-                    context,
-                    Icons.timer,
-                    '講義時間',
-                    '${scheduleClass.duration}時間連続',
+                actions: [
+                  if (scheduleId != null && weekdayKey != null && !isEditingMemo)
+                    TextButton(
+                      onPressed: () {
+                        setDialogState(() {
+                          isEditingMemo = true;
+                        });
+                      },
+                      child: const Text('メモを編集'),
+                    ),
+                  if (scheduleId != null && weekdayKey != null && isEditingMemo)
+                    TextButton(
+                      onPressed:
+                          isSaving
+                              ? null
+                              : () {
+                                setDialogState(() {
+                                  isEditingMemo = false;
+                                });
+                              },
+                      child: const Text('キャンセル'),
+                    ),
+                  if (scheduleId != null && weekdayKey != null && isEditingMemo)
+                    FilledButton(
+                      onPressed:
+                          isSaving
+                              ? null
+                              : () async {
+                                setDialogState(() {
+                                  isSaving = true;
+                                });
+                                final ok = await _saveHomeClassNotesInline(
+                                  context: context,
+                                  scheduleId: scheduleId,
+                                  weekdayKey: weekdayKey,
+                                  scheduleClass: scheduleClass,
+                                  notes: notesController.text.trim().isEmpty
+                                      ? null
+                                      : notesController.text.trim(),
+                                );
+                                if (!context.mounted) return;
+                                setDialogState(() {
+                                  isSaving = false;
+                                });
+                                if (ok) {
+                                  Navigator.of(context).pop();
+                                }
+                              },
+                      child:
+                          isSaving
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Text('保存'),
+                    ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('閉じる'),
                   ),
                 ],
-                if (scheduleClass.notes != null &&
-                    scheduleClass.notes!.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  _buildDetailRowLinkified(
-                    context,
-                    Icons.note,
-                    'メモ',
-                    scheduleClass.notes!,
-                  ),
-                ],
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('閉じる'),
               ),
-            ],
-          ),
+        );
+      },
+    );
+  }
+
+  Future<bool> _saveHomeClassNotesInline({
+    required BuildContext context,
+    required String scheduleId,
+    required String weekdayKey,
+    required ScheduleClass scheduleClass,
+    required String? notes,
+  }) async {
+    try {
+      final latest = await ScheduleService.getScheduleById(scheduleId);
+      if (latest == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('時間割の取得に失敗しました')));
+        }
+        return false;
+      }
+
+      final updatedTimetable = <String, Map<int, ScheduleClass?>>{};
+      for (final dayEntry in latest.timetable.entries) {
+        updatedTimetable[dayEntry.key] = <int, ScheduleClass?>{};
+        for (final periodEntry in dayEntry.value.entries) {
+          final value = periodEntry.value;
+          if (dayEntry.key == weekdayKey &&
+              value != null &&
+              value.id == scheduleClass.id) {
+            updatedTimetable[dayEntry.key]![periodEntry.key] = ScheduleClass(
+              id: value.id,
+              subjectName: value.subjectName,
+              classroom: value.classroom,
+              instructor: value.instructor,
+              color: value.color,
+              notes: notes,
+              duration: value.duration,
+              isStartCell: value.isStartCell,
+            );
+          } else {
+            updatedTimetable[dayEntry.key]![periodEntry.key] = value;
+          }
+        }
+      }
+
+      final updatedSchedule = Schedule(
+        id: latest.id,
+        userId: latest.userId,
+        name: latest.name,
+        semester: latest.semester,
+        timetable: updatedTimetable,
+        timeSlots: latest.timeSlots,
+        createdAt: latest.createdAt,
+        updatedAt: DateTime.now(),
+      );
+      await ScheduleService.updateSchedule(updatedSchedule);
+
+      final userId = ref.read(currentUserIdProvider);
+      if (userId != null) {
+        ref.invalidate(scheduleListProvider(userId));
+      }
+      ref.invalidate(currentUserSelectedTodayScheduleProvider);
+      ref.invalidate(currentUserTodayScheduleProvider);
+      ref.invalidate(currentUserScheduleProvider);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('メモを更新しました')));
+      }
+      return true;
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('メモ更新に失敗しました: $e')));
+      }
+      return false;
+    }
+  }
+
+  Future<void> _markAttendanceFromHome({
+    required BuildContext context,
+    required String scheduleId,
+    required String weekdayKey,
+    required int period,
+    required ScheduleClass scheduleClass,
+  }) async {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('ログインが必要です')));
+      }
+      return;
+    }
+
+    final schedule = await ScheduleService.getScheduleById(scheduleId);
+    if (schedule == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('時間割の取得に失敗しました')));
+      }
+      return;
+    }
+
+    try {
+      final result = await AttendanceService.markAttendanceFromTap(
+        userId: userId,
+        scheduleId: scheduleId,
+        schedule: schedule,
+        weekdayKey: weekdayKey,
+        startPeriod: period,
+        scheduleClass: scheduleClass,
+      );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message),
+          backgroundColor: result.success ? Colors.green : Colors.orange,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('出欠記録に失敗しました: $e')));
+    }
+  }
+
+  Future<void> _openAttendanceQrReaderAndMark({
+    required BuildContext context,
+    required String? scheduleId,
+    required String? weekdayKey,
+    required int period,
+    required ScheduleClass scheduleClass,
+  }) async {
+    if (scheduleId == null || weekdayKey == null) return;
+    bool? scanned;
+    try {
+      scanned = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const AttendanceQrReaderScreen()),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('QRリーダーを起動できませんでした: $e')),
+        );
+      }
+      return;
+    }
+    if (scanned != true) return;
+    if (!context.mounted) return;
+    await _markAttendanceFromHome(
+      context: context,
+      scheduleId: scheduleId,
+      weekdayKey: weekdayKey,
+      period: period,
+      scheduleClass: scheduleClass,
+    );
+  }
+
+  String? _weekdayKeyFromDate(DateTime date) {
+    switch (date.weekday) {
+      case DateTime.monday:
+        return 'monday';
+      case DateTime.tuesday:
+        return 'tuesday';
+      case DateTime.wednesday:
+        return 'wednesday';
+      case DateTime.thursday:
+        return 'thursday';
+      case DateTime.friday:
+        return 'friday';
+      case DateTime.saturday:
+        return 'saturday';
+      default:
+        return null;
+    }
+  }
+
+  bool _isAttendanceTapAvailableForSlot({
+    required DateTime now,
+    required TimeSlot timeSlot,
+  }) {
+    final startParts = timeSlot.startTime.split(':');
+    final lectureStart = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      int.tryParse(startParts[0]) ?? 9,
+      int.tryParse(startParts[1]) ?? 0,
+    );
+    final availableFrom = lectureStart.subtract(const Duration(minutes: 20));
+    final availableUntil = lectureStart.add(const Duration(hours: 1));
+    return !now.isBefore(availableFrom) && !now.isAfter(availableUntil);
+  }
+
+  Future<AttendanceClassSummary> _loadAttendanceSummaryForClass({
+    required String scheduleId,
+    required String classId,
+  }) async {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) {
+      return const AttendanceClassSummary(
+        presentCount: 0,
+        lateCount: 0,
+        absentCount: 0,
+      );
+    }
+    return AttendanceService.getClassAttendanceSummary(
+      userId: userId,
+      scheduleId: scheduleId,
+      classId: classId,
     );
   }
 
