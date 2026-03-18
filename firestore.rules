@@ -295,6 +295,20 @@ service cloud.firestore {
         && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
+    // Excel抽出精度向上用データ（ユーザー同意時のみ）
+    match /excel_import_training_submissions/{submissionId} {
+      // 学習用途の生データを含むため、閲覧は管理者のみ
+      allow read: if isAdmin();
+
+      // 提供データの作成は本人のみ
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredExcelImportTrainingFields();
+
+      allow update, delete: if isAdmin();
+    }
+
     // お問い合わせフォームのルール
     match /contact_forms/{contactId} {
       // 認証済みCITユーザーのみがお問い合わせを作成可能
@@ -663,6 +677,43 @@ service cloud.firestore {
         )
         && request.resource.data.attendanceDate is timestamp
         && request.resource.data.recordedAt is timestamp;
+    }
+
+    // Excel抽出精度向上データ必須フィールド確認
+    function hasRequiredExcelImportTrainingFields() {
+      return request.resource.data.keys().hasAll([
+          'userId',
+          'originalFileName',
+          'storagePath',
+          'storageUrl',
+          'consentForTraining',
+          'providedAt',
+          'autoEntryCount',
+          'reviewedEntryCount',
+          'parserWarnings',
+          'autoExtractedEntries',
+          'reviewedEntries'
+        ])
+        && request.resource.data.userId is string
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.originalFileName is string
+        && request.resource.data.storagePath is string
+        && request.resource.data.storageUrl is string
+        && (!('cellDumpStoragePath' in request.resource.data) || request.resource.data.cellDumpStoragePath is string)
+        && (!('cellDumpStorageUrl' in request.resource.data) || request.resource.data.cellDumpStorageUrl is string)
+        && request.resource.data.consentForTraining == true
+        && request.resource.data.providedAt is timestamp
+        && request.resource.data.autoEntryCount is int
+        && request.resource.data.reviewedEntryCount is int
+        && request.resource.data.autoEntryCount >= 0
+        && request.resource.data.reviewedEntryCount >= 0
+        && request.resource.data.parserWarnings is list
+        && request.resource.data.autoExtractedEntries is list
+        && request.resource.data.reviewedEntries is list
+        // 1ドキュメント上限を超えにくくするため数を制限
+        && request.resource.data.autoExtractedEntries.size() <= 200
+        && request.resource.data.reviewedEntries.size() <= 200
+        && request.resource.data.parserWarnings.size() <= 200;
     }
 
     // 学食お気に入り必須フィールド確認関数

@@ -21,6 +21,7 @@ import '../../widgets/ads/in_app_ad_card.dart';
 import '../../services/schedule/schedule_notification_service.dart';
 import '../../services/schedule/schedule_service.dart';
 import '../../services/schedule/excel_schedule_import_service.dart';
+import '../../services/schedule/excel_import_feedback_service.dart';
 import '../../services/schedule/attendance_service.dart';
 import 'attendance_management_screen.dart';
 import 'attendance_qr_reader_screen.dart';
@@ -1501,9 +1502,30 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
         autoColorAdjacent: review.autoColorAdjacent,
       );
 
-      final userId = ref.read(currentUserIdProvider);
-      if (userId != null) {
-        ref.invalidate(scheduleListProvider(userId));
+      final currentUserId = ref.read(currentUserIdProvider);
+      if (currentUserId != null) {
+        ref.invalidate(scheduleListProvider(currentUserId));
+      }
+
+      String trainingNotice = '';
+      if (review.provideTrainingData) {
+        if (currentUserId == null) {
+          trainingNotice = '\n学習データ送信: 未ログインのためスキップ';
+        } else {
+          try {
+            await ExcelImportFeedbackService.submitTrainingSample(
+              userId: currentUserId,
+              originalFileName: file.name,
+              excelBytes: bytes,
+              autoExtractedEntries: draft.entries,
+              reviewedEntries: review.entries,
+              parserWarnings: draft.warnings,
+            );
+            trainingNotice = '\n学習データ送信: 完了';
+          } catch (_) {
+            trainingNotice = '\n学習データ送信: 失敗（インポートは完了）';
+          }
+        }
       }
 
       if (!context.mounted) return;
@@ -1513,7 +1535,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Excel取り込みを適用しました（${applyResult.appliedCount}件）$warningText',
+            'Excel取り込みを適用しました（${applyResult.appliedCount}件）$warningText$trainingNotice',
           ),
           backgroundColor: Colors.green,
         ),
@@ -1629,6 +1651,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     final entries = List<ImportedScheduleEntry>.from(draft.entries);
     bool clearExisting = false;
     bool autoColorAdjacent = true;
+    bool provideTrainingData = true;
     final warnings = List<String>.from(draft.warnings);
 
     return showDialog<_ImportReviewResult>(
@@ -1676,6 +1699,34 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                             child: Text('上下左右で隣接する講義を自動色分けする'),
                           ),
                         ],
+                      ),
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(top: 4, bottom: 8),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blueGrey.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Checkbox(
+                              value: provideTrainingData,
+                              onChanged: (value) {
+                                setDialogState(() {
+                                  provideTrainingData = value ?? false;
+                                });
+                              },
+                            ),
+                            const Expanded(
+                              child: Text(
+                                '抽出精度向上のため、個人情報(Excelファイルのsheet1/sheet2のI4・AG4を匿名化したデータを提供する)',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       if (warnings.isNotEmpty)
                         Container(
@@ -1761,6 +1812,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                                   entries: entries,
                                   clearExisting: clearExisting,
                                   autoColorAdjacent: autoColorAdjacent,
+                                  provideTrainingData: provideTrainingData,
                                 ),
                               );
                             },
@@ -2311,9 +2363,11 @@ class _ImportReviewResult {
     required this.entries,
     required this.clearExisting,
     required this.autoColorAdjacent,
+    required this.provideTrainingData,
   });
 
   final List<ImportedScheduleEntry> entries;
   final bool clearExisting;
   final bool autoColorAdjacent;
+  final bool provideTrainingData;
 }
