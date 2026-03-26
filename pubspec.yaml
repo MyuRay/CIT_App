@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.17.11+61
+version: 2.0.0+60
 
 environment:
   sdk: '>=3.7.0-0 <4.0.0'
@@ -92,8 +92,8 @@ dependencies:
   flutter_local_notifications: ^18.0.1
   timezone: ^0.9.4
 
-  # QR reader
-  mobile_scanner: ^5.2.3
+  # QR reader（7.x は iOS で Vision API のみ。Firebase 11 + App Check と CocoaPods 競合しにくい）
+  mobile_scanner: ^7.2.0
   
   # In-app review
   in_app_review: ^2.0.9
