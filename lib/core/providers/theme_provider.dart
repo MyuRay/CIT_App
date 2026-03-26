@@ -8,7 +8,7 @@ final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((r
 });
 
 class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  ThemeModeNotifier() : super(ThemeMode.system) {
+  ThemeModeNotifier() : super(ThemeMode.light) {
     _loadThemeMode();
   }
 
@@ -64,7 +64,7 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
   String get currentThemeDisplayName {
     switch (state) {
       case ThemeMode.light:
-        return 'ライトモード';
+        return 'ライトモード(推奨)';
       case ThemeMode.dark:
         return 'ダークモード';
       case ThemeMode.system:

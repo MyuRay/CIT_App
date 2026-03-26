@@ -1,6 +1,56 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+enum AppFontSizeOption { small, medium, large }
+
+extension AppFontSizeOptionX on AppFontSizeOption {
+  String get storageValue {
+    switch (this) {
+      case AppFontSizeOption.small:
+        return 'small';
+      case AppFontSizeOption.medium:
+        return 'medium';
+      case AppFontSizeOption.large:
+        return 'large';
+    }
+  }
+
+  String get displayName {
+    switch (this) {
+      case AppFontSizeOption.small:
+        return '小(推奨)';
+      case AppFontSizeOption.medium:
+        return '中';
+      case AppFontSizeOption.large:
+        return '大';
+    }
+  }
+
+  double get textScale {
+    switch (this) {
+      case AppFontSizeOption.small:
+        return 0.9;
+      case AppFontSizeOption.medium:
+        return 1.0;
+      case AppFontSizeOption.large:
+        return 1.15;
+    }
+  }
+}
+
+AppFontSizeOption _fontSizeFromStorage(String? value) {
+  switch (value) {
+    case 'small':
+      return AppFontSizeOption.small;
+    case 'large':
+      return AppFontSizeOption.large;
+    case 'medium':
+      return AppFontSizeOption.medium;
+    default:
+      return AppFontSizeOption.small;
+  }
+}
+
 // SharedPreferences インスタンスプロバイダー
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError();
@@ -14,6 +64,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
             showSaturday: _prefs.getBool('showSaturday') ?? true,
             preferredBusCampus: _prefs.getString('preferredBusCampus') ?? 'tsudanuma',
             scheduleNotificationEnabled: _prefs.getBool('scheduleNotificationEnabled') ?? false,
+            appFontSize: _fontSizeFromStorage(_prefs.getString('appFontSize')),
           ),
         );
 
@@ -43,6 +94,12 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     await _prefs.setBool('scheduleNotificationEnabled', enabled);
     state = state.copyWith(scheduleNotificationEnabled: enabled);
   }
+
+  // アプリ内の文字サイズ設定を変更
+  Future<void> setAppFontSize(AppFontSizeOption fontSize) async {
+    await _prefs.setString('appFontSize', fontSize.storageValue);
+    state = state.copyWith(appFontSize: fontSize);
+  }
 }
 
 // 設定状態クラス
@@ -51,21 +108,25 @@ class SettingsState {
     required this.showSaturday,
     required this.preferredBusCampus,
     required this.scheduleNotificationEnabled,
+    required this.appFontSize,
   });
 
   final bool showSaturday;
   final String preferredBusCampus; // 'tsudanuma' or 'narashino'
   final bool scheduleNotificationEnabled; // 講義通知の有効/無効
+  final AppFontSizeOption appFontSize;
 
   SettingsState copyWith({
     bool? showSaturday,
     String? preferredBusCampus,
     bool? scheduleNotificationEnabled,
+    AppFontSizeOption? appFontSize,
   }) {
     return SettingsState(
       showSaturday: showSaturday ?? this.showSaturday,
       preferredBusCampus: preferredBusCampus ?? this.preferredBusCampus,
       scheduleNotificationEnabled: scheduleNotificationEnabled ?? this.scheduleNotificationEnabled,
+      appFontSize: appFontSize ?? this.appFontSize,
     );
   }
 }
@@ -105,3 +166,16 @@ final scheduleNotificationEnabledProvider = Provider<bool>((ref) {
 final setScheduleNotificationEnabledProvider = Provider<Future<void> Function(bool)>((ref) {
   return (enabled) => ref.read(settingsProvider.notifier).setScheduleNotificationEnabled(enabled);
 });
+
+// アプリ文字サイズ設定のプロバイダー
+final appFontSizeProvider = Provider<AppFontSizeOption>((ref) {
+  return ref.watch(settingsProvider).appFontSize;
+});
+
+// アプリ文字サイズ設定更新メソッドのプロバイダー
+final setAppFontSizeProvider = Provider<Future<void> Function(AppFontSizeOption)>((ref) {
+  return (size) => ref.read(settingsProvider.notifier).setAppFontSize(size);
+});
+
+// 各タブチュートリアルの再表示要求シグナル（値をインクリメントして通知）
+final tabTutorialReplaySignalProvider = StateProvider<int>((ref) => 0);

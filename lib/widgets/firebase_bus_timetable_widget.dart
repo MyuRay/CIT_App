@@ -445,7 +445,7 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Text(
-                'ダブルタップで拡大・縮小、ピンチで拡大・縮小、ドラッグで移動できます',
+                'ダブルタップで拡大・縮小、ドラッグで移動できます',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white70,

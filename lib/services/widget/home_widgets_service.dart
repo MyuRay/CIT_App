@@ -29,11 +29,22 @@ class HomeWidgetsService {
 
   /// 週間フル時間割ウィジェットを更新（空スロットは送らない）
   /// scheduleがnullの場合は空データを送信
-  static Future<void> updateWeeklyFullSchedule(Schedule? schedule) async {
+  static Future<void> updateWeeklyFullSchedule(
+    Schedule? schedule, {
+    String? scheduleTitle,
+  }) async {
     try {
       debugPrint('📱 週間時間割ウィジェット更新開始');
       final weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
       final weeklyData = <String, dynamic>{};
+
+      final normalizedName = schedule?.name?.trim() ?? '';
+      final resolvedTitle =
+          scheduleTitle ??
+          (normalizedName.isNotEmpty
+              ? normalizedName
+              : (schedule?.semester ?? '週間時間割'));
+      weeklyData['scheduleTitle'] = resolvedTitle;
 
       if (schedule == null) {
         debugPrint('⚠️ スケジュールがnullのため、空データを送信');
@@ -47,13 +58,19 @@ class HomeWidgetsService {
             final list = <Map<String, dynamic>>[];
             for (var i = 1; i <= 10; i++) {
               final c = daySchedule[i];
-              if (c != null) {
+              if (c != null &&
+                  (c.isStartCell ||
+                      i == 1 ||
+                      daySchedule[i - 1]?.id != c.id)) {
+                final duration = c.duration > 0 ? c.duration : 1;
+                final endPeriod = (i + duration - 1).clamp(1, 10);
                 list.add({
                   'period': i,
+                  'endPeriod': endPeriod,
                   'subject': c.subjectName.isNotEmpty ? c.subjectName : '未設定',
                   'classroom': c.classroom.isNotEmpty ? c.classroom : '',
                   'color': c.color.isNotEmpty ? c.color : '#2196F3',
-                  'duration': c.duration,
+                  'duration': duration,
                 });
               }
             }
@@ -184,7 +201,11 @@ class HomeWidgetsService {
 
   /// 今日の時間割ウィジェットを更新
   /// todayClassesがnullまたは空の場合は空データを送信
-  static Future<void> updateTodaySchedule(List<ScheduleClass?>? todayClasses, {int? currentPeriod}) async {
+  static Future<void> updateTodaySchedule(
+    List<ScheduleClass?>? todayClasses, {
+    int? currentPeriod,
+    String? scheduleTitle,
+  }) async {
     try {
       debugPrint('📱 今日の時間割ウィジェット更新開始');
       
@@ -197,6 +218,7 @@ class HomeWidgetsService {
         'weekday': weekdayName,
         'date': '${now.month}/${now.day}',
         'currentPeriod': currentPeriod,
+        'scheduleTitle': scheduleTitle ?? '今日の時間割',
         'classes': <Map<String, dynamic>>[],
       };
 

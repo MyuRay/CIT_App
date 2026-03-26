@@ -67,6 +67,12 @@ class MainScreen extends ConsumerStatefulWidget {
 
 class _MainScreenState extends ConsumerState<MainScreen> {
   int _currentIndex = 0;
+  bool _didCheckTabTutorial = false;
+  bool _isTabTutorialShowing = false;
+  int _lastTutorialReplaySignal = 0;
+
+  static const String _tabTutorialSeenVersionKey = 'tab_tutorial_seen_version';
+  static const String _tabTutorialCurrentVersion = '2.0.0';
 
   // 安全なcurrentIndexゲッター
   int get safeCurrentIndex =>
@@ -109,12 +115,25 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     // 認証状態を確認
     final authState = ref.watch(authStateProvider);
+    final tutorialReplaySignal = ref.watch(tabTutorialReplaySignalProvider);
 
     return authState.when(
       data: (user) {
         if (user == null) {
           // ユーザーが未認証の場合は空のコンテナ（ルーターがリダイレクトを処理）
           return const Scaffold(body: Center(child: Text('リダイレクト中...')));
+        }
+        if (!_didCheckTabTutorial) {
+          _didCheckTabTutorial = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _maybeStartTabTutorial();
+          });
+        }
+        if (tutorialReplaySignal != _lastTutorialReplaySignal) {
+          _lastTutorialReplaySignal = tutorialReplaySignal;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _maybeStartTabTutorial(force: true);
+          });
         }
         return _buildMainContent();
       },
@@ -310,6 +329,163 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         ) ??
         false;
   }
+
+  Future<void> _maybeStartTabTutorial({bool force = false}) async {
+    if (!mounted || _isTabTutorialShowing) return;
+    final prefs = ref.read(sharedPreferencesProvider);
+    final seenVersion = prefs.getString(_tabTutorialSeenVersionKey);
+    if (!force && seenVersion == _tabTutorialCurrentVersion) return;
+
+    _isTabTutorialShowing = true;
+    await _showTabTutorialStep(0);
+    _isTabTutorialShowing = false;
+  }
+
+  Future<void> _showTabTutorialStep(int stepIndex) async {
+    if (!mounted) return;
+
+    final steps = <_TabTutorialStep>[
+      const _TabTutorialStep(
+        tabIndex: 0,
+        tabLabel: 'ホーム',
+        title: 'ホームのカスタマイズ',
+        description:
+            '右上の≡メニューから、自分に必要な情報カードの位置や表示/非表示をカスタマイズできます。',
+      ),
+      const _TabTutorialStep(
+        tabIndex: 1,
+        tabLabel: '時間割',
+        title: 'Excel取り込み',
+        description: '',
+      ),
+      const _TabTutorialStep(
+        tabIndex: 2,
+        tabLabel: '掲示板',
+        title: '掲示板の投稿申請',
+        description:
+            '右上の＋ボタンから掲示板投稿を申請できます。掲載ルールは右上のⓘアイコンから確認できます。',
+      ),
+      const _TabTutorialStep(
+        tabIndex: 3,
+        tabLabel: 'マイページ',
+        title: 'メインキャンパス設定',
+        description: 'メインキャンパスを設定すると、そのキャンパスの情報が優先表示されます。',
+      ),
+    ];
+
+    if (stepIndex < 0 || stepIndex >= steps.length) return;
+    final step = steps[stepIndex];
+
+    if (_currentIndex != step.tabIndex) {
+      setState(() => _currentIndex = step.tabIndex);
+      await Future.delayed(const Duration(milliseconds: 220));
+    }
+
+    if (!mounted) return;
+    final isLast = stepIndex == steps.length - 1;
+    final Widget contentWidget;
+    if (step.tabIndex == 1) {
+      contentWidget = Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('右上の'),
+          const SizedBox(height: 6),
+          Row(
+            children: const [
+              Icon(Icons.edit, size: 18),
+              SizedBox(width: 6),
+              Text('で時間割を編集できます'),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: const [
+              Icon(Icons.upload_file, size: 18),
+              SizedBox(width: 6),
+              Text('からExcelで時間割をインポートできます'),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: const [
+              Text('また、'),
+              SizedBox(width: 4),
+              Icon(Icons.fact_check_outlined, size: 18),
+              SizedBox(width: 6),
+              Expanded(child: Text('で出席管理をすることができます')),
+            ],
+          ),
+        ],
+      );
+    } else {
+      contentWidget = Text(step.description);
+    }
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      useSafeArea: true,
+      builder:
+          (sheetContext) => Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${step.title} (${step.tabLabel})',
+                  style: Theme.of(
+                    sheetContext,
+                  ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                contentWidget,
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(sheetContext).pop('skip'),
+                      child: const Text('スキップ'),
+                    ),
+                    const Spacer(),
+                    FilledButton(
+                      onPressed:
+                          () => Navigator.of(
+                            sheetContext,
+                          ).pop(isLast ? 'done' : 'next'),
+                      child: Text(isLast ? '完了' : '次へ'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+    );
+
+    if (!mounted) return;
+    if (action == 'next') {
+      await _showTabTutorialStep(stepIndex + 1);
+      return;
+    }
+
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.setString(_tabTutorialSeenVersionKey, _tabTutorialCurrentVersion);
+  }
+}
+
+class _TabTutorialStep {
+  final int tabIndex;
+  final String tabLabel;
+  final String title;
+  final String description;
+
+  const _TabTutorialStep({
+    required this.tabIndex,
+    required this.tabLabel,
+    required this.title,
+    required this.description,
+  });
 }
 
 class NotificationScreen extends StatelessWidget {

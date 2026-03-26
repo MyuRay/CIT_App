@@ -35,6 +35,7 @@ import '../../widgets/ads/in_app_ad_card.dart';
 
 class SimpleProfileScreen extends ConsumerWidget {
   const SimpleProfileScreen({super.key});
+  static const String _tabTutorialSeenVersionKey = 'tab_tutorial_seen_version';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -43,6 +44,7 @@ class SimpleProfileScreen extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final themeModeNotifier = ref.read(themeModeProvider.notifier);
     final preferredBusCampus = ref.watch(preferredBusCampusProvider);
+    final appFontSize = ref.watch(appFontSizeProvider);
     final profileAdAsync = ref.watch(inAppAdProvider(AdPlacement.profileTop));
 
     print('🔧 テーマモード取得成功: $themeMode');
@@ -199,6 +201,37 @@ class SimpleProfileScreen extends ConsumerWidget {
                           ref,
                           preferredBusCampus,
                         ),
+                  ),
+
+                  const Divider(height: 1),
+
+                  // 文字サイズ設定
+                  ListTile(
+                    leading: const Icon(Icons.format_size),
+                    title: const Text('文字サイズ'),
+                    subtitle: Text(appFontSize.displayName),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () => _showFontSizeDialog(context, ref, appFontSize),
+                  ),
+
+                  const Divider(height: 1),
+
+                  // タブチュートリアル再表示
+                  ListTile(
+                    leading: const Icon(Icons.play_circle_outline),
+                    title: const Text('チュートリアルを確認'),
+                    subtitle: const Text('各タブの使い方ガイドを再表示'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () async {
+                      final prefs = ref.read(sharedPreferencesProvider);
+                      await prefs.remove(_tabTutorialSeenVersionKey);
+                      ref.read(tabTutorialReplaySignalProvider.notifier).state++;
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('チュートリアルを再表示します')),
+                        );
+                      }
+                    },
                   ),
 
                   const Divider(height: 1),
@@ -439,7 +472,7 @@ class SimpleProfileScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 RadioListTile<ThemeMode>(
-                  title: const Text('ライトモード'),
+                  title: const Text('ライトモード(推奨)'),
                   subtitle: const Text('明るいテーマ'),
                   value: ThemeMode.light,
                   groupValue: currentThemeMode,
@@ -851,6 +884,52 @@ class SimpleProfileScreen extends ConsumerWidget {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
+                child: const Text('閉じる'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showFontSizeDialog(
+    BuildContext context,
+    WidgetRef ref,
+    AppFontSizeOption current,
+  ) {
+    showDialog(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.format_size),
+                SizedBox(width: 8),
+                Text('文字サイズ'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children:
+                  AppFontSizeOption.values
+                      .map(
+                        (option) => RadioListTile<AppFontSizeOption>(
+                          title: Text(option.displayName),
+                          value: option,
+                          groupValue: current,
+                          onChanged: (value) async {
+                            if (value == null) return;
+                            await ref.read(setAppFontSizeProvider)(value);
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                          },
+                        ),
+                      )
+                      .toList(),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
                 child: const Text('閉じる'),
               ),
             ],

@@ -140,6 +140,7 @@ class AttendanceService {
     required int duration,
     required DateTime attendanceDate,
     required String? status, // present / late / absent / null(未記録)
+    String? existingRecordId,
   }) async {
     final docId = _recordDocId(
       userId: userId,
@@ -148,10 +149,23 @@ class AttendanceService {
       date: attendanceDate,
     );
     final docRef = _firestore.collection(_collection).doc(docId);
+    final existingRef =
+        (existingRecordId != null && existingRecordId.isNotEmpty)
+            ? _firestore.collection(_collection).doc(existingRecordId)
+            : null;
 
     if (status == null || status.isEmpty) {
-      await docRef.delete();
+      final batch = _firestore.batch();
+      if (existingRef != null && existingRecordId != docId) {
+        batch.delete(existingRef);
+      }
+      batch.delete(docRef);
+      await batch.commit();
       return;
+    }
+
+    if (existingRef != null && existingRecordId != docId) {
+      await existingRef.delete();
     }
 
     await docRef.set({
@@ -196,10 +210,12 @@ class AttendanceService {
               ...data,
               'attendanceDate':
                   attendanceDateRaw is Timestamp
-                      ? attendanceDateRaw.toDate()
+                      ? attendanceDateRaw.toDate().toLocal()
                       : null,
               'recordedAt':
-                  recordedAtRaw is Timestamp ? recordedAtRaw.toDate() : null,
+                  recordedAtRaw is Timestamp
+                      ? recordedAtRaw.toDate().toLocal()
+                      : null,
             };
           }).toList();
         });
@@ -218,27 +234,9 @@ class AttendanceService {
             .where('classId', isEqualTo: classId)
             .get();
 
-    int present = 0;
-    int late = 0;
-    int absent = 0;
-    for (final doc in snapshot.docs) {
-      final status = doc.data()['status'] as String? ?? '';
-      if (status == 'present') {
-        present++;
-      } else if (status == 'late') {
-        late++;
-      } else if (status == 'absent') {
-        absent++;
-      }
-    }
-    return AttendanceClassSummary(
-      presentCount: present,
-      lateCount: late,
-      absentCount: absent,
-    );
+    return _summarizeStatuses(snapshot.docs.map((doc) => doc.data()));
   }
 
-  /// 学期などの期間内で、指定コマ（曜日・開始時限）の出欠集計を返す。
   static Future<AttendanceClassSummary> getClassAttendanceSummaryForRange({
     required String userId,
     required String scheduleId,
@@ -250,43 +248,42 @@ class AttendanceService {
   }) async {
     final start = DateTime(startDate.year, startDate.month, startDate.day);
     final end = DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
-
     final snapshot =
         await _firestore
             .collection(_collection)
             .where('userId', isEqualTo: userId)
             .where('scheduleId', isEqualTo: scheduleId)
-            .where('classId', isEqualTo: classId)
-            .where(
-              'attendanceDate',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(start),
-            )
-            .where(
-              'attendanceDate',
-              isLessThanOrEqualTo: Timestamp.fromDate(end),
-            )
+            .where('attendanceDate', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+            .where('attendanceDate', isLessThanOrEqualTo: Timestamp.fromDate(end))
             .get();
 
+    final filtered = snapshot.docs
+        .map((doc) => doc.data())
+        .where((data) {
+          final recordClassId = data['classId'] as String? ?? '';
+          if (recordClassId == classId) return true;
+          final recordWeekday = data['weekdayKey'] as String? ?? '';
+          final recordStartPeriod = data['startPeriod'] as int?;
+          return recordWeekday == weekdayKey && recordStartPeriod == startPeriod;
+        })
+        .toList();
+    return _summarizeStatuses(filtered);
+  }
+
+  static AttendanceClassSummary _summarizeStatuses(
+    Iterable<Map<String, dynamic>> records,
+  ) {
     int present = 0;
     int late = 0;
     int absent = 0;
-    for (final doc in snapshot.docs) {
-      final data = doc.data();
-      final wk = data['weekdayKey'] as String? ?? '';
-      if (wk != weekdayKey) continue;
-      final periodRaw = data['startPeriod'];
-      final period =
-          periodRaw is int
-              ? periodRaw
-              : int.tryParse(periodRaw?.toString() ?? '') ?? -1;
-      if (period != startPeriod) continue;
-
+    for (final data in records) {
       final status = data['status'] as String? ?? '';
       if (status == 'present') {
         present++;
       } else if (status == 'late') {
         late++;
-      } else if (status == 'absent') {
+      } else if (status.isNotEmpty && status != 'cancelled') {
+        // 出欠管理画面と同じ基準: present/late/cancelled以外は欠席扱い
         absent++;
       }
     }
