@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/providers/firebase_menu_provider.dart';
 import 'common/animated_image_placeholder.dart';
+import 'common/interactive_viewer_double_tap_zoom.dart';
 
 class FirebaseMenuImageWidget extends ConsumerWidget {
   final String campus;
@@ -352,35 +353,11 @@ class _FullScreenMenuImageDialogState
   void _handleDoubleTap(String campusKey, TapDownDetails details) {
     final controller = _transformationControllers[campusKey];
     if (controller == null) return;
-
-    final scale = controller.value.getMaxScaleOnAxis();
-    final isCurrentlyZoomed = scale > 1.1;
-
-    if (isCurrentlyZoomed) {
-      controller.value = Matrix4.identity();
-    } else {
-      final screenSize = MediaQuery.of(context).size;
-      final screenCenterX = screenSize.width / 2;
-      final screenCenterY = screenSize.height / 2;
-
-      final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
-      if (renderBox == null) {
-        controller.value = Matrix4.identity()..scale(_zoomedScale);
-        return;
-      }
-
-      final globalTapPosition = renderBox.localToGlobal(details.localPosition);
-      final offsetX = globalTapPosition.dx - screenCenterX;
-      final offsetY = globalTapPosition.dy - screenCenterY;
-
-      final newScale = _zoomedScale;
-      final translateX = -offsetX * (newScale - 1);
-      final translateY = -offsetY * (newScale - 1);
-
-      controller.value = Matrix4.identity()
-        ..translate(translateX, translateY)
-        ..scale(newScale);
-    }
+    interactiveViewerToggleZoomAtFocalPoint(
+      controller,
+      details,
+      zoomScale: _zoomedScale,
+    );
   }
 
   void _onPageChanged(int index) {
@@ -448,10 +425,7 @@ class _FullScreenMenuImageDialogState
                     onPageChanged: _onPageChanged,
                       itemBuilder: (context, index) {
                         final campusId = campuses[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: _buildCampusPage(context, campusId),
-                    );
+                    return _buildCampusPage(context, campusId);
                   },
                 ),
               ),
@@ -512,23 +486,21 @@ class _FullScreenMenuImageDialogState
                           ),
                         );
 
-        return Center(
+        return SizedBox.expand(
           child: Material(
             color: Colors.transparent,
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onDoubleTapDown: (details) =>
                   _handleDoubleTap(campusId, details),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: InteractiveViewer(
-                  transformationController:
-                      _transformationControllers[campusId],
-                  minScale: 0.5,
-                  maxScale: 4.0,
-                  panEnabled: true,
-                  child: imageWidget,
-                ),
+              child: InteractiveViewer(
+                transformationController:
+                    _transformationControllers[campusId],
+                minScale: 0.5,
+                maxScale: 4.0,
+                panEnabled: true,
+                clipBehavior: Clip.hardEdge,
+                child: imageWidget,
               ),
             ),
           ),
@@ -960,35 +932,11 @@ class _SingleImageFullScreenDialogState
   }
 
   void _handleDoubleTap(TapDownDetails details) {
-    final scale = _transformationController.value.getMaxScaleOnAxis();
-    final isCurrentlyZoomed = scale > 1.1;
-
-    if (isCurrentlyZoomed) {
-      _transformationController.value = Matrix4.identity();
-    } else {
-      final screenSize = MediaQuery.of(context).size;
-      final screenCenterX = screenSize.width / 2;
-      final screenCenterY = screenSize.height / 2;
-
-      final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
-      if (renderBox == null) {
-        _transformationController.value =
-            Matrix4.identity()..scale(_zoomedScale);
-      return;
-    }
-
-      final globalTapPosition = renderBox.localToGlobal(details.localPosition);
-      final offsetX = globalTapPosition.dx - screenCenterX;
-      final offsetY = globalTapPosition.dy - screenCenterY;
-
-      final newScale = _zoomedScale;
-      final translateX = -offsetX * (newScale - 1);
-      final translateY = -offsetY * (newScale - 1);
-
-      _transformationController.value = Matrix4.identity()
-        ..translate(translateX, translateY)
-        ..scale(newScale);
-    }
+    interactiveViewerToggleZoomAtFocalPoint(
+      _transformationController,
+      details,
+      zoomScale: _zoomedScale,
+    );
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
@@ -1067,24 +1015,19 @@ class _SingleImageFullScreenDialogState
           offset: Offset(0, _dragOffset),
               child: Stack(
                 children: [
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onDoubleTapDown: _handleDoubleTap,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: InteractiveViewer(
-                          transformationController: _transformationController,
-                          minScale: 0.5,
-                          maxScale: 4.0,
-                          panEnabled: true,
-                          child: imageWidget,
-                        ),
-                      ),
+              Positioned.fill(
+                child: Material(
+                  color: Colors.transparent,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onDoubleTapDown: _handleDoubleTap,
+                    child: InteractiveViewer(
+                      transformationController: _transformationController,
+                      minScale: 0.5,
+                      maxScale: 4.0,
+                      panEnabled: true,
+                      clipBehavior: Clip.hardEdge,
+                      child: imageWidget,
                     ),
                   ),
                 ),

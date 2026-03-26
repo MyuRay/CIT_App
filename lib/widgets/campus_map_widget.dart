@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../core/providers/firebase_campus_provider.dart';
 import 'common/animated_image_placeholder.dart';
+import 'common/interactive_viewer_double_tap_zoom.dart';
 
 class CampusMapWidget extends ConsumerWidget {
   final String campus;
@@ -208,7 +209,6 @@ class _FullScreenCampusMapDialogState
   bool _isDismissing = false;
   bool _isImageZoomed = false;
   final Map<String, TransformationController> _transformationControllers = {};
-  static const double _defaultScale = 1.0;
   static const double _zoomedScale = 2.5;
 
   @override
@@ -267,25 +267,11 @@ class _FullScreenCampusMapDialogState
   void _handleDoubleTap(String campusKey, TapDownDetails details) {
     final controller = _transformationControllers[campusKey];
     if (controller == null) return;
-
-    final scale = controller.value.getMaxScaleOnAxis();
-    final isCurrentlyZoomed = scale > 1.1;
-
-    if (isCurrentlyZoomed) {
-      // 拡大中の場合、元のサイズに戻す
-      controller.value = Matrix4.identity();
-    } else {
-      // 縮小時の場合、タップした位置を中心に拡大（X風の挙動）
-      final tapPosition = details.localPosition;
-      final translationCorrection = _zoomedScale - 1;
-
-      controller.value = Matrix4.identity()
-        ..translate(
-          -tapPosition.dx * translationCorrection,
-          -tapPosition.dy * translationCorrection,
-        )
-        ..scale(_zoomedScale);
-    }
+    interactiveViewerToggleZoomAtFocalPoint(
+      controller,
+      details,
+      zoomScale: _zoomedScale,
+    );
   }
 
   @override
@@ -357,10 +343,7 @@ class _FullScreenCampusMapDialogState
                   },
                   itemBuilder: (context, index) {
                     final entry = _entries[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: _buildCampusPage(context, entry.key, entry.value),
-                    );
+                    return _buildCampusPage(context, entry.key, entry.value);
                   },
                 ),
               ),
@@ -438,21 +421,19 @@ class _FullScreenCampusMapDialogState
                     ),
               );
 
-        return Center(
+        return SizedBox.expand(
           child: Material(
             color: Colors.transparent,
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onDoubleTapDown: (details) => _handleDoubleTap(campusKey, details),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: InteractiveViewer(
-                  transformationController: _transformationControllers[campusKey],
-                  minScale: 0.5,
-                  maxScale: 4.0,
-                  panEnabled: true,
-                  child: imageWidget,
-                ),
+              child: InteractiveViewer(
+                transformationController: _transformationControllers[campusKey],
+                minScale: 0.5,
+                maxScale: 4.0,
+                panEnabled: true,
+                clipBehavior: Clip.hardEdge,
+                child: imageWidget,
               ),
             ),
           ),

@@ -13,6 +13,8 @@ class ScheduleGridWidget extends StatelessWidget {
   final Future<void> Function(String, int, ScheduleClass)? onClassAttendanceTap;
   final Future<AttendanceClassSummary> Function(ScheduleClass)?
   onLoadAttendanceSummary;
+  /// false のとき QR 出席ボタンを出さない（講義期間外など）
+  final bool showAttendanceActions;
   final bool isEditMode;
   final bool showSaturday;
   final bool forceFullHeight;
@@ -26,6 +28,7 @@ class ScheduleGridWidget extends StatelessWidget {
     this.onClassNotesSave,
     this.onClassAttendanceTap,
     this.onLoadAttendanceSummary,
+    this.showAttendanceActions = true,
     this.isEditMode = false,
     this.showSaturday = true,
     this.forceFullHeight = false,
@@ -484,12 +487,13 @@ class ScheduleGridWidget extends StatelessWidget {
 
     final timeRange = ScheduleUtils.getClassTimeRange(schedule, startPeriod, scheduleClass.duration);
     final periodRange = ScheduleUtils.getClassPeriodRange(startPeriod, scheduleClass.duration);
-    final canTapAttendance = onClassAttendanceTap != null
-        ? _isAttendanceTapAvailable(
-            weekdayKey: weekdayKey,
-            startPeriod: startPeriod,
-          )
-        : false;
+    final canTapAttendance =
+        onClassAttendanceTap != null &&
+        showAttendanceActions &&
+        _isAttendanceTapAvailable(
+          weekdayKey: weekdayKey,
+          startPeriod: startPeriod,
+        );
     final summaryFuture = onLoadAttendanceSummary?.call(scheduleClass);
 
     showDialog(
@@ -583,35 +587,23 @@ class ScheduleGridWidget extends StatelessWidget {
                     ),
                   ),
                 ],
-                if (onClassAttendanceTap != null) ...[
+                if (canTapAttendance) ...[
                   const SizedBox(height: 14),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: canTapAttendance
-                          ? () async {
+                      onPressed: () async {
                         Navigator.of(context).pop();
                         await onClassAttendanceTap!(
                           weekdayKey,
                           startPeriod,
                           scheduleClass,
                         );
-                      }
-                          : null,
+                      },
                       icon: const Icon(Icons.qr_code_scanner, size: 18),
                       label: const Text('QRを読み取って出席'),
                     ),
                   ),
-                  if (!canTapAttendance)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(
-                        '講義開始20分前〜開始1時間後のみ操作できます',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
-                      ),
-                    ),
                 ],
                 if (summaryFuture != null) ...[
                   const SizedBox(height: 12),

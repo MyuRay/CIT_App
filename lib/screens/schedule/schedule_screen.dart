@@ -266,6 +266,14 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                 }
 
                 final selectedSchedule = _resolveSelectedSchedule(schedules);
+                final showAttendanceActions = ref
+                    .watch(lecturePeriodSettingsProvider)
+                    .maybeWhen(
+                      data: (settings) =>
+                          settings != null &&
+                          settings.containsDate(DateTime.now()),
+                      orElse: () => false,
+                    );
                 final adSection = scheduleAdAsync.when(
                   data: (ad) => ad == null
                       ? const SizedBox.shrink()
@@ -353,6 +361,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                                       classId: scheduleClass.id,
                                     );
                                   },
+                                  showAttendanceActions: showAttendanceActions,
                                   isEditMode: _isEditMode,
                                   showSaturday: showSaturday,
                                   forceFullHeight: _isSharing,

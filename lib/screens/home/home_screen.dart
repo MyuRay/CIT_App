@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -36,6 +37,7 @@ import '../schedule/attendance_qr_reader_screen.dart';
 import '../../widgets/campus_map_widget.dart';
 import '../../widgets/performance/optimized_notification_badge.dart';
 import '../../widgets/common/pulsing_dot_badge.dart';
+import '../../widgets/common/interactive_viewer_double_tap_zoom.dart';
 import '../../models/convenience_link/convenience_link_model.dart';
 import '../notification/notification_list_screen.dart';
 import '../convenience_link/convenience_link_edit_screen.dart';
@@ -2815,6 +2817,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final timeSlotsAsync = ref.watch(timeSlotsProvider);
     final currentPeriodAsync = ref.watch(currentUserCurrentPeriodProvider);
     final isSchoolDay = ref.watch(isSchoolDayProvider);
+    final inLecturePeriodForAttendance = ref
+        .watch(lecturePeriodSettingsProvider)
+        .maybeWhen(
+          data: (settings) =>
+              settings != null && settings.containsDate(DateTime.now()),
+          orElse: () => false,
+        );
 
     if (!isSchoolDay) {
       return Container(
@@ -2961,6 +2970,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         canUseAttendanceByLecturePeriod &&
                         activeScheduleId != null &&
                         todayWeekdayKey != null &&
+                        inLecturePeriodForAttendance &&
                         _isAttendanceTapAvailableForSlot(
                           now: now,
                           timeSlot: timeSlot,
@@ -3306,10 +3316,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final now = DateTime.now();
     final weekday = Weekday.values[now.weekday - 1];
     final weekdayKey = _weekdayKeyFromDate(now);
-    final canTapAttendance = _isAttendanceTapAvailableForSlot(
-      now: now,
-      timeSlot: timeSlot,
-    );
+    final canTapAttendance =
+        ref.read(lecturePeriodSettingsProvider).maybeWhen(
+          data: (settings) =>
+              settings != null && settings.containsDate(DateTime.now()),
+          orElse: () => false,
+        ) &&
+        _isAttendanceTapAvailableForSlot(
+          now: now,
+          timeSlot: timeSlot,
+        );
     final summaryFuture =
         (scheduleId != null)
             ? _loadAttendanceSummaryForClass(
@@ -3431,13 +3447,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ],
                     if (scheduleId != null &&
                         weekdayKey != null &&
-                        canUseAttendanceByLecturePeriod) ...[
+                        canTapAttendance) ...[
                       const SizedBox(height: 14),
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
-                          onPressed: canTapAttendance
-                              ? () async {
+                          onPressed: () async {
                             Navigator.of(context).pop();
                             await _openAttendanceQrReaderAndMark(
                               context: context,
@@ -3446,25 +3461,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               period: period,
                               scheduleClass: scheduleClass,
                             );
-                          }
-                              : null,
+                          },
                           icon: const Icon(Icons.qr_code_scanner, size: 18),
                           label: const Text('QRを読み取って出席'),
                         ),
                       ),
-                      if (!canTapAttendance)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(
-                            '講義開始20分前〜開始1時間後のみ操作できます',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color:
-                                      Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                ),
-                          ),
-                        ),
                     ],
                     if (summaryFuture != null) ...[
                       const SizedBox(height: 12),
@@ -5966,6 +5967,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 }
 
+class _YearCalendarImageItem {
+  final String name;
+  final String downloadUrl;
+
+  const _YearCalendarImageItem({
+    required this.name,
+    required this.downloadUrl,
+  });
+}
+
 class _HomeScreenImageViewer extends StatefulWidget {
   final String imageUrl;
   final bool isAsset;
@@ -6015,16 +6026,6 @@ class _CampusWeather {
   });
 }
 
-class _YearCalendarImageItem {
-  final String name;
-  final String downloadUrl;
-
-  const _YearCalendarImageItem({
-    required this.name,
-    required this.downloadUrl,
-  });
-}
-
 class _HomeScreenImageViewerState extends State<_HomeScreenImageViewer> {
   late final TransformationController _transformationController;
   static const double _zoomedScale = 2.5;
@@ -6042,38 +6043,11 @@ class _HomeScreenImageViewerState extends State<_HomeScreenImageViewer> {
   }
 
   void _handleDoubleTap(TapDownDetails details) {
-    final scale = _transformationController.value.getMaxScaleOnAxis();
-    final isCurrentlyZoomed = scale > 1.1;
-
-    if (isCurrentlyZoomed) {
-      // 拡大中の場合、元のサイズに戻す
-      _transformationController.value = Matrix4.identity();
-    } else {
-      // 縮小時の場合、タップ位置を中心に拡大
-      final screenSize = MediaQuery.of(context).size;
-      final screenCenterX = screenSize.width / 2;
-      final screenCenterY = screenSize.height / 2;
-
-      // タップ位置をローカル座標から取得
-      final tapPosition = details.localPosition;
-      
-      // 画面中心からのオフセットを計算
-      final offsetX = tapPosition.dx - screenCenterX;
-      final offsetY = tapPosition.dy - screenCenterY;
-
-      final newScale = _zoomedScale;
-      
-      // タップ位置が画面中心に来るように変換行列を計算
-      final translateX = -offsetX * (newScale - 1) / newScale;
-      final translateY = -offsetY * (newScale - 1) / newScale;
-      
-      // スケールを先に適用してから平行移動を適用するため、Matrix4を直接構築
-      final matrix = Matrix4.identity()
-        ..scale(newScale)
-        ..translate(translateX / newScale, translateY / newScale);
-      
-      _transformationController.value = matrix;
-    }
+    interactiveViewerToggleZoomAtFocalPoint(
+      _transformationController,
+      details,
+      zoomScale: _zoomedScale,
+    );
   }
 
   Widget _buildFullScreenControls(BuildContext context, String title) {
@@ -6145,7 +6119,7 @@ class _HomeScreenImageViewerState extends State<_HomeScreenImageViewer> {
       backgroundColor: Colors.black87,
       child: Stack(
         children: [
-          Center(
+          Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onDoubleTapDown: _handleDoubleTap,
@@ -6153,6 +6127,7 @@ class _HomeScreenImageViewerState extends State<_HomeScreenImageViewer> {
                 transformationController: _transformationController,
                 minScale: 0.5,
                 maxScale: 5.0,
+                clipBehavior: Clip.hardEdge,
                 child: widget.isAsset
                     ? Image.asset(
                         widget.imageUrl,
