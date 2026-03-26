@@ -229,6 +229,61 @@ class AttendanceService {
     );
   }
 
+  /// 講義期間ウィンドウ内の出欠を集計（ホームの科目別サマリー用）
+  static Future<AttendanceClassSummary> getClassAttendanceSummaryForRange({
+    required String userId,
+    required String scheduleId,
+    required String classId,
+    required String weekdayKey,
+    required int startPeriod,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    final start = DateTime(startDate.year, startDate.month, startDate.day);
+    final end = DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
+
+    final snapshot =
+        await _firestore
+            .collection(_collection)
+            .where('userId', isEqualTo: userId)
+            .where('scheduleId', isEqualTo: scheduleId)
+            .where(
+              'attendanceDate',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(start),
+            )
+            .where(
+              'attendanceDate',
+              isLessThanOrEqualTo: Timestamp.fromDate(end),
+            )
+            .get();
+
+    int present = 0;
+    int late = 0;
+    int absent = 0;
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+      if (data['classId'] != classId) continue;
+      if (data['weekdayKey'] != weekdayKey) continue;
+      final period = data['startPeriod'];
+      final periodInt = period is int ? period : (period as num?)?.toInt();
+      if (periodInt != startPeriod) continue;
+
+      final status = data['status'] as String? ?? '';
+      if (status == 'present') {
+        present++;
+      } else if (status == 'late') {
+        late++;
+      } else if (status == 'absent') {
+        absent++;
+      }
+    }
+    return AttendanceClassSummary(
+      presentCount: present,
+      lateCount: late,
+      absentCount: absent,
+    );
+  }
+
   static String? _weekdayKeyFromDate(DateTime date) {
     switch (date.weekday) {
       case DateTime.monday:
