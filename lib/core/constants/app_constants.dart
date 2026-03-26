@@ -21,4 +21,9 @@ class AppConstants {
   
   // ドメイン表示用のテキスト
   static String get allowedDomainsText => allowedDomains.join(' または ');
+
+  /// iOS: GoogleService-Info.plist 未配置など Firebase 未初期化時（チーム開発・README 参照）
+  static const String firebaseNotConfiguredMessage =
+      'Firebase が未設定です。Firebase Console から GoogleService-Info.plist を取得し、'
+      'ios/Runner に配置して Xcode の Runner ターゲットに追加してください（README の Firebase 設定）。';
 }

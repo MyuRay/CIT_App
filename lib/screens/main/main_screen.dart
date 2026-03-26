@@ -13,6 +13,7 @@ import '../bulletin/bulletin_post_detail_screen.dart';
 import '../bulletin/bulletin_screen.dart';
 import '../../widgets/common/animated_image_placeholder.dart';
 import '../profile/simple_profile_screen.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/bulletin_provider.dart';
 import '../../core/providers/settings_provider.dart';
@@ -1194,6 +1195,20 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     try {
       final authService = ref.read(authServiceProvider);
+      if (authService == null) {
+        return Scaffold(
+          appBar: AppBar(title: const Text('マイページ')),
+          body: const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Text(
+                AppConstants.firebaseNotConfiguredMessage,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        );
+      }
       final user = authService.currentUser;
       final isAdmin = ref.watch(isAdminProvider);
       final canViewContacts = ref.watch(canViewContactsProvider);

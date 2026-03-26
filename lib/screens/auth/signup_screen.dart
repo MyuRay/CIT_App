@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/constants/app_constants.dart';
@@ -42,10 +43,27 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       return;
     }
 
+    if (Firebase.apps.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppConstants.firebaseNotConfiguredMessage)),
+        );
+      }
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
       final authService = ref.read(authServiceProvider);
+      if (authService == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text(AppConstants.firebaseNotConfiguredMessage)),
+          );
+        }
+        return;
+      }
       await authService.signUpWithEmailAndPassword(
         displayName: _displayNameController.text.trim(),
         email: _emailController.text.trim(),

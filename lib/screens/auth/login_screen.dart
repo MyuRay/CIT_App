@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/providers/auth_provider.dart';
@@ -48,6 +49,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (Firebase.apps.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppConstants.firebaseNotConfiguredMessage)),
+        );
+      }
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -67,6 +77,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       } catch (_) {}
 
       final authService = ref.read(authServiceProvider);
+      if (authService == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text(AppConstants.firebaseNotConfiguredMessage)),
+          );
+        }
+        return;
+      }
       await authService.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -152,7 +170,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             errorText = null;
                           });
                           try {
-                            await ref.read(authServiceProvider).sendPasswordResetEmail(
+                            final svc = ref.read(authServiceProvider);
+                            if (svc == null) {
+                              setDialogState(() {
+                                sending = false;
+                                errorText = AppConstants.firebaseNotConfiguredMessage;
+                              });
+                              return;
+                            }
+                            await svc.sendPasswordResetEmail(
                                   email: emailController.text,
                                 );
                             if (!dialogContext.mounted) return;

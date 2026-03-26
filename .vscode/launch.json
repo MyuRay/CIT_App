@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "CIT_App (iOS sim / no DDS)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "deviceId": "ios",
+      "args": ["--no-dds"]
+    }
+  ]
+}

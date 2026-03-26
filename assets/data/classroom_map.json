@@ -1,0 +1,200 @@
+{
+  "campuses": [
+    {
+      "id": "tsudanuma",
+      "displayName": "津田沼キャンパス",
+      "centerLat": 35.689185,
+      "centerLng": 140.021947,
+      "buildings": [
+        {
+          "buildingId": "1",
+          "buildingName": "1号館",
+          "latitude": 35.6894,
+          "longitude": 140.0218,
+          "facilities": ["教学センター", "バスケットコート", "アスレチックジム", "クライミング"]
+        },
+        {
+          "buildingId": "2",
+          "buildingName": "2号館",
+          "latitude": 35.6892,
+          "longitude": 140.0222,
+          "facilities": ["実験室", "大教室", "研究室"]
+        },
+        {
+          "buildingId": "3",
+          "buildingName": "3号館",
+          "latitude": 35.6889,
+          "longitude": 140.0219,
+          "facilities": ["学生食堂", "購買", "ラウンジ"]
+        },
+        {
+          "buildingId": "4",
+          "buildingName": "4号館",
+          "latitude": 35.6890,
+          "longitude": 140.0215,
+          "facilities": ["工作センター", "材料解析室", "部室"]
+        },
+        {
+          "buildingId": "5",
+          "buildingName": "5号館",
+          "latitude": 35.6887,
+          "longitude": 140.0217,
+          "facilities": ["図書館", "同窓会事務局"]
+        },
+        {
+          "buildingId": "6",
+          "buildingName": "6号館",
+          "latitude": 35.6888,
+          "longitude": 140.0220,
+          "facilities": ["講義棟"]
+        },
+        {
+          "buildingId": "7",
+          "buildingName": "7号館",
+          "latitude": 35.6891,
+          "longitude": 140.0224,
+          "facilities": ["コンピュータ演習室"]
+        },
+        {
+          "buildingId": "8",
+          "buildingName": "8号館",
+          "latitude": 35.6893,
+          "longitude": 140.0226,
+          "facilities": ["fuRo", "PERC", "ハイテクリサーチセンター"]
+        }
+      ]
+    },
+    {
+      "id": "narashino",
+      "displayName": "新習志野キャンパス",
+      "centerLat": 35.661827,
+      "centerLng": 140.015141,
+      "buildings": [
+        {
+          "buildingId": "1",
+          "buildingName": "1号館",
+          "latitude": 35.6620,
+          "longitude": 140.0150,
+          "facilities": []
+        },
+        {
+          "buildingId": "2",
+          "buildingName": "2号館",
+          "latitude": 35.6618,
+          "longitude": 140.0152,
+          "facilities": []
+        },
+        {
+          "buildingId": "3",
+          "buildingName": "3号館",
+          "latitude": 35.6616,
+          "longitude": 140.0151,
+          "facilities": []
+        },
+        {
+          "buildingId": "5",
+          "buildingName": "5号館",
+          "latitude": 35.6615,
+          "longitude": 140.0149,
+          "facilities": []
+        },
+        {
+          "buildingId": "6",
+          "buildingName": "6号館",
+          "latitude": 35.6617,
+          "longitude": 140.0153,
+          "facilities": ["図書館", "学習支援センター"]
+        },
+        {
+          "buildingId": "7",
+          "buildingName": "7号館",
+          "latitude": 35.6619,
+          "longitude": 140.0154,
+          "facilities": []
+        },
+        {
+          "buildingId": "8",
+          "buildingName": "8号館",
+          "latitude": 35.6621,
+          "longitude": 140.0155,
+          "facilities": []
+        },
+        {
+          "buildingId": "9",
+          "buildingName": "9号館",
+          "latitude": 35.6622,
+          "longitude": 140.0152,
+          "facilities": ["fuRoロボット開発施設"]
+        },
+        {
+          "buildingId": "10",
+          "buildingName": "10号館",
+          "latitude": 35.6614,
+          "longitude": 140.0150,
+          "facilities": []
+        },
+        {
+          "buildingId": "11",
+          "buildingName": "11号館",
+          "latitude": 35.6613,
+          "longitude": 140.0152,
+          "facilities": []
+        },
+        {
+          "buildingId": "12",
+          "buildingName": "12号館",
+          "latitude": 35.6616,
+          "longitude": 140.0155,
+          "facilities": ["教学センター", "工作室", "アスレチックジム"]
+        },
+        {
+          "buildingId": "cafeteria",
+          "buildingName": "食堂棟",
+          "latitude": 35.6618,
+          "longitude": 140.0148,
+          "facilities": ["学生食堂"]
+        },
+        {
+          "buildingId": "gym",
+          "buildingName": "体育館",
+          "latitude": 35.6612,
+          "longitude": 140.0149,
+          "facilities": ["体育館", "トレーニングルーム"]
+        }
+      ]
+    }
+  ],
+  "buildingRooms": [
+    {
+      "campusId": "tsudanuma",
+      "buildingId": "6",
+      "buildingName": "6号館",
+      "floors": [
+        {
+          "floor": 1,
+          "floorName": "1階",
+          "rooms": [
+            {"id": "6-101", "name": "101講義室", "type": "講義室"},
+            {"id": "6-102", "name": "102講義室", "type": "講義室"}
+          ]
+        },
+        {
+          "floor": 2,
+          "floorName": "2階",
+          "rooms": [
+            {"id": "6-201", "name": "201講義室", "type": "講義室"},
+            {"id": "6-202", "name": "202講義室", "type": "講義室"}
+          ]
+        },
+        {
+          "floor": 3,
+          "floorName": "3階",
+          "rooms": [
+            {"id": "6-301", "name": "301講義室", "type": "講義室"},
+            {"id": "6-302", "name": "302講義室", "type": "講義室"}
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -57,6 +57,7 @@ final todayScheduleByIdProvider =
   return await ScheduleService.getTodayScheduleByScheduleId(scheduleId);
 });
 
+// 講義期間設定（春学期・秋学期）
 final lecturePeriodSettingsProvider = StreamProvider<LecturePeriodSettings?>((
   ref,
 ) {
@@ -491,11 +492,6 @@ final currentUserWeeklyScheduleProvider = Provider<AsyncValue<Map<String, List<S
     return const AsyncValue.loading();
   }
   return ref.watch(weeklyScheduleProvider(userId));
-});
-
-// 講義期間設定（春学期・秋学期）
-final lecturePeriodSettingsProvider = StreamProvider<LecturePeriodSettings?>((ref) {
-  return LecturePeriodService.watchLecturePeriod();
 });
 
 // 科目リクエストクラス

@@ -52,50 +52,54 @@ void main() async {
     return false;
   };
 
+  // ErrorWidget は Directionality の外で構築されるため、明示が必要
   ErrorWidget.builder = (details) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final double maxWidth =
-            constraints.hasBoundedWidth
-                ? constraints.maxWidth.clamp(0.0, 480.0)
-                : 480.0;
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final double maxWidth =
+              constraints.hasBoundedWidth
+                  ? constraints.maxWidth.clamp(0.0, 480.0)
+                  : 480.0;
 
-        return Material(
-          color: Colors.red.shade50,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxWidth),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'エラーが発生しました',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+          return Material(
+            color: Colors.red.shade50,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'エラーが発生しました',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        details.exceptionAsString(),
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.black87,
+                        const SizedBox(height: 12),
+                        Text(
+                          details.exceptionAsString(),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.black87,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   };
 

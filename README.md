@@ -68,8 +68,9 @@ flutter pub get
 3. **Firebase設定**
    - Firebase Console でプロジェクトを作成
    - Android: `android/app/google-services.json` を配置
-   - iOS: `ios/Runner/GoogleService-Info.plist` を配置
+   - iOS: `ios/Runner/GoogleService-Info.plist` を配置（`.gitignore` のため各自がダウンロード。キー一覧の参考は `ios/Runner/GoogleService-Info.plist.example`）
    - Web: `web/firebase-config.js` の設定値を更新
+   - **補足**: plist が無い場合でもアプリは起動します（認証・Firestore 等は Firebase 設定後に利用可能）。以前の `FirebaseApp.configure()` 直後クラッシュは避けています。
 
 4. **コード生成**
 ```bash
@@ -80,6 +81,7 @@ flutter packages pub run build_runner build
 ```bash
 flutter run
 ```
+   - **iOS シミュレータ**で VM Service が `Connection reset by peer` になる場合: `flutter run -d ios --no-dds` または `./scripts/flutter_run_ios.sh`（DDS 無効化。Cursor/VS Code は `.vscode/launch.json` の「CIT_App (iOS sim / no DDS)」でも可）
 
 ## 📁 プロジェクト構造
 

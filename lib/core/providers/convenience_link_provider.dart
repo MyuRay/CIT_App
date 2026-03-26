@@ -98,6 +98,9 @@ final convenienceLinkProvider = StateNotifierProvider.family<ConvenienceLinkNoti
 // 現在のユーザーの便利リンクプロバイダー
 final currentUserConvenienceLinksProvider = Provider<AsyncValue<List<ConvenienceLink>>>((ref) {
   final authService = ref.watch(authServiceProvider);
+  if (authService == null) {
+    return const AsyncValue.data(<ConvenienceLink>[]);
+  }
   final currentUser = authService.currentUser;
   
   if (currentUser == null || currentUser.uid.isEmpty) {

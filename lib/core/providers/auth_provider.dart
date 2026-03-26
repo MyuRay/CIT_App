@@ -1,36 +1,38 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
 import '../../services/user/user_service.dart';
 import '../../services/notification/notification_service.dart';
-import '../../models/user/user_model.dart';
-import 'settings_provider.dart';
 
-final firebaseAuthProvider = Provider<FirebaseAuth>((ref) {
-  return FirebaseAuth.instance;
+/// plist 未配置などで Firebase 未初期化のときは null（[core/no-app] を防ぐ）
+final firebaseAuthProvider = Provider<FirebaseAuth?>((ref) {
+  if (Firebase.apps.isEmpty) return null;
+  try {
+    Firebase.app();
+    return FirebaseAuth.instance;
+  } catch (_) {
+    return null;
+  }
 });
 
 final authStateProvider = StreamProvider<User?>((ref) {
-  try {
-    final auth = ref.watch(firebaseAuthProvider);
-    print('🔐 AuthStateProvider: 認証状態変更リスナーを設定');
-    
-    return auth.authStateChanges().map((user) {
-      if (user != null) {
-        print('✅ AuthStateProvider: ユーザーログイン検出 - UID: ${user.uid}');
-        print('✅ AuthStateProvider: メール: ${user.email}');
-        print('✅ AuthStateProvider: メール認証済み: ${user.emailVerified}');
-      } else {
-        print('❌ AuthStateProvider: ユーザーログアウト検出');
-      }
-      return user;
-    });
-  } catch (e) {
-    print('❌ AuthStateProvider: エラー - $e');
-    // Firebase未初期化の場合はnullユーザーのStreamを返す
+  final auth = ref.watch(firebaseAuthProvider);
+  if (auth == null) {
     return Stream.value(null);
   }
+  print('🔐 AuthStateProvider: 認証状態変更リスナーを設定');
+
+  return auth.authStateChanges().map((user) {
+    if (user != null) {
+      print('✅ AuthStateProvider: ユーザーログイン検出 - UID: ${user.uid}');
+      print('✅ AuthStateProvider: メール: ${user.email}');
+      print('✅ AuthStateProvider: メール認証済み: ${user.emailVerified}');
+    } else {
+      print('❌ AuthStateProvider: ユーザーログアウト検出');
+    }
+    return user;
+  });
 });
 
 final isLoggedInProvider = Provider<bool?>((ref) {
@@ -52,13 +54,16 @@ final isEmailVerifiedProvider = Provider<bool?>((ref) {
   );
 });
 
-final authServiceProvider = Provider<AuthService>((ref) {
-  return AuthService(ref.watch(firebaseAuthProvider));
+final authServiceProvider = Provider<AuthService?>((ref) {
+  final auth = ref.watch(firebaseAuthProvider);
+  if (auth == null) return null;
+  return AuthService(auth);
 });
 
 // 現在のユーザー表示名プロバイダー
 final currentUserDisplayNameProvider = Provider<String>((ref) {
   final authService = ref.watch(authServiceProvider);
+  if (authService == null) return '';
   return authService.getCurrentUserDisplayName();
 });
 

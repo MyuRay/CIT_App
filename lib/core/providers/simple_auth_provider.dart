@@ -1,12 +1,14 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../models/user/user_model.dart';
 import '../../services/user/user_service.dart';
 
 /// シンプルな認証プロバイダー
 /// Firebase Authの状態のみを信頼し、複雑なロジックを排除
 final simpleAuthStateProvider = StreamProvider<User?>((ref) {
+  if (Firebase.apps.isEmpty) {
+    return Stream<User?>.value(null);
+  }
   return FirebaseAuth.instance.authStateChanges().asyncMap((user) async {
     // ユーザー情報を最新の状態に更新（メール認証状態を含む）
     if (user != null) {

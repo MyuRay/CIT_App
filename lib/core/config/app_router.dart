@@ -1,10 +1,6 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:home_widget/home_widget.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import '../providers/auth_provider.dart';
 import '../providers/simple_auth_provider.dart';
 import '../services/analytics_service.dart';
 import '../../screens/auth/login_screen.dart';
@@ -14,6 +10,7 @@ import '../../screens/main/main_screen.dart';
 import '../../screens/legal/terms_of_service_screen.dart';
 import '../../screens/legal/privacy_policy_screen.dart';
 import '../../screens/user_block/blocked_user_list_screen.dart';
+import '../../screens/classroom_map/classroom_map_screen.dart';
 
 /// ウィジェットから起動時の初期ルート（override用）
 final initialRouteFromWidgetProvider = Provider<String>((ref) => '/home');
@@ -23,7 +20,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final isLoggedIn = ref.watch(isLoggedInSimpleProvider);
   final isEmailVerified = ref.watch(isEmailVerifiedSyncProvider);
   final currentUser = ref.watch(currentUserSimpleProvider);
-  final analyticsObserver = ref.watch(firebaseAnalyticsObserverProvider);
+  final navigationObservers = ref.watch(firebaseNavigationObserversProvider);
   final initialRoute = ref.watch(initialRouteFromWidgetProvider);
 
   return GoRouter(
@@ -111,8 +108,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'blocked-users',
         builder: (context, state) => const BlockedUserListScreen(),
       ),
+      GoRoute(
+        path: '/classroom-map',
+        name: 'classroom-map',
+        builder: (context, state) {
+          final campus = state.uri.queryParameters['campus'];
+          return ClassroomMapScreen(initialCampusId: campus);
+        },
+      ),
     ],
-    observers: [analyticsObserver],
+    observers: navigationObservers,
     errorBuilder:
         (context, state) => Scaffold(
           appBar: AppBar(title: const Text('エラー')),

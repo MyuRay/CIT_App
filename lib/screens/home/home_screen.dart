@@ -7,6 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/providers/cafeteria_provider.dart';
 import '../../core/providers/cafeteria_review_provider.dart';
@@ -32,6 +33,7 @@ import '../bus/bus_information_screen.dart';
 import '../cafeteria/cafeteria_reviews_screen.dart';
 import '../cafeteria/cafeteria_camera_info_screen.dart';
 import '../schedule/attendance_qr_reader_screen.dart';
+import '../circle/circle_main_screen.dart';
 import '../../widgets/campus_map_widget.dart';
 import '../../widgets/performance/optimized_notification_badge.dart';
 import '../../widgets/common/pulsing_dot_badge.dart';
@@ -79,6 +81,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'weather',
     'timetable',
     'cafeteria',
+    'circle',
     'bus',
     'campus_map',
     'academic_calendar',
@@ -799,6 +802,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return _buildTimetableCard(context, ref);
       case 'cafeteria':
         return _buildCafeteriaCard(context, ref, todayReviewExistsAsync);
+      case 'circle':
+        return _buildCircleCard(context);
       case 'bus':
         return _buildBusInfoCard(context, ref);
       case 'campus_map':
@@ -1030,6 +1035,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const Spacer(),
+                TextButton.icon(
+                  onPressed: () => context.push('/classroom-map'),
+                  icon: Icon(
+                    Icons.class_,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  label: Text(
+                    '教室マップ',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 28),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                  ),
+                ),
                 TextButton.icon(
                   onPressed: () => _openCampusWebsite(context),
                   icon: Icon(
@@ -1679,6 +1706,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return '時間割';
       case 'cafeteria':
         return '学食情報';
+      case 'circle':
+        return 'サークル・部活';
       case 'bus':
         return '学バス情報';
       case 'campus_map':
@@ -1708,6 +1737,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         result.insert(convenienceIndex, 'academic_calendar');
       } else {
         result.add('academic_calendar');
+      }
+    }
+    if (!result.contains('circle')) {
+      final cafeteriaIndex = result.indexOf('cafeteria');
+      if (cafeteriaIndex >= 0) {
+        result.insert(cafeteriaIndex + 1, 'circle');
+      } else {
+        result.add('circle');
       }
     }
     for (final id in _defaultHomeCardOrder) {
@@ -3735,6 +3772,117 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
+  // サークル・部活カード（新歓期間限定）
+  Widget _buildCircleCard(BuildContext context) {
+    return Card(
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const CircleMainScreen(initialTabIndex: 0),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.groups,
+                    size: 24,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'サークル・部活',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade100,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '新歓期間',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.amber.shade900,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'ぴったりの活動を見つけよう・体験会をチェック',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const CircleMainScreen(
+                              initialTabIndex: 0,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.psychology, size: 16),
+                      label: const Text('診断する'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        textStyle: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const CircleMainScreen(
+                              initialTabIndex: 1,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.event, size: 16),
+                      label: const Text('体験会'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor:
+                            Theme.of(context).colorScheme.secondary,
+                        foregroundColor:
+                            Theme.of(context).colorScheme.onSecondary,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        textStyle: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // 学バス情報カードを構築
   Widget _buildBusInfoCard(BuildContext context, WidgetRef ref) {
     final busInfo = ref.watch(busInformationProvider);
@@ -5151,6 +5299,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // 新しいリンクを追加
   Future<void> _addNewLink(BuildContext context, WidgetRef ref) async {
     final authService = ref.read(authServiceProvider);
+    if (authService == null) return;
     final currentUser = authService.currentUser;
 
     if (currentUser?.uid.isEmpty != false) return;
@@ -5175,6 +5324,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ConvenienceLink link,
   ) async {
     final authService = ref.read(authServiceProvider);
+    if (authService == null) return;
     final currentUser = authService.currentUser;
 
     if (currentUser?.uid.isEmpty != false) return;
@@ -5213,6 +5363,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     String linkId,
   ) async {
     final authService = ref.read(authServiceProvider);
+    if (authService == null) return;
     final currentUser = authService.currentUser;
 
     if (currentUser?.uid.isEmpty != false) return;
@@ -5268,6 +5419,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (confirmed != true) return;
 
     final authService = ref.read(authServiceProvider);
+    if (authService == null) return;
     final currentUser = authService.currentUser;
 
     if (currentUser?.uid.isEmpty != false) return;
