@@ -92,8 +92,8 @@ dependencies:
   flutter_local_notifications: ^18.0.1
   timezone: ^0.9.4
 
-  # QR reader
-  mobile_scanner: ^5.2.3
+  # QR reader（7.x は iOS で Vision API のみ。Firebase 11 + App Check と CocoaPods 競合しにくい）
+  mobile_scanner: ^7.2.0
   
   # In-app review
   in_app_review: ^2.0.9
