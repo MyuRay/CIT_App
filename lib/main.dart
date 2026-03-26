@@ -428,6 +428,7 @@ class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
         }
       });
     }
+
   }
 
   @override
