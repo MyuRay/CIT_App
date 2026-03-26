@@ -1784,6 +1784,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return Color(int.tryParse(normalized, radix: 16) ?? 0xFFE53935);
   }
 
+  static Color _safeClassColor(String colorHex) {
+    try {
+      return Color(int.parse('0xff${colorHex.substring(1)}'));
+    } catch (_) {
+      return const Color(0xFF1976D2);
+    }
+  }
+
+  // 時限ラベルは背景色の明度差を確保して可読性を上げる
+  static Color _buildReadableBadgeColor(Color base) {
+    final hsl = HSLColor.fromColor(base);
+    final adjusted = hsl
+        // 色味は保ちつつ、背景は淡めに寄せる
+        .withSaturation(hsl.saturation.clamp(0.45, 0.85))
+        .withLightness(hsl.lightness.clamp(0.78, 0.90));
+    return adjusted.toColor();
+  }
+
+  static Color _highContrastTextColor(Color bg) {
+    final whiteContrast = _contrastRatio(bg, Colors.white);
+    final blackContrast = _contrastRatio(bg, Colors.black);
+    return whiteContrast >= blackContrast ? Colors.white : Colors.black;
+  }
+
+  static double _contrastRatio(Color a, Color b) {
+    final l1 = a.computeLuminance();
+    final l2 = b.computeLuminance();
+    final lighter = l1 > l2 ? l1 : l2;
+    final darker = l1 > l2 ? l2 : l1;
+    return (lighter + 0.05) / (darker + 0.05);
+  }
+
   Future<void> _showHomeCardLayoutEditor(BuildContext context) async {
     final tempOrder = List<String>.from(_homeCardOrder);
     final tempHidden = Set<String>.from(_hiddenHomeCards);
@@ -2975,6 +3007,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           now: now,
                           timeSlot: timeSlot,
                         );
+                    final classColor = _safeClassColor(scheduleClass.color);
+                    final periodBadgeColor = _buildReadableBadgeColor(classColor);
+                    final periodBadgeTextColor = _highContrastTextColor(
+                      periodBadgeColor,
+                    );
 
                     return GestureDetector(
                       onTap:
@@ -3032,18 +3069,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               width: scheduleClass.duration > 1 ? 65 : 50,
                               padding: const EdgeInsets.symmetric(vertical: 6),
                               decoration: BoxDecoration(
-                                color: Color(
-                                  int.parse(
-                                    '0xff${scheduleClass.color.substring(1)}',
-                                  ),
-                                ).withOpacity(0.1),
+                                color: periodBadgeColor,
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                  color: Color(
-                                    int.parse(
-                                      '0xff${scheduleClass.color.substring(1)}',
-                                    ),
-                                  ).withOpacity(0.3),
+                                  color: periodBadgeColor.withOpacity(0.95),
                                 ),
                               ),
                               child: Column(
@@ -3055,11 +3084,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     style: Theme.of(
                                       context,
                                     ).textTheme.titleSmall?.copyWith(
-                                      color: Color(
-                                        int.parse(
-                                          '0xff${scheduleClass.color.substring(1)}',
-                                        ),
-                                      ),
+                                      color: periodBadgeTextColor,
                                       fontWeight: FontWeight.bold,
                                       fontSize:
                                           scheduleClass.duration > 1 ? 10 : 12,
@@ -3072,11 +3097,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     style: Theme.of(
                                       context,
                                     ).textTheme.bodySmall?.copyWith(
-                                      color: Color(
-                                        int.parse(
-                                          '0xff${scheduleClass.color.substring(1)}',
-                                        ),
-                                      ),
+                                      color: periodBadgeTextColor,
                                       fontSize:
                                           scheduleClass.duration > 1 ? 8 : 11,
                                     ),

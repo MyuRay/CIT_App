@@ -23,7 +23,9 @@
             android:textSize="12sp"
             android:textStyle="bold"
             android:textColor="#000000"
-            android:minWidth="32dp" />
+            android:minWidth="38dp"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp" />
 
         <!-- 色のドット（RemoteViewsではViewが使えないためFrameLayoutで代用） -->
         <FrameLayout

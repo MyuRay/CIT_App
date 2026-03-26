@@ -1674,7 +1674,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                             ),
                             const Expanded(
                               child: Text(
-                                '抽出精度向上のため、個人情報（Excelファイルのsheet1/sheet2のI4・AG4を匿名化したデータ）を提供する',
+                                '抽出精度向上のため、個人情報（Excelファイルのsheet1/sheet2のI4・AG4）を匿名化したデータを提供する',
                                 style: TextStyle(fontSize: 12),
                               ),
                             ),

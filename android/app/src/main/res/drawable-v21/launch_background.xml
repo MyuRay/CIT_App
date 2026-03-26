@@ -28,10 +28,10 @@
         </shape>
     </item>
 
-    <!-- App icon -->
     <item>
         <bitmap
             android:gravity="center"
-            android:src="@mipmap/ic_launcher" />
+            android:src="@drawable/launch_wordmark" />
     </item>
+
 </layer-list>

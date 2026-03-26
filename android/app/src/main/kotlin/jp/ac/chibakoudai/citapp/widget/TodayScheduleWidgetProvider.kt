@@ -17,6 +17,8 @@ import org.json.JSONArray
 import android.graphics.Color
 import android.content.SharedPreferences
 import android.os.Bundle
+import kotlin.math.max
+import kotlin.math.min
 
 class TodayScheduleWidgetProvider : HomeWidgetProvider() {
     companion object {
@@ -215,11 +217,13 @@ class TodayScheduleWidgetProvider : HomeWidgetProvider() {
             row.setViewVisibility(R.id.text_time, android.view.View.GONE)
         }
 
-        try {
-            row.setInt(R.id.color_dot, "setBackgroundColor", Color.parseColor(colorHex))
-        } catch (_: Exception) {
-            row.setInt(R.id.color_dot, "setBackgroundColor", Color.parseColor("#2196F3"))
-        }
+        val accentColor = parseColorOrDefault(colorHex, Color.parseColor("#2196F3"))
+        val periodBadgeColor = enhanceBadgeColor(accentColor)
+        val periodTextColor = pickHighContrastTextColor(periodBadgeColor)
+
+        row.setInt(R.id.color_dot, "setBackgroundColor", periodBadgeColor)
+        row.setInt(R.id.text_period, "setBackgroundColor", periodBadgeColor)
+        row.setTextColor(R.id.text_period, periodTextColor)
 
         if (currentPeriod > 0 && period == currentPeriod) {
             try {
@@ -237,6 +241,48 @@ class TodayScheduleWidgetProvider : HomeWidgetProvider() {
         )
         row.setOnClickPendingIntent(R.id.item_root, pending)
         return row
+    }
+
+    private fun parseColorOrDefault(colorHex: String, fallback: Int): Int {
+        return try {
+            Color.parseColor(colorHex)
+        } catch (_: Exception) {
+            fallback
+        }
+    }
+
+    // 彩度/明度を補正して、淡い色でも時限バッジとして識別しやすくする
+    private fun enhanceBadgeColor(color: Int): Int {
+        val hsv = FloatArray(3)
+        Color.colorToHSV(color, hsv)
+        hsv[1] = max(0.65f, hsv[1])
+        hsv[2] = min(0.80f, max(0.35f, hsv[2]))
+        return Color.HSVToColor(hsv)
+    }
+
+    private fun pickHighContrastTextColor(bgColor: Int): Int {
+        val whiteContrast = contrastRatio(bgColor, Color.WHITE)
+        val blackContrast = contrastRatio(bgColor, Color.BLACK)
+        return if (whiteContrast >= blackContrast) Color.WHITE else Color.BLACK
+    }
+
+    private fun contrastRatio(c1: Int, c2: Int): Double {
+        val l1 = relativeLuminance(c1)
+        val l2 = relativeLuminance(c2)
+        val lighter = max(l1, l2)
+        val darker = min(l1, l2)
+        return (lighter + 0.05) / (darker + 0.05)
+    }
+
+    private fun relativeLuminance(color: Int): Double {
+        fun linear(channel: Int): Double {
+            val v = channel / 255.0
+            return if (v <= 0.03928) v / 12.92 else Math.pow((v + 0.055) / 1.055, 2.4)
+        }
+        val r = linear(Color.red(color))
+        val g = linear(Color.green(color))
+        val b = linear(Color.blue(color))
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
     }
 
     private fun createEmptyRow(context: Context, period: Int): RemoteViews {
