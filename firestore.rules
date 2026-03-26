@@ -154,6 +154,20 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // サークル・部活一覧（Cloud Functions同期データ）
+    match /club_organizations/{clubId} {
+      // アプリ表示用: 認証済みCITユーザーは読み取り可能
+      allow read: if isCITUser();
+      // 同期はCloud Functions(Admin SDK)で実施するためクライアント書き込みは禁止
+      allow write: if false;
+    }
+
+    // サークル同期メタ情報
+    match /app_metadata/{docId} {
+      allow read: if isCITUser();
+      allow write: if false;
+    }
+
     // FCMトークンのルール
     match /user_tokens/{userId} {
       allow read, write: if isCITUser()
