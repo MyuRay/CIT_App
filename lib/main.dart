@@ -487,6 +487,7 @@ class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
+    final appFontSize = ref.watch(appFontSizeProvider);
 
     return MaterialApp.router(
       title: AppConstants.appName,
@@ -495,6 +496,15 @@ class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
       themeMode: themeMode,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            textScaler: TextScaler.linear(appFontSize.textScale),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 }

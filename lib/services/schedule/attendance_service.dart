@@ -294,65 +294,6 @@ class AttendanceService {
     );
   }
 
-  /// 学期などの期間内で、指定コマ（曜日・開始時限）の出欠集計を返す。
-  static Future<AttendanceClassSummary> getClassAttendanceSummaryForRange({
-    required String userId,
-    required String scheduleId,
-    required String classId,
-    required String weekdayKey,
-    required int startPeriod,
-    required DateTime startDate,
-    required DateTime endDate,
-  }) async {
-    final start = DateTime(startDate.year, startDate.month, startDate.day);
-    final end = DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
-
-    final snapshot =
-        await _firestore
-            .collection(_collection)
-            .where('userId', isEqualTo: userId)
-            .where('scheduleId', isEqualTo: scheduleId)
-            .where('classId', isEqualTo: classId)
-            .where(
-              'attendanceDate',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(start),
-            )
-            .where(
-              'attendanceDate',
-              isLessThanOrEqualTo: Timestamp.fromDate(end),
-            )
-            .get();
-
-    int present = 0;
-    int late = 0;
-    int absent = 0;
-    for (final doc in snapshot.docs) {
-      final data = doc.data();
-      final wk = data['weekdayKey'] as String? ?? '';
-      if (wk != weekdayKey) continue;
-      final periodRaw = data['startPeriod'];
-      final period =
-          periodRaw is int
-              ? periodRaw
-              : int.tryParse(periodRaw?.toString() ?? '') ?? -1;
-      if (period != startPeriod) continue;
-
-      final status = data['status'] as String? ?? '';
-      if (status == 'present') {
-        present++;
-      } else if (status == 'late') {
-        late++;
-      } else if (status == 'absent') {
-        absent++;
-      }
-    }
-    return AttendanceClassSummary(
-      presentCount: present,
-      lateCount: late,
-      absentCount: absent,
-    );
-  }
-
   static String? _weekdayKeyFromDate(DateTime date) {
     switch (date.weekday) {
       case DateTime.monday:
