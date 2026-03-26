@@ -128,7 +128,7 @@ class AppTheme {
       ),
       // カードのテーマ
       cardTheme: CardThemeData(
-        color: Colors.grey[800],
+        color: Colors.grey.shade800,
         elevation: 2,
       ),
       // Scaffoldのテーマ

@@ -9,6 +9,7 @@ import 'cafeteria_review_form_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/providers/cafeteria_favorite_provider.dart';
 import '../../services/cafeteria/cafeteria_favorite_service.dart';
+import '../../widgets/common/interactive_viewer_double_tap_zoom.dart';
 
 class CafeteriaMenuReviewsScreen extends ConsumerStatefulWidget {
   const CafeteriaMenuReviewsScreen({
@@ -801,24 +802,11 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
   }
 
   void _handleDoubleTap(TapDownDetails details) {
-    final scale = _transformationController.value.getMaxScaleOnAxis();
-    final isCurrentlyZoomed = scale > 1.1;
-
-    if (isCurrentlyZoomed) {
-      // 拡大中の場合、元のサイズに戻す
-      _transformationController.value = Matrix4.identity();
-    } else {
-      // 縮小時の場合、タップした位置を中心に拡大（X風の挙動）
-      final tapPosition = details.localPosition;
-      final translationCorrection = _zoomedScale - 1;
-
-      _transformationController.value = Matrix4.identity()
-        ..translate(
-          -tapPosition.dx * translationCorrection,
-          -tapPosition.dy * translationCorrection,
-        )
-        ..scale(_zoomedScale);
-    }
+    interactiveViewerToggleZoomAtFocalPoint(
+      _transformationController,
+      details,
+      zoomScale: _zoomedScale,
+    );
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
@@ -862,7 +850,7 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
         onTap: canDismiss ? () => Navigator.of(context).pop() : null,
         onVerticalDragUpdate: canDismiss ? _handleDragUpdate : null,
         onVerticalDragEnd: canDismiss ? _handleDragEnd : null,
-        child: Center(
+        child: SizedBox.expand(
           child: Transform.translate(
             offset: Offset(0, _dragOffset),
             child: Hero(
@@ -874,9 +862,10 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
                   transformationController: _transformationController,
                   minScale: 0.8,
                   maxScale: 3.0,
-                  panEnabled: true, // パン（ドラッグ）を有効化
-                  scaleEnabled: true, // スケール（ピンチ）を有効化
-                  boundaryMargin: const EdgeInsets.all(double.infinity), // 境界マージンを設定
+                  panEnabled: true,
+                  scaleEnabled: true,
+                  clipBehavior: Clip.hardEdge,
+                  boundaryMargin: const EdgeInsets.all(double.infinity),
                   child: _buildMenuImage(
                     imageUrl: widget.imageUrl,
                     placeholder: widget.placeholder,

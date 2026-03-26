@@ -2,6 +2,7 @@ import 'package:characters/characters.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../widgets/common/interactive_viewer_double_tap_zoom.dart';
 import '../../widgets/common/animated_image_placeholder.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/providers/cafeteria_review_provider.dart';
@@ -810,6 +811,7 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
   bool _isDismissing = false;
   late final TransformationController _transformationController;
   double _currentScale = 1.0; // 現在のスケールを追跡
+  static const double _zoomedScale = 2.5;
 
   @override
   void initState() {
@@ -837,6 +839,14 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
         }
       });
     }
+  }
+
+  void _handleDoubleTap(TapDownDetails details) {
+    interactiveViewerToggleZoomAtFocalPoint(
+      _transformationController,
+      details,
+      zoomScale: _zoomedScale,
+    );
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
@@ -880,22 +890,27 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
         onTap: canDismiss ? () => Navigator.of(context).pop() : null,
         onVerticalDragUpdate: canDismiss ? _handleDragUpdate : null,
         onVerticalDragEnd: canDismiss ? _handleDragEnd : null,
-        child: Center(
+        child: SizedBox.expand(
           child: Transform.translate(
             offset: Offset(0, _dragOffset),
             child: Hero(
               tag: widget.imageUrl ?? widget.placeholder,
-              child: InteractiveViewer(
-                transformationController: _transformationController,
-                minScale: 0.8,
-                maxScale: 3.0,
-                panEnabled: true, // パン（ドラッグ）を有効化
-                scaleEnabled: true, // スケール（ピンチ）を有効化
-                boundaryMargin: const EdgeInsets.all(double.infinity), // 境界マージンを設定
-                child: _buildMenuImage(
-                  imageUrl: widget.imageUrl,
-                  placeholder: widget.placeholder,
-                  fontSize: 48,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onDoubleTapDown: _handleDoubleTap,
+                child: InteractiveViewer(
+                  transformationController: _transformationController,
+                  minScale: 0.8,
+                  maxScale: 3.0,
+                  panEnabled: true,
+                  scaleEnabled: true,
+                  clipBehavior: Clip.hardEdge,
+                  boundaryMargin: const EdgeInsets.all(double.infinity),
+                  child: _buildMenuImage(
+                    imageUrl: widget.imageUrl,
+                    placeholder: widget.placeholder,
+                    fontSize: 48,
+                  ),
                 ),
               ),
             ),

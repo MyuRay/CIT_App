@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
@@ -35,6 +36,7 @@ import '../schedule/attendance_qr_reader_screen.dart';
 import '../../widgets/campus_map_widget.dart';
 import '../../widgets/performance/optimized_notification_badge.dart';
 import '../../widgets/common/pulsing_dot_badge.dart';
+import '../../widgets/common/interactive_viewer_double_tap_zoom.dart';
 import '../../models/convenience_link/convenience_link_model.dart';
 import '../notification/notification_list_screen.dart';
 import '../convenience_link/convenience_link_edit_screen.dart';
@@ -530,55 +532,71 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         color: theme.colorScheme.surface.withOpacity(0.78),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Row(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${weather.emoji} ${weather.description}',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  '${weather.observedAt.month}月${weather.observedAt.day}日の情報',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                '${weather.currentTemp.toStringAsFixed(1)}°C',
-                                style: theme.textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.w800,
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${weather.emoji} ${weather.description}',
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    if (weather.rainTransitionMessage != null) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        weather.rainTransitionMessage!,
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          color: theme.colorScheme.onSurfaceVariant,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                    ],
+                                    Text(
+                                      '${weather.observedAt.month}月${weather.observedAt.day}日の情報',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: accentColor.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Text(
-                                  '↑${weather.maxTemp.toStringAsFixed(1)}°C  ↓${weather.minTemp.toStringAsFixed(1)}°C',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
+                              const SizedBox(width: 8),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '${weather.currentTemp.toStringAsFixed(1)}°C',
+                                    style: theme.textTheme.headlineSmall?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: accentColor.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      '↑${weather.maxTemp.toStringAsFixed(1)}°C  ↓${weather.minTemp.toStringAsFixed(1)}°C',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -608,6 +626,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   );
                 },
               ),
+              const SizedBox(height: 8),
+              Text(
+                '情報元: Open-Meteo（JMAモデル） | 参考程度に活用してください',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.black,
+                ),
+              ),
             ],
           ),
         ),
@@ -622,8 +647,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       queryParameters: {
         'latitude': location.latitude.toString(),
         'longitude': location.longitude.toString(),
-        'current': 'temperature_2m,weather_code',
-        'hourly': 'weather_code',
+        // 気象庁(JMA)モデルを優先して日本国内の精度を高める
+        'models': 'jma_seamless',
+        'current': 'temperature_2m,weather_code,precipitation',
+        'hourly': 'weather_code,precipitation',
         'daily': 'temperature_2m_max,temperature_2m_min',
         'timezone': 'Asia/Tokyo',
         'forecast_days': '1',
@@ -642,6 +669,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
     final currentTemp = (current['temperature_2m'] as num?)?.toDouble();
     final weatherCode = (current['weather_code'] as num?)?.toInt();
+    final currentPrecipitation = (current['precipitation'] as num?)?.toDouble();
     final currentTimeRaw = current['time'] as String?;
     final observedAt =
         DateTime.tryParse(currentTimeRaw ?? '')?.toLocal() ?? DateTime.now();
@@ -662,6 +690,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       hourlyTimes: hourly?['time'] as List<dynamic>?,
       hourlyCodes: hourly?['weather_code'] as List<dynamic>?,
     );
+    final rainTransitionMessage = _buildRainTransitionMessage(
+      observedAt: observedAt,
+      currentWeatherCode: weatherCode,
+      currentPrecipitation: currentPrecipitation,
+      hourlyTimes: hourly?['time'] as List<dynamic>?,
+      hourlyCodes: hourly?['weather_code'] as List<dynamic>?,
+      hourlyPrecipitations: hourly?['precipitation'] as List<dynamic>?,
+    );
     return _CampusWeather(
       description: description,
       emoji: mapped.$2,
@@ -669,6 +705,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       maxTemp: maxTemp,
       minTemp: minTemp,
       observedAt: observedAt,
+      rainTransitionMessage: rainTransitionMessage,
     );
   }
 
@@ -744,6 +781,72 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (code >= 71 && code <= 77) return '雪';
     if (code >= 95) return '雷雨';
     return '不明';
+  }
+
+  String? _buildRainTransitionMessage({
+    required DateTime observedAt,
+    required int currentWeatherCode,
+    required double? currentPrecipitation,
+    required List<dynamic>? hourlyTimes,
+    required List<dynamic>? hourlyCodes,
+    required List<dynamic>? hourlyPrecipitations,
+  }) {
+    if (hourlyTimes == null || hourlyCodes == null) return null;
+    final count =
+        hourlyTimes.length < hourlyCodes.length
+            ? hourlyTimes.length
+            : hourlyCodes.length;
+    if (count == 0) return null;
+
+    final isCurrentlyRaining = _isRainingState(
+      currentWeatherCode,
+      precipitation: currentPrecipitation,
+    );
+
+    for (int i = 0; i < count; i++) {
+      final timeRaw = hourlyTimes[i];
+      final codeRaw = hourlyCodes[i];
+      if (timeRaw is! String || codeRaw is! num) continue;
+      final dateTime = DateTime.tryParse(timeRaw)?.toLocal();
+      if (dateTime == null) continue;
+      if (dateTime.year != observedAt.year ||
+          dateTime.month != observedAt.month ||
+          dateTime.day != observedAt.day) {
+        continue;
+      }
+      if (!dateTime.isAfter(observedAt)) continue;
+
+      final hourlyPrecipitation =
+          (hourlyPrecipitations != null &&
+                  i < hourlyPrecipitations.length &&
+                  hourlyPrecipitations[i] is num)
+              ? (hourlyPrecipitations[i] as num).toDouble()
+              : null;
+      final isRainAtThatHour = _isRainingState(
+        codeRaw.toInt(),
+        precipitation: hourlyPrecipitation,
+      );
+      final hourLabel = '${dateTime.hour}時';
+
+      if (isCurrentlyRaining && !isRainAtThatHour) {
+        return '$hourLabelに止む見込みです';
+      }
+      if (!isCurrentlyRaining && isRainAtThatHour) {
+        return '$hourLabelから降り始めます';
+      }
+    }
+
+    return null;
+  }
+
+  bool _isRainWeatherCode(int code) {
+    return (code >= 51 && code <= 67) || (code >= 80 && code <= 82) || code >= 95;
+  }
+
+  bool _isRainingState(int weatherCode, {required double? precipitation}) {
+    if (_isRainWeatherCode(weatherCode)) return true;
+    // weather_code が降水を拾わないケースに備えて、降水量でも雨判定する
+    return (precipitation ?? 0) >= 0.1;
   }
 
   List<Widget> _buildOrderedHomeCards(
@@ -1107,18 +1210,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ),
                     const Spacer(),
                     TextButton.icon(
-                      onPressed:
-                          () => _showAcademicYearCalendar(
-                            context,
-                            allEvents: events,
-                          ),
+                      onPressed: () => _showAcademicYearCalendarImageList(context),
                       icon: Icon(
                         Icons.calendar_month,
                         size: 16,
                         color: Theme.of(context).colorScheme.primary,
                       ),
                       label: Text(
-                        'カレンダー',
+                        '学年歴一覧',
                         style: TextStyle(
                           fontSize: 12,
                           color: Theme.of(context).colorScheme.primary,
@@ -1202,7 +1301,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ),
                   )
                 else
-                  ...currentMonthEvents.take(4).map((event) {
+                  ...currentMonthEvents.map((event) {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Row(
@@ -1219,8 +1318,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           Expanded(
                             child: Text(
                               '${event.date.day}日 ${event.title}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ),
@@ -1298,6 +1395,100 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
+  Future<List<_YearCalendarImageItem>> _fetchYearCalendarImages() async {
+    final ref = FirebaseStorage.instance.ref().child('year_calender');
+    final result = await ref.listAll();
+    final images = <_YearCalendarImageItem>[];
+    for (final item in result.items) {
+      try {
+        final url = await item.getDownloadURL();
+        images.add(_YearCalendarImageItem(name: item.name, downloadUrl: url));
+      } catch (_) {
+        // 取得不可のファイルはスキップ
+      }
+    }
+    images.sort((a, b) => a.name.compareTo(b.name));
+    return images;
+  }
+
+  Future<void> _showAcademicYearCalendarImageList(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder:
+          (sheetContext) => SafeArea(
+            child: SizedBox(
+              height: MediaQuery.of(sheetContext).size.height * 0.86,
+              child: Column(
+                children: [
+                  const ListTile(
+                    title: Text(
+                      '学年歴一覧',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  Expanded(
+                    child: FutureBuilder<List<_YearCalendarImageItem>>(
+                      future: _fetchYearCalendarImages(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Text(
+                              '画像一覧の取得に失敗しました',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          );
+                        }
+                        final images =
+                            snapshot.data ?? const <_YearCalendarImageItem>[];
+                        if (images.isEmpty) {
+                          return Center(
+                            child: Text(
+                              'year_calender に画像がありません',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          );
+                        }
+                        final displayImages =
+                            images.length >= 2 ? images.take(2).toList() : images;
+                        return SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
+                          child: Column(
+                            children:
+                                displayImages.map((item) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Image.network(
+                                        item.downloadUrl,
+                                        fit: BoxFit.contain,
+                                        errorBuilder:
+                                            (_, __, ___) => const SizedBox(
+                                              height: 220,
+                                              child: Center(
+                                                child: Icon(Icons.broken_image),
+                                              ),
+                                            ),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
+  }
+
   int _getCurrentAcademicMonthIndex() {
     final months = _buildAcademicYearMonths();
     final now = DateTime.now();
@@ -1322,9 +1513,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final totalCells =
         ((leadingEmptyCells + daysInMonth + 6) ~/ 7) * 7; // 7の倍数に丸める
     final monthEvents = _eventsForMonth(allEvents, year, month);
-    final eventByDate = <String, AcademicCalendarEvent>{
-      for (final event in monthEvents) _dateKey(event.date): event,
-    };
+    final eventsByDate = <String, List<AcademicCalendarEvent>>{};
+    for (final event in monthEvents) {
+      final key = _dateKey(event.date);
+      eventsByDate.putIfAbsent(key, () => <AcademicCalendarEvent>[]).add(event);
+    }
 
     return Padding(
       padding: const EdgeInsets.all(12),
@@ -1367,8 +1560,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 final isInCurrentMonth = dayNumber >= 1 && dayNumber <= daysInMonth;
                 final cellDate =
                     isInCurrentMonth ? DateTime(year, month, dayNumber) : null;
-                final event =
-                    cellDate == null ? null : eventByDate[_dateKey(cellDate)];
+                final dayEvents =
+                    cellDate == null ? null : eventsByDate[_dateKey(cellDate)];
+                final representativeEvent =
+                    (dayEvents != null && dayEvents.isNotEmpty)
+                        ? dayEvents.first
+                        : null;
 
                 return Container(
                   alignment: Alignment.center,
@@ -1376,8 +1573,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     borderRadius: BorderRadius.circular(6),
                     color:
                         isInCurrentMonth
-                            ? (event != null
-                                ? _colorFromHex(event.colorHex).withOpacity(0.2)
+                            ? (representativeEvent != null
+                                ? _colorFromHex(
+                                  representativeEvent.colorHex,
+                                ).withOpacity(0.2)
                                 : Theme.of(context).colorScheme.surfaceContainerHighest)
                             : Colors.transparent,
                   ),
@@ -1388,14 +1587,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         isInCurrentMonth ? '$dayNumber' : '',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
-                      if (event != null)
-                        Container(
-                          margin: const EdgeInsets.only(top: 2),
-                          width: 5,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            color: _colorFromHex(event.colorHex),
-                            shape: BoxShape.circle,
+                      if (dayEvents != null && dayEvents.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 2,
+                            runSpacing: 2,
+                            children:
+                                dayEvents.take(6).map((event) {
+                                  return Container(
+                                    width: 5,
+                                    height: 5,
+                                    decoration: BoxDecoration(
+                                      color: _colorFromHex(event.colorHex),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  );
+                                }).toList(),
                           ),
                         ),
                     ],
@@ -1433,9 +1642,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final leadingEmptyCells = DateTime(year, month, 1).weekday - 1;
     final totalCells = ((leadingEmptyCells + daysInMonth + 6) ~/ 7) * 7;
     final monthEvents = _eventsForMonth(allEvents, year, month);
-    final eventByDate = <String, AcademicCalendarEvent>{
-      for (final event in monthEvents) _dateKey(event.date): event,
-    };
+    final eventsByDate = <String, List<AcademicCalendarEvent>>{};
+    for (final event in monthEvents) {
+      final key = _dateKey(event.date);
+      eventsByDate.putIfAbsent(key, () => <AcademicCalendarEvent>[]).add(event);
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1478,16 +1689,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             final isInCurrentMonth = dayNumber >= 1 && dayNumber <= daysInMonth;
             final cellDate =
                 isInCurrentMonth ? DateTime(year, month, dayNumber) : null;
-            final event =
-                cellDate == null ? null : eventByDate[_dateKey(cellDate)];
+            final dayEvents =
+                cellDate == null ? null : eventsByDate[_dateKey(cellDate)];
+            final representativeEvent =
+                (dayEvents != null && dayEvents.isNotEmpty)
+                    ? dayEvents.first
+                    : null;
             return Container(
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(6),
                 color:
                     isInCurrentMonth
-                        ? (event != null
-                            ? _colorFromHex(event.colorHex).withOpacity(0.2)
+                        ? (representativeEvent != null
+                            ? _colorFromHex(
+                              representativeEvent.colorHex,
+                            ).withOpacity(0.2)
                             : Theme.of(context).colorScheme.surfaceContainerHighest)
                         : Colors.transparent,
               ),
@@ -1498,14 +1715,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     isInCurrentMonth ? '$dayNumber' : '',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
-                  if (event != null)
-                    Container(
-                      margin: const EdgeInsets.only(top: 1),
-                      width: 4,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: _colorFromHex(event.colorHex),
-                        shape: BoxShape.circle,
+                  if (dayEvents != null && dayEvents.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 1.5,
+                        runSpacing: 1.5,
+                        children:
+                            dayEvents.take(6).map((event) {
+                              return Container(
+                                width: 4,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: _colorFromHex(event.colorHex),
+                                  shape: BoxShape.circle,
+                                ),
+                              );
+                            }).toList(),
                       ),
                     ),
                 ],
@@ -2486,6 +2713,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final timeSlotsAsync = ref.watch(timeSlotsProvider);
     final currentPeriodAsync = ref.watch(currentUserCurrentPeriodProvider);
     final isSchoolDay = ref.watch(isSchoolDayProvider);
+    final inLecturePeriodForAttendance = ref
+        .watch(lecturePeriodSettingsProvider)
+        .maybeWhen(
+          data: (settings) =>
+              settings != null && settings.containsDate(DateTime.now()),
+          orElse: () => false,
+        );
 
     if (!isSchoolDay) {
       return Container(
@@ -2628,6 +2862,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     final canQuickAttend =
                         activeScheduleId != null &&
                         todayWeekdayKey != null &&
+                        inLecturePeriodForAttendance &&
                         _isAttendanceTapAvailableForSlot(
                           now: DateTime.now(),
                           timeSlot: timeSlot,
@@ -2981,10 +3216,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final now = DateTime.now();
     final weekday = Weekday.values[now.weekday - 1];
     final weekdayKey = _weekdayKeyFromDate(now);
-    final canTapAttendance = _isAttendanceTapAvailableForSlot(
-      now: now,
-      timeSlot: timeSlot,
-    );
+    final canTapAttendance =
+        ref.read(lecturePeriodSettingsProvider).maybeWhen(
+          data: (settings) =>
+              settings != null && settings.containsDate(DateTime.now()),
+          orElse: () => false,
+        ) &&
+        _isAttendanceTapAvailableForSlot(
+          now: now,
+          timeSlot: timeSlot,
+        );
     final summaryFuture =
         (scheduleId != null)
             ? _loadAttendanceSummaryForClass(
@@ -3101,13 +3342,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         ),
                       ),
                     ],
-                    if (scheduleId != null && weekdayKey != null) ...[
+                    if (scheduleId != null &&
+                        weekdayKey != null &&
+                        canTapAttendance) ...[
                       const SizedBox(height: 14),
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
-                          onPressed: canTapAttendance
-                              ? () async {
+                          onPressed: () async {
                             Navigator.of(context).pop();
                             await _openAttendanceQrReaderAndMark(
                               context: context,
@@ -3116,25 +3358,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               period: period,
                               scheduleClass: scheduleClass,
                             );
-                          }
-                              : null,
+                          },
                           icon: const Icon(Icons.qr_code_scanner, size: 18),
                           label: const Text('QRを読み取って出席'),
                         ),
                       ),
-                      if (!canTapAttendance)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(
-                            '講義開始20分前〜開始1時間後のみ操作できます',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color:
-                                      Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                ),
-                          ),
-                        ),
                     ],
                     if (summaryFuture != null) ...[
                       const SizedBox(height: 12),
@@ -5429,6 +5657,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 }
 
+class _YearCalendarImageItem {
+  final String name;
+  final String downloadUrl;
+
+  const _YearCalendarImageItem({
+    required this.name,
+    required this.downloadUrl,
+  });
+}
+
 class _HomeScreenImageViewer extends StatefulWidget {
   final String imageUrl;
   final bool isAsset;
@@ -5465,6 +5703,7 @@ class _CampusWeather {
   final double maxTemp;
   final double minTemp;
   final DateTime observedAt;
+  final String? rainTransitionMessage;
 
   const _CampusWeather({
     required this.description,
@@ -5473,6 +5712,7 @@ class _CampusWeather {
     required this.maxTemp,
     required this.minTemp,
     required this.observedAt,
+    this.rainTransitionMessage,
   });
 }
 
@@ -5493,38 +5733,11 @@ class _HomeScreenImageViewerState extends State<_HomeScreenImageViewer> {
   }
 
   void _handleDoubleTap(TapDownDetails details) {
-    final scale = _transformationController.value.getMaxScaleOnAxis();
-    final isCurrentlyZoomed = scale > 1.1;
-
-    if (isCurrentlyZoomed) {
-      // 拡大中の場合、元のサイズに戻す
-      _transformationController.value = Matrix4.identity();
-    } else {
-      // 縮小時の場合、タップ位置を中心に拡大
-      final screenSize = MediaQuery.of(context).size;
-      final screenCenterX = screenSize.width / 2;
-      final screenCenterY = screenSize.height / 2;
-
-      // タップ位置をローカル座標から取得
-      final tapPosition = details.localPosition;
-      
-      // 画面中心からのオフセットを計算
-      final offsetX = tapPosition.dx - screenCenterX;
-      final offsetY = tapPosition.dy - screenCenterY;
-
-      final newScale = _zoomedScale;
-      
-      // タップ位置が画面中心に来るように変換行列を計算
-      final translateX = -offsetX * (newScale - 1) / newScale;
-      final translateY = -offsetY * (newScale - 1) / newScale;
-      
-      // スケールを先に適用してから平行移動を適用するため、Matrix4を直接構築
-      final matrix = Matrix4.identity()
-        ..scale(newScale)
-        ..translate(translateX / newScale, translateY / newScale);
-      
-      _transformationController.value = matrix;
-    }
+    interactiveViewerToggleZoomAtFocalPoint(
+      _transformationController,
+      details,
+      zoomScale: _zoomedScale,
+    );
   }
 
   Widget _buildFullScreenControls(BuildContext context, String title) {
@@ -5596,7 +5809,7 @@ class _HomeScreenImageViewerState extends State<_HomeScreenImageViewer> {
       backgroundColor: Colors.black87,
       child: Stack(
         children: [
-          Center(
+          Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onDoubleTapDown: _handleDoubleTap,
@@ -5604,6 +5817,7 @@ class _HomeScreenImageViewerState extends State<_HomeScreenImageViewer> {
                 transformationController: _transformationController,
                 minScale: 0.5,
                 maxScale: 5.0,
+                clipBehavior: Clip.hardEdge,
                 child: widget.isAsset
                     ? Image.asset(
                         widget.imageUrl,

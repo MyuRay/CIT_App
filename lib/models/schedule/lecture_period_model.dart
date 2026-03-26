@@ -21,6 +21,39 @@ class LecturePeriodSettings {
   DateTime? get lectureStartDate => springStartDate;
   DateTime? get lectureEndDate => springEndDate;
 
+  /// 指定日が前期または後期のいずれかの範囲内（日付のみ比較）なら true。
+  /// 前期・後期の両方が未設定の場合は false。
+  bool containsDate(DateTime date) {
+    final d = DateTime(date.year, date.month, date.day);
+    if (springStartDate != null && springEndDate != null) {
+      final s = DateTime(
+        springStartDate!.year,
+        springStartDate!.month,
+        springStartDate!.day,
+      );
+      final e = DateTime(
+        springEndDate!.year,
+        springEndDate!.month,
+        springEndDate!.day,
+      );
+      if (!d.isBefore(s) && !d.isAfter(e)) return true;
+    }
+    if (fallStartDate != null && fallEndDate != null) {
+      final s = DateTime(
+        fallStartDate!.year,
+        fallStartDate!.month,
+        fallStartDate!.day,
+      );
+      final e = DateTime(
+        fallEndDate!.year,
+        fallEndDate!.month,
+        fallEndDate!.day,
+      );
+      if (!d.isBefore(s) && !d.isAfter(e)) return true;
+    }
+    return false;
+  }
+
   factory LecturePeriodSettings.fromMap(Map<String, dynamic> data) {
     final legacyStart = _toDateTime(data['lectureStartDate']);
     final legacyEnd = _toDateTime(data['lectureEndDate']);
