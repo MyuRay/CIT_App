@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:home_widget/home_widget.dart';
@@ -14,6 +15,8 @@ import '../../screens/main/main_screen.dart';
 import '../../screens/legal/terms_of_service_screen.dart';
 import '../../screens/legal/privacy_policy_screen.dart';
 import '../../screens/user_block/blocked_user_list_screen.dart';
+import '../../screens/classroom_map/classroom_map_calibration_screen.dart';
+import '../../screens/classroom_map/classroom_map_screen.dart';
 
 /// ウィジェットから起動時の初期ルート（override用）
 final initialRouteFromWidgetProvider = Provider<String>((ref) => '/home');
@@ -111,6 +114,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'blocked-users',
         builder: (context, state) => const BlockedUserListScreen(),
       ),
+      GoRoute(
+        path: '/classroom-map',
+        name: 'classroom-map',
+        builder: (context, state) {
+          final campus = state.uri.queryParameters['campus'];
+          return ClassroomMapScreen(initialCampusId: campus);
+        },
+      ),
+      if (kDebugMode)
+        GoRoute(
+          path: '/debug/classroom-map-calibration',
+          name: 'debug-classroom-map-calibration',
+          builder: (context, state) => const ClassroomMapCalibrationScreen(),
+        ),
     ],
     observers: [analyticsObserver],
     errorBuilder:
