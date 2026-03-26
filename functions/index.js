@@ -461,6 +461,29 @@ exports.updateMenuImagesAt8AM = onSchedule({
   await updateMenuImages();
 });
 
+// 手動実行用（デバッグ/復旧用）
+exports.updateMenuImagesNow = onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  try {
+    await updateMenuImages();
+    res.status(200).json({ok: true});
+  } catch (e) {
+    console.error('❌ updateMenuImagesNow error:', e);
+    res.status(500).json({
+      ok: false,
+      message: e?.message || String(e),
+    });
+  }
+});
+
 // 学食メニュー画像更新の実装
 // 更新: 新習志野食堂のパターンをsd1, sd2に変更 (2025-11-07)
 async function updateMenuImages() {
@@ -481,7 +504,24 @@ async function updateMenuImages() {
     // 2. https://www.cit-s.com/dining/ からメニュー画像URLをスクレイピング
     console.log('🔍 学食ページからメニュー画像URLを取得中...');
     const diningPageUrl = 'https://www.cit-s.com/dining/';
-    const response = await axios.get(diningPageUrl, {timeout: 15000});
+    async function getWithRetry(url, {timeoutMs = 15000, retries = 3} = {}) {
+      let lastErr;
+      for (let i = 0; i < retries; i++) {
+        try {
+          return await axios.get(url, {timeout: timeoutMs});
+        } catch (err) {
+          lastErr = err;
+          const delayMs = 1000 * Math.pow(2, i); // 1s, 2s, 4s...
+          console.warn(
+            `⚠️ fetch retry (${i + 1}/${retries}) failed: ${url} - ${err?.response?.status || err?.message || err}`,
+          );
+          await new Promise((r) => setTimeout(r, delayMs));
+        }
+      }
+      throw lastErr;
+    }
+
+    const response = await getWithRetry(diningPageUrl, {timeoutMs: 20000, retries: 3});
     const $ = cheerio.load(response.data);
 
     // 画像URLを抽出（td_YYYYMM_W.png, sd1_YYYYMM_W.png, sd2_YYYYMM_W.png パターン）
@@ -524,11 +564,10 @@ async function updateMenuImages() {
 
         console.log(`📥 ダウンロード中: ${imageUrl} -> ${newFileName}`);
 
-        // 画像をダウンロード
-        const imageResponse = await axios.get(imageUrl, {
-          responseType: 'arraybuffer',
-          timeout: 30000,
-        });
+        // 画像をダウンロード（サイト側エラー/一時障害に備えてリトライ）
+        const imageResponse = await getWithRetry(imageUrl, {timeoutMs: 30000, retries: 3}).then(
+          (res) => res,
+        );
 
         // Firebase Storageにアップロード
         const file = bucket.file(`menu_images/${newFileName}`);
@@ -557,6 +596,391 @@ async function updateMenuImages() {
     throw error;
   }
 }
+
+const CLUB_SOURCE_URL = 'https://sites.google.com/view/cittaiiku2021hp/%E5%8A%A0%E7%9B%9F%E5%9B%A3%E4%BD%93%E4%B8%80%E8%A6%A7?authuser=0';
+const CLUB_SITE_BASE_URL = 'https://sites.google.com/view/cittaiiku2021hp';
+
+function normalizeText(value) {
+  return String(value || '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function slugifyClubName(name) {
+  return normalizeText(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9\u3040-\u30ff\u3400-\u9fff]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 120) || `club-${Date.now()}`;
+}
+
+function parseClubCategory(rawHeading) {
+  const heading = normalizeText(rawHeading);
+  if (heading.includes('加盟団体(部)')) return 'club';
+  if (heading.includes('加盟団体(同好会)')) return 'circle';
+  if (heading.includes('加盟団体(愛好会)')) return 'association';
+  return null;
+}
+
+function resolveAbsoluteUrl(href) {
+  const raw = normalizeText(href);
+  if (!raw) return null;
+  try {
+    return new URL(raw, CLUB_SITE_BASE_URL).toString();
+  } catch (_) {
+    return null;
+  }
+}
+
+function extractClubDescriptionFromHtml(html) {
+  const $ = cheerio.load(html);
+  const candidates = [];
+  $('main p, .UtePc, [role="main"] p').each((_, el) => {
+    const text = normalizeText($(el).text());
+    if (!text) return;
+    if (text.length < 8) return;
+    if (text.includes('Google Sites') || text.includes('Report abuse')) return;
+    candidates.push(text);
+  });
+  if (candidates.length === 0) return null;
+  return candidates[0].slice(0, 220);
+}
+
+function getHeadingNodes($) {
+  return $('h1, h2, h3, h4, h5, h6, [role="heading"]').toArray();
+}
+
+function isKeywordMatch(text, keywords) {
+  const lower = normalizeText(text).toLowerCase();
+  if (!lower) return false;
+  return keywords.some((keyword) => lower.includes(keyword.toLowerCase()));
+}
+
+function collectSectionTextFromHeading($, headingEl, maxNodes = 18) {
+  const chunks = [];
+  let node = $(headingEl).next();
+  let guard = 0;
+  while (node.length && guard < maxNodes) {
+    const tag = (node.prop('tagName') || '').toLowerCase();
+    const role = normalizeText(node.attr('role') || '').toLowerCase();
+    if (/^h[1-6]$/.test(tag) || role === 'heading') break;
+    const text = normalizeText(node.text());
+    if (text) chunks.push(text);
+    node = node.next();
+    guard += 1;
+  }
+  return normalizeText(chunks.join(' ')).slice(0, 500);
+}
+
+function extractSectionText($, sectionKeywords, fallback = '') {
+  const headings = getHeadingNodes($);
+  for (const heading of headings) {
+    const headingText = normalizeText($(heading).text());
+    if (!isKeywordMatch(headingText, sectionKeywords)) continue;
+    const sectionText = collectSectionTextFromHeading($, heading);
+    if (sectionText) return sectionText;
+  }
+  return fallback;
+}
+
+function stripByKeywords(text, keywords) {
+  const raw = normalizeText(text);
+  if (!raw) return '';
+  let cut = raw.length;
+  for (const keyword of keywords) {
+    const idx = raw.toLowerCase().indexOf(keyword.toLowerCase());
+    if (idx > 0 && idx < cut) cut = idx;
+  }
+  return normalizeText(raw.slice(0, cut));
+}
+
+function extractContactInfo($, fromSectionText = '') {
+  const contactBits = [];
+  const seen = new Set();
+  const pushUnique = (value) => {
+    const normalized = normalizeText(value);
+    if (!normalized) return;
+    if (seen.has(normalized)) return;
+    seen.add(normalized);
+    contactBits.push(normalized);
+  };
+
+  if (fromSectionText) pushUnique(fromSectionText);
+
+  $('a').each((_, el) => {
+    const href = normalizeText($(el).attr('href'));
+    const text = normalizeText($(el).text());
+    if (!href && !text) return;
+    if (
+      href.startsWith('mailto:') ||
+      href.startsWith('tel:') ||
+      href.includes('instagram.com') ||
+      href.includes('x.com') ||
+      href.includes('twitter.com') ||
+      href.includes('line.me') ||
+      href.includes('facebook.com') ||
+      href.includes('youtube.com') ||
+      href.includes('forms.gle') ||
+      href.includes('google.com/forms')
+    ) {
+      pushUnique(text || href);
+      pushUnique(href);
+    }
+  });
+
+  const bodyText = normalizeText($('main, [role="main"], body').first().text());
+  const emails = bodyText.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
+  const phones = bodyText.match(/0\d{1,4}-\d{1,4}-\d{3,4}/g) || [];
+  emails.forEach(pushUnique);
+  phones.forEach(pushUnique);
+
+  return normalizeText(contactBits.join(' / ')).slice(0, 500);
+}
+
+function extractImageUrls($, detailUrl) {
+  const urls = [];
+  const seen = new Set();
+  const pushUrl = (candidate) => {
+    const src = resolveAbsoluteUrl(candidate);
+    if (!src) return;
+    if (!(src.startsWith('https://') || src.startsWith('http://'))) return;
+    const lower = src.toLowerCase();
+    if (lower.includes('favicon') || lower.includes('logo')) return;
+    if (!seen.has(src)) {
+      seen.add(src);
+      urls.push(src);
+    }
+  };
+
+  $('img').each((_, el) => {
+    pushUrl($(el).attr('src'));
+    pushUrl($(el).attr('data-src'));
+    pushUrl($(el).attr('data-image-url'));
+    const srcset = normalizeText($(el).attr('srcset'));
+    if (srcset) {
+      srcset.split(',').forEach((entry) => pushUrl(entry.trim().split(' ')[0]));
+    }
+  });
+
+  $('meta[property="og:image"], meta[name="og:image"], meta[name="twitter:image"]').each((_, el) => {
+    pushUrl($(el).attr('content'));
+  });
+
+  $('[style*="background-image"]').each((_, el) => {
+    const style = normalizeText($(el).attr('style'));
+    const match = style.match(/url\((['"]?)(.*?)\1\)/i);
+    if (match && match[2]) pushUrl(match[2]);
+  });
+
+  // 画像が見つからない場合でも詳細ページ自体は保持
+  if (urls.length === 0 && detailUrl) {
+    return [];
+  }
+  return urls.slice(0, 8);
+}
+
+async function fetchClubDescription(detailUrl) {
+  if (!detailUrl) return null;
+  try {
+    const res = await axios.get(detailUrl, {timeout: 12000});
+    const $ = cheerio.load(res.data);
+    const fallback = extractClubDescriptionFromHtml(res.data) || '';
+    let introduction = extractSectionText(
+      $,
+      ['introduction', '紹介', '概要', 'about'],
+      fallback,
+    );
+    const information = extractSectionText(
+      $,
+      ['information', '活動', '活動内容', 'info', 'schedule'],
+      '',
+    );
+    const contactSection = extractSectionText(
+      $,
+      ['contact', 'お問い合わせ', '連絡', '連絡先', 'sns'],
+      '',
+    );
+    introduction = stripByKeywords(introduction, [
+      'information',
+      '活動',
+      '活動内容',
+      'contact',
+      '連絡先',
+      'お問い合わせ',
+      'sns',
+    ]);
+    const contact = extractContactInfo($, contactSection);
+    const imageUrls = extractImageUrls($, detailUrl);
+    return {
+      introduction,
+      information,
+      contact,
+      imageUrls,
+    };
+  } catch (error) {
+    console.warn(`Failed to fetch club detail: ${detailUrl} ${error?.message || ''}`);
+    return null;
+  }
+}
+
+function isValidClubLink(url) {
+  return !!url && url.startsWith(CLUB_SITE_BASE_URL);
+}
+
+async function fetchCitSportsOrganizations() {
+  const res = await axios.get(CLUB_SOURCE_URL, {timeout: 20000});
+  const $ = cheerio.load(res.data);
+
+  const linkCandidates = [];
+  $('a').each((_, el) => {
+    const text = normalizeText($(el).text());
+    const href = resolveAbsoluteUrl($(el).attr('href'));
+    if (!text || !href) return;
+    if (!isValidClubLink(href)) return;
+    linkCandidates.push({text, href});
+  });
+
+  const items = [];
+  const seen = new Set();
+  let currentCategory = null;
+
+  $('h2, h3').each((_, el) => {
+    const text = normalizeText($(el).text());
+    const category = parseClubCategory(text);
+    if (category) {
+      currentCategory = category;
+      return;
+    }
+
+    if (!currentCategory) return;
+    if (!text) return;
+    if (text.includes('加盟団体一覧') || text.includes('関連ページ')) return;
+
+    const key = `${currentCategory}::${text}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    const matchedLink = linkCandidates.find((candidate) => candidate.text === text);
+    const detailUrl = matchedLink ? matchedLink.href : null;
+
+    items.push({
+      id: slugifyClubName(text),
+      name: text,
+      category: currentCategory,
+      detailUrl,
+    });
+  });
+
+  const enriched = [];
+  for (const item of items) {
+    const detailData = await fetchClubDescription(item.detailUrl);
+    enriched.push({
+      ...item,
+      description: detailData?.introduction || '',
+      introduction: detailData?.introduction || '',
+      information: detailData?.information || '',
+      contact: detailData?.contact || '',
+      imageUrls: detailData?.imageUrls || [],
+    });
+  }
+  return enriched;
+}
+
+async function syncClubOrganizations() {
+  const clubs = await fetchCitSportsOrganizations();
+  const db = admin.firestore();
+  const syncedAt = admin.firestore.FieldValue.serverTimestamp();
+  const source = 'cit_sports_hq_google_sites';
+
+  const snapshot = await db.collection('club_organizations').get();
+  const existingById = new Map(snapshot.docs.map((d) => [d.id, d]));
+  const incomingIds = new Set(clubs.map((c) => c.id));
+
+  const writes = [];
+  for (const club of clubs) {
+    writes.push(
+      db.collection('club_organizations').doc(club.id).set({
+        name: club.name,
+        category: club.category,
+        description: club.description || '',
+        introduction: club.introduction || '',
+        information: club.information || '',
+        contact: club.contact || '',
+        imageUrls: Array.isArray(club.imageUrls) ? club.imageUrls : [],
+        detailUrl: club.detailUrl || '',
+        source,
+        sourceUrl: CLUB_SOURCE_URL,
+        isActive: true,
+        updatedAt: syncedAt,
+      }, {merge: true}),
+    );
+  }
+
+  for (const [docId, doc] of existingById.entries()) {
+    if (!incomingIds.has(docId)) {
+      writes.push(doc.ref.set({
+        isActive: false,
+        source,
+        sourceUrl: CLUB_SOURCE_URL,
+        updatedAt: syncedAt,
+      }, {merge: true}));
+    }
+  }
+
+  writes.push(
+    db.collection('app_metadata').doc('club_organizations_sync').set({
+      source,
+      sourceUrl: CLUB_SOURCE_URL,
+      fetchedCount: clubs.length,
+      activeCount: clubs.length,
+      updatedAt: syncedAt,
+    }, {merge: true}),
+  );
+
+  await Promise.all(writes);
+  return clubs.length;
+}
+
+// サークル・部活一覧の定期取得（毎日 4:30 JST）
+exports.syncClubOrganizationsDaily = onSchedule({
+  schedule: '30 4 * * *',
+  timeZone: 'Asia/Tokyo',
+}, async () => {
+  try {
+    const count = await syncClubOrganizations();
+    console.log(`✅ club_organizations sync completed: ${count} records`);
+  } catch (error) {
+    console.error('❌ club_organizations sync error:', error);
+    throw error;
+  }
+});
+
+// 手動同期用HTTPエンドポイント（管理用途）
+exports.syncClubOrganizationsNow = onRequest(async (req, res) => {
+  try {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+
+    const count = await syncClubOrganizations();
+    res.status(200).json({
+      ok: true,
+      fetchedCount: count,
+      sourceUrl: CLUB_SOURCE_URL,
+    });
+  } catch (error) {
+    console.error('❌ manual club sync error:', error);
+    res.status(500).json({
+      ok: false,
+      message: error.message,
+    });
+  }
+});
 
 // 全体通知が作成されたら全ユーザーへプッシュ通知
 exports.notifyGlobalNotificationCreated = onDocumentCreated('global_notifications/{id}', async (event) => {

@@ -20,20 +20,31 @@ import android.content.SharedPreferences
 class FullScheduleWidgetProvider : HomeWidgetProvider() {
     companion object {
         private const val MAX_PERIODS = 10
-        // ウィジェット高さ（px）に応じた表示スロット数（1-10限まで対応、閾値を低めにして余白を有効活用）
-        private fun getMaxSlotsForHeight(heightPx: Int): Int {
+        private const val ROW_GAP_DP = 2
+        // AppWidgetOptions の高さはdp単位。高さに応じて表示行数を決める。
+        private fun getMaxSlotsForHeight(heightDp: Int): Int {
             return when {
-                heightPx < 100 -> 2
-                heightPx < 160 -> 3
-                heightPx < 220 -> 4
-                heightPx < 280 -> 5
-                heightPx < 340 -> 6
-                heightPx < 400 -> 7
-                heightPx < 460 -> 8
-                heightPx < 520 -> 9
+                heightDp < 110 -> 2
+                heightDp < 150 -> 3
+                heightDp < 190 -> 4
+                heightDp < 230 -> 5
+                heightDp < 270 -> 6
+                heightDp < 310 -> 7
+                heightDp < 350 -> 8
+                heightDp < 390 -> 9
                 else -> MAX_PERIODS
             }
         }
+    }
+
+    private fun dpToPx(context: Context, dp: Int): Int {
+        val density = context.resources.displayMetrics.density
+        return (dp * density).toInt()
+    }
+
+    private fun blockMinHeightDp(span: Int, slotHeightDp: Int): Int {
+        val safeSpan = span.coerceAtLeast(1)
+        return slotHeightDp * safeSpan + ROW_GAP_DP * (safeSpan - 1)
     }
 
     override fun onUpdate(
@@ -74,14 +85,27 @@ class FullScheduleWidgetProvider : HomeWidgetProvider() {
 
             if (weekly != null && weekly.isNotEmpty()) {
                 val obj = JSONObject(weekly)
-                // 縦向きではMAX_HEIGHTが実際の高さ。min/maxの大きい方を使い余白を減らす
-                val maxSlots = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN && options != null) {
-                    val minH = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 400)
-                    val maxH = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 400)
-                    val h = maxOf(minH, maxH)
-                    getMaxSlotsForHeight(h)
-                } else MAX_PERIODS
-                populateWeekly(context, views, obj, maxSlots)
+                // 高さ変更時は最大高さを優先して情報量を増やす
+                val maxHeightDp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN && options != null) {
+                    options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 400)
+                } else 400
+                val densitySlots = getMaxSlotsForHeight(maxHeightDp)
+                val showEmptyRows = densitySlots >= 6
+                // 科目名が潰れにくいよう、教室表示はかなり高い時だけ有効化
+                val showRoom = densitySlots >= 9
+                // タイトル/曜日行ぶんを引いた残りを10限で割って、縦を使い切る行高を算出
+                val estimatedHeaderDp = 34
+                val slotHeightDp = ((maxHeightDp - estimatedHeaderDp - (ROW_GAP_DP * (MAX_PERIODS - 1))) / MAX_PERIODS)
+                    .coerceIn(16, 56)
+                populateWeekly(
+                    context,
+                    views,
+                    obj,
+                    MAX_PERIODS,
+                    showEmptyRows,
+                    showRoom,
+                    slotHeightDp
+                )
             } else {
                 views.setTextViewText(R.id.weekly_title, "週間時間割")
             }
@@ -101,9 +125,13 @@ class FullScheduleWidgetProvider : HomeWidgetProvider() {
         context: Context,
         views: RemoteViews,
         weekly: JSONObject,
-        maxSlots: Int
+        maxSlots: Int,
+        showEmptyRows: Boolean,
+        showRoom: Boolean,
+        slotHeightDp: Int
     ) {
-        views.setTextViewText(R.id.weekly_title, "週間時間割")
+        val scheduleTitle = weekly.optString("scheduleTitle", "週間時間割")
+        views.setTextViewText(R.id.weekly_title, scheduleTitle)
 
         val weekdays = arrayOf("monday", "tuesday", "wednesday", "thursday", "friday", "saturday")
         val labels = arrayOf("月", "火", "水", "木", "金", "土")
@@ -115,10 +143,16 @@ class FullScheduleWidgetProvider : HomeWidgetProvider() {
             R.id.monday_classes, R.id.tuesday_classes, R.id.wednesday_classes,
             R.id.thursday_classes, R.id.friday_classes, R.id.saturday_classes
         )
+        val periodsListId = R.id.periods_list
         val labelIds = arrayOf(
             R.id.monday_label, R.id.tuesday_label, R.id.wednesday_label,
             R.id.thursday_label, R.id.friday_label, R.id.saturday_label
         )
+
+        views.removeAllViews(periodsListId)
+        for (period in 1..MAX_PERIODS) {
+            views.addView(periodsListId, createPeriodRow(context, period, slotHeightDp))
+        }
 
         for (i in weekdays.indices) {
             val key = weekdays[i]
@@ -148,55 +182,120 @@ class FullScheduleWidgetProvider : HomeWidgetProvider() {
             }
             views.setViewVisibility(containerId, android.view.View.VISIBLE)
 
-            // 1限〜maxSlots限をスロット表示（空き時限も行として表示し正しい位置に配置）
-            for (period in 1..maxSlots) {
+            // 1限〜maxSlots限を表示。連続コマは1つのブロックとしてまとめる
+            var period = 1
+            var pendingEmptySpan = 0
+            while (period <= maxSlots) {
                 val item = classByPeriod[period]
-                val row = if (item != null) {
-                    createClassRow(context, period, item, label)
+                if (item != null) {
+                    if (!showEmptyRows && pendingEmptySpan > 0) {
+                        views.addView(
+                            listId,
+                            createSpacerRow(context, pendingEmptySpan, slotHeightDp)
+                        )
+                        pendingEmptySpan = 0
+                    }
+                    val endFromData = item.optInt("endPeriod", period)
+                    val duration = item.optInt("duration", 1).coerceAtLeast(1)
+                    val computedEnd = period + duration - 1
+                    val endPeriod = minOf(maxSlots, maxOf(endFromData, computedEnd))
+                    val span = (endPeriod - period + 1).coerceAtLeast(1)
+                    views.addView(
+                        listId,
+                        createClassRow(
+                            context,
+                            period,
+                            endPeriod,
+                            item,
+                            label,
+                            showRoom,
+                            span,
+                            slotHeightDp
+                        )
+                    )
+                    period = endPeriod + 1
                 } else {
-                    createEmptyRow(context, period, label)
+                    if (showEmptyRows) {
+                        views.addView(listId, createEmptyRow(context, period, label, 1, slotHeightDp))
+                    } else {
+                        pendingEmptySpan += 1
+                    }
+                    period += 1
                 }
-                views.addView(listId, row)
+            }
+            if (!showEmptyRows && pendingEmptySpan > 0) {
+                views.addView(listId, createSpacerRow(context, pendingEmptySpan, slotHeightDp))
             }
         }
     }
 
     private fun createClassRow(
         context: Context,
-        period: Int,
+        startPeriod: Int,
+        endPeriod: Int,
         item: JSONObject,
-        dayLabel: String
+        dayLabel: String,
+        showRoom: Boolean,
+        blockSpan: Int,
+        slotHeightDp: Int
     ): RemoteViews {
         val row = RemoteViews(context.packageName, R.layout.item_weekly_class)
         val subject = item.optString("subject", "")
         val room = item.optString("classroom", "")
         val colorHex = item.optString("color", "#2196F3")
-
-        row.setTextViewText(R.id.text_subject, "[$period] $subject")
-        row.setTextViewText(R.id.text_room, room)
-        try {
-            row.setInt(R.id.color_dot, "setBackgroundColor", Color.parseColor(colorHex))
-        } catch (_: Exception) {
-            row.setInt(R.id.color_dot, "setBackgroundColor", Color.parseColor("#2196F3"))
+        row.setTextViewText(R.id.text_subject, subject)
+        if (showRoom && room.isNotEmpty()) {
+            row.setTextViewText(R.id.text_room, room)
+            row.setViewVisibility(R.id.text_room, android.view.View.VISIBLE)
+        } else {
+            row.setViewVisibility(R.id.text_room, android.view.View.GONE)
         }
+        val bgColor = try {
+            Color.parseColor(colorHex)
+        } catch (_: Exception) {
+            Color.parseColor("#2196F3")
+        }
+        row.setInt(R.id.item_root, "setBackgroundColor", bgColor)
+        row.setViewVisibility(R.id.color_dot, android.view.View.GONE)
+        // ユーザー要望: 講義情報テキストは黒固定
+        row.setTextColor(R.id.text_subject, Color.BLACK)
+        row.setTextColor(R.id.text_room, Color.BLACK)
+
+        // 連続コマ数に応じて高さを拡張し、下側に余白が余りにくくする
+        row.setInt(
+            R.id.item_root,
+            "setMinimumHeight",
+            dpToPx(context, blockMinHeightDp(blockSpan, slotHeightDp))
+        )
 
         val intent = Intent(context, MainActivity::class.java)
         intent.putExtra("open_schedule", true)
         intent.putExtra("open_day", dayLabel)
-        intent.putExtra("open_period", period)
+        intent.putExtra("open_period", startPeriod)
         intent.data = Uri.parse("citapp://schedule")
         intent.action = HomeWidgetLaunchIntent.HOME_WIDGET_LAUNCH_ACTION
         val pending = PendingIntent.getActivity(
-            context, (dayLabel.hashCode() and 0xFFFF) * 10 + period, intent,
+            context, (dayLabel.hashCode() and 0xFFFF) * 10 + startPeriod, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         row.setOnClickPendingIntent(R.id.item_root, pending)
         return row
     }
 
-    private fun createEmptyRow(context: Context, period: Int, dayLabel: String): RemoteViews {
+    private fun createEmptyRow(
+        context: Context,
+        period: Int,
+        dayLabel: String,
+        blockSpan: Int,
+        slotHeightDp: Int
+    ): RemoteViews {
         val row = RemoteViews(context.packageName, R.layout.item_weekly_class_empty)
         row.setTextViewText(R.id.text_subject, "[$period] —")
+        row.setInt(
+            R.id.item_root,
+            "setMinimumHeight",
+            dpToPx(context, blockMinHeightDp(blockSpan, slotHeightDp))
+        )
 
         val intent = Intent(context, MainActivity::class.java)
         intent.putExtra("open_schedule", true)
@@ -209,6 +308,32 @@ class FullScheduleWidgetProvider : HomeWidgetProvider() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         row.setOnClickPendingIntent(R.id.item_root, pending)
+        return row
+    }
+
+    private fun createSpacerRow(context: Context, blockSpan: Int, slotHeightDp: Int): RemoteViews {
+        val row = RemoteViews(context.packageName, R.layout.item_weekly_class_empty)
+        row.setTextViewText(R.id.text_subject, "")
+        row.setViewVisibility(R.id.text_subject, android.view.View.GONE)
+        row.setViewVisibility(R.id.text_room, android.view.View.GONE)
+        row.setViewVisibility(R.id.color_dot, android.view.View.GONE)
+        row.setInt(R.id.item_root, "setBackgroundColor", Color.TRANSPARENT)
+        row.setInt(
+            R.id.item_root,
+            "setMinimumHeight",
+            dpToPx(context, blockMinHeightDp(blockSpan, slotHeightDp))
+        )
+        return row
+    }
+
+    private fun createPeriodRow(context: Context, period: Int, slotHeightDp: Int): RemoteViews {
+        val row = RemoteViews(context.packageName, R.layout.item_weekly_period)
+        row.setTextViewText(R.id.text_period, "${period}限")
+        row.setInt(
+            R.id.text_period,
+            "setMinHeight",
+            dpToPx(context, blockMinHeightDp(1, slotHeightDp))
+        )
         return row
     }
 }
