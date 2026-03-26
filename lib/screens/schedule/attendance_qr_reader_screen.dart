@@ -25,7 +25,7 @@ class _AttendanceQrReaderScreenState extends State<AttendanceQrReaderScreen> {
               final raw = barcodes.first.rawValue;
               if (raw == null || raw.trim().isEmpty) return;
               _handled = true;
-              Navigator.of(context).pop(true);
+              Navigator.of(context).pop(raw.trim());
             },
           ),
           Align(
@@ -35,7 +35,7 @@ class _AttendanceQrReaderScreenState extends State<AttendanceQrReaderScreen> {
               padding: const EdgeInsets.all(12),
               color: Colors.black.withOpacity(0.45),
               child: const Text(
-                '教室のQRコードを読み取ってください',
+                '教室のQRコードを読み取ってください\n読み取り後に出席サイトを開きます',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white),
               ),

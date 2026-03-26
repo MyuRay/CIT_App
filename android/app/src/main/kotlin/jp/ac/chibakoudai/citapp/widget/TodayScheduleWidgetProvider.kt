@@ -22,16 +22,16 @@ class TodayScheduleWidgetProvider : HomeWidgetProvider() {
     companion object {
         private const val TAG = "TodayScheduleWidget"
         private const val MAX_PERIODS = 10
-        // ウィジェット高さ（px）に応じた表示スロット数（1-10限まで対応）
-        private fun getMaxSlotsForHeight(heightPx: Int): Int {
+        // AppWidgetOptions の高さはdp単位。高さに応じて表示行数を決める。
+        private fun getMaxSlotsForHeight(heightDp: Int): Int {
             return when {
-                heightPx < 200 -> 3
-                heightPx < 280 -> 4
-                heightPx < 360 -> 5
-                heightPx < 440 -> 6
-                heightPx < 520 -> 7
-                heightPx < 600 -> 8
-                heightPx < 680 -> 9
+                heightDp < 140 -> 3
+                heightDp < 190 -> 4
+                heightDp < 240 -> 5
+                heightDp < 290 -> 6
+                heightDp < 340 -> 7
+                heightDp < 390 -> 8
+                heightDp < 440 -> 9
                 else -> MAX_PERIODS
             }
         }
@@ -76,14 +76,15 @@ class TodayScheduleWidgetProvider : HomeWidgetProvider() {
             if (today != null && today.isNotEmpty()) {
                 try {
                     val obj = JSONObject(today)
-                    // 縦向きではMAX_HEIGHTが実際の高さ。min/maxの大きい方を使い余白を減らす
+                    // 高さ変更時は最大高さを優先して情報量を増やす
                     val maxSlots = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN && options != null) {
-                        val minH = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 400)
                         val maxH = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 400)
-                        val h = maxOf(minH, maxH)
-                        getMaxSlotsForHeight(h)
+                        getMaxSlotsForHeight(maxH)
                     } else MAX_PERIODS
-                    populateToday(context, views, obj, maxSlots)
+                    val showEmptyRows = maxSlots >= 6
+                    // 科目名優先のため、詳細は高さに余裕がある時のみ表示
+                    val showDetail = maxSlots >= 7
+                    populateToday(context, views, obj, maxSlots, showEmptyRows, showDetail)
                 } catch (e: Exception) {
                     Log.e(TAG, "JSON parse error", e)
                     showEmpty(views)
@@ -126,16 +127,24 @@ class TodayScheduleWidgetProvider : HomeWidgetProvider() {
         }
     }
 
-    private fun populateToday(context: Context, views: RemoteViews, today: JSONObject, maxSlots: Int) {
+    private fun populateToday(
+        context: Context,
+        views: RemoteViews,
+        today: JSONObject,
+        maxSlots: Int,
+        showEmptyRows: Boolean,
+        showDetail: Boolean
+    ) {
         try {
             // ヘッダー情報を設定
             val weekday = today.optString("weekday", "")
             val date = today.optString("date", "")
             val currentPeriod = today.optInt("currentPeriod", -1)
+            val scheduleTitle = today.optString("scheduleTitle", "今日の時間割")
 
             views.setTextViewText(R.id.today_weekday, weekday)
             views.setTextViewText(R.id.today_date, date)
-            views.setTextViewText(R.id.today_title, "今日の時間割")
+            views.setTextViewText(R.id.today_title, scheduleTitle)
 
             // period -> class のマップを構築
             val classByPeriod = mutableMapOf<Int, JSONObject>()
@@ -162,11 +171,13 @@ class TodayScheduleWidgetProvider : HomeWidgetProvider() {
             for (period in 1..maxSlots) {
                 val item = classByPeriod[period]
                 val row = if (item != null) {
-                    createClassRow(context, period, item, currentPeriod)
+                    createClassRow(context, period, item, currentPeriod, showDetail)
                 } else {
-                    createEmptyRow(context, period)
+                    if (showEmptyRows) createEmptyRow(context, period) else null
                 }
-                views.addView(R.id.classes_container, row)
+                if (row != null) {
+                    views.addView(R.id.classes_container, row)
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error in populateToday", e)
@@ -178,7 +189,8 @@ class TodayScheduleWidgetProvider : HomeWidgetProvider() {
         context: Context,
         period: Int,
         item: JSONObject,
-        currentPeriod: Int
+        currentPeriod: Int,
+        showDetail: Boolean
     ): RemoteViews {
         val row = RemoteViews(context.packageName, R.layout.item_today_class)
         val subject = item.optString("subject", "")
@@ -189,14 +201,19 @@ class TodayScheduleWidgetProvider : HomeWidgetProvider() {
 
         row.setTextViewText(R.id.text_period, "${period}限")
         row.setTextViewText(R.id.text_subject, subject)
-        if (room.isNotEmpty()) {
+        if (showDetail && room.isNotEmpty()) {
             row.setTextViewText(R.id.text_classroom, room)
             row.setViewVisibility(R.id.text_classroom, android.view.View.VISIBLE)
         } else {
             row.setViewVisibility(R.id.text_classroom, android.view.View.GONE)
         }
-        val timeText = if (startTime.isNotEmpty() && endTime.isNotEmpty()) "$startTime-$endTime" else ""
-        row.setTextViewText(R.id.text_time, timeText)
+        if (showDetail) {
+            val timeText = if (startTime.isNotEmpty() && endTime.isNotEmpty()) "$startTime-$endTime" else ""
+            row.setTextViewText(R.id.text_time, timeText)
+            row.setViewVisibility(R.id.text_time, android.view.View.VISIBLE)
+        } else {
+            row.setViewVisibility(R.id.text_time, android.view.View.GONE)
+        }
 
         try {
             row.setInt(R.id.color_dot, "setBackgroundColor", Color.parseColor(colorHex))

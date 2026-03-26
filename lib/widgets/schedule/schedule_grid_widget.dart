@@ -11,7 +11,7 @@ class ScheduleGridWidget extends StatelessWidget {
   final Future<bool> Function(String, int, ScheduleClass, String?)?
   onClassNotesSave;
   final Future<void> Function(String, int, ScheduleClass)? onClassAttendanceTap;
-  final Future<AttendanceClassSummary> Function(ScheduleClass)?
+  final Future<AttendanceClassSummary> Function(String, int, ScheduleClass)?
   onLoadAttendanceSummary;
   /// false のとき QR 出席ボタンを出さない（講義期間外など）
   final bool showAttendanceActions;
@@ -494,7 +494,8 @@ class ScheduleGridWidget extends StatelessWidget {
           weekdayKey: weekdayKey,
           startPeriod: startPeriod,
         );
-    final summaryFuture = onLoadAttendanceSummary?.call(scheduleClass);
+    final summaryFuture =
+        onLoadAttendanceSummary?.call(weekdayKey, startPeriod, scheduleClass);
 
     showDialog(
       context: context,
