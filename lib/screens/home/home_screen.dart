@@ -3,12 +3,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/providers/cafeteria_provider.dart';
 import '../../core/providers/cafeteria_review_provider.dart';
@@ -37,7 +37,6 @@ import '../schedule/attendance_qr_reader_screen.dart';
 import '../../widgets/campus_map_widget.dart';
 import '../../widgets/performance/optimized_notification_badge.dart';
 import '../../widgets/common/pulsing_dot_badge.dart';
-import '../../widgets/common/interactive_viewer_double_tap_zoom.dart';
 import '../../models/convenience_link/convenience_link_model.dart';
 import '../notification/notification_list_screen.dart';
 import '../convenience_link/convenience_link_edit_screen.dart';
@@ -87,6 +86,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'cafeteria',
     'bus',
     'campus_map',
+    'classroom_map',
     'academic_calendar',
     'convenience_links',
   ];
@@ -921,6 +921,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return _buildBusInfoCard(context, ref);
       case 'campus_map':
         return _buildCampusMapCard(context);
+      case 'classroom_map':
+        return _buildClassroomMapCard(context);
       case 'academic_calendar':
         return _buildAcademicCalendarCard(context);
       case 'club_organizations':
@@ -1181,6 +1183,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
       ),
     );
+  }
+
+  Widget _buildClassroomMapCard(BuildContext context) {
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _openClassroomMap(context),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.class_outlined,
+                  color: Theme.of(context).colorScheme.onSecondaryContainer,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '教室マップ',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '校舎・教室の位置を一覧と地図で確認できます',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openClassroomMap(BuildContext context) {
+    context.push('/classroom-map');
   }
 
   Widget _buildAcademicCalendarCard(BuildContext context) {
@@ -1784,38 +1839,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return Color(int.tryParse(normalized, radix: 16) ?? 0xFFE53935);
   }
 
-  static Color _safeClassColor(String colorHex) {
-    try {
-      return Color(int.parse('0xff${colorHex.substring(1)}'));
-    } catch (_) {
-      return const Color(0xFF1976D2);
-    }
-  }
-
-  // 時限ラベルは背景色の明度差を確保して可読性を上げる
-  static Color _buildReadableBadgeColor(Color base) {
-    final hsl = HSLColor.fromColor(base);
-    final adjusted = hsl
-        // 色味は保ちつつ、背景は淡めに寄せる
-        .withSaturation(hsl.saturation.clamp(0.45, 0.85))
-        .withLightness(hsl.lightness.clamp(0.78, 0.90));
-    return adjusted.toColor();
-  }
-
-  static Color _highContrastTextColor(Color bg) {
-    final whiteContrast = _contrastRatio(bg, Colors.white);
-    final blackContrast = _contrastRatio(bg, Colors.black);
-    return whiteContrast >= blackContrast ? Colors.white : Colors.black;
-  }
-
-  static double _contrastRatio(Color a, Color b) {
-    final l1 = a.computeLuminance();
-    final l2 = b.computeLuminance();
-    final lighter = l1 > l2 ? l1 : l2;
-    final darker = l1 > l2 ? l2 : l1;
-    return (lighter + 0.05) / (darker + 0.05);
-  }
-
   Future<void> _showHomeCardLayoutEditor(BuildContext context) async {
     final tempOrder = List<String>.from(_homeCardOrder);
     final tempHidden = Set<String>.from(_hiddenHomeCards);
@@ -1988,6 +2011,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return '学バス情報';
       case 'campus_map':
         return 'キャンパスマップ';
+      case 'classroom_map':
+        return '教室マップ';
       case 'academic_calendar':
         return '学年歴';
       case 'club_organizations':
@@ -2015,6 +2040,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         result.insert(convenienceIndex, 'academic_calendar');
       } else {
         result.add('academic_calendar');
+      }
+    }
+    if (!result.contains('classroom_map')) {
+      final campusIndex = result.indexOf('campus_map');
+      if (campusIndex >= 0) {
+        result.insert(campusIndex + 1, 'classroom_map');
+      } else {
+        final acIndex = result.indexOf('academic_calendar');
+        if (acIndex >= 0) {
+          result.insert(acIndex, 'classroom_map');
+        } else {
+          result.add('classroom_map');
+        }
       }
     }
     for (final id in _defaultHomeCardOrder) {
@@ -2849,13 +2887,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final timeSlotsAsync = ref.watch(timeSlotsProvider);
     final currentPeriodAsync = ref.watch(currentUserCurrentPeriodProvider);
     final isSchoolDay = ref.watch(isSchoolDayProvider);
-    final inLecturePeriodForAttendance = ref
-        .watch(lecturePeriodSettingsProvider)
-        .maybeWhen(
-          data: (settings) =>
-              settings != null && settings.containsDate(DateTime.now()),
-          orElse: () => false,
-        );
 
     if (!isSchoolDay) {
       return Container(
@@ -3002,16 +3033,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         canUseAttendanceByLecturePeriod &&
                         activeScheduleId != null &&
                         todayWeekdayKey != null &&
-                        inLecturePeriodForAttendance &&
                         _isAttendanceTapAvailableForSlot(
                           now: now,
                           timeSlot: timeSlot,
                         );
-                    final classColor = _safeClassColor(scheduleClass.color);
-                    final periodBadgeColor = _buildReadableBadgeColor(classColor);
-                    final periodBadgeTextColor = _highContrastTextColor(
-                      periodBadgeColor,
-                    );
 
                     return GestureDetector(
                       onTap:
@@ -3069,10 +3094,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               width: scheduleClass.duration > 1 ? 65 : 50,
                               padding: const EdgeInsets.symmetric(vertical: 6),
                               decoration: BoxDecoration(
-                                color: periodBadgeColor,
+                                color: Color(
+                                  int.parse(
+                                    '0xff${scheduleClass.color.substring(1)}',
+                                  ),
+                                ).withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                  color: periodBadgeColor.withOpacity(0.95),
+                                  color: Color(
+                                    int.parse(
+                                      '0xff${scheduleClass.color.substring(1)}',
+                                    ),
+                                  ).withOpacity(0.3),
                                 ),
                               ),
                               child: Column(
@@ -3084,7 +3117,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     style: Theme.of(
                                       context,
                                     ).textTheme.titleSmall?.copyWith(
-                                      color: periodBadgeTextColor,
+                                      color: Color(
+                                        int.parse(
+                                          '0xff${scheduleClass.color.substring(1)}',
+                                        ),
+                                      ),
                                       fontWeight: FontWeight.bold,
                                       fontSize:
                                           scheduleClass.duration > 1 ? 10 : 12,
@@ -3097,7 +3134,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     style: Theme.of(
                                       context,
                                     ).textTheme.bodySmall?.copyWith(
-                                      color: periodBadgeTextColor,
+                                      color: Color(
+                                        int.parse(
+                                          '0xff${scheduleClass.color.substring(1)}',
+                                        ),
+                                      ),
                                       fontSize:
                                           scheduleClass.duration > 1 ? 8 : 11,
                                     ),
@@ -3337,16 +3378,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final now = DateTime.now();
     final weekday = Weekday.values[now.weekday - 1];
     final weekdayKey = _weekdayKeyFromDate(now);
-    final canTapAttendance =
-        ref.read(lecturePeriodSettingsProvider).maybeWhen(
-          data: (settings) =>
-              settings != null && settings.containsDate(DateTime.now()),
-          orElse: () => false,
-        ) &&
-        _isAttendanceTapAvailableForSlot(
-          now: now,
-          timeSlot: timeSlot,
-        );
+    final canTapAttendance = _isAttendanceTapAvailableForSlot(
+      now: now,
+      timeSlot: timeSlot,
+    );
     final summaryFuture =
         (scheduleId != null)
             ? _loadAttendanceSummaryForClass(
@@ -3468,12 +3503,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ],
                     if (scheduleId != null &&
                         weekdayKey != null &&
-                        canTapAttendance) ...[
+                        canUseAttendanceByLecturePeriod) ...[
                       const SizedBox(height: 14),
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
-                          onPressed: () async {
+                          onPressed: canTapAttendance
+                              ? () async {
                             Navigator.of(context).pop();
                             await _openAttendanceQrReaderAndMark(
                               context: context,
@@ -3482,11 +3518,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               period: period,
                               scheduleClass: scheduleClass,
                             );
-                          },
+                          }
+                              : null,
                           icon: const Icon(Icons.qr_code_scanner, size: 18),
                           label: const Text('QRを読み取って出席'),
                         ),
                       ),
+                      if (!canTapAttendance)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            '講義開始20分前〜開始1時間後のみ操作できます',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color:
+                                      Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                ),
+                          ),
+                        ),
                     ],
                     if (summaryFuture != null) ...[
                       const SizedBox(height: 12),
@@ -5988,16 +6038,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 }
 
-class _YearCalendarImageItem {
-  final String name;
-  final String downloadUrl;
-
-  const _YearCalendarImageItem({
-    required this.name,
-    required this.downloadUrl,
-  });
-}
-
 class _HomeScreenImageViewer extends StatefulWidget {
   final String imageUrl;
   final bool isAsset;
@@ -6047,6 +6087,16 @@ class _CampusWeather {
   });
 }
 
+class _YearCalendarImageItem {
+  final String name;
+  final String downloadUrl;
+
+  const _YearCalendarImageItem({
+    required this.name,
+    required this.downloadUrl,
+  });
+}
+
 class _HomeScreenImageViewerState extends State<_HomeScreenImageViewer> {
   late final TransformationController _transformationController;
   static const double _zoomedScale = 2.5;
@@ -6064,11 +6114,38 @@ class _HomeScreenImageViewerState extends State<_HomeScreenImageViewer> {
   }
 
   void _handleDoubleTap(TapDownDetails details) {
-    interactiveViewerToggleZoomAtFocalPoint(
-      _transformationController,
-      details,
-      zoomScale: _zoomedScale,
-    );
+    final scale = _transformationController.value.getMaxScaleOnAxis();
+    final isCurrentlyZoomed = scale > 1.1;
+
+    if (isCurrentlyZoomed) {
+      // 拡大中の場合、元のサイズに戻す
+      _transformationController.value = Matrix4.identity();
+    } else {
+      // 縮小時の場合、タップ位置を中心に拡大
+      final screenSize = MediaQuery.of(context).size;
+      final screenCenterX = screenSize.width / 2;
+      final screenCenterY = screenSize.height / 2;
+
+      // タップ位置をローカル座標から取得
+      final tapPosition = details.localPosition;
+      
+      // 画面中心からのオフセットを計算
+      final offsetX = tapPosition.dx - screenCenterX;
+      final offsetY = tapPosition.dy - screenCenterY;
+
+      final newScale = _zoomedScale;
+      
+      // タップ位置が画面中心に来るように変換行列を計算
+      final translateX = -offsetX * (newScale - 1) / newScale;
+      final translateY = -offsetY * (newScale - 1) / newScale;
+      
+      // スケールを先に適用してから平行移動を適用するため、Matrix4を直接構築
+      final matrix = Matrix4.identity()
+        ..scale(newScale)
+        ..translate(translateX / newScale, translateY / newScale);
+      
+      _transformationController.value = matrix;
+    }
   }
 
   Widget _buildFullScreenControls(BuildContext context, String title) {
@@ -6140,7 +6217,7 @@ class _HomeScreenImageViewerState extends State<_HomeScreenImageViewer> {
       backgroundColor: Colors.black87,
       child: Stack(
         children: [
-          Positioned.fill(
+          Center(
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onDoubleTapDown: _handleDoubleTap,
@@ -6148,7 +6225,6 @@ class _HomeScreenImageViewerState extends State<_HomeScreenImageViewer> {
                 transformationController: _transformationController,
                 minScale: 0.5,
                 maxScale: 5.0,
-                clipBehavior: Clip.hardEdge,
                 child: widget.isAsset
                     ? Image.asset(
                         widget.imageUrl,
