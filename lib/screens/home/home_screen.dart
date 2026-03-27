@@ -86,7 +86,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'cafeteria',
     'bus',
     'campus_map',
-    'classroom_map',
     'academic_calendar',
     'convenience_links',
   ];
@@ -921,8 +920,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return _buildBusInfoCard(context, ref);
       case 'campus_map':
         return _buildCampusMapCard(context);
-      case 'classroom_map':
-        return _buildClassroomMapCard(context);
       case 'academic_calendar':
         return _buildAcademicCalendarCard(context);
       case 'club_organizations':
@@ -1179,56 +1176,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             const SizedBox(height: 8),
             const SizedBox(height: 12),
             _buildCampusMaps(context),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => _openClassroomMap(context),
+                icon: const Icon(Icons.class_outlined, size: 16),
+                label: const Text('詳細なマップを確認'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildClassroomMapCard(BuildContext context) {
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => _openClassroomMap(context),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  Icons.class_outlined,
-                  color: Theme.of(context).colorScheme.onSecondaryContainer,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '教室マップ',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '校舎・教室の位置を一覧と地図で確認できます',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
         ),
       ),
     );
@@ -2011,8 +1971,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return '学バス情報';
       case 'campus_map':
         return 'キャンパスマップ';
-      case 'classroom_map':
-        return '教室マップ';
       case 'academic_calendar':
         return '学年歴';
       case 'club_organizations':
@@ -2040,19 +1998,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         result.insert(convenienceIndex, 'academic_calendar');
       } else {
         result.add('academic_calendar');
-      }
-    }
-    if (!result.contains('classroom_map')) {
-      final campusIndex = result.indexOf('campus_map');
-      if (campusIndex >= 0) {
-        result.insert(campusIndex + 1, 'classroom_map');
-      } else {
-        final acIndex = result.indexOf('academic_calendar');
-        if (acIndex >= 0) {
-          result.insert(acIndex, 'classroom_map');
-        } else {
-          result.add('classroom_map');
-        }
       }
     }
     for (final id in _defaultHomeCardOrder) {

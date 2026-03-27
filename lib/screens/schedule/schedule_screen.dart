@@ -48,6 +48,35 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   void initState() {
     super.initState();
     _selectedScheduleId = ref.read(selectedScheduleIdProvider);
+    // 画面起動時にもホームウィジェットへ最新の選択時間割を再同期する
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncWidgetsFromCurrentSelection();
+    });
+  }
+
+  Future<void> _syncWidgetsFromCurrentSelection() async {
+    try {
+      final userId = ref.read(currentUserIdProvider);
+      if (userId == null) {
+        await _syncWidgetsForSelectedSchedule(null);
+        return;
+      }
+
+      final schedules = await ScheduleService.getAllSchedulesByUserId(userId);
+      if (schedules.isEmpty) {
+        await _syncWidgetsForSelectedSchedule(null);
+        return;
+      }
+
+      final selectedId = ref.read(selectedScheduleIdProvider);
+      final selected =
+          selectedId != null
+              ? schedules.where((s) => s.id == selectedId).firstOrNull
+              : null;
+      await _syncWidgetsForSelectedSchedule(selected ?? schedules.first);
+    } catch (e) {
+      debugPrint('⚠️ 起動時ウィジェット同期に失敗: $e');
+    }
   }
 
   Future<void> _syncWidgetsForSelectedSchedule(Schedule? schedule) async {
