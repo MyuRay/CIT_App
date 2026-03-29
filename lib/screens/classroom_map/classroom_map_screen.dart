@@ -40,12 +40,13 @@ class _ClassroomMapScreenState extends ConsumerState<ClassroomMapScreen> {
       appBar: AppBar(
         title: const Text('教室マップ'),
         actions: [
-          if (kDebugMode)
-            IconButton(
-              icon: const Icon(Icons.add_location_alt_outlined),
-              tooltip: 'ピン座標取得（デバッグ）',
-              onPressed: () => context.push('/debug/classroom-map-calibration'),
-            ),
+          // ピン座標取得ボタン（デバッグ用）は一時的に無効化
+          // if (kDebugMode)
+          //   IconButton(
+          //     icon: const Icon(Icons.add_location_alt_outlined),
+          //     tooltip: 'ピン座標取得（デバッグ）',
+          //     onPressed: () => context.push('/debug/classroom-map-calibration'),
+          //   ),
         ],
         // 後続PR: 教室一覧タブを戻す場合は TabController(length: 2) と TabBar を復元
         // bottom: TabBar(

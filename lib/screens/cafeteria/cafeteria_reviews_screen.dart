@@ -929,13 +929,88 @@ void _openFullScreenImage(
   if (imageUrl == null || imageUrl.isEmpty) {
     return;
   }
-  Navigator.of(context).push(
-    MaterialPageRoute(
-      builder:
-          (_) => _FullScreenImagePage(
-            imageUrl: imageUrl,
-            placeholder: placeholder,
+  double dragOffsetY = 0;
+  showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.82),
+    builder: (_) => StatefulBuilder(
+      builder: (dialogContext, setState) {
+        final dismissProgress = (dragOffsetY / 220).clamp(0.0, 1.0);
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onVerticalDragUpdate: (details) {
+            if (details.delta.dy <= 0) {
+              return;
+            }
+            setState(() {
+              dragOffsetY = (dragOffsetY + details.delta.dy).clamp(0.0, 320.0);
+            });
+          },
+          onVerticalDragEnd: (details) {
+            final velocity = details.primaryVelocity ?? 0;
+            if (dragOffsetY > 120 || velocity > 950) {
+              Navigator.of(dialogContext).pop();
+              return;
+            }
+            setState(() {
+              dragOffsetY = 0;
+            });
+          },
+          child: Transform.translate(
+            offset: Offset(0, dragOffsetY),
+            child: Opacity(
+              opacity: 1 - (dismissProgress * 0.35),
+              child: Dialog(
+                backgroundColor: Colors.transparent,
+                insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: InteractiveViewer(
+                        minScale: 1.0,
+                        maxScale: 4.0,
+                        child: CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.contain,
+                          placeholder: (context, url) => Container(
+                            color: Colors.black,
+                            alignment: Alignment.center,
+                            child: const SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: Colors.black,
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.white70,
+                              size: 40,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: IconButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        icon: const Icon(Icons.close),
+                        color: Colors.white,
+                        style: IconButton.styleFrom(backgroundColor: Colors.black45),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
+        );
+      },
     ),
   );
 }
