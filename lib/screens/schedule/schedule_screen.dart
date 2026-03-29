@@ -120,7 +120,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leadingWidth: userId != null ? 150 : null,
+        leadingWidth: userId != null ? 138 : null,
         leading:
             userId != null
                 ? Padding(
@@ -548,18 +548,18 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
             border: Border.all(color: Theme.of(context).dividerColor),
           ),
           child: SizedBox(
-            height: 15,
+            height: 14,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 0),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     Icons.tune,
-                    size: 12,
+                    size: 11,
                     color: Theme.of(context).colorScheme.primary,
                   ),
-                  const SizedBox(width: 1),
+                  const SizedBox(width: 0.5),
                   Flexible(
                     child: Text(
                       '学期切替',
@@ -572,7 +572,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     ),
                   ),
                   const SizedBox(width: 0),
-                  const Icon(Icons.expand_more, size: 12),
+                  const Icon(Icons.expand_more, size: 11),
                 ],
               ),
             ),
