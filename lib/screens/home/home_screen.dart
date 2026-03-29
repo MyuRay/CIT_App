@@ -300,7 +300,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(6),
                               child: Image.asset(
-                                "cit_app\assets\icons\textmatch_logo .png",
+                                'assets/icons/textmatch_logo .png',
                                 width: 40,
                                 height: 40,
                                 fit: BoxFit.cover,
