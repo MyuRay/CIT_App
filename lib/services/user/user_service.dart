@@ -5,6 +5,16 @@ import '../../models/user/user_model.dart';
 class UserService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static const String _collection = 'users';
+  // この日時より前に作成されたアカウントは、メール認証必須化の対象外（既存ユーザー扱い）
+  static final DateTime _emailVerificationEnforcedFrom = DateTime(2026, 3, 30);
+
+  static bool isEmailVerificationExemptUser(User firebaseUser) {
+    final createdAt = firebaseUser.metadata.creationTime;
+    if (createdAt == null) {
+      return false;
+    }
+    return createdAt.isBefore(_emailVerificationEnforcedFrom);
+  }
 
   /// ユーザー情報を作成
   static Future<void> createUser(AppUser user) async {

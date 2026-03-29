@@ -462,7 +462,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Icon(
-                      Icons.wb_sunny_outlined,
+                      Icons.cloud_outlined,
                       color: accentColor,
                       size: 18,
                     ),
@@ -552,7 +552,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '${weather.emoji} ${weather.description}',
+                                      '${_emojiForDescription(weather.description, weather.emoji)} ${weather.description}',
                                       style: theme.textTheme.titleMedium?.copyWith(
                                         fontWeight: FontWeight.w700,
                                       ),
@@ -730,6 +730,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return ('不明', '🌈');
   }
 
+  String _emojiForSimpleLabel(String label) {
+    switch (label) {
+      case '晴れ':
+        return '🌤️';
+      case 'くもり':
+        return '☁️';
+      case '霧':
+        return '🌫️';
+      case '雨':
+        return '🌧️';
+      case '雪':
+        return '❄️';
+      case '雷雨':
+        return '⛈️';
+      default:
+        return '🌈';
+    }
+  }
+
+  String _emojiForDescription(String description, String fallback) {
+    // 例: 「晴れのちくもり」→ 「🌤️→☁️」
+    if (description.contains('のち')) {
+      final parts = description.split('のち');
+      if (parts.length >= 2) {
+        final first = parts.first.trim();
+        final second = parts[1].trim();
+        return '${_emojiForSimpleLabel(first)}→${_emojiForSimpleLabel(second)}';
+      }
+    }
+    // 単一ラベルの場合はラベルから絵文字を再計算（なければフォールバック）
+    final single = _emojiForSimpleLabel(description.trim());
+    return single.isNotEmpty ? single : fallback;
+  }
+
   String _buildWeatherDescriptionForToday({
     required String currentDescription,
     required DateTime observedAt,
@@ -853,9 +887,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   bool _isRainingState(int weatherCode, {required double? precipitation}) {
-    if (_isRainWeatherCode(weatherCode)) return true;
-    // weather_code が降水を拾わないケースに備えて、降水量でも雨判定する
-    return (precipitation ?? 0) >= 0.1;
+    // より厳格に判定: 「雨系コード」かつ「降水量が十分にある」場合のみ雨扱い
+    final p = (precipitation ?? 0);
+    return _isRainWeatherCode(weatherCode) && p >= 0.3;
   }
 
   List<Widget> _buildOrderedHomeCards(
