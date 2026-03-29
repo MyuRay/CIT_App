@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -24,6 +26,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>この機能では、掲示板に投稿する画像を撮影するためにカメラへのアクセスが必要です。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>この機能では、掲示板に投稿する画像を選択するためにフォトライブラリへのアクセスが必要です。</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -41,15 +49,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
-	
-	<!-- Permissions for image picker -->
-	<key>NSCameraUsageDescription</key>
-	<string>この機能では、掲示板に投稿する画像を撮影するためにカメラへのアクセスが必要です。</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>この機能では、掲示板に投稿する画像を選択するためにフォトライブラリへのアクセスが必要です。</string>
 </dict>
 </plist>

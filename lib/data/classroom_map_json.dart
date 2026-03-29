@@ -1,3 +1,9 @@
+/// 教室マップ用 GeoJSON 相当データ（校舎マーカー等）。
+/// `rootBundle` のアセットは iOS で取り込みに失敗する事例があるため、
+/// 実行時はここを単一ソースとして [json.decode] する。
+///
+/// データを更新する場合はこのファイルの [kClassroomMapJson] を編集する。
+const String kClassroomMapJson = r'''
 {
   "campuses": [
     {
@@ -198,3 +204,4 @@
     }
   ]
 }
+''';
