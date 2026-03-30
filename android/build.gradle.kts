@@ -26,6 +26,23 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+// FlutterがサポートするAGP 8.8.2に合わせるため、AGP 8.9.1+ を要求する
+// 一部AndroidXの自動更新を互換バージョンへ固定する。
+subprojects {
+    configurations.configureEach {
+        resolutionStrategy {
+            force(
+                "androidx.core:core:1.16.0",
+                "androidx.core:core-ktx:1.16.0",
+                "androidx.activity:activity:1.10.1",
+                "androidx.activity:activity-ktx:1.10.1",
+                "androidx.browser:browser:1.8.0",
+                "androidx.navigationevent:navigationevent-android:1.0.0",
+            )
+        }
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

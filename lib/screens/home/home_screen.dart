@@ -639,7 +639,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               Text(
                 '情報元: Open-Meteo（JMAモデル） | 参考程度に活用してください',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: Colors.black,
+                  color: theme.brightness == Brightness.dark
+                      ? Colors.white70
+                      : Colors.black,
                 ),
               ),
             ],
@@ -3096,11 +3098,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     style: Theme.of(
                                       context,
                                     ).textTheme.titleSmall?.copyWith(
-                                      color: Color(
-                                        int.parse(
-                                          '0xff${scheduleClass.color.substring(1)}',
-                                        ),
-                                      ),
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? Colors.white
+                                          : Colors.black,
                                       fontWeight: FontWeight.bold,
                                       fontSize:
                                           scheduleClass.duration > 1 ? 10 : 12,
@@ -3113,11 +3114,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     style: Theme.of(
                                       context,
                                     ).textTheme.bodySmall?.copyWith(
-                                      color: Color(
-                                        int.parse(
-                                          '0xff${scheduleClass.color.substring(1)}',
-                                        ),
-                                      ),
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? Colors.white70
+                                          : Colors.black,
                                       fontSize:
                                           scheduleClass.duration > 1 ? 8 : 11,
                                     ),

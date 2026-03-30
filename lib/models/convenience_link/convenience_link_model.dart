@@ -196,7 +196,7 @@ class PresetLinks {
     ConvenienceLink(
       id: 'preset_library',
       title: '図書館',
-      url: 'https://opac2.lib.it-chiba.ac.jp/',
+      url: 'https://opac2.lib.chibatech.ac.jp/',
       iconName: 'library_books',
       color: 'green',
       order: 2,

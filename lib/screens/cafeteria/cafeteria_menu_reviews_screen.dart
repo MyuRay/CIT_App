@@ -11,6 +11,11 @@ import '../../core/providers/cafeteria_favorite_provider.dart';
 import '../../services/cafeteria/cafeteria_favorite_service.dart';
 import '../../widgets/common/interactive_viewer_double_tap_zoom.dart';
 
+final _menuFavoriteUserCountProvider =
+    FutureProvider.family<int, String>((ref, menuItemId) async {
+  return CafeteriaFavoriteService.getMenuFavoriteUserCount(menuItemId);
+});
+
 class CafeteriaMenuReviewsScreen extends ConsumerStatefulWidget {
   const CafeteriaMenuReviewsScreen({
     super.key,
@@ -290,7 +295,7 @@ class _CafeteriaMenuReviewsScreenState extends ConsumerState<CafeteriaMenuReview
   }
 }
 
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   const _Header({
     required this.cafeteriaId,
     required this.menuName,
@@ -316,7 +321,7 @@ class _Header extends StatelessWidget {
   String _formatPrice(int? p) => p == null ? '価格未設定' : '¥${p.toString()}';
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final placeholder = menuName.isNotEmpty ? menuName.substring(0, 1) : '?';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -923,6 +928,7 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton> {
           );
           if (mounted) {
             ref.invalidate(isMenuFavoriteProvider(widget.menuItem!.id));
+            ref.invalidate(_menuFavoriteUserCountProvider(widget.menuItem!.id));
             ref.invalidate(userCafeteriaFavoritesProvider);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('お気に入りから削除しました')),
@@ -938,6 +944,7 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton> {
           );
           if (mounted) {
             ref.invalidate(isMenuFavoriteProvider(widget.menuItem!.id));
+            ref.invalidate(_menuFavoriteUserCountProvider(widget.menuItem!.id));
             ref.invalidate(userCafeteriaFavoritesProvider);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('お気に入りに追加しました')),
@@ -970,37 +977,54 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton> {
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) {
-      return const SizedBox.shrink();
-    }
+    final favoriteCountAsync = widget.menuItem != null && widget.menuItem!.id.isNotEmpty
+        ? ref.watch(_menuFavoriteUserCountProvider(widget.menuItem!.id))
+        : const AsyncValue<int>.data(0);
 
     final isFavoriteAsync = widget.menuItem != null && widget.menuItem!.id.isNotEmpty
         ? ref.watch(isMenuFavoriteProvider(widget.menuItem!.id))
         : null;
 
-    return IconButton(
-      icon: isFavoriteAsync != null
-          ? isFavoriteAsync.when(
-              data: (isFavorite) => Icon(
-                isFavorite ? Icons.favorite : Icons.favorite_border,
-                color: isFavorite ? Colors.red : Colors.grey,
-              ),
-              loading: () => const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              error: (_, __) => const Icon(
-                Icons.favorite_border,
-                color: Colors.grey,
-              ),
-            )
-          : const Icon(
-              Icons.favorite_border,
-              color: Colors.grey,
-            ),
-      onPressed: _toggleFavorite,
-      tooltip: 'お気に入り',
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: isFavoriteAsync != null
+              ? isFavoriteAsync.when(
+                  data: (isFavorite) => Icon(
+                    isFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: isFavorite ? Colors.red : Colors.grey,
+                  ),
+                  loading: () => const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  error: (_, __) => const Icon(
+                    Icons.favorite_border,
+                    color: Colors.grey,
+                  ),
+                )
+              : const Icon(
+                  Icons.favorite_border,
+                  color: Colors.grey,
+                ),
+          onPressed: uid == null ? null : _toggleFavorite,
+          tooltip: 'お気に入り',
+        ),
+        favoriteCountAsync.when(
+          data: (count) => Text(
+            '($count)',
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+          loading: () => const SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(strokeWidth: 1.5),
+          ),
+          error: (_, __) => const SizedBox.shrink(),
+        ),
+      ],
     );
   }
 }

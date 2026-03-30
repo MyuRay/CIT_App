@@ -20,6 +20,11 @@ import '../../core/providers/settings_provider.dart';
 import '../../core/providers/cafeteria_favorite_provider.dart';
 import '../../services/cafeteria/cafeteria_favorite_service.dart';
 
+final _menuFavoriteUserCountProvider =
+    FutureProvider.family<int, String>((ref, menuItemId) async {
+  return CafeteriaFavoriteService.getMenuFavoriteUserCount(menuItemId);
+});
+
 String? _campusCodeFromCafeteriaId(String cafeteriaId) {
   switch (cafeteriaId) {
     case Cafeterias.tsudanuma:
@@ -1076,6 +1081,7 @@ class _MenuRowCardState extends ConsumerState<_MenuRowCard> {
           );
           if (mounted) {
             ref.invalidate(isMenuFavoriteProvider(menuItem.id));
+            ref.invalidate(_menuFavoriteUserCountProvider(menuItem.id));
             ref.invalidate(userCafeteriaFavoritesProvider);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('お気に入りから削除しました')),
@@ -1091,6 +1097,7 @@ class _MenuRowCardState extends ConsumerState<_MenuRowCard> {
           );
           if (mounted) {
             ref.invalidate(isMenuFavoriteProvider(menuItem.id));
+            ref.invalidate(_menuFavoriteUserCountProvider(menuItem.id));
             ref.invalidate(userCafeteriaFavoritesProvider);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('お気に入りに追加しました')),
