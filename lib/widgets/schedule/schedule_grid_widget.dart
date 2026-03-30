@@ -42,57 +42,71 @@ class ScheduleGridWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final columnCount = displayWeekdays.length;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final timeColumnWidth = 35.0; // 時限列の幅を縮小
-    final cellWidth = (screenWidth - timeColumnWidth - 32) / columnCount;
+    final timeColumnWidth = 35.0; // 時限列の幅は固定
     final baseCellHeight = forceFullHeight ? 60.0 : 65.0; // 共有時はセル高を調整
     final emptyCellHeight = (!isEditMode && !forceFullHeight) ? 40.0 : baseCellHeight; // 空行でも時限/時間が読める高さ
 
-    final rowHeights = List<double>.generate(10, (index) {
-      final period = index + 1;
-      final hasClass = displayWeekdays.any((weekday) => schedule.timetable[weekday.name]?[period] != null);
-      return hasClass ? baseCellHeight : emptyCellHeight;
-    });
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.of(context).size.width;
+        final remainingWidth = (availableWidth - timeColumnWidth).clamp(0.0, double.infinity);
+        final cellWidth = remainingWidth / columnCount;
 
-    final cumulativeHeights = List<double>.filled(11, 0);
-    for (var i = 0; i < 10; i++) {
-      cumulativeHeights[i + 1] = cumulativeHeights[i] + rowHeights[i];
-    }
-    final totalHeight = cumulativeHeights.last;
-    
-    final Widget content = Column(
-      children: [
-        // ヘッダー行
-        _buildHeaderRow(context, timeColumnWidth, cellWidth),
+        final rowHeights = List<double>.generate(10, (index) {
+          final period = index + 1;
+          final hasClass = displayWeekdays.any((weekday) => schedule.timetable[weekday.name]?[period] != null);
+          if (!hasClass) {
+            return emptyCellHeight;
+          }
 
-        // グリッドボディ（スタック方式で連続講義を表現）
-        SizedBox(
-          height: totalHeight,
-          child: Stack(
-            children: [
-              // 背景グリッド
-              _buildBackgroundGrid(context, timeColumnWidth, cellWidth, rowHeights),
+          // 改行時に科目名/教室名が隠れないように行高を拡張
+          final additionalHeight = _additionalHeightForClassContent(period);
+          return baseCellHeight + additionalHeight;
+        });
 
-              // 時限列
-              _buildTimeColumn(context, timeColumnWidth, rowHeights),
+        final cumulativeHeights = List<double>.filled(11, 0);
+        for (var i = 0; i < 10; i++) {
+          cumulativeHeights[i + 1] = cumulativeHeights[i] + rowHeights[i];
+        }
+        final totalHeight = cumulativeHeights.last;
 
-              // 講義セル（連続講義対応）
-              ..._buildClassCells(
-                context,
-                timeColumnWidth,
-                cellWidth,
-                rowHeights,
-                cumulativeHeights,
+        final Widget content = Column(
+          children: [
+            // ヘッダー行
+            _buildHeaderRow(context, timeColumnWidth, cellWidth),
+
+            // グリッドボディ（スタック方式で連続講義を表現）
+            SizedBox(
+              height: totalHeight,
+              child: Stack(
+                children: [
+                  // 背景グリッド
+                  _buildBackgroundGrid(context, timeColumnWidth, cellWidth, rowHeights),
+
+                  // 時限列
+                  _buildTimeColumn(context, timeColumnWidth, rowHeights),
+
+                  // 講義セル（連続講義対応）
+                  ..._buildClassCells(
+                    context,
+                    timeColumnWidth,
+                    cellWidth,
+                    rowHeights,
+                    cumulativeHeights,
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-      ],
-    );
+            ),
+          ],
+        );
 
-    // 共有時は全体表示、通常時はスクロール可能
-    final shouldAllowScroll = !forceFullHeight && enableScroll;
-    return shouldAllowScroll ? SingleChildScrollView(child: content) : content;
+        // 共有時は全体表示、通常時はスクロール可能
+        final shouldAllowScroll = !forceFullHeight && enableScroll;
+        return shouldAllowScroll ? SingleChildScrollView(child: content) : content;
+      },
+    );
   }
 
   Widget _buildHeaderRow(BuildContext context, double timeColumnWidth, double cellWidth) {
@@ -348,6 +362,17 @@ class ScheduleGridWidget extends StatelessWidget {
   Widget _buildClassContent(BuildContext context, ScheduleClass scheduleClass, bool isMultiPeriod) {
     // 4限連続かどうかで更に表示を調整
     final is4PeriodClass = scheduleClass.duration >= 4;
+    final singlePeriodClassroomLines = (!isMultiPeriod)
+        ? _estimateClassroomLines(scheduleClass.classroom)
+        : 1;
+    final subjectFlex = isMultiPeriod
+        ? (is4PeriodClass ? 3 : 2)
+        : (singlePeriodClassroomLines >= 3 ? 3 : 4);
+    final classroomFlex = (!isMultiPeriod)
+        ? (singlePeriodClassroomLines <= 2
+              ? 1
+              : (singlePeriodClassroomLines - 1).clamp(2, 5))
+        : 1;
 
     return Container(
       padding: const EdgeInsets.all(4),
@@ -357,7 +382,7 @@ class ScheduleGridWidget extends StatelessWidget {
         children: [
           // 科目名
           Flexible(
-            flex: isMultiPeriod ? (is4PeriodClass ? 3 : 2) : 4,
+            flex: subjectFlex,
             child: Text(
               scheduleClass.subjectName,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -366,7 +391,9 @@ class ScheduleGridWidget extends StatelessWidget {
                 fontSize: isMultiPeriod ? (is4PeriodClass ? 14 : 12) : 9.5,
                 height: 1.15,
               ),
-              maxLines: isMultiPeriod ? (is4PeriodClass ? 6 : 4) : 4,
+              maxLines: isMultiPeriod
+                  ? (is4PeriodClass ? 6 : 4)
+                  : (singlePeriodClassroomLines >= 3 ? 3 : 4),
               overflow: TextOverflow.ellipsis,
               textAlign: isMultiPeriod ? TextAlign.center : TextAlign.start,
             ),
@@ -377,7 +404,7 @@ class ScheduleGridWidget extends StatelessWidget {
           // 教室（単一時限の場合のみ）
           if (!isMultiPeriod)
             Flexible(
-              flex: 1,
+              flex: classroomFlex,
               child: Container(
                 width: double.infinity,
                 margin: const EdgeInsets.symmetric(horizontal: 1),
@@ -386,33 +413,17 @@ class ScheduleGridWidget extends StatelessWidget {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(3),
                 ),
-                child: showSaturday
-                    // 土曜表示時は、最小4文字分が折り返さないよう自動縮小
-                    ? FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.center,
-                        child: Text(
-                          scheduleClass.classroom,
-                          maxLines: 1,
-                          softWrap: false,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.black,
-                                fontSize: 8,
-                                height: 1.0,
-                              ),
-                          textAlign: TextAlign.center,
-                        ),
-                      )
-                    // 平日表示時は従来のサイズ
-                    : Text(
-                        scheduleClass.classroom,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.black,
-                              fontSize: 7.5,
-                              height: 1.0,
-                            ),
-                        textAlign: TextAlign.center,
+                child: Text(
+                  scheduleClass.classroom.trim(),
+                  softWrap: true,
+                  overflow: TextOverflow.visible,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.black,
+                        fontSize: 8.6,
+                        height: 1.05,
                       ),
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
           
@@ -427,38 +438,110 @@ class ScheduleGridWidget extends StatelessWidget {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: showSaturday
-                  ? FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.center,
-                      child: Text(
-                        scheduleClass.classroom,
-                        maxLines: 1,
-                        softWrap: false,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.black,
-                              fontSize: is4PeriodClass ? 10 : 9, // ベースから自動縮小
-                              fontWeight: FontWeight.w600,
-                              height: 1.1,
-                            ),
-                        textAlign: TextAlign.center,
-                      ),
-                    )
-                  : Text(
-                      scheduleClass.classroom,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.black,
-                            fontSize: is4PeriodClass ? 9 : 8,
-                            fontWeight: FontWeight.w600,
-                            height: 1.1,
-                          ),
-                      textAlign: TextAlign.center,
+              child: Text(
+                _formatClassroomForCompactCell(scheduleClass.classroom),
+                softWrap: true,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.black,
+                      fontSize: is4PeriodClass ? 10.2 : 9.4,
+                      fontWeight: FontWeight.w600,
+                      height: 1.1,
                     ),
+                textAlign: TextAlign.center,
+              ),
             ),
           ],
         ],
       ),
     );
+  }
+
+  String _formatClassroomForCompactCell(String classroom) {
+    final text = classroom.trim();
+    if (text.length <= 7) {
+      return text;
+    }
+
+    final separators = [' ', '　', '/', '／', '-', '－', '・'];
+    final mid = text.length ~/ 2;
+
+    int bestIndex = -1;
+    int bestDistance = 1 << 30;
+    for (final sep in separators) {
+      var index = text.indexOf(sep);
+      while (index != -1) {
+        final distance = (index - mid).abs();
+        if (index > 1 && index < text.length - 2 && distance < bestDistance) {
+          bestDistance = distance;
+          bestIndex = index;
+        }
+        index = text.indexOf(sep, index + 1);
+      }
+    }
+
+    if (bestIndex != -1) {
+      final first = text.substring(0, bestIndex).trimRight();
+      final second = text.substring(bestIndex + 1).trimLeft();
+      return '$first\n$second';
+    }
+
+    final split = (text.length / 2).ceil();
+    return '${text.substring(0, split)}\n${text.substring(split)}';
+  }
+
+  double _additionalHeightForClassContent(int period) {
+    int maxClassroomLines = 1;
+    int maxSubjectLines = 1;
+    for (final weekday in displayWeekdays) {
+      final scheduleClass = schedule.timetable[weekday.name]?[period];
+      if (scheduleClass == null || !scheduleClass.isStartCell) {
+        continue;
+      }
+      final classroomLines = _estimateClassroomLines(scheduleClass.classroom);
+      if (classroomLines > maxClassroomLines) {
+        maxClassroomLines = classroomLines;
+      }
+
+      if (scheduleClass.duration == 1) {
+        final subjectLines = _estimateSubjectLines(scheduleClass.subjectName);
+        if (subjectLines > maxSubjectLines) {
+          maxSubjectLines = subjectLines;
+        }
+      }
+    }
+
+    // 2行でも実表示では不足しやすいため、2行目から追加する
+    final classroomExtra = maxClassroomLines <= 1 ? 0.0 : (maxClassroomLines - 1) * 11.0;
+    // 科目名も2行目から追加（単一時限セルのみ）
+    final subjectExtra = maxSubjectLines <= 1 ? 0.0 : (maxSubjectLines - 1) * 9.0;
+
+    final additional = classroomExtra + subjectExtra;
+    if (additional < 0) {
+      return 0;
+    }
+    return additional;
+  }
+
+  int _estimateClassroomLines(String classroom) {
+    final text = classroom.trim();
+    if (text.isEmpty) {
+      return 1;
+    }
+    // 土曜表示時のセル幅に合わせた概算（全角/半角混在を考慮してやや小さめ）
+    const charsPerLine = 6;
+    final lines = (text.length / charsPerLine).ceil();
+    return lines.clamp(1, 8);
+  }
+
+  int _estimateSubjectLines(String subject) {
+    final text = subject.trim();
+    if (text.isEmpty) {
+      return 1;
+    }
+    // 5日表示の方が列幅が広いので、1行あたり文字数を少し多めに見積もる
+    final charsPerLine = showSaturday ? 8 : 10;
+    final lines = (text.length / charsPerLine).ceil();
+    return lines.clamp(1, 6);
   }
 
 

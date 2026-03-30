@@ -5,7 +5,7 @@ import '../../models/convenience_link/convenience_link_model.dart';
 class ConvenienceLinkService {
   static const String _keyPrefix = 'convenience_links_';
   static const String _versionKey = 'convenience_links_version';
-  static const int _currentVersion = 7; // 新しいプリセットリンク追加を反映するためのバージョン
+  static const int _currentVersion = 8; // 図書館リンクURL更新を反映するためのバージョン
   
   /// ユーザー固有のキーを生成
   static String _getUserKey(String userId) => '${_keyPrefix}$userId';
@@ -235,6 +235,7 @@ class ConvenienceLinkService {
           continue;
         }
         int newOrder = link.order; // デフォルトは既存の順番
+        String newUrl = link.url;
         
         // IDで一致する場合
         if (newOrderMap.containsKey(link.id)) {
@@ -244,9 +245,15 @@ class ConvenienceLinkService {
         else if (titleOrderMap.containsKey(link.title)) {
           newOrder = titleOrderMap[link.title]!;
         }
+
+        // 既存ユーザーの図書館リンクURLを新URLへ更新
+        if (link.id == 'preset_library' || link.title == '図書館') {
+          newUrl = 'https://opac2.lib.chibatech.ac.jp/';
+        }
         
         updatedLinks.add(link.copyWith(
           order: newOrder,
+          url: newUrl,
           updatedAt: DateTime.now(),
         ));
       }
