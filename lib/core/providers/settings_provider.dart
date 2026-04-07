@@ -63,6 +63,10 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
           SettingsState(
             showSaturday: _prefs.getBool('showSaturday') ?? true,
             preferredBusCampus: _prefs.getString('preferredBusCampus') ?? 'tsudanuma',
+            preferredTrainDirectionTsudanuma:
+                _prefs.getString('preferredTrainDirectionTsudanuma') ?? 'up',
+            preferredTrainDirectionNarashino:
+                _prefs.getString('preferredTrainDirectionNarashino') ?? 'up',
             scheduleNotificationEnabled: _prefs.getBool('scheduleNotificationEnabled') ?? false,
             appFontSize: _fontSizeFromStorage(_prefs.getString('appFontSize')),
           ),
@@ -89,6 +93,32 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     state = state.copyWith(preferredBusCampus: campus);
   }
 
+  // 電車優先方面を設定（campus: tsudanuma/narashino, directionKey: up/down）
+  Future<void> setPreferredTrainDirection({
+    required String campus,
+    required String directionKey,
+  }) async {
+    final key = _trainDirectionPrefsKeyForCampus(campus);
+    if (key == null) return;
+    await _prefs.setString(key, directionKey);
+    if (campus == 'tsudanuma') {
+      state = state.copyWith(preferredTrainDirectionTsudanuma: directionKey);
+      return;
+    }
+    state = state.copyWith(preferredTrainDirectionNarashino: directionKey);
+  }
+
+  String? _trainDirectionPrefsKeyForCampus(String campus) {
+    switch (campus) {
+      case 'tsudanuma':
+        return 'preferredTrainDirectionTsudanuma';
+      case 'narashino':
+        return 'preferredTrainDirectionNarashino';
+      default:
+        return null;
+    }
+  }
+
   // 講義通知の有効/無効を設定
   Future<void> setScheduleNotificationEnabled(bool enabled) async {
     await _prefs.setBool('scheduleNotificationEnabled', enabled);
@@ -107,24 +137,34 @@ class SettingsState {
   const SettingsState({
     required this.showSaturday,
     required this.preferredBusCampus,
+    required this.preferredTrainDirectionTsudanuma,
+    required this.preferredTrainDirectionNarashino,
     required this.scheduleNotificationEnabled,
     required this.appFontSize,
   });
 
   final bool showSaturday;
   final String preferredBusCampus; // 'tsudanuma' or 'narashino'
+  final String preferredTrainDirectionTsudanuma; // 'up' or 'down'
+  final String preferredTrainDirectionNarashino; // 'up' or 'down'
   final bool scheduleNotificationEnabled; // 講義通知の有効/無効
   final AppFontSizeOption appFontSize;
 
   SettingsState copyWith({
     bool? showSaturday,
     String? preferredBusCampus,
+    String? preferredTrainDirectionTsudanuma,
+    String? preferredTrainDirectionNarashino,
     bool? scheduleNotificationEnabled,
     AppFontSizeOption? appFontSize,
   }) {
     return SettingsState(
       showSaturday: showSaturday ?? this.showSaturday,
       preferredBusCampus: preferredBusCampus ?? this.preferredBusCampus,
+      preferredTrainDirectionTsudanuma:
+          preferredTrainDirectionTsudanuma ?? this.preferredTrainDirectionTsudanuma,
+      preferredTrainDirectionNarashino:
+          preferredTrainDirectionNarashino ?? this.preferredTrainDirectionNarashino,
       scheduleNotificationEnabled: scheduleNotificationEnabled ?? this.scheduleNotificationEnabled,
       appFontSize: appFontSize ?? this.appFontSize,
     );
@@ -156,6 +196,23 @@ final preferredBusCampusProvider = Provider<String>((ref) {
 final setPreferredBusCampusProvider = Provider<Future<void> Function(String)>((ref) {
   return (campus) => ref.read(settingsProvider.notifier).setPreferredBusCampus(campus);
 });
+
+// キャンパス別の電車優先方面取得（'up' or 'down'）
+final preferredTrainDirectionProvider = Provider.family<String, String>((ref, campus) {
+  final settings = ref.watch(settingsProvider);
+  if (campus == 'narashino') {
+    return settings.preferredTrainDirectionNarashino;
+  }
+  return settings.preferredTrainDirectionTsudanuma;
+});
+
+// キャンパス別の電車優先方面設定
+final setPreferredTrainDirectionProvider =
+    Provider<Future<void> Function(String campus, String directionKey)>((ref) {
+      return (campus, directionKey) => ref
+          .read(settingsProvider.notifier)
+          .setPreferredTrainDirection(campus: campus, directionKey: directionKey);
+    });
 
 // 講義通知設定のプロバイダー
 final scheduleNotificationEnabledProvider = Provider<bool>((ref) {

@@ -44,6 +44,9 @@ class SimpleProfileScreen extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final themeModeNotifier = ref.read(themeModeProvider.notifier);
     final preferredBusCampus = ref.watch(preferredBusCampusProvider);
+    final preferredTrainDirection = ref.watch(
+      preferredTrainDirectionProvider(preferredBusCampus),
+    );
     final appFontSize = ref.watch(appFontSizeProvider);
     final profileAdAsync = ref.watch(inAppAdProvider(AdPlacement.profileTop));
 
@@ -161,6 +164,25 @@ class SimpleProfileScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
+                  const Divider(height: 1),
+
+                  // 電車優先方面設定
+                  ListTile(
+                    leading: const Icon(Icons.train),
+                    title: const Text('電車の優先方面を設定'),
+                    subtitle: Text(
+                      preferredTrainDirection == 'down' ? '下りを優先表示' : '上りを優先表示',
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap:
+                        () => _showPreferredTrainDirectionDialog(
+                          context,
+                          ref,
+                          preferredBusCampus,
+                          preferredTrainDirection,
+                        ),
+                  ),
+
                   const Divider(height: 1),
 
                   // テーマ設定
@@ -876,6 +898,69 @@ class SimpleProfileScreen extends ConsumerWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('メインキャンパスを「新習志野」に設定しました')),
                       );
+                    }
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('閉じる'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showPreferredTrainDirectionDialog(
+    BuildContext context,
+    WidgetRef ref,
+    String campus,
+    String currentDirection,
+  ) {
+    final campusLabel = campus == 'narashino' ? '新習志野キャンパス' : '津田沼キャンパス';
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.train),
+                const SizedBox(width: 8),
+                Expanded(child: Text('$campusLabelの優先方面')),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RadioListTile<String>(
+                  title: const Text('上り'),
+                  value: 'up',
+                  groupValue: currentDirection,
+                  onChanged: (v) async {
+                    if (v == null) return;
+                    await ref.read(setPreferredTrainDirectionProvider)(campus, v);
+                    if (context.mounted) Navigator.of(context).pop();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(const SnackBar(content: Text('優先方面を上りに設定しました')));
+                    }
+                  },
+                ),
+                RadioListTile<String>(
+                  title: const Text('下り'),
+                  value: 'down',
+                  groupValue: currentDirection,
+                  onChanged: (v) async {
+                    if (v == null) return;
+                    await ref.read(setPreferredTrainDirectionProvider)(campus, v);
+                    if (context.mounted) Navigator.of(context).pop();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(const SnackBar(content: Text('優先方面を下りに設定しました')));
                     }
                   },
                 ),
