@@ -5,7 +5,9 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="1dp"
+    android:padding="2dp"
+    android:layout_marginBottom="2dp"
+    android:background="@drawable/widget_row_empty_bg"
     android:minHeight="22dp">
 
     <LinearLayout
@@ -27,7 +29,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="[2] —"
-            android:textSize="10sp"
+            android:textSize="9sp"
             android:textColor="#BDBDBD"
             android:maxLines="1"
             android:ellipsize="end" />

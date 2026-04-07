@@ -856,6 +856,18 @@ class ExcelScheduleImportService {
     final dayIndex = dayOrder.indexOf(weekdayKey);
 
     final neighborColors = <String>{};
+    final usedInSameDayColors = <String>{};
+
+    // 同じ曜日では隣接していなくても同色を避ける
+    final sameDay = timetable[weekdayKey];
+    if (sameDay != null) {
+      for (final c in sameDay.values) {
+        if (c != null && c.color.isNotEmpty) {
+          usedInSameDayColors.add(c.color);
+        }
+      }
+    }
+
     for (int i = 0; i < duration; i++) {
       final period = startPeriod + i;
 
@@ -880,8 +892,9 @@ class ExcelScheduleImportService {
       collectColor(weekdayKey, period + 1); // 下
     }
 
+    final blockedColors = <String>{...neighborColors, ...usedInSameDayColors};
     for (final color in palette) {
-      if (!neighborColors.contains(color)) {
+      if (!blockedColors.contains(color)) {
         return color;
       }
     }

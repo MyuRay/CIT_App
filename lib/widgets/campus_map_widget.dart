@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../core/providers/firebase_campus_provider.dart';
 import 'common/animated_image_placeholder.dart';
+import 'common/interactive_viewer_double_tap_zoom.dart';
 
 class CampusMapWidget extends ConsumerWidget {
   final String campus;
@@ -207,8 +208,9 @@ class _FullScreenCampusMapDialogState
   double _dragOffset = 0;
   bool _isDismissing = false;
   bool _isImageZoomed = false;
+  bool _isInteractingWithImage = false;
+  bool _showChrome = true;
   final Map<String, TransformationController> _transformationControllers = {};
-  static const double _defaultScale = 1.0;
   static const double _zoomedScale = 2.5;
 
   @override
@@ -264,7 +266,11 @@ class _FullScreenCampusMapDialogState
     }
   }
 
-  void _handleDoubleTap(String campusKey, TapDownDetails details) {
+  void _handleDoubleTap(
+    String campusKey,
+    TapDownDetails details,
+    Size viewportSize,
+  ) {
     final controller = _transformationControllers[campusKey];
     if (controller == null) return;
 
@@ -275,15 +281,17 @@ class _FullScreenCampusMapDialogState
       // 拡大中の場合、元のサイズに戻す
       controller.value = Matrix4.identity();
     } else {
-      // 縮小時の場合、タップした位置を中心に拡大（X風の挙動）
+      // タップした点がビュー中央に来るように拡大
       final tapPosition = details.localPosition;
-      final translationCorrection = _zoomedScale - 1;
+      final viewportCenter = Offset(
+        viewportSize.width / 2,
+        viewportSize.height / 2,
+      );
+      final translateX = viewportCenter.dx - (tapPosition.dx * _zoomedScale);
+      final translateY = viewportCenter.dy - (tapPosition.dy * _zoomedScale);
 
       controller.value = Matrix4.identity()
-        ..translate(
-          -tapPosition.dx * translationCorrection,
-          -tapPosition.dy * translationCorrection,
-        )
+        ..translate(translateX, translateY)
         ..scale(_zoomedScale);
     }
   }
@@ -301,7 +309,7 @@ class _FullScreenCampusMapDialogState
     // 垂直ドラッグで閉じる機能は、画像が拡大されていない場合のみ有効
     if (_isDismissing || _isImageZoomed) return;
     setState(() {
-      _dragOffset += details.delta.dy;
+      _dragOffset = (_dragOffset + details.delta.dy).clamp(0.0, 420.0);
     });
   }
 
@@ -309,7 +317,7 @@ class _FullScreenCampusMapDialogState
     // 垂直ドラッグで閉じる機能は、画像が拡大されていない場合のみ有効
     if (_isDismissing || _isImageZoomed) return;
     final velocity = details.velocity.pixelsPerSecond.dy;
-    if (_dragOffset.abs() > 120 || velocity.abs() > 700) {
+    if (_dragOffset > 110 || velocity > 900) {
       _isDismissing = true;
       Navigator.of(context).pop();
     } else {
@@ -321,7 +329,8 @@ class _FullScreenCampusMapDialogState
 
   @override
   Widget build(BuildContext context) {
-    final opacity = (1 - (_dragOffset.abs() / 400)).clamp(0.3, 1.0).toDouble();
+    final opacity = (1 - (_dragOffset / 360)).clamp(0.32, 1.0).toDouble();
+    final dragScale = (1 - (_dragOffset / 1400)).clamp(0.9, 1.0).toDouble();
 
     return Dialog.fullscreen(
       backgroundColor: Colors.black.withValues(alpha: opacity),
@@ -331,13 +340,15 @@ class _FullScreenCampusMapDialogState
         onVerticalDragEnd: _handleDragEnd,
         child: Transform.translate(
           offset: Offset(0, _dragOffset),
-          child: Stack(
+          child: Transform.scale(
+            scale: dragScale,
+            child: Stack(
             children: [
               Positioned.fill(
                 child: PageView.builder(
                   controller: _pageController,
                   // 画像が拡大されている場合はスワイプを無効化
-                  physics: _isImageZoomed
+                  physics: (_isImageZoomed || _isInteractingWithImage)
                       ? const NeverScrollableScrollPhysics()
                       : const PageScrollPhysics(),
                   itemCount: _entries.length,
@@ -357,16 +368,14 @@ class _FullScreenCampusMapDialogState
                   },
                   itemBuilder: (context, index) {
                     final entry = _entries[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: _buildCampusPage(context, entry.key, entry.value),
-                    );
+                    return _buildCampusPage(context, entry.key, entry.value);
                   },
                 ),
               ),
-              _buildTopControls(context),
-              if (_entries.length > 1) _buildCampusSelector(context),
-              Positioned(
+              if (_showChrome) _buildTopControls(context),
+              if (_showChrome && _entries.length > 1) _buildCampusSelector(context),
+              if (_showChrome)
+                Positioned(
                 top: MediaQuery.of(context).padding.top + 16,
                 left: 24,
                 child: Text(
@@ -378,9 +387,10 @@ class _FullScreenCampusMapDialogState
                   ),
                 ),
               ),
-              _buildDoubleTapHint(context),
+              if (_showChrome) _buildDoubleTapHint(context),
             ],
           ),
+        ),
         ),
       ),
     );
@@ -405,6 +415,8 @@ class _FullScreenCampusMapDialogState
         final imageWidget = kIsWeb
             ? Image.network(
                 effectiveUrl,
+                width: double.infinity,
+                height: double.infinity,
                 fit: BoxFit.contain,
                 loadingBuilder: (context, child, loadingProgress) {
                   if (loadingProgress == null) return child;
@@ -423,6 +435,8 @@ class _FullScreenCampusMapDialogState
               )
             : CachedNetworkImage(
                 imageUrl: effectiveUrl,
+                width: double.infinity,
+                height: double.infinity,
                 fit: BoxFit.contain,
                 placeholder:
                     (context, url) => const AnimatedImagePlaceholder(
@@ -438,24 +452,40 @@ class _FullScreenCampusMapDialogState
                     ),
               );
 
-        return Center(
-          child: Material(
-            color: Colors.transparent,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onDoubleTapDown: (details) => _handleDoubleTap(campusKey, details),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            return Material(
+              color: Colors.transparent,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () => setState(() => _showChrome = !_showChrome),
+                onDoubleTapDown:
+                    (details) => _handleDoubleTap(
+                      campusKey,
+                      details,
+                      constraints.biggest,
+                    ),
                 child: InteractiveViewer(
-                  transformationController: _transformationControllers[campusKey],
+                  transformationController:
+                      _transformationControllers[campusKey],
                   minScale: 0.5,
                   maxScale: 4.0,
                   panEnabled: true,
-                  child: imageWidget,
+                  onInteractionStart: (_) {
+                    if (!_isInteractingWithImage) {
+                      setState(() => _isInteractingWithImage = true);
+                    }
+                  },
+                  onInteractionEnd: (_) {
+                    if (_isInteractingWithImage) {
+                      setState(() => _isInteractingWithImage = false);
+                    }
+                  },
+                  child: SizedBox.expand(child: imageWidget),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
       loading:
@@ -494,7 +524,7 @@ class _FullScreenCampusMapDialogState
             borderRadius: BorderRadius.circular(20),
           ),
           child: const Text(
-            'ダブルタップで拡大・縮小',
+            'ダブルタップで拡大・縮小、ドラッグで移動できます',
             style: TextStyle(
               color: Colors.white70,
               fontSize: 12,

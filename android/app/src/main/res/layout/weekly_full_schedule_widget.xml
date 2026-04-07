@@ -5,14 +5,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:paddingTop="4dp"
-    android:paddingStart="4dp"
-    android:paddingEnd="4dp"
-    android:paddingBottom="0dp"
+    android:paddingTop="8dp"
+    android:paddingStart="8dp"
+    android:paddingEnd="8dp"
+    android:paddingBottom="4dp"
     android:gravity="top"
     android:clipChildren="false"
     android:clipToPadding="false"
-    android:background="@android:color/white">
+    android:background="@drawable/widget_surface_bg">
 
     <TextView
         android:id="@+id/weekly_title"
@@ -20,15 +20,45 @@
         android:layout_height="wrap_content"
         android:text="週間時間割"
         android:textStyle="bold"
-        android:textSize="14sp"
-        android:paddingBottom="2dp" />
+        android:textSize="13sp"
+        android:textColor="#334155"
+        android:paddingBottom="4dp" />
 
     <LinearLayout
-        android:id="@+id/days_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:clipChildren="false">
+
+        <LinearLayout
+            android:id="@+id/periods_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingEnd="4dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textSize="11sp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp" />
+
+            <LinearLayout
+                android:id="@+id/periods_list"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/days_row"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:clipChildren="false">
 
         <!-- Monday -->
         <LinearLayout
@@ -45,6 +75,7 @@
                 android:layout_height="wrap_content"
                 android:text="月"
                 android:textStyle="bold"
+                android:textColor="#475569"
                 android:gravity="center" />
 
             <LinearLayout
@@ -69,6 +100,7 @@
                 android:layout_height="wrap_content"
                 android:text="火"
                 android:textStyle="bold"
+                android:textColor="#475569"
                 android:gravity="center" />
 
             <LinearLayout
@@ -93,6 +125,7 @@
                 android:layout_height="wrap_content"
                 android:text="水"
                 android:textStyle="bold"
+                android:textColor="#475569"
                 android:gravity="center" />
 
             <LinearLayout
@@ -117,6 +150,7 @@
                 android:layout_height="wrap_content"
                 android:text="木"
                 android:textStyle="bold"
+                android:textColor="#475569"
                 android:gravity="center" />
 
             <LinearLayout
@@ -141,6 +175,7 @@
                 android:layout_height="wrap_content"
                 android:text="金"
                 android:textStyle="bold"
+                android:textColor="#475569"
                 android:gravity="center" />
 
             <LinearLayout
@@ -165,6 +200,7 @@
                 android:layout_height="wrap_content"
                 android:text="土"
                 android:textStyle="bold"
+                android:textColor="#475569"
                 android:gravity="center" />
 
             <LinearLayout
@@ -172,6 +208,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />
+        </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 

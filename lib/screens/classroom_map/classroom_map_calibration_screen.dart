@@ -8,7 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/providers/classroom_map_provider.dart';
 import '../../models/classroom_map/classroom_map_model.dart';
 
-/// デバッグ用: 地図をタップして緯度経度を取得し、`classroom_map.json` 編集用にコピーする。
+/// デバッグ用: 地図をタップして緯度経度を取得し、`classroom_map_json.dart` 編集用にコピーする。
 ///
 /// リリースビルドではルート未登録のため開けません。
 class ClassroomMapCalibrationScreen extends ConsumerStatefulWidget {
@@ -83,7 +83,7 @@ class _ClassroomMapCalibrationScreenState extends ConsumerState<ClassroomMapCali
                       ),
                 ),
                 const SizedBox(height: 12),
-                Text('現在の座標（classroom_map.json）', style: Theme.of(ctx).textTheme.titleSmall),
+                Text('現在の座標（kClassroomMapJson）', style: Theme.of(ctx).textTheme.titleSmall),
                 const SizedBox(height: 8),
                 SelectableText('緯度 $latS\n経度 $lngS', style: Theme.of(ctx).textTheme.bodyLarge),
                 const SizedBox(height: 16),
@@ -356,7 +356,7 @@ class _ClassroomMapCalibrationScreenState extends ConsumerState<ClassroomMapCali
                         child: Text(
                           'ピン上のラベルが号館名です。ピンをタップすると現在の座標をコピーできます。'
                           '修正位置は地図の空白をタップして取得し、'
-                          'assets/data/classroom_map.json の該当 buildingId の latitude / longitude に反映してください。',
+                          'lib/data/classroom_map_json.dart（kClassroomMapJson）の該当 buildingId の latitude / longitude に反映してください。',
                           style: theme.textTheme.bodySmall,
                         ),
                       ),

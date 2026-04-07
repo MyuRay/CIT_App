@@ -48,5 +48,5 @@ flutter {
 dependencies {
     implementation("androidx.multidex:multidex:2.0.1")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
-    // AGP 8.9.1以上に対応（依存関係のバージョンは自動解決）
+    // AGP 8.8.2環境向け（依存関係のバージョンは自動解決）
 }

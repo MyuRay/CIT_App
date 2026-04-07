@@ -301,7 +301,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(6),
                               child: Image.asset(
-                                "cit_app\assets\icons\textmatch_logo .png",
+                                'assets/icons/textmatch_logo .png',
                                 width: 40,
                                 height: 40,
                                 fit: BoxFit.cover,
@@ -463,7 +463,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Icon(
-                      Icons.wb_sunny_outlined,
+                      Icons.cloud_outlined,
                       color: accentColor,
                       size: 18,
                     ),
@@ -553,7 +553,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '${weather.emoji} ${weather.description}',
+                                      '${_emojiForDescription(weather.description, weather.emoji)} ${weather.description}',
                                       style: theme.textTheme.titleMedium?.copyWith(
                                         fontWeight: FontWeight.w700,
                                       ),
@@ -640,7 +640,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               Text(
                 '情報元: Open-Meteo（JMAモデル） | 参考程度に活用してください',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: Colors.black,
+                  color: theme.brightness == Brightness.dark
+                      ? Colors.white70
+                      : Colors.black,
                 ),
               ),
             ],
@@ -729,6 +731,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (code >= 80 && code <= 82) return ('にわか雨', '🌦️');
     if (code >= 95) return ('雷雨', '⛈️');
     return ('不明', '🌈');
+  }
+
+  String _emojiForSimpleLabel(String label) {
+    switch (label) {
+      case '晴れ':
+        return '🌤️';
+      case 'くもり':
+        return '☁️';
+      case '霧':
+        return '🌫️';
+      case '雨':
+        return '🌧️';
+      case '雪':
+        return '❄️';
+      case '雷雨':
+        return '⛈️';
+      default:
+        return '🌈';
+    }
+  }
+
+  String _emojiForDescription(String description, String fallback) {
+    // 例: 「晴れのちくもり」→ 「🌤️→☁️」
+    if (description.contains('のち')) {
+      final parts = description.split('のち');
+      if (parts.length >= 2) {
+        final first = parts.first.trim();
+        final second = parts[1].trim();
+        return '${_emojiForSimpleLabel(first)}→${_emojiForSimpleLabel(second)}';
+      }
+    }
+    // 単一ラベルの場合はラベルから絵文字を再計算（なければフォールバック）
+    final single = _emojiForSimpleLabel(description.trim());
+    return single.isNotEmpty ? single : fallback;
   }
 
   String _buildWeatherDescriptionForToday({
@@ -854,9 +890,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   bool _isRainingState(int weatherCode, {required double? precipitation}) {
-    if (_isRainWeatherCode(weatherCode)) return true;
-    // weather_code が降水を拾わないケースに備えて、降水量でも雨判定する
-    return (precipitation ?? 0) >= 0.1;
+    // より厳格に判定: 「雨系コード」かつ「降水量が十分にある」場合のみ雨扱い
+    final p = (precipitation ?? 0);
+    return _isRainWeatherCode(weatherCode) && p >= 0.3;
   }
 
   List<Widget> _buildOrderedHomeCards(
@@ -1179,6 +1215,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             const SizedBox(height: 8),
             const SizedBox(height: 12),
             _buildCampusMaps(context),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => _openClassroomMap(context),
+                icon: const Icon(Icons.class_outlined, size: 16),
+                label: const Text('詳細なマップを確認'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -3117,11 +3165,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     style: Theme.of(
                                       context,
                                     ).textTheme.titleSmall?.copyWith(
-                                      color: Color(
-                                        int.parse(
-                                          '0xff${scheduleClass.color.substring(1)}',
-                                        ),
-                                      ),
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? Colors.white
+                                          : Colors.black,
                                       fontWeight: FontWeight.bold,
                                       fontSize:
                                           scheduleClass.duration > 1 ? 10 : 12,
@@ -3134,11 +3181,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     style: Theme.of(
                                       context,
                                     ).textTheme.bodySmall?.copyWith(
-                                      color: Color(
-                                        int.parse(
-                                          '0xff${scheduleClass.color.substring(1)}',
-                                        ),
-                                      ),
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? Colors.white70
+                                          : Colors.black,
                                       fontSize:
                                           scheduleClass.duration > 1 ? 8 : 11,
                                     ),

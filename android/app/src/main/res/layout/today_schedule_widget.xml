@@ -5,9 +5,9 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="12dp"
+    android:padding="10dp"
     android:gravity="top"
-    android:background="@android:color/white">
+    android:background="@drawable/widget_surface_bg">
 
     <!-- ヘッダー: 曜日と日付 -->
     <LinearLayout
@@ -22,7 +22,7 @@
             android:layout_height="wrap_content"
             android:text="月"
             android:textStyle="bold"
-            android:textSize="18sp"
+            android:textSize="17sp"
             android:textColor="#1976D2" />
         <TextView
             android:id="@+id/today_date"
@@ -42,8 +42,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="今日の時間割"
-            android:textSize="14sp"
-            android:textColor="#666666" />
+            android:textStyle="bold"
+            android:textSize="13sp"
+            android:textColor="#334155" />
     </LinearLayout>
 
     <!-- 授業リスト -->

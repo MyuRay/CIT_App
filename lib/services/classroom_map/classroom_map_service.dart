@@ -1,26 +1,31 @@
 import 'dart:convert';
 
-import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 
+import '../../data/classroom_map_json.dart';
 import '../../models/classroom_map/classroom_map_model.dart';
 
 /// 教室マップのデータを読み込むサービス
 /// 写真提供後に教室一覧を拡充予定
+///
+/// データは [kClassroomMapJson] のみ（rootBundle は使わない）。
 class ClassroomMapService {
-  static const String _assetPath = 'assets/data/classroom_map.json';
-
   static Map<String, dynamic>? _cachedData;
 
-  static Future<Map<String, dynamic>> _loadData() async {
+  static Map<String, dynamic> _parsedJson() {
     if (_cachedData != null) return _cachedData!;
-    final jsonStr = await rootBundle.loadString(_assetPath);
-    _cachedData = json.decode(jsonStr) as Map<String, dynamic>;
+    try {
+      _cachedData = json.decode(kClassroomMapJson) as Map<String, dynamic>;
+    } catch (e, st) {
+      debugPrint('ClassroomMapService: JSON decode failed: $e\n$st');
+      rethrow;
+    }
     return _cachedData!;
   }
 
   /// キャンパス一覧と校舎マーカーを取得
   static Future<CampusMapData> getCampusMapData() async {
-    final data = await _loadData();
+    final data = _parsedJson();
     final campuses = <CampusMapItem>[];
 
     for (final c in (data['campuses'] as List<dynamic>)) {
@@ -42,7 +47,7 @@ class ClassroomMapService {
 
   /// 校舎別の教室一覧を取得
   static Future<List<BuildingRooms>> getBuildingRooms() async {
-    final data = await _loadData();
+    final data = _parsedJson();
     final list = <BuildingRooms>[];
     for (final b in (data['buildingRooms'] as List<dynamic>)) {
       list.add(BuildingRooms.fromJson(b as Map<String, dynamic>));

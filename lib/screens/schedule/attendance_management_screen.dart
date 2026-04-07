@@ -56,13 +56,26 @@ class _AttendanceManagementScreenState extends State<AttendanceManagementScreen>
         ),
         builder: (context, snapshot) {
           final records = snapshot.data ?? const <Map<String, dynamic>>[];
-          final recordMap = <String, String>{};
+          final recordMapByClass = <String, _AttendanceCellRecord>{};
+          final recordMapBySlot = <String, _AttendanceCellRecord>{};
           for (final record in records) {
+            final recordId = record['id'] as String? ?? '';
             final classId = record['classId'] as String? ?? '';
             final date = record['attendanceDate'] as DateTime?;
             final status = record['status'] as String? ?? '';
-            if (classId.isEmpty || date == null || status.isEmpty) continue;
-            recordMap['$classId|${_dateKey(date)}'] = status;
+            final weekdayKey = record['weekdayKey'] as String? ?? '';
+            final startPeriod = record['startPeriod'] as int?;
+            if (recordId.isEmpty || classId.isEmpty || date == null || status.isEmpty) continue;
+            final localDate = date.toLocal();
+            final dateKey = _dateKey(localDate);
+            final cellRecord = _AttendanceCellRecord(
+              recordId: recordId,
+              status: status,
+            );
+            recordMapByClass['$classId|$dateKey'] = cellRecord;
+            if (weekdayKey.isNotEmpty && startPeriod != null) {
+              recordMapBySlot['$weekdayKey|$startPeriod|$dateKey'] = cellRecord;
+            }
           }
 
           return Column(
@@ -126,7 +139,12 @@ class _AttendanceManagementScreenState extends State<AttendanceManagementScreen>
                                     );
                                     final key =
                                         '${row.classId}|${_dateKey(targetDate)}';
-                                    final status = recordMap[key];
+                                    final slotKey =
+                                        '${row.weekdayKey}|${row.period}|${_dateKey(targetDate)}';
+                                    final cellRecord =
+                                        recordMapByClass[key] ??
+                                        recordMapBySlot[slotKey];
+                                    final status = cellRecord?.status;
                                     return DataCell(
                                       _statusCell(context, status),
                                       onTap: () async {
@@ -135,6 +153,7 @@ class _AttendanceManagementScreenState extends State<AttendanceManagementScreen>
                                           row: row,
                                           attendanceDate: targetDate,
                                           currentStatus: status,
+                                          existingRecordId: cellRecord?.recordId,
                                         );
                                       },
                                     );
@@ -289,6 +308,7 @@ class _AttendanceManagementScreenState extends State<AttendanceManagementScreen>
     required _AttendanceClassRow row,
     required DateTime attendanceDate,
     required String? currentStatus,
+    String? existingRecordId,
   }) async {
     final selected = await showDialog<String?>(
       context: context,
@@ -360,6 +380,7 @@ class _AttendanceManagementScreenState extends State<AttendanceManagementScreen>
         duration: row.duration,
         attendanceDate: attendanceDate,
         status: normalizedStatus,
+        existingRecordId: existingRecordId,
       );
       if (!context.mounted) return;
       ScaffoldMessenger.of(
@@ -450,6 +471,16 @@ class _AttendanceClassRow {
   final int period;
   final int duration;
   final String subjectName;
+}
+
+class _AttendanceCellRecord {
+  const _AttendanceCellRecord({
+    required this.recordId,
+    required this.status,
+  });
+
+  final String recordId;
+  final String status;
 }
 
 class _LegendDot extends StatelessWidget {

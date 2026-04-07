@@ -91,5 +91,17 @@ class CafeteriaFavoriteService {
     final snap = await query.get();
     return snap.docs.isNotEmpty;
   }
+
+  /// 特定メニューをお気に入り登録しているユーザー数を取得
+  static Future<int> getMenuFavoriteUserCount(String menuItemId) async {
+    if (menuItemId.isEmpty) return 0;
+    final aggregate = await _firestore
+        .collectionGroup('cafeteria_favorites')
+        .where('type', isEqualTo: 'menu')
+        .where('menuItemId', isEqualTo: menuItemId)
+        .count()
+        .get();
+    return aggregate.count ?? 0;
+  }
 }
 

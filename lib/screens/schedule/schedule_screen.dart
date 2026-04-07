@@ -10,9 +10,11 @@ import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/providers/schedule_provider.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../models/schedule/schedule_model.dart';
+import '../../models/schedule/lecture_period_model.dart';
 import '../../widgets/schedule/schedule_grid_widget.dart';
 import 'schedule_edit_screen.dart';
 import '../../core/providers/in_app_ad_provider.dart';
@@ -23,6 +25,7 @@ import '../../services/schedule/schedule_service.dart';
 import '../../services/schedule/excel_schedule_import_service.dart';
 import '../../services/schedule/excel_import_feedback_service.dart';
 import '../../services/schedule/attendance_service.dart';
+import '../../services/widget/home_widgets_service.dart';
 import 'attendance_management_screen.dart';
 import 'attendance_qr_reader_screen.dart';
 
@@ -32,6 +35,8 @@ class ScheduleScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<ScheduleScreen> createState() => _ScheduleScreenState();
 }
+
+enum _ScheduleSheetAction { add, rename, delete }
 
 class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   bool _isEditMode = false;
@@ -43,12 +48,68 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   void initState() {
     super.initState();
     _selectedScheduleId = ref.read(selectedScheduleIdProvider);
+    // 画面起動時にもホームウィジェットへ最新の選択時間割を再同期する
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncWidgetsFromCurrentSelection();
+    });
+  }
+
+  Future<void> _syncWidgetsFromCurrentSelection() async {
+    try {
+      final userId = ref.read(currentUserIdProvider);
+      if (userId == null) {
+        await _syncWidgetsForSelectedSchedule(null);
+        return;
+      }
+
+      final schedules = await ScheduleService.getAllSchedulesByUserId(userId);
+      if (schedules.isEmpty) {
+        await _syncWidgetsForSelectedSchedule(null);
+        return;
+      }
+
+      final selectedId = ref.read(selectedScheduleIdProvider);
+      final selected =
+          selectedId != null
+              ? schedules.where((s) => s.id == selectedId).firstOrNull
+              : null;
+      await _syncWidgetsForSelectedSchedule(selected ?? schedules.first);
+    } catch (e) {
+      debugPrint('⚠️ 起動時ウィジェット同期に失敗: $e');
+    }
+  }
+
+  Future<void> _syncWidgetsForSelectedSchedule(Schedule? schedule) async {
+    try {
+      final title = schedule == null ? '週間時間割' : _scheduleLabel(schedule);
+      await HomeWidgetsService.updateWeeklyFullSchedule(
+        schedule,
+        scheduleTitle: title,
+      );
+      if (schedule == null) {
+        await HomeWidgetsService.updateTodaySchedule(
+          null,
+          scheduleTitle: '今日の時間割',
+        );
+        return;
+      }
+      final todayClasses = ScheduleUtils.getTodayClasses(schedule);
+      final currentPeriod = ScheduleUtils.getCurrentPeriod(schedule.timeSlots);
+      await HomeWidgetsService.updateTodaySchedule(
+        todayClasses,
+        currentPeriod: currentPeriod,
+        scheduleTitle: title,
+      );
+    } catch (e) {
+      debugPrint('⚠️ 選択時間割のウィジェット同期に失敗: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final userId = ref.watch(currentUserIdProvider);
     final showSaturday = ref.watch(showSaturdayProvider);
+    final lecturePeriodAsync = ref.watch(lecturePeriodSettingsProvider);
     final scheduleListAsync =
         userId == null
             ? const AsyncValue<List<Schedule>>.loading()
@@ -59,7 +120,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leadingWidth: userId != null ? 150 : null,
+        leadingWidth: userId != null ? 138 : null,
         leading:
             userId != null
                 ? Padding(
@@ -266,6 +327,11 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                 }
 
                 final selectedSchedule = _resolveSelectedSchedule(schedules);
+                final canShowAttendanceButton = _isWithinConfiguredLecturePeriod(
+                  settings: lecturePeriodAsync.valueOrNull,
+                  semester: selectedSchedule.semester,
+                );
+                final showAttendanceActions = canShowAttendanceButton;
                 final adSection = scheduleAdAsync.when(
                   data: (ad) => ad == null
                       ? const SizedBox.shrink()
@@ -329,16 +395,19 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                                         );
                                       },
                                   onClassAttendanceTap:
+                                      canShowAttendanceButton
+                                          ? (weekdayKey, period, scheduleClass) async {
+                                              await _markAttendanceFromSchedule(
+                                                context: context,
+                                                schedule: selectedSchedule,
+                                                weekdayKey: weekdayKey,
+                                                period: period,
+                                                scheduleClass: scheduleClass,
+                                              );
+                                            }
+                                          : null,
+                                  onLoadAttendanceSummary:
                                       (weekdayKey, period, scheduleClass) async {
-                                        await _markAttendanceFromSchedule(
-                                          context: context,
-                                          schedule: selectedSchedule,
-                                          weekdayKey: weekdayKey,
-                                          period: period,
-                                          scheduleClass: scheduleClass,
-                                        );
-                                      },
-                                  onLoadAttendanceSummary: (scheduleClass) async {
                                     final userId = ref.read(currentUserIdProvider);
                                     if (userId == null) {
                                       return const AttendanceClassSummary(
@@ -347,12 +416,28 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                                         absentCount: 0,
                                       );
                                     }
-                                    return AttendanceService.getClassAttendanceSummary(
+                                    final window = _attendanceSummaryWindowForSemester(
+                                      settings: lecturePeriodAsync.valueOrNull,
+                                      semester: selectedSchedule.semester,
+                                    );
+                                    if (window == null) {
+                                      return AttendanceService.getClassAttendanceSummary(
+                                        userId: userId,
+                                        scheduleId: selectedSchedule.id,
+                                        classId: scheduleClass.id,
+                                      );
+                                    }
+                                    return AttendanceService.getClassAttendanceSummaryForRange(
                                       userId: userId,
                                       scheduleId: selectedSchedule.id,
                                       classId: scheduleClass.id,
+                                      weekdayKey: weekdayKey,
+                                      startPeriod: period,
+                                      startDate: window.start,
+                                      endDate: window.end,
                                     );
                                   },
+                                  showAttendanceActions: showAttendanceActions,
                                   isEditMode: _isEditMode,
                                   showSaturday: showSaturday,
                                   forceFullHeight: _isSharing,
@@ -463,18 +548,18 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
             border: Border.all(color: Theme.of(context).dividerColor),
           ),
           child: SizedBox(
-            height: 15,
+            height: 14,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 0),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     Icons.tune,
-                    size: 12,
+                    size: 11,
                     color: Theme.of(context).colorScheme.primary,
                   ),
-                  const SizedBox(width: 1),
+                  const SizedBox(width: 0.5),
                   Flexible(
                     child: Text(
                       '学期切替',
@@ -487,7 +572,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     ),
                   ),
                   const SizedBox(width: 0),
-                  const Icon(Icons.expand_more, size: 12),
+                  const Icon(Icons.expand_more, size: 11),
                 ],
               ),
             ),
@@ -512,7 +597,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     required List<Schedule> schedules,
     required Schedule selected,
   }) async {
-    await showModalBottomSheet<void>(
+    final action = await showModalBottomSheet<_ScheduleSheetAction>(
       context: context,
       showDragHandle: true,
       builder:
@@ -556,6 +641,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                                 setState(() => _selectedScheduleId = s.id);
                                 ref.read(selectedScheduleIdProvider.notifier).state =
                                     s.id;
+                                _syncWidgetsForSelectedSchedule(s);
                                 Navigator.of(sheetContext).pop();
                               },
                             ),
@@ -565,15 +651,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                           icon: const Icon(Icons.add_circle_outline, size: 18),
                           label: const Text('時間割を追加'),
                           onPressed: () {
-                            Navigator.of(sheetContext).pop();
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (!mounted) return;
-                              _showCreateScheduleDialog(
-                                context,
-                                userId,
-                                List<Schedule>.from(schedules),
-                              );
-                            });
+                            Navigator.of(
+                              sheetContext,
+                            ).pop(_ScheduleSheetAction.add);
                           },
                         ),
                       ],
@@ -586,16 +666,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                         icon: const Icon(Icons.edit_outlined, size: 18),
                         label: const Text('選択中を編集'),
                         onPressed: () {
-                          Navigator.of(sheetContext).pop();
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (!mounted) return;
-                            _showRenameScheduleDialog(
-                              context: context,
-                              userId: userId,
-                              schedules: List<Schedule>.from(schedules),
-                              selected: selected,
-                            );
-                          });
+                          Navigator.of(
+                            sheetContext,
+                          ).pop(_ScheduleSheetAction.rename);
                         },
                       ),
                       const SizedBox(width: 8),
@@ -607,16 +680,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                         ),
                         label: const Text('選択中を削除'),
                         onPressed: () {
-                          Navigator.of(sheetContext).pop();
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (!mounted) return;
-                            _showDeleteScheduleDialog(
-                              context: context,
-                              userId: userId,
-                              schedules: List<Schedule>.from(schedules),
-                              selected: selected,
-                            );
-                          });
+                          Navigator.of(
+                            sheetContext,
+                          ).pop(_ScheduleSheetAction.delete);
                         },
                       ),
                     ],
@@ -626,6 +692,33 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
             ),
           ),
     );
+
+    if (!mounted || action == null) return;
+    switch (action) {
+      case _ScheduleSheetAction.add:
+        await _showCreateScheduleDialog(
+          context,
+          userId,
+          List<Schedule>.from(schedules),
+        );
+        break;
+      case _ScheduleSheetAction.rename:
+        await _showRenameScheduleDialog(
+          context: context,
+          userId: userId,
+          schedules: List<Schedule>.from(schedules),
+          selected: selected,
+        );
+        break;
+      case _ScheduleSheetAction.delete:
+        await _showDeleteScheduleDialog(
+          context: context,
+          userId: userId,
+          schedules: List<Schedule>.from(schedules),
+          selected: selected,
+        );
+        break;
+    }
   }
 
   Future<void> _showDeleteScheduleDialog({
@@ -680,6 +773,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     if (!mounted) return;
     setState(() => _selectedScheduleId = null);
     ref.read(selectedScheduleIdProvider.notifier).state = null;
+    await _syncWidgetsForSelectedSchedule(null);
   }
 
   Future<void> _showCreateScheduleDialog(
@@ -687,97 +781,34 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     String userId,
     List<Schedule> currentSchedules,
   ) async {
-    final timetableNameController = TextEditingController();
-    String? errorMessage;
-
-    final created = await showDialog<Schedule>(
-      context: context,
-      builder:
-          (dialogContext) => StatefulBuilder(
-            builder:
-                (dialogContext, setDialogState) => AlertDialog(
-                  title: const Text('時間割を追加'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextField(
-                        controller: timetableNameController,
-                        decoration: const InputDecoration(
-                          labelText: '時間割名',
-                          hintText: '例: 2026年前期 / 3s',
-                        ),
-                      ),
-                      if (errorMessage != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          errorMessage!,
-                          style: TextStyle(
-                            color: Theme.of(dialogContext).colorScheme.error,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(),
-                      child: const Text('キャンセル'),
-                    ),
-                    FilledButton(
-                      onPressed: () async {
-                        try {
-                          final timetableName = timetableNameController.text.trim();
-                          if (timetableName.isEmpty) {
-                            setDialogState(() {
-                              errorMessage = '時間割名を入力してください';
-                            });
-                            return;
-                          }
-                          final normalizedInput = timetableName.toLowerCase();
-                          final duplicateExists = currentSchedules.any(
-                            (schedule) =>
-                                schedule.semester.trim().toLowerCase() ==
-                                normalizedInput,
-                          );
-                          if (duplicateExists) {
-                            setDialogState(() {
-                              errorMessage =
-                                  '同じ時間割名が既に存在します。違う名前を入力してください。';
-                            });
-                            return;
-                          }
-                          final createdSchedule =
-                              await ScheduleService.createNamedSchedule(
-                                userId: userId,
-                                // 時間割名のみ管理するため、semesterに同じ値を保存する
-                                name: timetableName,
-                                semester: timetableName,
-                              );
-                          if (dialogContext.mounted) {
-                            Navigator.of(dialogContext).pop(createdSchedule);
-                          }
-                        } catch (e) {
-                          setDialogState(() {
-                            errorMessage = '追加に失敗しました: $e';
-                          });
-                        }
-                      },
-                      child: const Text('追加'),
-                    ),
-                  ],
-                ),
-              ),
+    final timetableName = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder:
+            (_) => _CreateScheduleInputPage(currentSchedules: currentSchedules),
+      ),
     );
 
-    timetableNameController.dispose();
+    if (timetableName == null || timetableName.isEmpty) return;
 
-    if (created == null) return;
-    ref.invalidate(scheduleListProvider(userId));
-    if (!mounted) return;
-    setState(() => _selectedScheduleId = created.id);
-    ref.read(selectedScheduleIdProvider.notifier).state = created.id;
+    try {
+      final created = await ScheduleService.createNamedSchedule(
+        userId: userId,
+        // 時間割名のみ管理するため、semesterに同じ値を保存する
+        name: timetableName,
+        semester: timetableName,
+      );
+      if (!mounted) return;
+      setState(() => _selectedScheduleId = created.id);
+      ref.read(selectedScheduleIdProvider.notifier).state = created.id;
+      ref.invalidate(scheduleListProvider(userId));
+      await _syncWidgetsForSelectedSchedule(created);
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('追加に失敗しました: $e')));
+    }
   }
 
   Future<void> _showRenameScheduleDialog({
@@ -786,106 +817,55 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     required List<Schedule> schedules,
     required Schedule selected,
   }) async {
-    final nameController = TextEditingController(text: _scheduleLabel(selected));
-    String? errorMessage;
-
-    final renamed = await showDialog<Schedule>(
-      context: context,
-      builder:
-          (dialogContext) => StatefulBuilder(
-            builder:
-                (dialogContext, setDialogState) => AlertDialog(
-                  title: const Text('学期名を編集'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextField(
-                        controller: nameController,
-                        decoration: const InputDecoration(
-                          labelText: '学期名',
-                          hintText: '例: 2026年前期 / 3S',
-                        ),
-                      ),
-                      if (errorMessage != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          errorMessage!,
-                          style: TextStyle(
-                            color: Theme.of(dialogContext).colorScheme.error,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(),
-                      child: const Text('キャンセル'),
-                    ),
-                    FilledButton(
-                      onPressed: () async {
-                        try {
-                          final newName = nameController.text.trim();
-                          if (newName.isEmpty) {
-                            setDialogState(() {
-                              errorMessage = '学期名を入力してください';
-                            });
-                            return;
-                          }
-                          final normalizedInput = newName.toLowerCase();
-                          final duplicateExists = schedules.any(
-                            (schedule) =>
-                                schedule.id != selected.id &&
-                                schedule.semester.trim().toLowerCase() ==
-                                    normalizedInput,
-                          );
-                          if (duplicateExists) {
-                            setDialogState(() {
-                              errorMessage =
-                                  '同じ学期名が既に存在します。違う名前を入力してください。';
-                            });
-                            return;
-                          }
-
-                          final updatedSchedule = Schedule(
-                            id: selected.id,
-                            userId: selected.userId,
-                            name: newName,
-                            semester: newName,
-                            timetable: selected.timetable,
-                            timeSlots: selected.timeSlots,
-                            createdAt: selected.createdAt,
-                            updatedAt: DateTime.now(),
-                          );
-                          await ScheduleService.updateSchedule(updatedSchedule);
-                          if (dialogContext.mounted) {
-                            Navigator.of(dialogContext).pop(updatedSchedule);
-                          }
-                        } catch (e) {
-                          setDialogState(() {
-                            errorMessage = '更新に失敗しました: $e';
-                          });
-                        }
-                      },
-                      child: const Text('保存'),
-                    ),
-                  ],
-                ),
-              ),
+    final newName = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder:
+            (_) => _RenameScheduleInputPage(
+              currentSchedules: schedules,
+              selectedScheduleId: selected.id,
+              initialName: _scheduleLabel(selected),
+            ),
+      ),
     );
-
-    nameController.dispose();
-    if (renamed == null) return;
-
-    ref.invalidate(scheduleListProvider(userId));
+    if (newName == null || newName.isEmpty) return;
     if (!mounted) return;
-    setState(() => _selectedScheduleId = renamed.id);
-    ref.read(selectedScheduleIdProvider.notifier).state = renamed.id;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('学期名を「${_scheduleLabel(renamed)}」に変更しました')),
+
+    final updatedSchedule = Schedule(
+      id: selected.id,
+      userId: selected.userId,
+      name: newName,
+      semester: newName,
+      timetable: selected.timetable,
+      timeSlots: selected.timeSlots,
+      createdAt: selected.createdAt,
+      updatedAt: DateTime.now(),
     );
+
+    try {
+      await ScheduleService.updateSchedule(updatedSchedule);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('更新に失敗しました: $e')));
+      return;
+    }
+
+    // ダイアログ破棄と同フレームで親画面更新すると、まれにSemantics assertが発生する。
+    // 次フレームへずらして安全に反映する。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.invalidate(scheduleListProvider(userId));
+      setState(() => _selectedScheduleId = updatedSchedule.id);
+      ref.read(selectedScheduleIdProvider.notifier).state = updatedSchedule.id;
+      _syncWidgetsForSelectedSchedule(updatedSchedule);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('学期名を「${_scheduleLabel(updatedSchedule)}」に変更しました'),
+        ),
+      );
+    });
   }
 
   // 時間割を共有する機能
@@ -1641,6 +1621,8 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       setState(() => _selectedScheduleId = fallbackId);
     }
     ref.read(selectedScheduleIdProvider.notifier).state = fallbackId;
+    final fallbackSchedule = schedules.firstWhere((s) => s.id == fallbackId);
+    _syncWidgetsForSelectedSchedule(fallbackSchedule);
     return fallbackId;
   }
 
@@ -1721,7 +1703,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                             ),
                             const Expanded(
                               child: Text(
-                                '抽出精度向上のため、個人情報(Excelファイルのsheet1/sheet2のI4・AG4を匿名化したデータを提供する)',
+                                '抽出精度向上のため、個人情報（Excelファイルのsheet1/sheet2のI4・AG4）を匿名化したデータを提供する',
                                 style: TextStyle(fontSize: 12),
                               ),
                             ),
@@ -2181,8 +2163,17 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       final userId = ref.read(currentUserIdProvider);
       if (userId != null) {
         ref.invalidate(scheduleListProvider(userId));
+        ref.invalidate(scheduleProvider(userId));
+        ref.invalidate(todayScheduleProvider(userId));
+        ref.invalidate(currentPeriodProvider(userId));
+        ref.invalidate(nextClassProvider(userId));
       }
+      ref.invalidate(todayScheduleByIdProvider(schedule.id));
+      ref.invalidate(currentUserSelectedTodayScheduleProvider);
+      ref.invalidate(currentUserTodayScheduleProvider);
       ref.invalidate(currentUserScheduleProvider);
+      // ホーム画面側も即時再取得させる
+      ref.read(homeRefreshNotifierProvider.notifier).state++;
 
       if (context.mounted) {
         ScaffoldMessenger.of(
@@ -2207,9 +2198,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     required int period,
     required ScheduleClass scheduleClass,
   }) async {
-    bool? scanned;
+    String? scannedRaw;
     try {
-      scanned = await Navigator.of(context).push<bool>(
+      scannedRaw = await Navigator.of(context).push<String>(
         MaterialPageRoute(builder: (_) => const AttendanceQrReaderScreen()),
       );
     } catch (e) {
@@ -2220,7 +2211,8 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       }
       return;
     }
-    if (scanned != true) return;
+    if (scannedRaw == null || scannedRaw.trim().isEmpty) return;
+    await _openAttendancePortalFromQr(context: context, scannedRaw: scannedRaw);
 
     final userId = ref.read(currentUserIdProvider);
     if (userId == null) {
@@ -2254,6 +2246,75 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text('出欠記録に失敗しました: $e')));
     }
+  }
+
+  Future<void> _openAttendancePortalFromQr({
+    required BuildContext context,
+    required String scannedRaw,
+  }) async {
+    final raw = scannedRaw.trim();
+    final uri = Uri.tryParse(raw);
+    if (uri == null) return;
+    final isWeb = (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty;
+    if (!isWeb) return;
+    try {
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened && context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('出席サイトを開けませんでした')));
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('出席サイトを開けませんでした: $e')));
+    }
+  }
+
+  bool _isWithinConfiguredLecturePeriod({
+    required LecturePeriodSettings? settings,
+    required String semester,
+    DateTime? now,
+  }) {
+    // 設定未取得/未設定時は従来どおり表示する
+    if (settings == null) return true;
+    final current = now ?? DateTime.now();
+    final day = DateTime(current.year, current.month, current.day);
+
+    final isFall = semester.contains('後期');
+    final startRaw = isFall ? settings.fallStartDate : settings.springStartDate;
+    final endRaw = isFall ? settings.fallEndDate : settings.springEndDate;
+    final legacyStart = settings.lectureStartDate;
+    final legacyEnd = settings.lectureEndDate;
+
+    final start = startRaw ?? (!isFall ? legacyStart : null);
+    final end = endRaw ?? (!isFall ? legacyEnd : null);
+    if (start == null || end == null) return true;
+
+    final startDay = DateTime(start.year, start.month, start.day);
+    final endDay = DateTime(end.year, end.month, end.day);
+    return !day.isBefore(startDay) && !day.isAfter(endDay);
+  }
+
+  DateTimeRange? _attendanceSummaryWindowForSemester({
+    required LecturePeriodSettings? settings,
+    required String semester,
+  }) {
+    if (settings == null) return null;
+    final isFall = semester.contains('後期');
+    final startRaw = isFall ? settings.fallStartDate : settings.springStartDate;
+    final endRaw = isFall ? settings.fallEndDate : settings.springEndDate;
+    final legacyStart = settings.lectureStartDate;
+    final legacyEnd = settings.lectureEndDate;
+
+    final start = startRaw ?? (!isFall ? legacyStart : null);
+    final end = endRaw ?? (!isFall ? legacyEnd : null);
+    if (start == null || end == null) return null;
+
+    final startDay = DateTime(start.year, start.month, start.day);
+    final endDay = DateTime(end.year, end.month, end.day);
+    return DateTimeRange(start: startDay, end: endDay);
   }
 
   void _showNotificationInfoDialog(BuildContext context) {
@@ -2353,6 +2414,186 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       const SnackBar(
         content: Text('講義通知を無効にしました。'),
         duration: Duration(seconds: 2),
+      ),
+    );
+  }
+}
+
+class _CreateScheduleInputPage extends StatefulWidget {
+  const _CreateScheduleInputPage({required this.currentSchedules});
+
+  final List<Schedule> currentSchedules;
+
+  @override
+  State<_CreateScheduleInputPage> createState() => _CreateScheduleInputPageState();
+}
+
+class _CreateScheduleInputPageState extends State<_CreateScheduleInputPage> {
+  final TextEditingController _controller = TextEditingController();
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final input = _controller.text.trim();
+    if (input.isEmpty) {
+      setState(() {
+        _errorMessage = '時間割名を入力してください';
+      });
+      return;
+    }
+    final normalizedInput = input.toLowerCase();
+    final duplicateExists = widget.currentSchedules.any(
+      (schedule) => schedule.semester.trim().toLowerCase() == normalizedInput,
+    );
+    if (duplicateExists) {
+      setState(() {
+        _errorMessage = '同じ時間割名が既に存在します。違う名前を入力してください。';
+      });
+      return;
+    }
+    Navigator.of(context).pop(input);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('時間割を追加'),
+        actions: [
+          TextButton(
+            onPressed: _submit,
+            child: const Text('追加'),
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: '時間割名',
+                hintText: '例: 2026年前期 / 3s',
+              ),
+              onSubmitted: (_) => _submit(),
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RenameScheduleInputPage extends StatefulWidget {
+  const _RenameScheduleInputPage({
+    required this.currentSchedules,
+    required this.selectedScheduleId,
+    required this.initialName,
+  });
+
+  final List<Schedule> currentSchedules;
+  final String selectedScheduleId;
+  final String initialName;
+
+  @override
+  State<_RenameScheduleInputPage> createState() => _RenameScheduleInputPageState();
+}
+
+class _RenameScheduleInputPageState extends State<_RenameScheduleInputPage> {
+  late final TextEditingController _controller;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final input = _controller.text.trim();
+    if (input.isEmpty) {
+      setState(() {
+        _errorMessage = '学期名を入力してください';
+      });
+      return;
+    }
+    final normalizedInput = input.toLowerCase();
+    final duplicateExists = widget.currentSchedules.any(
+      (schedule) =>
+          schedule.id != widget.selectedScheduleId &&
+          schedule.semester.trim().toLowerCase() == normalizedInput,
+    );
+    if (duplicateExists) {
+      setState(() {
+        _errorMessage = '同じ学期名が既に存在します。違う名前を入力してください。';
+      });
+      return;
+    }
+    Navigator.of(context).pop(input);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('学期名を編集'),
+        actions: [
+          TextButton(
+            onPressed: _submit,
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: '学期名',
+                hintText: '例: 2026年前期 / 3s',
+              ),
+              onSubmitted: (_) => _submit(),
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

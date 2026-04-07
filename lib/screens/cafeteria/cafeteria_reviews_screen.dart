@@ -2,6 +2,7 @@ import 'package:characters/characters.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../widgets/common/interactive_viewer_double_tap_zoom.dart';
 import '../../widgets/common/animated_image_placeholder.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/providers/cafeteria_review_provider.dart';
@@ -18,6 +19,11 @@ import '../../widgets/ads/in_app_ad_card.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/providers/cafeteria_favorite_provider.dart';
 import '../../services/cafeteria/cafeteria_favorite_service.dart';
+
+final _menuFavoriteUserCountProvider =
+    FutureProvider.family<int, String>((ref, menuItemId) async {
+  return CafeteriaFavoriteService.getMenuFavoriteUserCount(menuItemId);
+});
 
 String? _campusCodeFromCafeteriaId(String cafeteriaId) {
   switch (cafeteriaId) {
@@ -810,6 +816,7 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
   bool _isDismissing = false;
   late final TransformationController _transformationController;
   double _currentScale = 1.0; // 現在のスケールを追跡
+  static const double _zoomedScale = 2.5;
 
   @override
   void initState() {
@@ -837,6 +844,14 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
         }
       });
     }
+  }
+
+  void _handleDoubleTap(TapDownDetails details) {
+    interactiveViewerToggleZoomAtFocalPoint(
+      _transformationController,
+      details,
+      zoomScale: _zoomedScale,
+    );
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
@@ -880,22 +895,27 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
         onTap: canDismiss ? () => Navigator.of(context).pop() : null,
         onVerticalDragUpdate: canDismiss ? _handleDragUpdate : null,
         onVerticalDragEnd: canDismiss ? _handleDragEnd : null,
-        child: Center(
+        child: SizedBox.expand(
           child: Transform.translate(
             offset: Offset(0, _dragOffset),
             child: Hero(
               tag: widget.imageUrl ?? widget.placeholder,
-              child: InteractiveViewer(
-                transformationController: _transformationController,
-                minScale: 0.8,
-                maxScale: 3.0,
-                panEnabled: true, // パン（ドラッグ）を有効化
-                scaleEnabled: true, // スケール（ピンチ）を有効化
-                boundaryMargin: const EdgeInsets.all(double.infinity), // 境界マージンを設定
-                child: _buildMenuImage(
-                  imageUrl: widget.imageUrl,
-                  placeholder: widget.placeholder,
-                  fontSize: 48,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onDoubleTapDown: _handleDoubleTap,
+                child: InteractiveViewer(
+                  transformationController: _transformationController,
+                  minScale: 0.8,
+                  maxScale: 3.0,
+                  panEnabled: true,
+                  scaleEnabled: true,
+                  clipBehavior: Clip.hardEdge,
+                  boundaryMargin: const EdgeInsets.all(double.infinity),
+                  child: _buildMenuImage(
+                    imageUrl: widget.imageUrl,
+                    placeholder: widget.placeholder,
+                    fontSize: 48,
+                  ),
                 ),
               ),
             ),
@@ -914,13 +934,88 @@ void _openFullScreenImage(
   if (imageUrl == null || imageUrl.isEmpty) {
     return;
   }
-  Navigator.of(context).push(
-    MaterialPageRoute(
-      builder:
-          (_) => _FullScreenImagePage(
-            imageUrl: imageUrl,
-            placeholder: placeholder,
+  double dragOffsetY = 0;
+  showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.82),
+    builder: (_) => StatefulBuilder(
+      builder: (dialogContext, setState) {
+        final dismissProgress = (dragOffsetY / 220).clamp(0.0, 1.0);
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onVerticalDragUpdate: (details) {
+            if (details.delta.dy <= 0) {
+              return;
+            }
+            setState(() {
+              dragOffsetY = (dragOffsetY + details.delta.dy).clamp(0.0, 320.0);
+            });
+          },
+          onVerticalDragEnd: (details) {
+            final velocity = details.primaryVelocity ?? 0;
+            if (dragOffsetY > 120 || velocity > 950) {
+              Navigator.of(dialogContext).pop();
+              return;
+            }
+            setState(() {
+              dragOffsetY = 0;
+            });
+          },
+          child: Transform.translate(
+            offset: Offset(0, dragOffsetY),
+            child: Opacity(
+              opacity: 1 - (dismissProgress * 0.35),
+              child: Dialog(
+                backgroundColor: Colors.transparent,
+                insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: InteractiveViewer(
+                        minScale: 1.0,
+                        maxScale: 4.0,
+                        child: CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.contain,
+                          placeholder: (context, url) => Container(
+                            color: Colors.black,
+                            alignment: Alignment.center,
+                            child: const SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: Colors.black,
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.white70,
+                              size: 40,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: IconButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        icon: const Icon(Icons.close),
+                        color: Colors.white,
+                        style: IconButton.styleFrom(backgroundColor: Colors.black45),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
+        );
+      },
     ),
   );
 }
@@ -986,6 +1081,7 @@ class _MenuRowCardState extends ConsumerState<_MenuRowCard> {
           );
           if (mounted) {
             ref.invalidate(isMenuFavoriteProvider(menuItem.id));
+            ref.invalidate(_menuFavoriteUserCountProvider(menuItem.id));
             ref.invalidate(userCafeteriaFavoritesProvider);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('お気に入りから削除しました')),
@@ -1001,6 +1097,7 @@ class _MenuRowCardState extends ConsumerState<_MenuRowCard> {
           );
           if (mounted) {
             ref.invalidate(isMenuFavoriteProvider(menuItem.id));
+            ref.invalidate(_menuFavoriteUserCountProvider(menuItem.id));
             ref.invalidate(userCafeteriaFavoritesProvider);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('お気に入りに追加しました')),

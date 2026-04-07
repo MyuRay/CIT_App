@@ -489,26 +489,30 @@ exports.updateMenuImagesNow = onRequest(async (req, res) => {
 async function updateMenuImages() {
   try {
     const bucket = admin.storage().bucket();
+    const uploadedImageUrls = {};
 
-    // 1. menu_images フォルダ内の全ファイルを削除
-    console.log('📁 menu_images フォルダをクリア中...');
-    const [files] = await bucket.getFiles({prefix: 'menu_images/'});
-
-    if (files.length > 0) {
-      await Promise.all(files.map((file) => file.delete()));
-      console.log(`✅ ${files.length} 個のファイルを削除しました`);
-    } else {
-      console.log('📁 menu_images フォルダは空です');
-    }
-
-    // 2. https://www.cit-s.com/dining/ からメニュー画像URLをスクレイピング
+    // 1. https://www.cit-s.com/dining/ からメニュー画像URLをスクレイピング
     console.log('🔍 学食ページからメニュー画像URLを取得中...');
     const diningPageUrl = 'https://www.cit-s.com/dining/';
+    const requestHeaders = {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+      'Accept':
+        'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache',
+    };
     async function getWithRetry(url, {timeoutMs = 15000, retries = 3} = {}) {
       let lastErr;
       for (let i = 0; i < retries; i++) {
         try {
-          return await axios.get(url, {timeout: timeoutMs});
+          return await axios.get(url, {
+            timeout: timeoutMs,
+            headers: requestHeaders,
+            responseType: 'arraybuffer',
+            validateStatus: (status) => status >= 200 && status < 400,
+          });
         } catch (err) {
           lastErr = err;
           const delayMs = 1000 * Math.pow(2, i); // 1s, 2s, 4s...
@@ -521,8 +525,9 @@ async function updateMenuImages() {
       throw lastErr;
     }
 
-    const response = await getWithRetry(diningPageUrl, {timeoutMs: 20000, retries: 3});
-    const $ = cheerio.load(response.data);
+    const response = await getWithRetry(diningPageUrl, {timeoutMs: 20000, retries: 4});
+    const html = Buffer.from(response.data).toString('utf8');
+    const $ = cheerio.load(html);
 
     // 画像URLを抽出（td_YYYYMM_W.png, sd1_YYYYMM_W.png, sd2_YYYYMM_W.png パターン）
     const imageUrls = [];
@@ -539,15 +544,53 @@ async function updateMenuImages() {
       }
     });
 
-    console.log(`📷 ${imageUrls.length} 個のメニュー画像URLを発見:`, imageUrls);
+    // 重複URLを排除
+    const dedupedImageUrls = [...new Set(imageUrls)];
+    console.log(`📷 ${dedupedImageUrls.length} 個のメニュー画像URLを発見:`, dedupedImageUrls);
 
-    if (imageUrls.length === 0) {
-      console.warn('⚠️ メニュー画像URLが見つかりませんでした');
-      return;
+    if (dedupedImageUrls.length === 0) {
+      // 既存画像を消さないため、ここで失敗として扱う
+      throw new Error('メニュー画像URLが見つかりませんでした');
     }
 
-    // 3. 画像をダウンロードしてリネーム・アップロード
-    for (const imageUrl of imageUrls) {
+    function isSupportedImageBuffer(buf) {
+      if (!buf || buf.length < 12) return false;
+      // PNG: 89 50 4E 47 0D 0A 1A 0A
+      const isPng =
+        buf[0] === 0x89 &&
+        buf[1] === 0x50 &&
+        buf[2] === 0x4E &&
+        buf[3] === 0x47 &&
+        buf[4] === 0x0D &&
+        buf[5] === 0x0A &&
+        buf[6] === 0x1A &&
+        buf[7] === 0x0A;
+      // JPEG: FF D8 ... FF D9
+      const isJpeg = buf[0] === 0xFF && buf[1] === 0xD8;
+      // GIF: GIF87a / GIF89a
+      const isGif =
+        buf[0] === 0x47 &&
+        buf[1] === 0x49 &&
+        buf[2] === 0x46 &&
+        buf[3] === 0x38 &&
+        (buf[4] === 0x37 || buf[4] === 0x39) &&
+        buf[5] === 0x61;
+      // WEBP: RIFF....WEBP
+      const isWebp =
+        buf[0] === 0x52 &&
+        buf[1] === 0x49 &&
+        buf[2] === 0x46 &&
+        buf[3] === 0x46 &&
+        buf[8] === 0x57 &&
+        buf[9] === 0x45 &&
+        buf[10] === 0x42 &&
+        buf[11] === 0x50;
+      return isPng || isJpeg || isGif || isWebp;
+    }
+
+    // 2. 画像をダウンロードしてリネーム・アップロード
+    // ※既存ファイルは先に削除しない。取得に成功したものだけ上書きする
+    for (const imageUrl of dedupedImageUrls) {
       try {
         // URLからファイル名を判定
         let newFileName = '';
@@ -565,15 +608,24 @@ async function updateMenuImages() {
         console.log(`📥 ダウンロード中: ${imageUrl} -> ${newFileName}`);
 
         // 画像をダウンロード（サイト側エラー/一時障害に備えてリトライ）
-        const imageResponse = await getWithRetry(imageUrl, {timeoutMs: 30000, retries: 3}).then(
+        const imageResponse = await getWithRetry(imageUrl, {timeoutMs: 30000, retries: 4}).then(
           (res) => res,
         );
+        const contentTypeHeader = String(imageResponse?.headers?.['content-type'] || '').toLowerCase();
+        if (!contentTypeHeader.startsWith('image/')) {
+          throw new Error(`画像ではないレスポンスを受信: content-type=${contentTypeHeader || 'unknown'}`);
+        }
+        const imageBuffer = Buffer.from(imageResponse.data);
+        if (!isSupportedImageBuffer(imageBuffer)) {
+          throw new Error('画像シグネチャ検証に失敗（壊れたレスポンスの可能性）');
+        }
+        const contentType = contentTypeHeader || 'image/png';
 
         // Firebase Storageにアップロード
         const file = bucket.file(`menu_images/${newFileName}`);
-        await file.save(Buffer.from(imageResponse.data), {
+        await file.save(imageBuffer, {
           metadata: {
-            contentType: 'image/png',
+            contentType,
             metadata: {
               originalUrl: imageUrl,
               uploadedAt: new Date().toISOString(),
@@ -583,11 +635,43 @@ async function updateMenuImages() {
 
         // 公開URLを設定
         await file.makePublic();
+        uploadedImageUrls[newFileName] = file.publicUrl();
 
         console.log(`✅ アップロード完了: ${newFileName}`);
       } catch (imageError) {
         console.error(`❌ 画像処理エラー (${imageUrl}):`, imageError.message);
       }
+    }
+
+    // 3. Discordへ更新通知（画像付き）
+    try {
+      const menuWebhook = getWebhook('menu');
+      const entries = [
+        {key: 'td.png', label: '津田沼食堂'},
+        {key: 'sd1.png', label: '新習志野食堂 1F'},
+        {key: 'sd2.png', label: '新習志野食堂 2F'},
+      ].filter((e) => !!uploadedImageUrls[e.key]);
+
+      if (entries.length > 0) {
+        const payload = {
+          embeds: entries.map((entry) => ({
+            title: `🍽️ 学食メニュー画像を更新しました（${entry.label}）`,
+            description: '最新画像を保存しました。',
+            color: 0x57f287,
+            image: {url: uploadedImageUrls[entry.key]},
+            fields: [
+              {name: 'ファイル名', value: entry.key, inline: true},
+              {name: 'URL', value: uploadedImageUrls[entry.key], inline: false},
+            ],
+            timestamp: new Date().toISOString(),
+          })),
+        };
+        await postToDiscord(menuWebhook, payload);
+      } else {
+        console.warn('⚠️ Discord通知対象の画像URLがありませんでした');
+      }
+    } catch (notifyErr) {
+      console.error('❌ 学食更新Discord通知エラー:', notifyErr);
     }
 
     console.log('🎉 学食メニュー画像の更新が完了しました');
@@ -1246,6 +1330,67 @@ exports.getUserGrowthStats = onRequest(async (req, res) => {
     res.status(500).json({
       error: 'ユーザー数推移の取得に失敗しました',
       message: error.message,
+    });
+  }
+});
+
+// 既存ユーザー救済用: usersコレクションの emailVerified を一括で true に更新
+exports.bulkVerifyExistingUsersNow = onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  try {
+    const usersRef = admin.firestore().collection('users');
+    const snapshot = await usersRef.get();
+
+    let scanned = 0;
+    let updated = 0;
+    let batch = admin.firestore().batch();
+    let batchOps = 0;
+    const syncedAt = admin.firestore.FieldValue.serverTimestamp();
+
+    for (const doc of snapshot.docs) {
+      scanned += 1;
+      const data = doc.data() || {};
+      if (data.emailVerified === true) {
+        continue;
+      }
+
+      batch.update(doc.ref, {
+        emailVerified: true,
+        updatedAt: syncedAt,
+      });
+      batchOps += 1;
+      updated += 1;
+
+      if (batchOps >= 450) {
+        await batch.commit();
+        batch = admin.firestore().batch();
+        batchOps = 0;
+      }
+    }
+
+    if (batchOps > 0) {
+      await batch.commit();
+    }
+
+    res.status(200).json({
+      ok: true,
+      scanned,
+      updated,
+      message: '既存ユーザーのemailVerified一括更新が完了しました',
+    });
+  } catch (e) {
+    console.error('❌ bulkVerifyExistingUsersNow error:', e);
+    res.status(500).json({
+      ok: false,
+      message: e?.message || String(e),
     });
   }
 });

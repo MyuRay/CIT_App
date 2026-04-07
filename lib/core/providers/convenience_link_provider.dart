@@ -118,9 +118,10 @@ final enabledConvenienceLinksProvider = Provider<AsyncValue<List<ConvenienceLink
   return linksAsync.when(
     data: (links) {
       final enabledLinks = links.where((link) => link.isEnabled).toList();
-      return AsyncValue.data(enabledLinks);
+      return AsyncValue<List<ConvenienceLink>>.data(enabledLinks);
     },
-    loading: () => const AsyncValue.loading(),
-    error: (error, stackTrace) => AsyncValue.error(error, stackTrace),
+    loading: () => const AsyncValue<List<ConvenienceLink>>.loading(),
+    error: (error, stackTrace) =>
+        AsyncValue<List<ConvenienceLink>>.error(error, stackTrace),
   );
 });

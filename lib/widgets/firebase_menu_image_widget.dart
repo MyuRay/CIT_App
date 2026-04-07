@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/providers/firebase_menu_provider.dart';
 import 'common/animated_image_placeholder.dart';
+import 'common/interactive_viewer_double_tap_zoom.dart';
 
 class FirebaseMenuImageWidget extends ConsumerWidget {
   final String campus;
@@ -297,9 +298,11 @@ class _FullScreenMenuImageDialogState
   late final PageController _pageController;
   final Map<String, TransformationController> _transformationControllers = {};
   bool _isImageZoomed = false;
+  bool _isInteractingWithImage = false;
   double _dragOffset = 0;
   bool _isDismissing = false;
   bool _showHint = true;
+  bool _showChrome = true;
   static const double _zoomedScale = 2.5;
 
   @override
@@ -349,7 +352,11 @@ class _FullScreenMenuImageDialogState
     }
   }
 
-  void _handleDoubleTap(String campusKey, TapDownDetails details) {
+  void _handleDoubleTap(
+    String campusKey,
+    TapDownDetails details,
+    Size viewportSize,
+  ) {
     final controller = _transformationControllers[campusKey];
     if (controller == null) return;
 
@@ -359,23 +366,14 @@ class _FullScreenMenuImageDialogState
     if (isCurrentlyZoomed) {
       controller.value = Matrix4.identity();
     } else {
-      final screenSize = MediaQuery.of(context).size;
-      final screenCenterX = screenSize.width / 2;
-      final screenCenterY = screenSize.height / 2;
-
-      final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
-      if (renderBox == null) {
-        controller.value = Matrix4.identity()..scale(_zoomedScale);
-        return;
-      }
-
-      final globalTapPosition = renderBox.localToGlobal(details.localPosition);
-      final offsetX = globalTapPosition.dx - screenCenterX;
-      final offsetY = globalTapPosition.dy - screenCenterY;
-
       final newScale = _zoomedScale;
-      final translateX = -offsetX * (newScale - 1);
-      final translateY = -offsetY * (newScale - 1);
+      final tapPosition = details.localPosition;
+      final viewportCenter = Offset(
+        viewportSize.width / 2,
+        viewportSize.height / 2,
+      );
+      final translateX = viewportCenter.dx - (tapPosition.dx * newScale);
+      final translateY = viewportCenter.dy - (tapPosition.dy * newScale);
 
       controller.value = Matrix4.identity()
         ..translate(translateX, translateY)
@@ -406,14 +404,14 @@ class _FullScreenMenuImageDialogState
   void _handleDragUpdate(DragUpdateDetails details) {
     if (_isDismissing || _isImageZoomed) return;
     setState(() {
-      _dragOffset += details.delta.dy;
+      _dragOffset = (_dragOffset + details.delta.dy).clamp(0.0, 420.0);
     });
   }
 
   void _handleDragEnd(DragEndDetails details) {
     if (_isDismissing || _isImageZoomed) return;
     final velocity = details.velocity.pixelsPerSecond.dy;
-    if (_dragOffset.abs() > 120 || velocity.abs() > 700) {
+    if (_dragOffset > 110 || velocity > 900) {
       _isDismissing = true;
       Navigator.of(context).pop();
     } else {
@@ -425,7 +423,8 @@ class _FullScreenMenuImageDialogState
 
   @override
   Widget build(BuildContext context) {
-    final opacity = (1 - (_dragOffset.abs() / 400)).clamp(0.3, 1.0).toDouble();
+    final opacity = (1 - (_dragOffset / 360)).clamp(0.32, 1.0).toDouble();
+    final dragScale = (1 - (_dragOffset / 1400)).clamp(0.9, 1.0).toDouble();
     final campuses = widget.campusOptions.keys.toList();
 
     return Dialog.fullscreen(
@@ -436,30 +435,31 @@ class _FullScreenMenuImageDialogState
         onVerticalDragEnd: _handleDragEnd,
             child: Transform.translate(
           offset: Offset(0, _dragOffset),
-              child: Stack(
+              child: Transform.scale(
+                scale: dragScale,
+                child: Stack(
                 children: [
                   Positioned.fill(
                     child: PageView.builder(
                     controller: _pageController,
-                  physics: _isImageZoomed
+                  physics: (_isImageZoomed || _isInteractingWithImage)
                         ? const NeverScrollableScrollPhysics()
                       : const PageScrollPhysics(),
                     itemCount: campuses.length,
                     onPageChanged: _onPageChanged,
                       itemBuilder: (context, index) {
                         final campusId = campuses[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: _buildCampusPage(context, campusId),
-                    );
+                    return _buildCampusPage(context, campusId);
                   },
                 ),
               ),
-              _buildTopControls(context),
-              if (_showHint && !_isImageZoomed) _buildDoubleTapHint(context),
-              _buildCampusSelector(context),
+              if (_showChrome) _buildTopControls(context),
+              if (_showChrome && _showHint && !_isImageZoomed)
+                _buildDoubleTapHint(context),
+              if (_showChrome) _buildCampusSelector(context),
             ],
           ),
+        ),
         ),
       ),
     );
@@ -477,6 +477,8 @@ class _FullScreenMenuImageDialogState
         final imageWidget = kIsWeb
             ? Image.network(
                 imageUrl,
+                width: double.infinity,
+                height: double.infinity,
                 fit: BoxFit.contain,
                 loadingBuilder: (context, child, loadingProgress) {
                   if (loadingProgress == null) return child;
@@ -496,6 +498,8 @@ class _FullScreenMenuImageDialogState
               )
             : CachedNetworkImage(
                             imageUrl: imageUrl,
+                width: double.infinity,
+                height: double.infinity,
                 fit: BoxFit.contain,
                 placeholder:
                     (context, url) => const AnimatedImagePlaceholder(
@@ -512,26 +516,40 @@ class _FullScreenMenuImageDialogState
                           ),
                         );
 
-        return Center(
-          child: Material(
-            color: Colors.transparent,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onDoubleTapDown: (details) =>
-                  _handleDoubleTap(campusId, details),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            return Material(
+              color: Colors.transparent,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () => setState(() => _showChrome = !_showChrome),
+                onDoubleTapDown:
+                    (details) => _handleDoubleTap(
+                      campusId,
+                      details,
+                      constraints.biggest,
+                    ),
                 child: InteractiveViewer(
                   transformationController:
                       _transformationControllers[campusId],
                   minScale: 0.5,
                   maxScale: 4.0,
                   panEnabled: true,
-                  child: imageWidget,
+                  onInteractionStart: (_) {
+                    if (!_isInteractingWithImage) {
+                      setState(() => _isInteractingWithImage = true);
+                    }
+                  },
+                  onInteractionEnd: (_) {
+                    if (_isInteractingWithImage) {
+                      setState(() => _isInteractingWithImage = false);
+                    }
+                  },
+                  child: SizedBox.expand(child: imageWidget),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
       loading:
@@ -931,6 +949,7 @@ class _SingleImageFullScreenDialogState
   double _dragOffset = 0;
   bool _isDismissing = false;
   bool _showHint = true;
+  bool _showChrome = true;
   static const double _zoomedScale = 2.5;
 
   @override
@@ -959,31 +978,21 @@ class _SingleImageFullScreenDialogState
     }
   }
 
-  void _handleDoubleTap(TapDownDetails details) {
+  void _handleDoubleTap(TapDownDetails details, Size viewportSize) {
     final scale = _transformationController.value.getMaxScaleOnAxis();
     final isCurrentlyZoomed = scale > 1.1;
 
     if (isCurrentlyZoomed) {
       _transformationController.value = Matrix4.identity();
     } else {
-      final screenSize = MediaQuery.of(context).size;
-      final screenCenterX = screenSize.width / 2;
-      final screenCenterY = screenSize.height / 2;
-
-      final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
-      if (renderBox == null) {
-        _transformationController.value =
-            Matrix4.identity()..scale(_zoomedScale);
-      return;
-    }
-
-      final globalTapPosition = renderBox.localToGlobal(details.localPosition);
-      final offsetX = globalTapPosition.dx - screenCenterX;
-      final offsetY = globalTapPosition.dy - screenCenterY;
-
       final newScale = _zoomedScale;
-      final translateX = -offsetX * (newScale - 1);
-      final translateY = -offsetY * (newScale - 1);
+      final tapPosition = details.localPosition;
+      final viewportCenter = Offset(
+        viewportSize.width / 2,
+        viewportSize.height / 2,
+      );
+      final translateX = viewportCenter.dx - (tapPosition.dx * newScale);
+      final translateY = viewportCenter.dy - (tapPosition.dy * newScale);
 
       _transformationController.value = Matrix4.identity()
         ..translate(translateX, translateY)
@@ -994,14 +1003,14 @@ class _SingleImageFullScreenDialogState
   void _handleDragUpdate(DragUpdateDetails details) {
     if (_isDismissing || _isImageZoomed) return;
     setState(() {
-      _dragOffset += details.delta.dy;
+      _dragOffset = (_dragOffset + details.delta.dy).clamp(0.0, 420.0);
     });
   }
 
   void _handleDragEnd(DragEndDetails details) {
     if (_isDismissing || _isImageZoomed) return;
     final velocity = details.velocity.pixelsPerSecond.dy;
-    if (_dragOffset.abs() > 120 || velocity.abs() > 700) {
+    if (_dragOffset > 110 || velocity > 900) {
       _isDismissing = true;
       Navigator.of(context).pop();
     } else {
@@ -1013,11 +1022,14 @@ class _SingleImageFullScreenDialogState
 
   @override
   Widget build(BuildContext context) {
-    final opacity = (1 - (_dragOffset.abs() / 400)).clamp(0.3, 1.0).toDouble();
+    final opacity = (1 - (_dragOffset / 360)).clamp(0.32, 1.0).toDouble();
+    final dragScale = (1 - (_dragOffset / 1400)).clamp(0.9, 1.0).toDouble();
 
     final imageWidget = kIsWeb
         ? Image.network(
             widget.imageUrl,
+            width: double.infinity,
+            height: double.infinity,
             fit: BoxFit.contain,
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
@@ -1039,6 +1051,8 @@ class _SingleImageFullScreenDialogState
           )
         : CachedNetworkImage(
             imageUrl: widget.imageUrl,
+            width: double.infinity,
+            height: double.infinity,
             fit: BoxFit.contain,
             placeholder:
                 (context, url) => const AnimatedImagePlaceholder(
@@ -1065,32 +1079,37 @@ class _SingleImageFullScreenDialogState
         onVerticalDragEnd: _handleDragEnd,
             child: Transform.translate(
           offset: Offset(0, _dragOffset),
-              child: Stack(
+              child: Transform.scale(
+                scale: dragScale,
+                child: Stack(
                 children: [
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onDoubleTapDown: _handleDoubleTap,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
+              Positioned.fill(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return Material(
+                      color: Colors.transparent,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap:
+                            () => setState(() => _showChrome = !_showChrome),
+                        onDoubleTapDown:
+                            (details) =>
+                                _handleDoubleTap(details, constraints.biggest),
                         child: InteractiveViewer(
                           transformationController: _transformationController,
                           minScale: 0.5,
                           maxScale: 4.0,
-                          panEnabled: true,
-                          child: imageWidget,
+                          panEnabled: _isImageZoomed,
+                          child: SizedBox.expand(child: imageWidget),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
               // 閉じるボタン
-              Positioned(
+              if (_showChrome)
+                Positioned(
                 top: MediaQuery.of(context).padding.top + 8,
                 right: 16,
                 child: Container(
@@ -1105,7 +1124,7 @@ class _SingleImageFullScreenDialogState
                 ),
               ),
               // ヒント
-              if (_showHint && !_isImageZoomed)
+              if (_showChrome && _showHint && !_isImageZoomed)
                 Positioned(
                   bottom: MediaQuery.of(context).padding.bottom + 24,
                   left: 16,
@@ -1124,7 +1143,7 @@ class _SingleImageFullScreenDialogState
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: const Text(
-                          'ダブルタップで拡大・縮小',
+                          'ダブルタップで拡大・縮小、ドラッグで移動できます',
                           style: TextStyle(color: Colors.white70, fontSize: 12),
                         ),
                       ),
@@ -1133,6 +1152,7 @@ class _SingleImageFullScreenDialogState
                 ),
             ],
           ),
+        ),
         ),
       ),
     );

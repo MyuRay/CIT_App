@@ -9,6 +9,12 @@ import 'cafeteria_review_form_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/providers/cafeteria_favorite_provider.dart';
 import '../../services/cafeteria/cafeteria_favorite_service.dart';
+import '../../widgets/common/interactive_viewer_double_tap_zoom.dart';
+
+final _menuFavoriteUserCountProvider =
+    FutureProvider.family<int, String>((ref, menuItemId) async {
+  return CafeteriaFavoriteService.getMenuFavoriteUserCount(menuItemId);
+});
 
 class CafeteriaMenuReviewsScreen extends ConsumerStatefulWidget {
   const CafeteriaMenuReviewsScreen({
@@ -289,7 +295,7 @@ class _CafeteriaMenuReviewsScreenState extends ConsumerState<CafeteriaMenuReview
   }
 }
 
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   const _Header({
     required this.cafeteriaId,
     required this.menuName,
@@ -315,7 +321,7 @@ class _Header extends StatelessWidget {
   String _formatPrice(int? p) => p == null ? '価格未設定' : '¥${p.toString()}';
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final placeholder = menuName.isNotEmpty ? menuName.substring(0, 1) : '?';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -801,24 +807,11 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
   }
 
   void _handleDoubleTap(TapDownDetails details) {
-    final scale = _transformationController.value.getMaxScaleOnAxis();
-    final isCurrentlyZoomed = scale > 1.1;
-
-    if (isCurrentlyZoomed) {
-      // 拡大中の場合、元のサイズに戻す
-      _transformationController.value = Matrix4.identity();
-    } else {
-      // 縮小時の場合、タップした位置を中心に拡大（X風の挙動）
-      final tapPosition = details.localPosition;
-      final translationCorrection = _zoomedScale - 1;
-
-      _transformationController.value = Matrix4.identity()
-        ..translate(
-          -tapPosition.dx * translationCorrection,
-          -tapPosition.dy * translationCorrection,
-        )
-        ..scale(_zoomedScale);
-    }
+    interactiveViewerToggleZoomAtFocalPoint(
+      _transformationController,
+      details,
+      zoomScale: _zoomedScale,
+    );
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
@@ -862,7 +855,7 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
         onTap: canDismiss ? () => Navigator.of(context).pop() : null,
         onVerticalDragUpdate: canDismiss ? _handleDragUpdate : null,
         onVerticalDragEnd: canDismiss ? _handleDragEnd : null,
-        child: Center(
+        child: SizedBox.expand(
           child: Transform.translate(
             offset: Offset(0, _dragOffset),
             child: Hero(
@@ -874,9 +867,10 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
                   transformationController: _transformationController,
                   minScale: 0.8,
                   maxScale: 3.0,
-                  panEnabled: true, // パン（ドラッグ）を有効化
-                  scaleEnabled: true, // スケール（ピンチ）を有効化
-                  boundaryMargin: const EdgeInsets.all(double.infinity), // 境界マージンを設定
+                  panEnabled: true,
+                  scaleEnabled: true,
+                  clipBehavior: Clip.hardEdge,
+                  boundaryMargin: const EdgeInsets.all(double.infinity),
                   child: _buildMenuImage(
                     imageUrl: widget.imageUrl,
                     placeholder: widget.placeholder,
@@ -934,6 +928,7 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton> {
           );
           if (mounted) {
             ref.invalidate(isMenuFavoriteProvider(widget.menuItem!.id));
+            ref.invalidate(_menuFavoriteUserCountProvider(widget.menuItem!.id));
             ref.invalidate(userCafeteriaFavoritesProvider);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('お気に入りから削除しました')),
@@ -949,6 +944,7 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton> {
           );
           if (mounted) {
             ref.invalidate(isMenuFavoriteProvider(widget.menuItem!.id));
+            ref.invalidate(_menuFavoriteUserCountProvider(widget.menuItem!.id));
             ref.invalidate(userCafeteriaFavoritesProvider);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('お気に入りに追加しました')),
@@ -981,37 +977,54 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton> {
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) {
-      return const SizedBox.shrink();
-    }
+    final favoriteCountAsync = widget.menuItem != null && widget.menuItem!.id.isNotEmpty
+        ? ref.watch(_menuFavoriteUserCountProvider(widget.menuItem!.id))
+        : const AsyncValue<int>.data(0);
 
     final isFavoriteAsync = widget.menuItem != null && widget.menuItem!.id.isNotEmpty
         ? ref.watch(isMenuFavoriteProvider(widget.menuItem!.id))
         : null;
 
-    return IconButton(
-      icon: isFavoriteAsync != null
-          ? isFavoriteAsync.when(
-              data: (isFavorite) => Icon(
-                isFavorite ? Icons.favorite : Icons.favorite_border,
-                color: isFavorite ? Colors.red : Colors.grey,
-              ),
-              loading: () => const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              error: (_, __) => const Icon(
-                Icons.favorite_border,
-                color: Colors.grey,
-              ),
-            )
-          : const Icon(
-              Icons.favorite_border,
-              color: Colors.grey,
-            ),
-      onPressed: _toggleFavorite,
-      tooltip: 'お気に入り',
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: isFavoriteAsync != null
+              ? isFavoriteAsync.when(
+                  data: (isFavorite) => Icon(
+                    isFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: isFavorite ? Colors.red : Colors.grey,
+                  ),
+                  loading: () => const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  error: (_, __) => const Icon(
+                    Icons.favorite_border,
+                    color: Colors.grey,
+                  ),
+                )
+              : const Icon(
+                  Icons.favorite_border,
+                  color: Colors.grey,
+                ),
+          onPressed: uid == null ? null : _toggleFavorite,
+          tooltip: 'お気に入り',
+        ),
+        favoriteCountAsync.when(
+          data: (count) => Text(
+            '($count)',
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+          loading: () => const SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(strokeWidth: 1.5),
+          ),
+          error: (_, __) => const SizedBox.shrink(),
+        ),
+      ],
     );
   }
 }
@@ -1020,12 +1033,90 @@ void _openFullScreenImage(BuildContext context, {required String placeholder, St
   if (imageUrl == null || imageUrl.isEmpty) {
     return;
   }
-  Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (_) => _FullScreenImagePage(
-        imageUrl: imageUrl,
-        placeholder: placeholder,
-      ),
+  double dragOffsetY = 0;
+  showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.82),
+    builder: (_) => StatefulBuilder(
+      builder: (dialogContext, setState) {
+        final dismissProgress = (dragOffsetY / 220).clamp(0.0, 1.0);
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onVerticalDragUpdate: (details) {
+            if (details.delta.dy <= 0) {
+              return;
+            }
+            setState(() {
+              dragOffsetY = (dragOffsetY + details.delta.dy).clamp(0.0, 320.0);
+            });
+          },
+          onVerticalDragEnd: (details) {
+            final velocity = details.primaryVelocity ?? 0;
+            if (dragOffsetY > 120 || velocity > 950) {
+              Navigator.of(dialogContext).pop();
+              return;
+            }
+            setState(() {
+              dragOffsetY = 0;
+            });
+          },
+          child: Transform.translate(
+            offset: Offset(0, dragOffsetY),
+            child: Opacity(
+              opacity: 1 - (dismissProgress * 0.35),
+              child: Dialog(
+                backgroundColor: Colors.transparent,
+                insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: InteractiveViewer(
+                        minScale: 1.0,
+                        maxScale: 4.0,
+                        child: CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.contain,
+                          placeholder: (context, url) => Container(
+                            color: Colors.black,
+                            alignment: Alignment.center,
+                            child: const SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: Colors.black,
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.white70,
+                              size: 40,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: IconButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        icon: const Icon(Icons.close),
+                        color: Colors.white,
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.black45,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     ),
   );
 }

@@ -16,20 +16,31 @@
                     <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
+                            <view opaque="NO" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="G7a-1e-P9m">
+                                <color key="backgroundColor" white="1" alpha="0.10" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="260" id="Q8g-yT-rZ2"/>
+                                    <constraint firstAttribute="height" constant="260" id="QyL-vK-b1S"/>
+                                </constraints>
+                            </view>
+                            <view opaque="NO" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="D2n-jM-4Qx">
+                                <color key="backgroundColor" white="1" alpha="0.16" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="190" id="Pz9-tT-Ks0"/>
+                                    <constraint firstAttribute="height" constant="190" id="fU8-XA-Rm4"/>
+                                </constraints>
+                            </view>
                             <imageView opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" image="LaunchImage" translatesAutoresizingMaskIntoConstraints="NO" id="YRO-k0-Ey4">
                             </imageView>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="CIT App" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="8Lh-u8-a2e">
-                                <fontDescription key="fontDescription" type="boldSystem" pointSize="28"/>
-                                <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                                <nil key="highlightedColor"/>
-                            </label>
                         </subviews>
-                        <color key="backgroundColor" red="0.1803921568627451" green="0.49019607843137253" blue="0.19607843137254902" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <color key="backgroundColor" red="0.078431372549019607" green="0.42352941176470588" blue="0.35294117647058826" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
+                            <constraint firstItem="G7a-1e-P9m" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="2Wr-fY-zG8"/>
+                            <constraint firstItem="G7a-1e-P9m" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="3Us-R9-b2K"/>
                             <constraint firstItem="YRO-k0-Ey4" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="1a2-6s-vTC"/>
                             <constraint firstItem="YRO-k0-Ey4" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="4X2-HB-R7a"/>
-                            <constraint firstItem="8Lh-u8-a2e" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="6Nf-2M-vJn"/>
-                            <constraint firstItem="8Lh-u8-a2e" firstAttribute="top" secondItem="YRO-k0-Ey4" secondAttribute="bottom" constant="18" id="F3e-24-RsV"/>
+                            <constraint firstItem="D2n-jM-4Qx" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="6Nf-2M-vJn"/>
+                            <constraint firstItem="D2n-jM-4Qx" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="F3e-24-RsV"/>
                         </constraints>
                     </view>
                 </viewController>
