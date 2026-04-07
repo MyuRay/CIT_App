@@ -19,6 +19,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/providers/global_notification_provider.dart';
 import '../../core/providers/firebase_menu_provider.dart';
 import '../../core/providers/bus_provider.dart';
+import '../../core/providers/train_provider.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/providers/in_app_ad_provider.dart';
 import '../../models/cafeteria/cafeteria_model.dart';
@@ -27,6 +28,7 @@ import '../../models/schedule/lecture_period_model.dart';
 import '../../models/schedule/academic_calendar_event_model.dart';
 import '../../models/bus/bus_model.dart';
 import '../../models/ads/in_app_ad_model.dart';
+import '../../models/train/train_model.dart';
 import '../../widgets/ads/in_app_ad_card.dart';
 import '../../widgets/firebase_menu_image_widget.dart';
 import '../../widgets/firebase_bus_timetable_widget.dart';
@@ -46,6 +48,7 @@ import '../../services/widget/home_widgets_service.dart';
 import '../../services/schedule/academic_calendar_service.dart';
 import '../../services/schedule/schedule_service.dart';
 import '../../services/schedule/attendance_service.dart';
+import '../../services/train/train_decision_service.dart';
 
 const Map<String, String> _campusNavigationOptions = {
   'tsudanuma': '津田沼',
@@ -85,6 +88,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'timetable',
     'cafeteria',
     'bus',
+    'train',
     'campus_map',
     'academic_calendar',
     'convenience_links',
@@ -954,6 +958,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return _buildCafeteriaCard(context, ref, todayReviewExistsAsync);
       case 'bus':
         return _buildBusInfoCard(context, ref);
+      case 'train':
+        return _buildTrainInfoCard(context, ref);
       case 'campus_map':
         return _buildCampusMapCard(context);
       case 'academic_calendar':
@@ -2005,6 +2011,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return '学食情報';
       case 'bus':
         return '学バス情報';
+      case 'train':
+        return '最寄駅電車情報';
       case 'campus_map':
         return 'キャンパスマップ';
       case 'academic_calendar':
@@ -4266,6 +4274,361 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
           ),
     );
+  }
+
+  Widget _buildTrainInfoCard(BuildContext context, WidgetRef ref) {
+    final campus = ref.watch(preferredBusCampusProvider);
+    final campusLabel = campus == 'narashino' ? '新習志野キャンパス' : '津田沼キャンパス';
+    final preferredDirection = ref.watch(preferredTrainDirectionProvider(campus));
+    final trainSnapshotAsync = ref.watch(trainSnapshotStreamProvider(campus));
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.train,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text('最寄駅電車情報', style: Theme.of(context).textTheme.titleMedium),
+                const Spacer(),
+                Text(
+                  campusLabel,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            trainSnapshotAsync.when(
+              data: (snapshot) {
+                if (snapshot == null || snapshot.directions.isEmpty) {
+                  return _buildTrainFallbackState(context, campus, '電車データを準備中です');
+                }
+
+                final selectedDirectionKey =
+                    snapshot.findDirection(preferredDirection) != null
+                        ? preferredDirection
+                        : snapshot.directions.first.directionKey;
+                final ordered = snapshot.orderedByPreferredDirection(
+                  selectedDirectionKey,
+                );
+                final primaryDirection = ordered.first;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildTrainDirectionSelector(
+                      context,
+                      ref,
+                      campus,
+                      snapshot.directions,
+                      selectedDirectionKey,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildTrainRealtimeDecisionPanel(context, primaryDirection),
+                    if (snapshot.delayStatus != TrainDelayStatus.normal) ...[
+                      const SizedBox(height: 10),
+                      _buildTrainDelayNotice(context, snapshot),
+                    ],
+                    const SizedBox(height: 10),
+                    _buildTrainMetaRow(context, snapshot),
+                    const SizedBox(height: 10),
+                    TextButton.icon(
+                      onPressed: () => _openTrainOfficialInfo(context, campus),
+                      icon: const Icon(Icons.open_in_browser, size: 16),
+                      label: const Text('公式運行情報を確認'),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(0, 28),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '表示は目安です。最新情報は公式運行情報をご確認ください。',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                );
+              },
+              loading:
+                  () => const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(20),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+              error: (_, __) => _buildTrainFallbackState(
+                context,
+                campus,
+                '電車データの読み込みに失敗しました',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTrainDirectionSelector(
+    BuildContext context,
+    WidgetRef ref,
+    String campus,
+    List<TrainDirectionSnapshot> directions,
+    String selectedDirectionKey,
+  ) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      children:
+          directions.map((direction) {
+            return ChoiceChip(
+              label: Text(direction.directionLabel),
+              selected: direction.directionKey == selectedDirectionKey,
+              onSelected: (_) async {
+                await ref.read(setPreferredTrainDirectionProvider)(
+                  campus,
+                  direction.directionKey,
+                );
+              },
+            );
+          }).toList(),
+    );
+  }
+
+  Widget _buildTrainRealtimeDecisionPanel(
+    BuildContext context,
+    TrainDirectionSnapshot direction,
+  ) {
+    return StreamBuilder<DateTime>(
+      stream: Stream.periodic(
+        const Duration(seconds: 1),
+        (_) => DateTime.now(),
+      ),
+      builder: (context, _) {
+        final now = DateTime.now();
+        final decision = TrainDecisionService.evaluate(
+          now: now,
+          nextDepartureAt: direction.nextDepartureAt,
+          secondDepartureAt: direction.secondDepartureAt,
+          walkingMinutes: TrainDecisionService.defaultWalkingMinutes,
+        );
+        final minutesToNext = decision.minutesToNextDeparture;
+        final followingGap = decision.minutesUntilFollowingDeparture;
+
+        final nextDepartureText = minutesToNext <= 0 ? 'まもなく発車' : 'あと${minutesToNext}分';
+        final followingText =
+            followingGap > 0 ? 'これを逃すと次は${followingGap}分後' : '次の便情報を更新中です';
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Theme.of(context).dividerColor),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    nextDepartureText,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      '次発 ${_formatTrainClock(direction.nextDepartureAt)}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '判定: ${decision.primaryLabel}（${decision.secondaryLabel}）',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '駅到着見込み ${_formatTrainClock(decision.arrivalAtStation)}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                followingText,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTrainDelayNotice(BuildContext context, TrainSnapshot snapshot) {
+    final status = snapshot.delayStatus;
+    final isSuspended = status == TrainDelayStatus.suspended;
+    final color = isSuspended ? Colors.red : Colors.orange;
+    final message =
+        snapshot.delayMessage?.trim().isNotEmpty == true
+            ? snapshot.delayMessage!.trim()
+            : '${status.label}の可能性があります。公式運行情報をご確認ください。';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.shade200),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber_rounded, size: 18, color: color.shade700),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: color.shade700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrainMetaRow(BuildContext context, TrainSnapshot snapshot) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      children: [
+        Text(
+          '更新 ${_formatTrainClock(snapshot.updatedAt)}',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        Text(
+          '出典 ${snapshot.source.isNotEmpty ? snapshot.source : '未設定'}',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTrainFallbackState(
+    BuildContext context,
+    String campus,
+    String message,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                size: 18,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TextButton.icon(
+            onPressed: () => _openTrainOfficialInfo(context, campus),
+            icon: const Icon(Icons.open_in_browser, size: 16),
+            label: const Text('公式運行情報を確認'),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, 28),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '表示は目安です。最新情報は公式運行情報をご確認ください。',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTrainClock(DateTime time) {
+    final local = time.toLocal();
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
+  Future<void> _openTrainOfficialInfo(
+    BuildContext context,
+    String campus,
+  ) async {
+    final url = _trainOfficialUrlForCampus(campus);
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('公式運行情報を開けませんでした')));
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('公式運行情報を開けませんでした')));
+      }
+    }
+  }
+
+  String _trainOfficialUrlForCampus(String campus) {
+    if (campus == 'narashino') {
+      return 'https://traininfo.jreast.co.jp/train_info/line.aspx?gid=1&lineid=keiyoline';
+    }
+    return 'https://traininfo.jreast.co.jp/train_info/line.aspx?gid=1&lineid=sobuline_rapidservice';
   }
 
   // 学バス情報カードを構築
