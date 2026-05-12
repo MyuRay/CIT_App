@@ -3,6 +3,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../models/classroom_map/classroom_map_model.dart';
+import 'narashino_building_floor_sheet.dart';
+import 'tsudanuma_building_floor_sheet.dart';
 
 /// OpenStreetMap（flutter_map）上に校舎マーカーを表示するタブ
 class ClassroomMapMapTab extends StatefulWidget {
@@ -71,7 +73,35 @@ class _ClassroomMapMapTabState extends State<ClassroomMapMapTab> {
         height: 44,
         alignment: Alignment.bottomCenter,
         child: GestureDetector(
-          onTap: () => setState(() => _selectedBuilding = b),
+          onTap: () {
+            final narashinoSheet =
+                campus.id == 'narashino' &&
+                narashinoBuildingHasFloorMapsSheet(b.buildingId);
+            final tsudanumaSheet =
+                campus.id == 'tsudanuma' &&
+                tsudanumaBuildingHasFloorMapsSheet(b.buildingId);
+            if (narashinoSheet) {
+              setState(() => _selectedBuilding = b);
+              showNarashinoBuildingFloorMapsBottomSheet(
+                context,
+                buildingId: b.buildingId,
+                buildingName: b.buildingName,
+                latitude: b.latitude,
+                longitude: b.longitude,
+              ).then((_) => _clearFloorSheetBuildingSelectionIfNeeded());
+            } else if (tsudanumaSheet) {
+              setState(() => _selectedBuilding = b);
+              showTsudanumaBuildingFloorMapsBottomSheet(
+                context,
+                buildingId: b.buildingId,
+                buildingName: b.buildingName,
+                latitude: b.latitude,
+                longitude: b.longitude,
+              ).then((_) => _clearFloorSheetBuildingSelectionIfNeeded());
+            } else {
+              setState(() => _selectedBuilding = b);
+            }
+          },
           child: Icon(
             Icons.location_on,
             size: 40,
@@ -122,15 +152,38 @@ class _ClassroomMapMapTabState extends State<ClassroomMapMapTab> {
           right: 16,
           child: SegmentedButton<String>(
             segments: widget.mapData.campuses
-                .map((c) => ButtonSegment(value: c.id, label: Text(c.displayName)))
+                .map(
+                  (c) => ButtonSegment(value: c.id, label: Text(c.displayName)),
+                )
                 .toList(),
             selected: {widget.selectedCampusId},
             onSelectionChanged: (s) => widget.onCampusChanged(s.first),
           ),
         ),
-        if (_selectedBuilding != null) _buildBuildingInfo(context),
+        if (_selectedBuilding != null &&
+            !(_campusForSelection().id == 'narashino' &&
+                narashinoBuildingHasFloorMapsSheet(_selectedBuilding!.buildingId)) &&
+            !(_campusForSelection().id == 'tsudanuma' &&
+                tsudanumaBuildingHasFloorMapsSheet(_selectedBuilding!.buildingId)))
+          _buildBuildingInfo(context),
       ],
     );
+  }
+
+  void _clearFloorSheetBuildingSelectionIfNeeded() {
+    if (!mounted) return;
+    setState(() {
+      final c = _campusForSelection();
+      final sel = _selectedBuilding;
+      if (sel == null) return;
+      final narashino =
+          c.id == 'narashino' && narashinoBuildingHasFloorMapsSheet(sel.buildingId);
+      final tsudanuma =
+          c.id == 'tsudanuma' && tsudanumaBuildingHasFloorMapsSheet(sel.buildingId);
+      if (narashino || tsudanuma) {
+        _selectedBuilding = null;
+      }
+    });
   }
 
   Widget _buildBuildingInfo(BuildContext context) {

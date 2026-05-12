@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'schedule_class_detail_dialog_styles.dart';
 import '../../models/schedule/schedule_model.dart';
 import '../../services/schedule/attendance_service.dart';
 
@@ -13,6 +15,7 @@ class ScheduleGridWidget extends StatelessWidget {
   final Future<void> Function(String, int, ScheduleClass)? onClassAttendanceTap;
   final Future<AttendanceClassSummary> Function(String, int, ScheduleClass)?
   onLoadAttendanceSummary;
+
   /// false のとき QR 出席ボタンを出さない（講義期間外など）
   final bool showAttendanceActions;
   final bool isEditMode;
@@ -35,28 +38,38 @@ class ScheduleGridWidget extends StatelessWidget {
     this.enableScroll = true,
   });
 
-  List<Weekday> get displayWeekdays => showSaturday 
-      ? Weekday.values 
-      : Weekday.values.where((w) => w != Weekday.saturday).toList();
+  List<Weekday> get displayWeekdays =>
+      showSaturday
+          ? Weekday.values
+          : Weekday.values.where((w) => w != Weekday.saturday).toList();
 
   @override
   Widget build(BuildContext context) {
     final columnCount = displayWeekdays.length;
     final timeColumnWidth = 35.0; // 時限列の幅は固定
     final baseCellHeight = forceFullHeight ? 60.0 : 65.0; // 共有時はセル高を調整
-    final emptyCellHeight = (!isEditMode && !forceFullHeight) ? 40.0 : baseCellHeight; // 空行でも時限/時間が読める高さ
+    final emptyCellHeight =
+        (!isEditMode && !forceFullHeight)
+            ? 40.0
+            : baseCellHeight; // 空行でも時限/時間が読める高さ
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final availableWidth = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : MediaQuery.of(context).size.width;
-        final remainingWidth = (availableWidth - timeColumnWidth).clamp(0.0, double.infinity);
+        final availableWidth =
+            constraints.maxWidth.isFinite
+                ? constraints.maxWidth
+                : MediaQuery.of(context).size.width;
+        final remainingWidth = (availableWidth - timeColumnWidth).clamp(
+          0.0,
+          double.infinity,
+        );
         final cellWidth = remainingWidth / columnCount;
 
         final rowHeights = List<double>.generate(10, (index) {
           final period = index + 1;
-          final hasClass = displayWeekdays.any((weekday) => schedule.timetable[weekday.name]?[period] != null);
+          final hasClass = displayWeekdays.any(
+            (weekday) => schedule.timetable[weekday.name]?[period] != null,
+          );
           if (!hasClass) {
             return emptyCellHeight;
           }
@@ -83,7 +96,12 @@ class ScheduleGridWidget extends StatelessWidget {
               child: Stack(
                 children: [
                   // 背景グリッド
-                  _buildBackgroundGrid(context, timeColumnWidth, cellWidth, rowHeights),
+                  _buildBackgroundGrid(
+                    context,
+                    timeColumnWidth,
+                    cellWidth,
+                    rowHeights,
+                  ),
 
                   // 時限列
                   _buildTimeColumn(context, timeColumnWidth, rowHeights),
@@ -104,12 +122,18 @@ class ScheduleGridWidget extends StatelessWidget {
 
         // 共有時は全体表示、通常時はスクロール可能
         final shouldAllowScroll = !forceFullHeight && enableScroll;
-        return shouldAllowScroll ? SingleChildScrollView(child: content) : content;
+        return shouldAllowScroll
+            ? SingleChildScrollView(child: content)
+            : content;
       },
     );
   }
 
-  Widget _buildHeaderRow(BuildContext context, double timeColumnWidth, double cellWidth) {
+  Widget _buildHeaderRow(
+    BuildContext context,
+    double timeColumnWidth,
+    double cellWidth,
+  ) {
     return Container(
       height: 40,
       decoration: BoxDecoration(
@@ -124,12 +148,12 @@ class ScheduleGridWidget extends StatelessWidget {
             alignment: Alignment.center,
             child: Text(
               '時限',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
-          
+
           // 曜日ヘッダー
           ...displayWeekdays.map((weekday) {
             return Container(
@@ -152,7 +176,12 @@ class ScheduleGridWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildBackgroundGrid(BuildContext context, double timeColumnWidth, double cellWidth, List<double> rowHeights) {
+  Widget _buildBackgroundGrid(
+    BuildContext context,
+    double timeColumnWidth,
+    double cellWidth,
+    List<double> rowHeights,
+  ) {
     return Positioned.fill(
       child: Column(
         children: List.generate(10, (periodIndex) {
@@ -161,7 +190,10 @@ class ScheduleGridWidget extends StatelessWidget {
             decoration: BoxDecoration(
               border: Border(
                 top: BorderSide(color: Colors.grey.shade300),
-                bottom: periodIndex == 9 ? BorderSide(color: Colors.grey.shade300) : BorderSide.none,
+                bottom:
+                    periodIndex == 9
+                        ? BorderSide(color: Colors.grey.shade300)
+                        : BorderSide.none,
               ),
             ),
             child: Row(
@@ -169,7 +201,9 @@ class ScheduleGridWidget extends StatelessWidget {
                 Container(
                   width: timeColumnWidth,
                   decoration: BoxDecoration(
-                    border: Border(right: BorderSide(color: Colors.grey.shade300)),
+                    border: Border(
+                      right: BorderSide(color: Colors.grey.shade300),
+                    ),
                   ),
                 ),
                 ...displayWeekdays.map((weekday) {
@@ -178,9 +212,10 @@ class ScheduleGridWidget extends StatelessWidget {
                     decoration: BoxDecoration(
                       border: Border(
                         left: BorderSide(color: Colors.grey.shade300),
-                        right: weekday == displayWeekdays.last 
-                            ? BorderSide(color: Colors.grey.shade300) 
-                            : BorderSide.none,
+                        right:
+                            weekday == displayWeekdays.last
+                                ? BorderSide(color: Colors.grey.shade300)
+                                : BorderSide.none,
                       ),
                     ),
                   );
@@ -193,7 +228,11 @@ class ScheduleGridWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildTimeColumn(BuildContext context, double timeColumnWidth, List<double> rowHeights) {
+  Widget _buildTimeColumn(
+    BuildContext context,
+    double timeColumnWidth,
+    List<double> rowHeights,
+  ) {
     return Positioned(
       left: 0,
       top: 0,
@@ -202,11 +241,12 @@ class ScheduleGridWidget extends StatelessWidget {
           final period = periodIndex + 1;
           final timeSlot = schedule.timeSlots.firstWhere(
             (slot) => slot.period == period,
-            orElse: () => TimeSlot(
-              period: period,
-              startTime: '${period + 8}:00',
-              endTime: '${period + 9}:00',
-            ),
+            orElse:
+                () => TimeSlot(
+                  period: period,
+                  startTime: '${period + 8}:00',
+                  endTime: '${period + 9}:00',
+                ),
           );
 
           return Container(
@@ -241,62 +281,86 @@ class ScheduleGridWidget extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildClassCells(BuildContext context, double timeColumnWidth, double cellWidth, List<double> rowHeights, List<double> cumulativeHeights) {
+  List<Widget> _buildClassCells(
+    BuildContext context,
+    double timeColumnWidth,
+    double cellWidth,
+    List<double> rowHeights,
+    List<double> cumulativeHeights,
+  ) {
     final List<Widget> cells = [];
     final Set<String> processedCells = {}; // 既に処理済みのセル（連続講義対応）
 
     for (int periodIndex = 0; periodIndex < 10; periodIndex++) {
       final period = periodIndex + 1;
-      
-      for (int weekdayIndex = 0; weekdayIndex < displayWeekdays.length; weekdayIndex++) {
+
+      for (
+        int weekdayIndex = 0;
+        weekdayIndex < displayWeekdays.length;
+        weekdayIndex++
+      ) {
         final weekday = displayWeekdays[weekdayIndex];
         final weekdayKey = weekday.name;
         final cellKey = '$weekdayKey-$period';
-        
+
         // 既に処理済みのセルはスキップ
         if (processedCells.contains(cellKey)) continue;
-        
+
         final scheduleClass = schedule.timetable[weekdayKey]?[period];
         if (scheduleClass == null) {
           // 空のセル
-          cells.add(_buildEmptyClassCell(
-            context, 
-            weekdayKey, 
-            period, 
-            timeColumnWidth + (weekdayIndex * cellWidth),
-            cumulativeHeights[periodIndex],
-            cellWidth,
-            rowHeights[periodIndex]
-          ));
+          cells.add(
+            _buildEmptyClassCell(
+              context,
+              weekdayKey,
+              period,
+              timeColumnWidth + (weekdayIndex * cellWidth),
+              cumulativeHeights[periodIndex],
+              cellWidth,
+              rowHeights[periodIndex],
+            ),
+          );
         } else if (scheduleClass.isStartCell) {
           // 講義セル（開始セル）
           final duration = scheduleClass.duration;
-          final cellHeightEffective = cumulativeHeights[periodIndex + duration] - cumulativeHeights[periodIndex];
-          
+          final cellHeightEffective =
+              cumulativeHeights[periodIndex + duration] -
+              cumulativeHeights[periodIndex];
+
           // 連続する時限を処理済みとしてマーク
           for (int i = 0; i < duration; i++) {
             processedCells.add('$weekdayKey-${period + i}');
           }
-          
-          cells.add(_buildFilledClassCell(
-            context, 
-            scheduleClass,
-            weekdayKey, 
-            period, 
-            timeColumnWidth + (weekdayIndex * cellWidth),
-            cumulativeHeights[periodIndex],
-            cellWidth,
-            cellHeightEffective
-          ));
+
+          cells.add(
+            _buildFilledClassCell(
+              context,
+              scheduleClass,
+              weekdayKey,
+              period,
+              timeColumnWidth + (weekdayIndex * cellWidth),
+              cumulativeHeights[periodIndex],
+              cellWidth,
+              cellHeightEffective,
+            ),
+          );
         }
         // isStartCell = false の場合は何も描画しない（既に開始セルで描画済み）
       }
     }
-    
+
     return cells;
   }
 
-  Widget _buildEmptyClassCell(BuildContext context, String weekdayKey, int period, double left, double top, double width, double height) {
+  Widget _buildEmptyClassCell(
+    BuildContext context,
+    String weekdayKey,
+    int period,
+    double left,
+    double top,
+    double width,
+    double height,
+  ) {
     return Positioned(
       left: left,
       top: top,
@@ -310,23 +374,33 @@ class ScheduleGridWidget extends StatelessWidget {
         },
         child: Container(
           margin: const EdgeInsets.all(1),
-          child: isEditMode
-              ? Center(
-                  child: Icon(
-                    Icons.add,
-                    color: Colors.grey.shade400,
-                    size: 24,
-                  ),
-                )
-              : null,
+          child:
+              isEditMode
+                  ? Center(
+                    child: Icon(
+                      Icons.add,
+                      color: Colors.grey.shade400,
+                      size: 24,
+                    ),
+                  )
+                  : null,
         ),
       ),
     );
   }
 
-  Widget _buildFilledClassCell(BuildContext context, ScheduleClass scheduleClass, String weekdayKey, int period, double left, double top, double width, double height) {
+  Widget _buildFilledClassCell(
+    BuildContext context,
+    ScheduleClass scheduleClass,
+    String weekdayKey,
+    int period,
+    double left,
+    double top,
+    double width,
+    double height,
+  ) {
     final color = Color(int.parse('0xff${scheduleClass.color.substring(1)}'));
-    
+
     return Positioned(
       left: left,
       top: top,
@@ -353,32 +427,42 @@ class ScheduleGridWidget extends StatelessWidget {
               ),
             ],
           ),
-          child: _buildClassContent(context, scheduleClass, scheduleClass.duration > 1),
+          child: _buildClassContent(
+            context,
+            scheduleClass,
+            scheduleClass.duration > 1,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildClassContent(BuildContext context, ScheduleClass scheduleClass, bool isMultiPeriod) {
+  Widget _buildClassContent(
+    BuildContext context,
+    ScheduleClass scheduleClass,
+    bool isMultiPeriod,
+  ) {
     // 4限連続かどうかで更に表示を調整
     final is4PeriodClass = scheduleClass.duration >= 4;
-    final singlePeriodClassroomLines = (!isMultiPeriod)
-        ? _estimateClassroomLines(scheduleClass.classroom)
-        : 1;
-    final subjectFlex = isMultiPeriod
-        ? (is4PeriodClass ? 3 : 2)
-        : (singlePeriodClassroomLines >= 3 ? 3 : 4);
-    final classroomFlex = (!isMultiPeriod)
-        ? (singlePeriodClassroomLines <= 2
-              ? 1
-              : (singlePeriodClassroomLines - 1).clamp(2, 5))
-        : 1;
+    final singlePeriodClassroomLines =
+        (!isMultiPeriod) ? _estimateClassroomLines(scheduleClass.classroom) : 1;
+    final subjectFlex =
+        isMultiPeriod
+            ? (is4PeriodClass ? 3 : 2)
+            : (singlePeriodClassroomLines >= 3 ? 3 : 4);
+    final classroomFlex =
+        (!isMultiPeriod)
+            ? (singlePeriodClassroomLines <= 2
+                ? 1
+                : (singlePeriodClassroomLines - 1).clamp(2, 5))
+            : 1;
 
     return Container(
       padding: const EdgeInsets.all(4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: isMultiPeriod ? MainAxisAlignment.center : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isMultiPeriod ? MainAxisAlignment.center : MainAxisAlignment.start,
         children: [
           // 科目名
           Flexible(
@@ -391,16 +475,17 @@ class ScheduleGridWidget extends StatelessWidget {
                 fontSize: isMultiPeriod ? (is4PeriodClass ? 14 : 12) : 9.5,
                 height: 1.15,
               ),
-              maxLines: isMultiPeriod
-                  ? (is4PeriodClass ? 6 : 4)
-                  : (singlePeriodClassroomLines >= 3 ? 3 : 4),
+              maxLines:
+                  isMultiPeriod
+                      ? (is4PeriodClass ? 6 : 4)
+                      : (singlePeriodClassroomLines >= 3 ? 3 : 4),
               overflow: TextOverflow.ellipsis,
               textAlign: isMultiPeriod ? TextAlign.center : TextAlign.start,
             ),
           ),
 
           if (!isMultiPeriod) const SizedBox(height: 1),
-          
+
           // 教室（単一時限の場合のみ）
           if (!isMultiPeriod)
             Flexible(
@@ -418,15 +503,15 @@ class ScheduleGridWidget extends StatelessWidget {
                   softWrap: true,
                   overflow: TextOverflow.visible,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.black,
-                        fontSize: 8.6,
-                        height: 1.05,
-                      ),
+                    color: Colors.black,
+                    fontSize: 8.6,
+                    height: 1.05,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ),
             ),
-          
+
           // 連続講義の場合、教室のみを中央に表示
           if (isMultiPeriod) ...[
             SizedBox(height: is4PeriodClass ? 10 : 6),
@@ -442,11 +527,11 @@ class ScheduleGridWidget extends StatelessWidget {
                 _formatClassroomForCompactCell(scheduleClass.classroom),
                 softWrap: true,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.black,
-                      fontSize: is4PeriodClass ? 10.2 : 9.4,
-                      fontWeight: FontWeight.w600,
-                      height: 1.1,
-                    ),
+                  color: Colors.black,
+                  fontSize: is4PeriodClass ? 10.2 : 9.4,
+                  fontWeight: FontWeight.w600,
+                  height: 1.1,
+                ),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -511,9 +596,11 @@ class ScheduleGridWidget extends StatelessWidget {
     }
 
     // 2行でも実表示では不足しやすいため、2行目から追加する
-    final classroomExtra = maxClassroomLines <= 1 ? 0.0 : (maxClassroomLines - 1) * 11.0;
+    final classroomExtra =
+        maxClassroomLines <= 1 ? 0.0 : (maxClassroomLines - 1) * 11.0;
     // 科目名も2行目から追加（単一時限セルのみ）
-    final subjectExtra = maxSubjectLines <= 1 ? 0.0 : (maxSubjectLines - 1) * 9.0;
+    final subjectExtra =
+        maxSubjectLines <= 1 ? 0.0 : (maxSubjectLines - 1) * 9.0;
 
     final additional = classroomExtra + subjectExtra;
     if (additional < 0) {
@@ -544,8 +631,12 @@ class ScheduleGridWidget extends StatelessWidget {
     return lines.clamp(1, 6);
   }
 
-
-  void _showClassDetails(BuildContext context, ScheduleClass scheduleClass, String weekdayKey, int period) {
+  void _showClassDetails(
+    BuildContext hostContext,
+    ScheduleClass scheduleClass,
+    String weekdayKey,
+    int period,
+  ) {
     final Map<String, String> weekdayNames = {
       'monday': '月曜日',
       'tuesday': '火曜日',
@@ -561,15 +652,23 @@ class ScheduleGridWidget extends StatelessWidget {
       // 開始セルを探す
       for (int p = period - 1; p >= 1; p--) {
         final prevClass = schedule.timetable[weekdayKey]?[p];
-        if (prevClass?.id == scheduleClass.id && prevClass?.isStartCell == true) {
+        if (prevClass?.id == scheduleClass.id &&
+            prevClass?.isStartCell == true) {
           startPeriod = p;
           break;
         }
       }
     }
 
-    final timeRange = ScheduleUtils.getClassTimeRange(schedule, startPeriod, scheduleClass.duration);
-    final periodRange = ScheduleUtils.getClassPeriodRange(startPeriod, scheduleClass.duration);
+    final timeRange = ScheduleUtils.getClassTimeRange(
+      schedule,
+      startPeriod,
+      scheduleClass.duration,
+    );
+    final periodRange = ScheduleUtils.getClassPeriodRange(
+      startPeriod,
+      scheduleClass.duration,
+    );
     final canTapAttendance =
         onClassAttendanceTap != null &&
         showAttendanceActions &&
@@ -577,229 +676,327 @@ class ScheduleGridWidget extends StatelessWidget {
           weekdayKey: weekdayKey,
           startPeriod: startPeriod,
         );
-    final summaryFuture =
-        onLoadAttendanceSummary?.call(weekdayKey, startPeriod, scheduleClass);
+    final summaryFuture = onLoadAttendanceSummary?.call(
+      weekdayKey,
+      startPeriod,
+      scheduleClass,
+    );
 
-    showDialog(
-      context: context,
-      builder: (context) {
+    showDialog<void>(
+      context: hostContext,
+      builder: (dialogCtx) {
         final notesController = TextEditingController(
           text: scheduleClass.notes ?? '',
         );
         bool isEditingMemo = false;
         bool isSaving = false;
         return StatefulBuilder(
-          builder: (context, setDialogState) => AlertDialog(
-            title: Row(
-              children: [
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: Color(
-                      int.parse('0xff${scheduleClass.color.substring(1)}'),
-                    ),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    scheduleClass.subjectName,
-                    style: const TextStyle(fontSize: 18),
-                  ),
-                ),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildDetailRow(
-                  context,
-                  Icons.schedule,
-                  '時間',
-                  '${weekdayNames[weekdayKey] ?? weekdayKey} $periodRange\n$timeRange',
-                ),
-                const SizedBox(height: 12),
-                _buildDetailRow(
-                  context,
-                  Icons.location_on,
-                  '教室',
-                  scheduleClass.classroom,
-                ),
-                const SizedBox(height: 12),
-                _buildDetailRow(
-                  context,
-                  Icons.person,
-                  '担当教員',
-                  scheduleClass.instructor,
-                ),
-                if (scheduleClass.duration > 1) ...[
-                  const SizedBox(height: 12),
-                  _buildDetailRow(
-                    context,
-                    Icons.timer,
-                    '講義時間',
-                    '${scheduleClass.duration}時間連続',
-                  ),
-                ],
-                const SizedBox(height: 12),
-                if (!isEditingMemo) ...[
-                  if (scheduleClass.notes != null && scheduleClass.notes!.isNotEmpty)
-                    _buildDetailRowLinkified(
-                      context,
-                      Icons.note,
-                      'メモ',
-                      scheduleClass.notes!,
-                    )
-                  else
-                    _buildDetailRow(context, Icons.note, 'メモ', '未設定'),
-                ] else ...[
-                  const Text(
-                    'メモ',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: notesController,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      hintText: 'メモを入力',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-                ],
-                if (canTapAttendance) ...[
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () async {
-                        Navigator.of(context).pop();
-                        await onClassAttendanceTap!(
-                          weekdayKey,
-                          startPeriod,
-                          scheduleClass,
-                        );
-                      },
-                      icon: const Icon(Icons.qr_code_scanner, size: 18),
-                      label: const Text('QRを読み取って出席'),
-                    ),
-                  ),
-                ],
-                if (summaryFuture != null) ...[
-                  const SizedBox(height: 12),
-                  FutureBuilder<AttendanceClassSummary>(
-                    future: summaryFuture,
-                    builder: (context, snapshot) {
-                      final summary = snapshot.data;
-                      if (summary == null) {
-                        return const SizedBox.shrink();
-                      }
-                      return _buildDetailRow(
-                        context,
-                        Icons.analytics_outlined,
-                        '出欠集計',
-                        '出席 ${summary.presentCount}回 / 遅刻 ${summary.lateCount}回 / 欠席 ${summary.absentCount}回',
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 4),
-                  RichText(
-                    text: TextSpan(
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                      children: [
-                        const TextSpan(text: '※ 出欠集計を編集するには、画面右上の'),
-                        WidgetSpan(
-                          alignment: PlaceholderAlignment.middle,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 2),
-                            child: Icon(
-                              Icons.fact_check_outlined,
-                              size: 14,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
-                          ),
+          builder:
+              (_, setDialogState) => AlertDialog(
+                title: Row(
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: Color(
+                          int.parse('0xff${scheduleClass.color.substring(1)}'),
                         ),
-                        const TextSpan(text: 'より編集してください。'),
-                      ],
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-                ],
-              ],
-            ),
-            actions: [
-              if (onClassNotesSave != null && !isEditingMemo)
-                TextButton(
-                  onPressed: () {
-                    setDialogState(() {
-                      isEditingMemo = true;
-                    });
-                  },
-                  child: const Text('メモを編集'),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        scheduleClass.subjectName,
+                        style: const TextStyle(fontSize: 18),
+                      ),
+                    ),
+                  ],
                 ),
-              if (onClassNotesSave != null && isEditingMemo)
-                TextButton(
-                  onPressed:
-                      isSaving
-                          ? null
-                          : () {
-                            setDialogState(() {
-                              isEditingMemo = false;
-                            });
-                          },
-                  child: const Text('キャンセル'),
-                ),
-              if (onClassNotesSave != null && isEditingMemo)
-                FilledButton(
-                  onPressed:
-                      isSaving
-                          ? null
-                          : () async {
-                            setDialogState(() {
-                              isSaving = true;
-                            });
-                            final ok = await onClassNotesSave!(
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildDetailRow(
+                      dialogCtx,
+                      Icons.schedule,
+                      '時間',
+                      '${weekdayNames[weekdayKey] ?? weekdayKey} $periodRange\n$timeRange',
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDetailRow(
+                      dialogCtx,
+                      Icons.location_on,
+                      '教室',
+                      scheduleClass.classroom,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDetailRow(
+                      dialogCtx,
+                      Icons.person,
+                      '担当教員',
+                      scheduleClass.instructor,
+                    ),
+                    if (scheduleClass.duration > 1) ...[
+                      const SizedBox(height: 12),
+                      _buildDetailRow(
+                        dialogCtx,
+                        Icons.timer,
+                        '講義時間',
+                        '${scheduleClass.duration}時間連続',
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    if (!isEditingMemo) ...[
+                      if (scheduleClass.notes != null &&
+                          scheduleClass.notes!.isNotEmpty)
+                        _buildDetailRowLinkified(
+                          dialogCtx,
+                          Icons.note,
+                          'メモ',
+                          scheduleClass.notes!,
+                        )
+                      else
+                        _buildDetailRow(dialogCtx, Icons.note, 'メモ', '未設定'),
+                    ] else ...[
+                      const Text(
+                        'メモ',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: notesController,
+                        maxLines: 4,
+                        decoration: const InputDecoration(
+                          hintText: 'メモを入力',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ],
+                    if (canTapAttendance) ...[
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: () async {
+                            Navigator.of(dialogCtx).pop();
+                            await onClassAttendanceTap!(
                               weekdayKey,
                               startPeriod,
                               scheduleClass,
-                              notesController.text.trim().isEmpty
-                                  ? null
-                                  : notesController.text.trim(),
                             );
-                            if (!context.mounted) return;
-                            setDialogState(() {
-                              isSaving = false;
-                            });
-                            if (ok) {
-                              Navigator.of(context).pop();
-                            }
                           },
-                  child:
-                      isSaving
-                          ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                          : const Text('保存'),
+                          icon: const Icon(Icons.qr_code_scanner, size: 18),
+                          label: const Text('QRを読み取って出席'),
+                        ),
+                      ),
+                    ],
+                    if (summaryFuture != null) ...[
+                      const SizedBox(height: 12),
+                      FutureBuilder<AttendanceClassSummary>(
+                        future: summaryFuture,
+                        builder: (_, snapshot) {
+                          final summary = snapshot.data;
+                          if (summary == null) {
+                            return const SizedBox.shrink();
+                          }
+                          return _buildDetailRow(
+                            dialogCtx,
+                            Icons.analytics_outlined,
+                            '出欠集計',
+                            '出席 ${summary.presentCount}回 / 遅刻 ${summary.lateCount}回 / 欠席 ${summary.absentCount}回',
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 4),
+                      RichText(
+                        text: TextSpan(
+                          style: Theme.of(
+                            dialogCtx,
+                          ).textTheme.bodySmall?.copyWith(
+                            color:
+                                Theme.of(
+                                  dialogCtx,
+                                ).colorScheme.onSurfaceVariant,
+                          ),
+                          children: [
+                            const TextSpan(text: '※ 出欠集計を編集するには、画面右上の'),
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                ),
+                                child: Icon(
+                                  Icons.fact_check_outlined,
+                                  size: 14,
+                                  color:
+                                      Theme.of(
+                                        dialogCtx,
+                                      ).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                            const TextSpan(text: 'より編集してください。'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('閉じる'),
+                actions: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        reverse: false,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            if (isEditingMemo) ...[
+                              TextButton(
+                                style:
+                                    scheduleClassDetailDialogSecondaryActionStyle(
+                                      dialogCtx,
+                                    ),
+                                onPressed: () => Navigator.of(dialogCtx).pop(),
+                                child: const Text('閉じる'),
+                              ),
+                              if (onClassNotesSave != null) ...[
+                                const SizedBox(width: 4),
+                                TextButton(
+                                  style:
+                                      scheduleClassDetailDialogSecondaryActionStyle(
+                                        dialogCtx,
+                                      ),
+                                  onPressed:
+                                      isSaving
+                                          ? null
+                                          : () {
+                                            setDialogState(() {
+                                              isEditingMemo = false;
+                                            });
+                                          },
+                                  child: const Text('キャンセル'),
+                                ),
+                              ],
+                              if (onClassNotesSave != null) ...[
+                                const SizedBox(width: 4),
+                                FilledButton(
+                                  style:
+                                      scheduleClassDetailDialogSaveButtonStyle(
+                                        dialogCtx,
+                                      ),
+                                  onPressed:
+                                      isSaving
+                                          ? null
+                                          : () async {
+                                            setDialogState(() {
+                                              isSaving = true;
+                                            });
+                                            final ok = await onClassNotesSave!(
+                                              weekdayKey,
+                                              startPeriod,
+                                              scheduleClass,
+                                              notesController.text
+                                                      .trim()
+                                                      .isEmpty
+                                                  ? null
+                                                  : notesController.text.trim(),
+                                            );
+                                            if (!dialogCtx.mounted) return;
+                                            setDialogState(() {
+                                              isSaving = false;
+                                            });
+                                            if (ok) {
+                                              Navigator.of(dialogCtx).pop();
+                                            }
+                                          },
+                                  child:
+                                      isSaving
+                                          ? const SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                          : const Text('保存'),
+                                ),
+                              ],
+                            ] else ...[
+                              if (scheduleClass.classroom.trim().isNotEmpty) ...[
+                                FilledButton(
+                                  style: scheduleClassLookupRoomButtonStyle(),
+                                  onPressed: () {
+                                    final q = scheduleClass.classroom.trim();
+                                    final uri = Uri(
+                                      path: '/classroom-map',
+                                      queryParameters: {'q': q},
+                                    );
+                                    Navigator.of(dialogCtx).pop();
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                          if (!hostContext.mounted) return;
+                                          GoRouter.of(
+                                            hostContext,
+                                          ).push(uri.toString());
+                                        });
+                                  },
+                                  child: const Text('教室の場所を調べる'),
+                                ),
+                              ],
+                              if (scheduleClass.classroom.trim().isNotEmpty &&
+                                  onClassNotesSave != null)
+                                const SizedBox(width: 4),
+                              if (onClassNotesSave != null)
+                                TextButton(
+                                  style:
+                                      scheduleClassDetailDialogSecondaryActionStyle(
+                                        dialogCtx,
+                                      ),
+                                  onPressed: () {
+                                    setDialogState(() {
+                                      isEditingMemo = true;
+                                    });
+                                  },
+                                  child: const Text('メモを編集'),
+                                ),
+                              if (scheduleClass.classroom.trim().isNotEmpty ||
+                                  onClassNotesSave != null)
+                                const SizedBox(width: 4),
+                              TextButton(
+                                style:
+                                    scheduleClassDetailDialogSecondaryActionStyle(
+                                      dialogCtx,
+                                    ),
+                                onPressed: () => Navigator.of(dialogCtx).pop(),
+                                child: const Text('閉じる'),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
         );
       },
     );
   }
 
-  Widget _buildDetailRow(BuildContext context, IconData icon, String label, String value) {
+  Widget _buildDetailRow(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -807,22 +1004,24 @@ class ScheduleGridWidget extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           '$label: ',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
         ),
         Expanded(
-          child: Text(
-            value,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
+          child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
         ),
       ],
     );
   }
 
   // メモ用: URLをクリック可能にしたRow
-  Widget _buildDetailRowLinkified(BuildContext context, IconData icon, String label, String value) {
+  Widget _buildDetailRowLinkified(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -830,9 +1029,9 @@ class ScheduleGridWidget extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           '$label: ',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
         ),
         Expanded(
           child: RichText(
@@ -863,13 +1062,14 @@ class ScheduleGridWidget extends StatelessWidget {
             color: Theme.of(context).colorScheme.primary,
             decoration: TextDecoration.underline,
           ),
-          recognizer: (TapGestureRecognizer()
-            ..onTap = () async {
-              final uri = Uri.tryParse(url);
-              if (uri != null) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
-            }),
+          recognizer:
+              (TapGestureRecognizer()
+                ..onTap = () async {
+                  final uri = Uri.tryParse(url);
+                  if (uri != null) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                }),
         ),
       );
       start = m.end;
@@ -882,10 +1082,12 @@ class ScheduleGridWidget extends StatelessWidget {
 
   Color _getCellColor(BuildContext context, ScheduleClass? scheduleClass) {
     if (scheduleClass != null) {
-      final baseColor = Color(int.parse('0xff${scheduleClass.color.substring(1)}'));
+      final baseColor = Color(
+        int.parse('0xff${scheduleClass.color.substring(1)}'),
+      );
       return baseColor.withOpacity(0.8);
     }
-    
+
     return Colors.transparent;
   }
 
