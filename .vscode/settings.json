@@ -1,0 +1,4 @@
+{
+  "dart.vmAdditionalArgs": ["--no-enable-asserts"]
+}
+

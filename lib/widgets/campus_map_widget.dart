@@ -4,7 +4,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../core/providers/firebase_campus_provider.dart';
 import 'common/animated_image_placeholder.dart';
-import 'common/interactive_viewer_double_tap_zoom.dart';
 
 class CampusMapWidget extends ConsumerWidget {
   final String campus;
@@ -636,6 +635,9 @@ class FloorMapWidget extends ConsumerWidget {
   final double? width;
   final double? height;
 
+  /// 指定時はネットワーク画像タップで既定の全画面キャンパスダイアログの代わりにこれを実行する。
+  final VoidCallback? onTapForFullscreen;
+
   const FloorMapWidget({
     super.key,
     required this.campus,
@@ -643,6 +645,7 @@ class FloorMapWidget extends ConsumerWidget {
     required this.floor,
     this.width,
     this.height,
+    this.onTapForFullscreen,
   });
 
   @override
@@ -685,7 +688,9 @@ class FloorMapWidget extends ConsumerWidget {
         borderRadius: BorderRadius.circular(8),
         child: GestureDetector(
           onTap:
-              () => _showFullScreenMap(context, campus, mapUrl, campusOptions),
+              onTapForFullscreen ??
+              () =>
+                  _showFullScreenMap(context, campus, mapUrl, campusOptions),
           child:
               kIsWeb
                   ? Image.network(

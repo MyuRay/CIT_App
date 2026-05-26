@@ -1,0 +1,168 @@
+import '../../models/campus/campus_classroom_location.dart';
+import 'pilot_location_query_match.dart';
+
+bool usesTsudanuma6F2AppFloorMap(CampusClassroomLocation room) {
+  return room.campus == 'tsudanuma' &&
+      room.buildingId == '6' &&
+      room.floor == 2;
+}
+
+/// 津田沼6号館2階（アプリ同梱フロア図、正規化座標 0〜1・左上原点）。
+/// 上部北側に 621〜623、下部南側左から 626・625・624。ピンは区画中央の目安。
+List<CampusClassroomLocation> get pilotTsudanumaBuilding6Floor2 => [
+  CampusClassroomLocation(
+    campus: 'tsudanuma',
+    buildingId: '6',
+    buildingDisplayName: '6号館',
+    floor: 2,
+    roomCode: '060221',
+    searchTerms: [
+      '060221',
+      '60221',
+      '０６０２２１',
+      '060221号室',
+      '060221号',
+      '621',
+      '６２１',
+      '621講義室',
+      '621 講義室',
+      '六号館621',
+      '6号館621',
+    ],
+    pinX: 0.30,
+    pinY: 0.16,
+    description: '2階・621 講義室',
+    pinLabel: '621 講義室',
+  ),
+  CampusClassroomLocation(
+    campus: 'tsudanuma',
+    buildingId: '6',
+    buildingDisplayName: '6号館',
+    floor: 2,
+    roomCode: '060222',
+    searchTerms: [
+      '060222',
+      '60222',
+      '０６０２２２',
+      '060222号室',
+      '060222号',
+      '622',
+      '６２２',
+      '622講義室',
+      '622 講義室',
+      '六号館622',
+      '6号館622',
+    ],
+    pinX: 0.57,
+    pinY: 0.16,
+    description: '2階・622 講義室',
+    pinLabel: '622 講義室',
+  ),
+  CampusClassroomLocation(
+    campus: 'tsudanuma',
+    buildingId: '6',
+    buildingDisplayName: '6号館',
+    floor: 2,
+    roomCode: '060223',
+    searchTerms: [
+      '060223',
+      '60223',
+      '０６０２２３',
+      '060223号室',
+      '060223号',
+      '623',
+      '６２３',
+      '623講義室',
+      '623 講義室',
+      '六号館623',
+      '6号館623',
+    ],
+    pinX: 0.79,
+    pinY: 0.16,
+    description: '2階・623 講義室',
+    pinLabel: '623 講義室',
+  ),
+  CampusClassroomLocation(
+    campus: 'tsudanuma',
+    buildingId: '6',
+    buildingDisplayName: '6号館',
+    floor: 2,
+    roomCode: '060224',
+    searchTerms: [
+      '060224',
+      '60224',
+      '０６０２２４',
+      '060224号室',
+      '060224号',
+      '624',
+      '６２４',
+      '624講義室',
+      '624 講義室',
+      '六号館624',
+      '6号館624',
+    ],
+    pinX: 0.79,
+    pinY: 0.78,
+    description: '2階・624 講義室',
+    pinLabel: '624 講義室',
+  ),
+  CampusClassroomLocation(
+    campus: 'tsudanuma',
+    buildingId: '6',
+    buildingDisplayName: '6号館',
+    floor: 2,
+    roomCode: '060225',
+    searchTerms: [
+      '060225',
+      '60225',
+      '０６０２２５',
+      '060225号室',
+      '060225号',
+      '625',
+      '６２５',
+      '625講義室',
+      '625 講義室',
+      '六号館625',
+      '6号館625',
+    ],
+    pinX: 0.57,
+    pinY: 0.78,
+    description: '2階・625 講義室',
+    pinLabel: '625 講義室',
+  ),
+  CampusClassroomLocation(
+    campus: 'tsudanuma',
+    buildingId: '6',
+    buildingDisplayName: '6号館',
+    floor: 2,
+    roomCode: '060226',
+    searchTerms: [
+      '060226',
+      '60226',
+      '０６０２２６',
+      '060226号室',
+      '060226号',
+      '626',
+      '６２６',
+      '626講義室',
+      '626 講義室',
+      '第2製図室',
+      '第２製図室',
+      '第二製図室',
+      '製図室',
+      '六号館626',
+      '6号館626',
+    ],
+    pinX: 0.30,
+    pinY: 0.78,
+    description: '2階・626 講義室（第2製図室）',
+    pinLabel: '626 講義室（第2製図室）',
+  ),
+];
+
+List<CampusClassroomLocation> searchPilotTsudanuma6F2(String query) {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return const [];
+  bool matches(CampusClassroomLocation r) => pilotLocationMatchesQuery(r, q);
+  return pilotTsudanumaBuilding6Floor2.where(matches).toList();
+}
