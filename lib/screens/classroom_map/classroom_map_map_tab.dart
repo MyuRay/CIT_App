@@ -13,11 +13,15 @@ class ClassroomMapMapTab extends StatefulWidget {
     required this.mapData,
     required this.selectedCampusId,
     required this.onCampusChanged,
+    this.campusSwitcherTopPadding = 16,
   });
 
   final CampusMapData mapData;
   final String selectedCampusId;
   final void Function(String) onCampusChanged;
+
+  /// 画面上部のキャンパス切替の縦オフセット（検索カードと重ねる場合は検索帯の高さに合わせて大きくする）。
+  final double campusSwitcherTopPadding;
 
   @override
   State<ClassroomMapMapTab> createState() => _ClassroomMapMapTabState();
@@ -147,18 +151,10 @@ class _ClassroomMapMapTabState extends State<ClassroomMapMapTab> {
           ],
         ),
         Positioned(
-          top: 16,
+          top: widget.campusSwitcherTopPadding,
           left: 16,
           right: 16,
-          child: SegmentedButton<String>(
-            segments: widget.mapData.campuses
-                .map(
-                  (c) => ButtonSegment(value: c.id, label: Text(c.displayName)),
-                )
-                .toList(),
-            selected: {widget.selectedCampusId},
-            onSelectionChanged: (s) => widget.onCampusChanged(s.first),
-          ),
+          child: _buildCampusSwitcher(context),
         ),
         if (_selectedBuilding != null &&
             !(_campusForSelection().id == 'narashino' &&
@@ -167,6 +163,79 @@ class _ClassroomMapMapTabState extends State<ClassroomMapMapTab> {
                 tsudanumaBuildingHasFloorMapsSheet(_selectedBuilding!.buildingId)))
           _buildBuildingInfo(context),
       ],
+    );
+  }
+
+  /// キャンパス名が途中で折り返されないようにする。
+  /// 白ベースはセグメント枠内のみ。選択時は更新前に近い薄い青トーン。
+  Widget _buildCampusSwitcher(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+
+    /// 未選択セグメントの内側のみ不透明にする（ライトでは白）。
+    final unselectedFill =
+        theme.brightness == Brightness.light
+            ? Colors.white
+            : scheme.surfaceContainerHighest;
+
+    /// 選択セグメント：ビビッドな primary ではなく薄い青系。
+    final selectedBg =
+        theme.brightness == Brightness.light
+            ? Colors.blue.shade50
+            : Colors.blue.shade900.withValues(alpha: 0.42);
+    final selectedFg =
+        theme.brightness == Brightness.light
+            ? Colors.blue.shade800
+            : Colors.blue.shade100;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: SegmentedButton<String>(
+        segments:
+            widget.mapData.campuses.map((c) {
+              return ButtonSegment<String>(
+                value: c.id,
+                tooltip: c.displayName,
+                label: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.center,
+                    child: Text(
+                      c.displayName,
+                      maxLines: 1,
+                      softWrap: false,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+        selected: {widget.selectedCampusId},
+        onSelectionChanged: (s) => widget.onCampusChanged(s.first),
+        style: SegmentedButton.styleFrom(
+          minimumSize: const Size(40, 44),
+          tapTargetSize: MaterialTapTargetSize.padded,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          backgroundColor: unselectedFill,
+          foregroundColor: scheme.onSurface,
+          selectedBackgroundColor: selectedBg,
+          selectedForegroundColor: selectedFg,
+          side: BorderSide(color: scheme.outline.withValues(alpha: 0.45)),
+        ),
+      ),
     );
   }
 

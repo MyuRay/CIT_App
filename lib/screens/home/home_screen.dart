@@ -1218,8 +1218,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: () => _openClassroomMap(context),
-                icon: const Icon(Icons.class_outlined, size: 16),
-                label: const Text('詳細なマップを確認'),
+                icon: const Icon(Icons.search, size: 16),
+                label: const Text('教室・学内施設を探す'),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                 ),
