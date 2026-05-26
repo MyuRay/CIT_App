@@ -119,7 +119,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'classroom-map',
         builder: (context, state) {
           final campus = state.uri.queryParameters['campus'];
-          return ClassroomMapScreen(initialCampusId: campus);
+          final rawQ = state.uri.queryParameters['q'];
+          final trimmedQ =
+              rawQ == null ? null : rawQ.trim().isEmpty ? null : rawQ.trim();
+          return ClassroomMapScreen(
+            initialCampusId: campus,
+            initialSearchQuery: trimmedQ,
+          );
         },
       ),
       if (kDebugMode)
