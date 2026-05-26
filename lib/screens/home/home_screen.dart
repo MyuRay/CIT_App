@@ -46,6 +46,7 @@ import '../../services/widget/home_widgets_service.dart';
 import '../../services/schedule/academic_calendar_service.dart';
 import '../../services/schedule/schedule_service.dart';
 import '../../services/schedule/attendance_service.dart';
+import '../../widgets/schedule/schedule_class_detail_dialog_styles.dart';
 
 const Map<String, String> _campusNavigationOptions = {
   'tsudanuma': '津田沼',
@@ -1217,8 +1218,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: () => _openClassroomMap(context),
-                icon: const Icon(Icons.class_outlined, size: 16),
-                label: const Text('詳細なマップを確認'),
+                icon: const Icon(Icons.search, size: 16),
+                label: const Text('教室・学内施設を探す'),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                 ),
@@ -3343,7 +3344,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   void _showClassDetailsDialog(
-    BuildContext context,
+    BuildContext hostContext,
     ScheduleClass scheduleClass,
     int period,
     TimeSlot timeSlot,
@@ -3389,15 +3390,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ? '$period-${period + scheduleClass.duration - 1}限'
             : '$period限';
 
-    showDialog(
-      context: context,
-      builder: (context) {
+    showDialog<void>(
+      context: hostContext,
+      builder: (dialogCtx) {
         final notesController = TextEditingController(text: scheduleClass.notes ?? '');
         bool isEditingMemo = false;
         bool isSaving = false;
         return StatefulBuilder(
           builder:
-              (context, setDialogState) => AlertDialog(
+              (_, setDialogState) => AlertDialog(
                 title: Row(
                   children: [
                     Container(
@@ -3424,21 +3425,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildDetailRow(
-                      context,
+                      dialogCtx,
                       Icons.schedule,
                       '時間',
                       '${weekdayNames[weekday] ?? ''} $periodRange\n$timeRange',
                     ),
                     const SizedBox(height: 12),
                     _buildDetailRow(
-                      context,
+                      dialogCtx,
                       Icons.location_on,
                       '教室',
                       scheduleClass.classroom,
                     ),
                     const SizedBox(height: 12),
                     _buildDetailRow(
-                      context,
+                      dialogCtx,
                       Icons.person,
                       '担当教員',
                       scheduleClass.instructor,
@@ -3446,7 +3447,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     if (scheduleClass.duration > 1) ...[
                       const SizedBox(height: 12),
                       _buildDetailRow(
-                        context,
+                        dialogCtx,
                         Icons.timer,
                         '講義時間',
                         '${scheduleClass.duration}時間連続',
@@ -3457,13 +3458,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       if (scheduleClass.notes != null &&
                           scheduleClass.notes!.isNotEmpty)
                         _buildDetailRowLinkified(
-                          context,
+                          dialogCtx,
                           Icons.note,
                           'メモ',
                           scheduleClass.notes!,
                         )
                       else
-                        _buildDetailRow(context, Icons.note, 'メモ', '未設定'),
+                        _buildDetailRow(dialogCtx, Icons.note, 'メモ', '未設定'),
                     ] else ...[
                       const Text(
                         'メモ',
@@ -3489,9 +3490,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         child: FilledButton.icon(
                           onPressed: canTapAttendance
                               ? () async {
-                            Navigator.of(context).pop();
+                            Navigator.of(dialogCtx).pop();
                             await _openAttendanceQrReaderAndMark(
-                              context: context,
+                              context: hostContext,
                               scheduleId: scheduleId,
                               weekdayKey: weekdayKey,
                               period: period,
@@ -3508,9 +3509,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
                             '講義開始20分前〜開始1時間後のみ操作できます',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            style: Theme.of(dialogCtx).textTheme.bodySmall?.copyWith(
                                   color:
-                                      Theme.of(context)
+                                      Theme.of(dialogCtx)
                                           .colorScheme
                                           .onSurfaceVariant,
                                 ),
@@ -3521,11 +3522,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       const SizedBox(height: 12),
                       FutureBuilder<AttendanceClassSummary>(
                         future: summaryFuture,
-                        builder: (context, snapshot) {
+                        builder: (_, snapshot) {
                           final summary = snapshot.data;
                           if (summary == null) return const SizedBox.shrink();
                           return _buildDetailRow(
-                            context,
+                            dialogCtx,
                             Icons.analytics_outlined,
                             '出欠集計',
                             '出席 ${summary.presentCount}回 / 遅刻 ${summary.lateCount}回 / 欠席 ${summary.absentCount}回',
@@ -3535,9 +3536,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       const SizedBox(height: 4),
                       RichText(
                         text: TextSpan(
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          style: Theme.of(dialogCtx).textTheme.bodySmall?.copyWith(
                                 color:
-                                    Theme.of(context)
+                                    Theme.of(dialogCtx)
                                         .colorScheme
                                         .onSurfaceVariant,
                               ),
@@ -3551,7 +3552,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                   Icons.fact_check_outlined,
                                   size: 14,
                                   color:
-                                      Theme.of(context)
+                                      Theme.of(dialogCtx)
                                           .colorScheme
                                           .onSurfaceVariant,
                                 ),
@@ -3565,65 +3566,138 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ],
                 ),
                 actions: [
-                  if (scheduleId != null && weekdayKey != null && !isEditingMemo)
-                    TextButton(
-                      onPressed: () {
-                        setDialogState(() {
-                          isEditingMemo = true;
-                        });
-                      },
-                      child: const Text('メモを編集'),
+                  SizedBox(
+                    width: double.infinity,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        reverse: false,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            if (isEditingMemo) ...[
+                              TextButton(
+                                style:
+                                    scheduleClassDetailDialogSecondaryActionStyle(
+                                      dialogCtx,
+                                    ),
+                                onPressed: () => Navigator.of(dialogCtx).pop(),
+                                child: const Text('閉じる'),
+                              ),
+                              if (scheduleId != null && weekdayKey != null) ...[
+                                const SizedBox(width: 4),
+                                TextButton(
+                                  style:
+                                      scheduleClassDetailDialogSecondaryActionStyle(
+                                        dialogCtx,
+                                      ),
+                                  onPressed:
+                                      isSaving
+                                          ? null
+                                          : () {
+                                            setDialogState(() {
+                                              isEditingMemo = false;
+                                            });
+                                          },
+                                  child: const Text('キャンセル'),
+                                ),
+                              ],
+                              if (scheduleId != null && weekdayKey != null) ...[
+                                const SizedBox(width: 4),
+                                FilledButton(
+                                  style: scheduleClassDetailDialogSaveButtonStyle(
+                                    dialogCtx,
+                                  ),
+                                  onPressed:
+                                      isSaving
+                                          ? null
+                                          : () async {
+                                            setDialogState(() {
+                                              isSaving = true;
+                                            });
+                                            final ok = await _saveHomeClassNotesInline(
+                                              context: hostContext,
+                                              scheduleId: scheduleId,
+                                              weekdayKey: weekdayKey,
+                                              scheduleClass: scheduleClass,
+                                              notes:
+                                                  notesController.text.trim().isEmpty
+                                                      ? null
+                                                      : notesController.text.trim(),
+                                            );
+                                            if (!dialogCtx.mounted) return;
+                                            setDialogState(() {
+                                              isSaving = false;
+                                            });
+                                            if (ok) {
+                                              Navigator.of(dialogCtx).pop();
+                                            }
+                                          },
+                                  child:
+                                      isSaving
+                                          ? const SizedBox(
+                                              width: 14,
+                                              height: 14,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : const Text('保存'),
+                                ),
+                              ],
+                            ] else ...[
+                              if (scheduleClass.classroom.trim().isNotEmpty) ...[
+                                FilledButton(
+                                  style: scheduleClassLookupRoomButtonStyle(),
+                                  onPressed: () {
+                                    final q = scheduleClass.classroom.trim();
+                                    final uri = Uri(
+                                      path: '/classroom-map',
+                                      queryParameters: {'q': q},
+                                    );
+                                    Navigator.of(dialogCtx).pop();
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      if (!hostContext.mounted) return;
+                                      GoRouter.of(hostContext).push(uri.toString());
+                                    });
+                                  },
+                                  child: const Text('教室の場所を調べる'),
+                                ),
+                              ],
+                              if (scheduleClass.classroom.trim().isNotEmpty &&
+                                  scheduleId != null &&
+                                  weekdayKey != null)
+                                const SizedBox(width: 4),
+                              if (scheduleId != null && weekdayKey != null)
+                                TextButton(
+                                  style:
+                                      scheduleClassDetailDialogSecondaryActionStyle(
+                                        dialogCtx,
+                                      ),
+                                  onPressed: () {
+                                    setDialogState(() {
+                                      isEditingMemo = true;
+                                    });
+                                  },
+                                  child: const Text('メモを編集'),
+                                ),
+                              if (scheduleClass.classroom.trim().isNotEmpty ||
+                                  (scheduleId != null && weekdayKey != null))
+                                const SizedBox(width: 4),
+                              TextButton(
+                                style: scheduleClassDetailDialogSecondaryActionStyle(
+                                  dialogCtx,
+                                ),
+                                onPressed: () => Navigator.of(dialogCtx).pop(),
+                                child: const Text('閉じる'),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
-                  if (scheduleId != null && weekdayKey != null && isEditingMemo)
-                    TextButton(
-                      onPressed:
-                          isSaving
-                              ? null
-                              : () {
-                                setDialogState(() {
-                                  isEditingMemo = false;
-                                });
-                              },
-                      child: const Text('キャンセル'),
-                    ),
-                  if (scheduleId != null && weekdayKey != null && isEditingMemo)
-                    FilledButton(
-                      onPressed:
-                          isSaving
-                              ? null
-                              : () async {
-                                setDialogState(() {
-                                  isSaving = true;
-                                });
-                                final ok = await _saveHomeClassNotesInline(
-                                  context: context,
-                                  scheduleId: scheduleId,
-                                  weekdayKey: weekdayKey,
-                                  scheduleClass: scheduleClass,
-                                  notes: notesController.text.trim().isEmpty
-                                      ? null
-                                      : notesController.text.trim(),
-                                );
-                                if (!context.mounted) return;
-                                setDialogState(() {
-                                  isSaving = false;
-                                });
-                                if (ok) {
-                                  Navigator.of(context).pop();
-                                }
-                              },
-                      child:
-                          isSaving
-                              ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Text('保存'),
-                    ),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('閉じる'),
                   ),
                 ],
               ),

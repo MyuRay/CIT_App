@@ -143,7 +143,54 @@ flutter:
   assets:
     - assets/icons/
     - assets/images/
-
+    # ディレクトリ指定だけで拾えない環境向けに明示（新習志野 1・2号館1階）
+    - assets/images/classroom_map/narashino_1_1f.png
+    - assets/images/classroom_map/narashino_2_1f.png
+    - assets/images/classroom_map/narashino_2_floors_2345789.png
+    - assets/images/classroom_map/narashino_2_6f.png
+    - assets/images/classroom_map/narashino_3_1f.png
+    - assets/images/classroom_map/narashino_3_2f.png
+    - assets/images/classroom_map/narashino_3_3f.png
+    - assets/images/classroom_map/narashino_5_1f.png
+    - assets/images/classroom_map/narashino_5_2f.png
+    - assets/images/classroom_map/narashino_5_3f.png
+    - assets/images/classroom_map/narashino_7_1f.png
+    - assets/images/classroom_map/narashino_7_2f.png
+    - assets/images/classroom_map/narashino_8_1f.png
+    - assets/images/classroom_map/narashino_8_2f.png
+    - assets/images/classroom_map/narashino_12_1f.png
+    - assets/images/classroom_map/narashino_12_2f.png
+    - assets/images/classroom_map/narashino_12_3f.png
+    - assets/images/classroom_map/narashino_12_4f.png
+    - assets/images/classroom_map/narashino_12_5f.png
+    - assets/images/classroom_map/narashino_12_6f.png
+    - assets/images/classroom_map/narashino_12_7f.png
+    - assets/images/classroom_map/narashino_12_8f.png
+    - assets/images/classroom_map/tsudanuma_4_b2.png
+    - assets/images/classroom_map/tsudanuma_4_b1.png
+    - assets/images/classroom_map/tsudanuma_4_1f.png
+    - assets/images/classroom_map/tsudanuma_4_2f.png
+    - assets/images/classroom_map/tsudanuma_4_3f.png
+    - assets/images/classroom_map/tsudanuma_4_4f.png
+    - assets/images/classroom_map/tsudanuma_4_5f.png
+    - assets/images/classroom_map/tsudanuma_4_6f.png
+    - assets/images/classroom_map/tsudanuma_4_7f.png
+    - assets/images/classroom_map/tsudanuma_4_8f.png
+    - assets/images/classroom_map/tsudanuma_4_9f.png
+    - assets/images/classroom_map/tsudanuma_6_1f.png
+    - assets/images/classroom_map/tsudanuma_6_2f.png
+    - assets/images/classroom_map/tsudanuma_6_3f.png
+    - assets/images/classroom_map/tsudanuma_6_4f.png
+    - assets/images/classroom_map/tsudanuma_6_5f.png
+    - assets/images/classroom_map/tsudanuma_7_1f.png
+    - assets/images/classroom_map/tsudanuma_7_2f.png
+    - assets/images/classroom_map/tsudanuma_7_3f.png
+    - assets/images/classroom_map/tsudanuma_7_4f.png
+    - assets/images/classroom_map/tsudanuma_7_5f.png
+    - assets/images/classroom_map/tsudanuma_7_6f.png
+    - assets/images/classroom_map/tsudanuma_7_7f.png
+    - assets/images/classroom_map/tsudanuma_7_8f.png
+    - assets/images/classroom_map/tsudanuma_7_9f.png
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
