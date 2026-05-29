@@ -35,6 +35,7 @@ import '../cafeteria/cafeteria_reviews_screen.dart';
 import '../cafeteria/cafeteria_camera_info_screen.dart';
 import '../schedule/attendance_qr_reader_screen.dart';
 import '../../widgets/campus_map_widget.dart';
+import '../../widgets/home/train_access_home_card.dart';
 import '../../widgets/performance/optimized_notification_badge.dart';
 import '../../widgets/common/pulsing_dot_badge.dart';
 import '../../models/convenience_link/convenience_link_model.dart';
@@ -85,6 +86,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'timetable',
     'cafeteria',
     'bus',
+    'train_access',
     'campus_map',
     'classroom_map',
     'academic_calendar',
@@ -955,6 +957,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return _buildCafeteriaCard(context, ref, todayReviewExistsAsync);
       case 'bus':
         return _buildBusInfoCard(context, ref);
+      case 'train_access':
+        return const TrainAccessHomeCard();
       case 'campus_map':
         return _buildCampusMapCard(context);
       case 'classroom_map':
@@ -1980,6 +1984,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ),
                     ),
                     const Divider(height: 1),
+                    const TrainHomeCardCampusSetting(),
+                    const Divider(height: 1),
                     Expanded(
                       child: ReorderableListView.builder(
                         itemCount: tempOrder.length,
@@ -2057,6 +2063,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return '学食情報';
       case 'bus':
         return '学バス情報';
+      case 'train_access':
+        return trainHomeCardTitle(ref.read(preferredBusCampusProvider));
       case 'campus_map':
         return 'キャンパスマップ';
       case 'classroom_map':
@@ -2100,6 +2108,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           result.insert(acIndex, 'classroom_map');
         } else {
           result.add('classroom_map');
+        }
+      }
+    }
+    if (!result.contains('train_access')) {
+      final busIndex = result.indexOf('bus');
+      if (busIndex >= 0) {
+        result.insert(busIndex + 1, 'train_access');
+      } else {
+        final campusIndex = result.indexOf('campus_map');
+        if (campusIndex >= 0) {
+          result.insert(campusIndex, 'train_access');
+        } else {
+          result.add('train_access');
         }
       }
     }
