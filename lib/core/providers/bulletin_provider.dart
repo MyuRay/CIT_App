@@ -1,158 +1,213 @@
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../models/bulletin/bulletin_model.dart';
-import '../../services/cache_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-// Firestore掲示板データプロバイダー（キャッシュ対応）
-final bulletinPostsProvider = FutureProvider<List<BulletinPost>>((ref) async {
-  try {
-    print('掲示板データを取得中...');
-    
-    // まずキャッシュから取得を試行
-    final cachedPosts = await CacheService.getCachedBulletinPosts();
-    if (cachedPosts != null && cachedPosts.isNotEmpty) {
-      print('📦 キャッシュからデータを返却: ${cachedPosts.length}件');
-      
-      // バックグラウンドで最新データを取得してキャッシュ更新
-      _updateCacheInBackground();
-      
-      return cachedPosts;
+import '../../core/constants/app_constants.dart';
+import '../../models/bulletin/bulletin_model.dart';
+import 'schedule_provider.dart';
+
+class BulletinFeedState {
+  const BulletinFeedState({
+    this.posts = const [],
+    this.isLoading = false,
+    this.isLoadingMore = false,
+    this.hasMore = true,
+    this.error,
+  });
+
+  final List<BulletinPost> posts;
+  final bool isLoading;
+  final bool isLoadingMore;
+  final bool hasMore;
+  final Object? error;
+
+  BulletinFeedState copyWith({
+    List<BulletinPost>? posts,
+    bool? isLoading,
+    bool? isLoadingMore,
+    bool? hasMore,
+    Object? error,
+    bool clearError = false,
+  }) {
+    return BulletinFeedState(
+      posts: posts ?? this.posts,
+      isLoading: isLoading ?? this.isLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasMore: hasMore ?? this.hasMore,
+      error: clearError ? null : (error ?? this.error),
+    );
+  }
+}
+
+class BulletinFeedNotifier extends StateNotifier<BulletinFeedState> {
+  BulletinFeedNotifier(this._ref) : super(const BulletinFeedState()) {
+    _ref.listen<String?>(currentUserIdProvider, (previous, next) {
+      if (previous != next) {
+        refresh();
+      }
+    });
+    if (_ref.read(currentUserIdProvider) != null) {
+      refresh();
     }
-    
-    print('🌐 サーバーからデータを取得中...');
-    final firestore = FirebaseFirestore.instance;
-    final snapshot = await firestore
+  }
+
+  final Ref _ref;
+  QueryDocumentSnapshot<Map<String, dynamic>>? _lastDocument;
+
+  Future<void> refresh() async {
+    if (_ref.read(currentUserIdProvider) == null) {
+      _lastDocument = null;
+      state = const BulletinFeedState();
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, clearError: true);
+    _lastDocument = null;
+
+    try {
+      final page = await _fetchPage();
+      state = BulletinFeedState(
+        posts: _sortPosts(page.posts),
+        hasMore: page.hasMore,
+      );
+    } catch (error) {
+      state = state.copyWith(isLoading: false, error: error);
+    }
+  }
+
+  Future<void> loadMore() async {
+    if (_ref.read(currentUserIdProvider) == null) return;
+    if (state.isLoading || state.isLoadingMore || !state.hasMore) return;
+
+    state = state.copyWith(isLoadingMore: true, clearError: true);
+    try {
+      final page = await _fetchPage();
+      final merged = _mergePosts(state.posts, page.posts);
+      state = state.copyWith(
+        posts: _sortPosts(merged),
+        isLoadingMore: false,
+        hasMore: page.hasMore,
+      );
+    } catch (error) {
+      state = state.copyWith(isLoadingMore: false, error: error);
+    }
+  }
+
+  Future<({List<BulletinPost> posts, bool hasMore})> _fetchPage() async {
+    var query = FirebaseFirestore.instance
         .collection('bulletin_posts')
         .where('approvalStatus', isEqualTo: 'approved')
-        .get();
-    
-    print('取得した投稿数: ${snapshot.docs.length}');
-    
+        .orderBy('createdAt', descending: true)
+        .limit(AppConstants.postPageSize + 1);
+
+    if (_lastDocument != null) {
+      query = query.startAfterDocument(_lastDocument!);
+    }
+
+    final snapshot = await query.get();
+    final docs = snapshot.docs;
+    final hasMore = docs.length > AppConstants.postPageSize;
+    final pageDocs =
+        hasMore ? docs.sublist(0, AppConstants.postPageSize) : docs;
+
+    if (pageDocs.isNotEmpty) {
+      _lastDocument = pageDocs.last;
+    }
+
     final posts = <BulletinPost>[];
-    for (final doc in snapshot.docs) {
+    for (final doc in pageDocs) {
       try {
-        print('処理中のドキュメント ID: ${doc.id}');
-        final data = doc.data();
-        print('生データ: $data');
-        
-        final postData = {
-          'id': doc.id,
-          ...data,
-        };
-        print('fromJson用データ: $postData');
-        
-        final post = BulletinPost.fromJson(postData);
-        // isActiveでフィルタリング
+        final post = BulletinPost.fromJson({'id': doc.id, ...doc.data()});
         if (post.isActive) {
           posts.add(post);
-          print('✅ 投稿処理成功: ${post.title}');
-        } else {
-          print('⏭️ 非アクティブ投稿をスキップ: ${post.title}');
         }
-      } catch (e, stackTrace) {
-        print('❌ 投稿処理エラー (ID: ${doc.id}): $e');
-        print('スタックトレース: $stackTrace');
-        print('問題のあるデータ: ${doc.data()}');
-        // エラーがあっても処理を続行
+      } catch (_) {
+        // 壊れたドキュメントはスキップ
       }
     }
-        
-    print('解析した投稿データ: ${posts.length}件');
-    
-    // ピン留め投稿を優先してソート
-    posts.sort((a, b) {
-      // まずピン留めステータスで比較
+
+    return (posts: posts, hasMore: hasMore);
+  }
+
+  List<BulletinPost> _mergePosts(
+    List<BulletinPost> current,
+    List<BulletinPost> incoming,
+  ) {
+    if (incoming.isEmpty) return current;
+    final seen = current.map((post) => post.id).toSet();
+    final merged = List<BulletinPost>.from(current);
+    for (final post in incoming) {
+      if (seen.add(post.id)) {
+        merged.add(post);
+      }
+    }
+    return merged;
+  }
+
+  List<BulletinPost> _sortPosts(List<BulletinPost> posts) {
+    final sorted = List<BulletinPost>.from(posts);
+    sorted.sort((a, b) {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
-      
-      // ピン留めステータスが同じ場合は作成日時で比較
       return b.createdAt.compareTo(a.createdAt);
     });
-    
-    // キャッシュに保存
-    await CacheService.saveBulletinPosts(posts);
-    
-    for (final post in posts) {
-      print('- ${post.title} (${post.category.name})');
-    }
-    
-    return posts;
-  } catch (e, stackTrace) {
-    // Firebaseが利用できない場合は空のリストを返す
-    print('掲示板データの取得に失敗: $e');
-    print('スタックトレース: $stackTrace');
-    
-    // 詳細なエラー情報をログ出力
-    if (e.toString().contains('network')) {
-      print('ネットワークエラーの可能性があります');
-    } else if (e.toString().contains('permission')) {
-      print('権限エラーの可能性があります');
-    } else if (e.toString().contains('firebase')) {
-      print('Firebase設定エラーの可能性があります');
-    }
-    
-    // エラーを再スローしてUIに表示
-    rethrow;
+    return sorted;
   }
+}
+
+final bulletinFeedProvider =
+    StateNotifierProvider<BulletinFeedNotifier, BulletinFeedState>((ref) {
+  return BulletinFeedNotifier(ref);
 });
 
-// カテゴリ別の投稿フィルター
-final bulletinPostsByCategoryProvider = FutureProvider.family<List<BulletinPost>, String?>((ref, categoryId) async {
-  final posts = await ref.watch(bulletinPostsProvider.future);
-  
-  if (categoryId == null) {
-    return posts;
+/// 読み込み済み掲示板投稿（ページネーション対応）
+final bulletinPostsProvider = Provider<AsyncValue<List<BulletinPost>>>((ref) {
+  final feed = ref.watch(bulletinFeedProvider);
+  if (feed.isLoading && feed.posts.isEmpty) {
+    return const AsyncValue.loading();
   }
-  
+  if (feed.error != null && feed.posts.isEmpty) {
+    return AsyncValue.error(feed.error!, StackTrace.current);
+  }
+  return AsyncValue.data(feed.posts);
+});
+
+/// 掲示板 NEW バッジ用（最新1件）
+final bulletinLatestPostCreatedAtProvider = StreamProvider<DateTime?>((ref) {
+  final uid = ref.watch(currentUserIdProvider);
+  if (uid == null) {
+    return Stream.value(null);
+  }
+
+  return FirebaseFirestore.instance
+      .collection('bulletin_posts')
+      .where('approvalStatus', isEqualTo: 'approved')
+      .orderBy('createdAt', descending: true)
+      .limit(1)
+      .snapshots()
+      .map((snapshot) {
+    if (snapshot.docs.isEmpty) return null;
+    final createdAt = snapshot.docs.first.data()['createdAt'];
+    if (createdAt is Timestamp) return createdAt.toDate();
+    return null;
+  });
+});
+
+final bulletinPostsByCategoryProvider =
+    Provider.family<List<BulletinPost>, String?>((ref, categoryId) {
+  final posts = ref.watch(bulletinPostsProvider).valueOrNull ?? const [];
+  if (categoryId == null) return posts;
   return posts.where((post) => post.category.id == categoryId).toList();
 });
 
-// ピン留め投稿
-final pinnedBulletinPostsProvider = FutureProvider<List<BulletinPost>>((ref) async {
-  final posts = await ref.watch(bulletinPostsProvider.future);
+final pinnedBulletinPostsProvider = Provider<List<BulletinPost>>((ref) {
+  final posts = ref.watch(bulletinPostsProvider).valueOrNull ?? const [];
   return posts.where((post) => post.isPinned).toList();
 });
 
-// 人気投稿（閲覧数順）
-final popularBulletinPostsProvider = FutureProvider<List<BulletinPost>>((ref) async {
-  final posts = await ref.watch(bulletinPostsProvider.future);
+final popularBulletinPostsProvider = Provider<List<BulletinPost>>((ref) {
+  final posts = ref.watch(bulletinPostsProvider).valueOrNull ?? const [];
   final sortedPosts = List<BulletinPost>.from(posts);
   sortedPosts.sort((a, b) => b.viewCount.compareTo(a.viewCount));
   return sortedPosts.take(5).toList();
 });
-
-// バックグラウンドでキャッシュ更新
-Future<void> _updateCacheInBackground() async {
-  try {
-    print('🔄 バックグラウンドでキャッシュ更新中...');
-    final firestore = FirebaseFirestore.instance;
-    final snapshot = await firestore
-        .collection('bulletin_posts')
-        .where('approvalStatus', isEqualTo: 'approved')
-        .get();
-    
-    final posts = <BulletinPost>[];
-    for (final doc in snapshot.docs) {
-      try {
-        final data = doc.data();
-        final postData = {
-          'id': doc.id,
-          ...data,
-        };
-        final post = BulletinPost.fromJson(postData);
-        if (post.isActive) {
-          posts.add(post);
-        }
-      } catch (e) {
-        print('バックグラウンド更新エラー (ID: ${doc.id}): $e');
-      }
-    }
-    
-    posts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    await CacheService.saveBulletinPosts(posts);
-    
-    print('✅ バックグラウンドキャッシュ更新完了: ${posts.length}件');
-  } catch (e) {
-    print('❌ バックグラウンド更新失敗: $e');
-  }
-}

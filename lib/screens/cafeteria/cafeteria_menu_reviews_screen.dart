@@ -1,3 +1,4 @@
+import 'package:characters/characters.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -322,7 +323,14 @@ class _Header extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final placeholder = menuName.isNotEmpty ? menuName.substring(0, 1) : '?';
+    // 絵文字や合字などサロゲートペアを含むメニュー名でも安全に1文字取り出すため
+    // String.substring ではなく characters パッケージの first を使用する。
+    final placeholder = menuName.characters.isNotEmpty
+        ? menuName.characters.first
+        : '?';
+    // 一覧画面 (_MenuRowCard) と同じ規則で Hero タグを生成し、
+    // 一覧→詳細遷移で Hero アニメーションが正しく機能するようにする。
+    final heroTag = 'cafeteria_menu_image:$cafeteriaId:$menuName';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -341,7 +349,7 @@ class _Header extends ConsumerWidget {
                 imageUrl: menuItem?.photoUrl,
               ),
               child: Hero(
-                tag: menuItem?.photoUrl ?? placeholder,
+                tag: heroTag,
                 child: _buildMenuImage(
                   imageUrl: menuItem?.photoUrl,
                   placeholder: placeholder,
@@ -859,7 +867,10 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
           child: Transform.translate(
             offset: Offset(0, _dragOffset),
             child: Hero(
-              tag: widget.imageUrl ?? widget.placeholder,
+              // Hero タグ衝突を避けるため、URL が未設定でも一意性を保つ
+              // プレフィックスを付ける
+              tag: 'cafeteria_full_image:'
+                  '${widget.imageUrl ?? widget.placeholder}',
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onDoubleTapDown: _handleDoubleTap,

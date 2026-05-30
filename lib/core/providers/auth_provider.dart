@@ -68,6 +68,10 @@ class AuthService {
   AuthService(this._auth);
 
   bool isValidCITEmail(String email) {
+    return AppConstants.isValidCitEmail(email);
+  }
+
+  bool isAllowedCITDomain(String email) {
     return AppConstants.isAllowedDomain(email);
   }
 
@@ -89,6 +93,15 @@ class AuthService {
         throw FirebaseAuthException(
           code: 'invalid-display-name',
           message: '表示名を入力してください',
+        );
+      }
+
+      if (!AppConstants.isValidPasswordFormat(password)) {
+        throw FirebaseAuthException(
+          code: 'weak-password',
+          message: password.length < 6
+              ? AppConstants.errorWeakPassword
+              : AppConstants.errorPasswordChars,
         );
       }
 
@@ -133,7 +146,7 @@ class AuthService {
     required String password,
   }) async {
     try {
-      if (!isValidCITEmail(email)) {
+      if (!isAllowedCITDomain(email)) {
         throw FirebaseAuthException(
           code: 'invalid-domain',
           message: AppConstants.errorInvalidDomain,
@@ -162,6 +175,7 @@ class AuthService {
           refreshedUser.uid,
           refreshedUser.emailVerified,
         );
+        await UserService.syncEmailFromFirebaseAuth(refreshedUser);
         
         // 最終ログイン時刻を更新
         await UserService.updateLastLogin(credential.user!.uid);
@@ -201,7 +215,7 @@ class AuthService {
         message: AppConstants.errorInvalidEmail,
       );
     }
-    if (!isValidCITEmail(normalizedEmail)) {
+    if (!isAllowedCITDomain(normalizedEmail)) {
       throw FirebaseAuthException(
         code: 'invalid-domain',
         message: AppConstants.errorInvalidDomain,
@@ -277,5 +291,68 @@ class AuthService {
       throw FirebaseAuthException(code: 'already-verified', message: 'メールアドレスは既に認証済みです');
     }
     await user.sendEmailVerification();
+  }
+
+  /// パスワードで再認証したうえで、新しいメールアドレスへ確認メールを送信する。
+  /// ユーザーがメール内のリンクを開くと Firebase Auth のメールが更新される。
+  Future<String> requestEmailChange({
+    required String currentPassword,
+    required String newEmail,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(code: 'not-logged-in', message: 'ログインが必要です');
+    }
+
+    final currentEmail = user.email?.trim();
+    if (currentEmail == null || currentEmail.isEmpty) {
+      throw FirebaseAuthException(
+        code: 'invalid-email',
+        message: '現在のメールアドレスを取得できません',
+      );
+    }
+
+    final normalizedNew = newEmail.trim();
+    if (normalizedNew.isEmpty) {
+      throw FirebaseAuthException(
+        code: 'invalid-email',
+        message: '新しいメールアドレスを入力してください',
+      );
+    }
+    if (!normalizedNew.contains('@')) {
+      throw FirebaseAuthException(
+        code: 'invalid-email',
+        message: AppConstants.errorInvalidEmail,
+      );
+    }
+    if (!isValidCITEmail(normalizedNew)) {
+      throw FirebaseAuthException(
+        code: 'invalid-email',
+        message: !AppConstants.isValidEmailLocalPart(normalizedNew)
+            ? AppConstants.errorEmailLocalPart
+            : AppConstants.errorInvalidDomain,
+      );
+    }
+    if (normalizedNew.toLowerCase() == currentEmail.toLowerCase()) {
+      throw FirebaseAuthException(
+        code: 'same-email',
+        message: '現在と同じメールアドレスです',
+      );
+    }
+
+    if (currentPassword.isEmpty) {
+      throw FirebaseAuthException(
+        code: 'missing-password',
+        message: 'パスワードを入力してください',
+      );
+    }
+
+    final credential = EmailAuthProvider.credential(
+      email: currentEmail,
+      password: currentPassword,
+    );
+    await user.reauthenticateWithCredential(credential);
+    await user.verifyBeforeUpdateEmail(normalizedNew);
+    return normalizedNew;
   }
 }

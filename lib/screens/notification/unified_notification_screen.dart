@@ -5,6 +5,7 @@ import '../../core/providers/notification_provider.dart';
 import '../../core/providers/global_notification_provider.dart';
 import 'notification_list_screen.dart';
 import 'global_notification_list_screen.dart';
+import 'notification_settings_screen.dart';
 
 class UnifiedNotificationScreen extends ConsumerStatefulWidget {
   const UnifiedNotificationScreen({super.key});
@@ -48,6 +49,17 @@ class _UnifiedNotificationScreenState extends ConsumerState<UnifiedNotificationS
           appBar: AppBar(
             title: const Text('通知'),
             actions: [
+              IconButton(
+                tooltip: 'プッシュ通知設定',
+                icon: const Icon(Icons.settings),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const NotificationSettingsScreen(),
+                    ),
+                  );
+                },
+              ),
               IconButton(
                 tooltip: '全て既読',
                 icon: const Icon(Icons.done_all),

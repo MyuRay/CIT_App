@@ -5,6 +5,7 @@ enum NotificationType {
   comment('comment', 'コメント'),
   reply('reply', '返信'),
   like('like', 'いいね'),
+  follow('follow', 'フォロー'),
   postApproved('post_approved', '投稿承認'),
   postRejected('post_rejected', '投稿却下'),
   pinApproved('pin_approved', 'ピン留め承認'),
@@ -115,6 +116,8 @@ class AppNotification {
         return 'reply';
       case NotificationType.like:
         return 'thumb_up';
+      case NotificationType.follow:
+        return 'person_add';
       case NotificationType.postApproved:
         return 'check_circle';
       case NotificationType.postRejected:
@@ -293,6 +296,140 @@ class NotificationFactory {
       postId: postId,
       createdAt: DateTime.now(),
       data: reason != null ? {'reason': reason} : null,
+    );
+  }
+
+  static String _truncatePreview(String? text, int maxLen) {
+    if (text == null || text.trim().isEmpty) return '';
+    final t = text.trim();
+    if (t.length <= maxLen) return t;
+    return '${t.substring(0, maxLen)}…';
+  }
+
+  static AppNotification createCwitterReplyNotification({
+    required String postAuthorId,
+    required String postId,
+    required String replyId,
+    required String fromUserName,
+    required String fromCwitterId,
+    String? fromUserId,
+    String? postBodyPreview,
+  }) {
+    final preview = _truncatePreview(postBodyPreview, 40);
+    final suffix = preview.isNotEmpty ? '「$preview」' : '';
+    return AppNotification(
+      id: '',
+      userId: postAuthorId,
+      type: NotificationType.reply,
+      title: 'Cwitterに返信がありました',
+      message: '$fromUserName (@$fromCwitterId) さんがあなたのCweetに返信しました$suffix',
+      postId: postId,
+      commentId: replyId,
+      fromUserId: fromUserId,
+      fromUserName: fromUserName,
+      createdAt: DateTime.now(),
+      data: const {'source': 'cwitter'},
+    );
+  }
+
+  static AppNotification createCwitterLikeNotification({
+    required String postAuthorId,
+    required String postId,
+    required String fromUserName,
+    required String fromCwitterId,
+    String? fromUserId,
+    String? postBodyPreview,
+  }) {
+    final preview = _truncatePreview(postBodyPreview, 40);
+    final suffix = preview.isNotEmpty ? '「$preview」' : '';
+    return AppNotification(
+      id: '',
+      userId: postAuthorId,
+      type: NotificationType.like,
+      title: 'Cwitterにいいねがつきました',
+      message: '$fromUserName (@$fromCwitterId) さんがあなたのCweetにいいねしました$suffix',
+      postId: postId,
+      fromUserId: fromUserId,
+      fromUserName: fromUserName,
+      createdAt: DateTime.now(),
+      data: const {'source': 'cwitter'},
+    );
+  }
+
+  static AppNotification createCwitterFollowNotification({
+    required String followeeId,
+    required String fromUserName,
+    required String fromCwitterId,
+    String? fromUserId,
+  }) {
+    return AppNotification(
+      id: '',
+      userId: followeeId,
+      type: NotificationType.follow,
+      title: 'Cwitterでフォローされました',
+      message: '$fromUserName (@$fromCwitterId) さんがあなたをフォローしました',
+      fromUserId: fromUserId,
+      fromUserName: fromUserName,
+      createdAt: DateTime.now(),
+      data: {
+        'source': 'cwitter',
+        'type': 'follow',
+        'fromCwitterId': fromCwitterId,
+      },
+    );
+  }
+
+  static AppNotification createChibaChannelThreadReplyNotification({
+    required String threadAuthorId,
+    required String threadId,
+    required String threadTitle,
+    required String commentId,
+    String? bodyPreview,
+  }) {
+    final preview = _truncatePreview(bodyPreview, 40);
+    final suffix = preview.isNotEmpty ? '「$preview」' : '';
+    return AppNotification(
+      id: '',
+      userId: threadAuthorId,
+      type: NotificationType.comment,
+      title: 'ちばちゃんねるにレスがありました',
+      message: '名無しさんがあなたのスレ「$threadTitle」にレスしました$suffix',
+      postId: threadId,
+      commentId: commentId,
+      createdAt: DateTime.now(),
+      data: const {
+        'source': 'chiba_channel',
+        'kind': 'thread_reply',
+      },
+    );
+  }
+
+  static AppNotification createChibaChannelCommentReplyNotification({
+    required String commentAuthorId,
+    required String threadId,
+    required String threadTitle,
+    required String commentId,
+    required int replyToCommentNumber,
+    String? bodyPreview,
+  }) {
+    final preview = _truncatePreview(bodyPreview, 40);
+    final suffix = preview.isNotEmpty ? '「$preview」' : '';
+    return AppNotification(
+      id: '',
+      userId: commentAuthorId,
+      type: NotificationType.reply,
+      title: 'ちばちゃんねるに返信がありました',
+      message:
+          '名無しさんがあなたのレス（>>$replyToCommentNumber）に返信しました$suffix',
+      postId: threadId,
+      commentId: commentId,
+      createdAt: DateTime.now(),
+      data: {
+        'source': 'chiba_channel',
+        'kind': 'comment_reply',
+        'threadTitle': threadTitle,
+        'replyToCommentNumber': replyToCommentNumber,
+      },
     );
   }
 

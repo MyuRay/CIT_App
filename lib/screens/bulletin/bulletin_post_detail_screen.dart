@@ -18,6 +18,8 @@ import 'bulletin_post_form_screen.dart';
 import '../../models/reports/report_model.dart';
 import '../reports/report_form_dialog.dart';
 import '../user_block/block_confirmation_dialog.dart';
+import '../../widgets/profile/author_avatar.dart';
+import '../../widgets/profile/author_display_name.dart';
 
 class BulletinPostDetailScreen extends ConsumerStatefulWidget {
   final BulletinPost post;
@@ -532,8 +534,9 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
   }
 
   Widget _buildCommentsSection() {
-    final commentsAsync = ref.watch(postCommentsProvider(widget.post.id));
+    final commentsAsync = ref.watch(sortedPostCommentsProvider(widget.post.id));
     final commentStats = ref.watch(commentStatsProvider(widget.post.id));
+    final sortOrder = ref.watch(commentSortOrderProvider(widget.post.id));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -569,6 +572,35 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
               ),
               loading: () => Container(),
               error: (_, __) => Container(),
+            ),
+            const Spacer(),
+            PopupMenuButton<CommentSortOrder>(
+              tooltip: '並び替え',
+              onSelected: (value) {
+                ref.read(commentSortOrderProvider(widget.post.id).notifier).state =
+                    value;
+              },
+              itemBuilder: (context) => CommentSortOrder.values
+                  .map(
+                    (order) => CheckedPopupMenuItem<CommentSortOrder>(
+                      value: order,
+                      checked: sortOrder == order,
+                      child: Text(order.displayName),
+                    ),
+                  )
+                  .toList(),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.sort, size: 18, color: Colors.grey[700]),
+                  const SizedBox(width: 4),
+                  Text(
+                    sortOrder.displayName,
+                    style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                  ),
+                  Icon(Icons.arrow_drop_down, color: Colors.grey[700]),
+                ],
+              ),
             ),
           ],
         ),
@@ -731,15 +763,10 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // アバター
-        CircleAvatar(
+        AuthorAvatar(
+          authorId: comment.authorId,
+          displayName: comment.authorName,
           radius: isReply ? 16 : 20,
-          backgroundColor: isReply ? Colors.grey[300] : Colors.blue[100],
-          child: Icon(
-            Icons.person,
-            size: isReply ? 16 : 20,
-            color: isReply ? Colors.grey[600] : Colors.blue[600],
-          ),
         ),
         const SizedBox(width: 12),
         
@@ -760,8 +787,9 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
                 // ヘッダー（名前・時間）
                 Row(
                   children: [
-                    Text(
-                      comment.authorName,
+                    AuthorDisplayName(
+                      authorId: comment.authorId,
+                      fallback: comment.authorName,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: isReply ? Colors.grey[700] : Colors.blue[700],
@@ -1161,7 +1189,7 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
   }
 
   String _formatDate(DateTime date) {
-    return '${date.year}年${date.month}月${date.day}日 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    return '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
   }
 
 
@@ -1213,13 +1241,9 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
       MaterialPageRoute(
         builder: (context) => BulletinPostEditScreen(post: widget.post),
       ),
-    ).then((updated) {
+    ).then((updated) async {
       if (updated == true) {
-        // 投稿が更新された場合、プロバイダーを更新
-        ref.invalidate(bulletinPostsProvider);
-        ref.invalidate(pinnedBulletinPostsProvider);
-        ref.invalidate(popularBulletinPostsProvider);
-        ref.invalidate(bulletinPostsByCategoryProvider);
+        await ref.read(bulletinFeedProvider.notifier).refresh();
       }
     });
   }
@@ -1336,10 +1360,7 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
       if (mounted) Navigator.of(context).pop();
 
       // プロバイダーを更新
-      ref.invalidate(bulletinPostsProvider);
-      ref.invalidate(pinnedBulletinPostsProvider);
-      ref.invalidate(popularBulletinPostsProvider);
-      ref.invalidate(bulletinPostsByCategoryProvider);
+      await ref.read(bulletinFeedProvider.notifier).refresh();
 
       // 成功メッセージ表示後、画面を閉じる
       if (mounted) {

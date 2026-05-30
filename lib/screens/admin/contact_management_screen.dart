@@ -30,7 +30,7 @@ class _ContactManagementScreenState extends ConsumerState<ContactManagementScree
     
     return adminPermissions.when(
       data: (permissions) {
-        if (permissions?.isAdmin != true) {
+        if (permissions?.canAccessContactManagement != true) {
           return Scaffold(
             appBar: widget.showAppBar ? AppBar(
               title: const Text('アクセス拒否'),

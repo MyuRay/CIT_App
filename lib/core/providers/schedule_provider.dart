@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/schedule/schedule_model.dart';
 import '../../models/schedule/academic_year_model.dart';
 import '../../models/schedule/lecture_period_model.dart';
@@ -48,8 +49,43 @@ final scheduleListProvider = FutureProvider.family<List<Schedule>, String>((ref,
   return await ScheduleService.getAllSchedulesByUserId(userId);
 });
 
-// 時間割タブで現在選択中の時間割ID
-final selectedScheduleIdProvider = StateProvider<String?>((ref) => null);
+// 時間割タブで現在選択中の時間割ID（SharedPreferences で永続化）
+//
+// アプリ再起動後も学期切り替え状態を保持するために StateNotifierProvider 化。
+// 既存コードとの互換のため `state` への直接代入も許容する
+// (ただし永続化したい場合は `notifier.set(...)` を使うこと)。
+class SelectedScheduleIdNotifier extends StateNotifier<String?> {
+  SelectedScheduleIdNotifier(this._prefs)
+    : super(_prefs.getString(_key));
+
+  static const String _key = 'selected_schedule_id';
+
+  final SharedPreferences _prefs;
+
+  /// 値を更新し SharedPreferences にも書き込む。
+  Future<void> set(String? value) async {
+    if (state == value) return;
+    state = value;
+    try {
+      if (value == null || value.isEmpty) {
+        await _prefs.remove(_key);
+      } else {
+        await _prefs.setString(_key, value);
+      }
+    } catch (e) {
+      debugPrint('⚠️ 選択中時間割IDの永続化に失敗: $e');
+    }
+  }
+
+  /// 永続化のみクリアしたい場合に使用。
+  Future<void> clear() => set(null);
+}
+
+final selectedScheduleIdProvider =
+    StateNotifierProvider<SelectedScheduleIdNotifier, String?>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return SelectedScheduleIdNotifier(prefs);
+});
 
 // 指定した時間割IDの今日の時間割
 final todayScheduleByIdProvider =

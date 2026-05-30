@@ -1,5 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../core/constants/app_constants.dart';
+import '../community/cwitter_social_platform.dart';
+
 class AppUser {
   final String uid;
   final String email;
@@ -13,6 +16,10 @@ class AppUser {
   final int? graduationYear; // 卒業年度
   final int reviewCount;
   final bool emailVerified; // メール認証済みフラグ
+  final String? cwitterId; // Cwitter ID（半角英数字と _、設定後は変更不可）
+  final String? cwitterBio; // Cwitter プロフィールの自己紹介
+  final List<String> cwitterTags; // Cwitter プロフィールのハッシュタグ（最大2件）
+  final Map<String, String> cwitterSocialLinks; // Cwitter プロフィールの SNS リンク
 
   const AppUser({
     required this.uid,
@@ -27,6 +34,10 @@ class AppUser {
     this.graduationYear,
     this.reviewCount = 0,
     this.emailVerified = false,
+    this.cwitterId,
+    this.cwitterBio,
+    this.cwitterTags = const [],
+    this.cwitterSocialLinks = const {},
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
@@ -43,7 +54,36 @@ class AppUser {
       graduationYear: json['graduationYear'] as int?,
       reviewCount: (json['reviewCount'] as num?)?.toInt() ?? 0,
       emailVerified: json['emailVerified'] as bool? ?? false,
+      cwitterId: _parseCwitterId(json['cwitterId']),
+      cwitterBio: _parseCwitterBio(json['cwitterBio']),
+      cwitterTags: _parseCwitterTags(json['cwitterTags']),
+      cwitterSocialLinks: CwitterSocialPlatform.parseLinks(
+        json['cwitterSocialLinks'] is Map
+            ? Map<String, dynamic>.from(json['cwitterSocialLinks'] as Map)
+            : null,
+      ),
     );
+  }
+
+  static List<String> _parseCwitterTags(dynamic value) {
+    if (value is! List) return const [];
+    return value
+        .map((item) => item?.toString().trim() ?? '')
+        .where((tag) => tag.isNotEmpty)
+        .take(AppConstants.cwitterTagsMaxCount)
+        .toList();
+  }
+
+  static String? _parseCwitterBio(dynamic value) {
+    if (value == null) return null;
+    final bio = value.toString().trim();
+    return bio.isEmpty ? null : bio;
+  }
+
+  static String? _parseCwitterId(dynamic value) {
+    if (value == null) return null;
+    final id = value.toString().trim();
+    return id.isEmpty ? null : id;
   }
 
   Map<String, dynamic> toJson() {
@@ -60,8 +100,14 @@ class AppUser {
       'graduationYear': graduationYear,
       'reviewCount': reviewCount,
       'emailVerified': emailVerified,
+      if (cwitterId != null) 'cwitterId': cwitterId,
+      if (cwitterBio != null) 'cwitterBio': cwitterBio,
+      if (cwitterTags.isNotEmpty) 'cwitterTags': cwitterTags,
+      if (cwitterSocialLinks.isNotEmpty) 'cwitterSocialLinks': cwitterSocialLinks,
     };
   }
+
+  bool get hasCwitterId => cwitterId != null && cwitterId!.isNotEmpty;
 
   static DateTime? _parseDateTime(dynamic dateTime) {
     if (dateTime == null) return null;
@@ -101,6 +147,13 @@ class AppUser {
     int? graduationYear,
     int? reviewCount,
     bool? emailVerified,
+    String? cwitterId,
+    String? cwitterBio,
+    List<String>? cwitterTags,
+    Map<String, String>? cwitterSocialLinks,
+    bool clearCwitterBio = false,
+    bool clearCwitterTags = false,
+    bool clearCwitterSocialLinks = false,
   }) {
     return AppUser(
       uid: uid ?? this.uid,
@@ -115,6 +168,12 @@ class AppUser {
       graduationYear: graduationYear ?? this.graduationYear,
       reviewCount: reviewCount ?? this.reviewCount,
       emailVerified: emailVerified ?? this.emailVerified,
+      cwitterId: cwitterId ?? this.cwitterId,
+      cwitterBio: clearCwitterBio ? null : (cwitterBio ?? this.cwitterBio),
+      cwitterTags: clearCwitterTags ? const [] : (cwitterTags ?? this.cwitterTags),
+      cwitterSocialLinks: clearCwitterSocialLinks
+          ? const {}
+          : (cwitterSocialLinks ?? this.cwitterSocialLinks),
     );
   }
 }

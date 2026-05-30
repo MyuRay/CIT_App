@@ -5,6 +5,65 @@ import '../../models/comment/comment_model.dart';
 import '../../models/bulletin/bulletin_model.dart';
 import 'notification_provider.dart';
 import 'auth_provider.dart';
+import 'user_block_provider.dart';
+import '../../services/users/content_filter_service.dart';
+
+/// 投稿ごとのコメント表示順（デフォルト: 新しい順）
+final commentSortOrderProvider = StateProvider.family<CommentSortOrder, String>(
+  (ref, postId) => CommentSortOrder.newest,
+);
+
+int _compareComments(BulletinComment a, BulletinComment b, CommentSortOrder order) {
+  switch (order) {
+    case CommentSortOrder.popular:
+      final likeCmp = b.likeCount.compareTo(a.likeCount);
+      if (likeCmp != 0) return likeCmp;
+      return b.createdAt.compareTo(a.createdAt);
+    case CommentSortOrder.newest:
+      return b.createdAt.compareTo(a.createdAt);
+    case CommentSortOrder.oldest:
+      return a.createdAt.compareTo(b.createdAt);
+  }
+}
+
+/// スレッド一覧を表示順で並び替え（親コメント・返信それぞれに適用）
+List<CommentThread> sortCommentThreads(
+  List<CommentThread> threads,
+  CommentSortOrder order,
+) {
+  return threads
+      .map((thread) {
+        final replies = List<BulletinComment>.from(thread.replies)
+          ..sort((a, b) => _compareComments(a, b, order));
+        return CommentThread(comment: thread.comment, replies: replies);
+      })
+      .toList()
+    ..sort((a, b) => _compareComments(a.comment, b.comment, order));
+}
+
+/// 表示順適用済みのコメント一覧（ブロックユーザーを除外）
+final sortedPostCommentsProvider =
+    Provider.family<AsyncValue<List<CommentThread>>, String>((ref, postId) {
+  final sortOrder = ref.watch(commentSortOrderProvider(postId));
+  final commentsAsync = ref.watch(postCommentsProvider(postId));
+  final hiddenAsync = ref.watch(hiddenUserIdsProvider);
+
+  return hiddenAsync.when(
+    loading: () => const AsyncValue.loading(),
+    error: (error, stack) => AsyncValue.error(error, stack),
+    data: (hiddenUserIds) => commentsAsync.when(
+      data: (threads) {
+        final filtered = ContentFilterService.filterCommentThreads(
+          threads,
+          hiddenUserIds,
+        );
+        return AsyncValue.data(sortCommentThreads(filtered, sortOrder));
+      },
+      loading: () => const AsyncValue.loading(),
+      error: (error, stack) => AsyncValue.error(error, stack),
+    ),
+  );
+});
 
 // コメント所有権チェックプロバイダー
 final commentOwnershipProvider = Provider.family<bool, String>((ref, authorId) {
