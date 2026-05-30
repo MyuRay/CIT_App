@@ -3,7 +3,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/legal_consent_provider.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/providers/settings_provider.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -51,6 +53,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
+
+      await ref.read(sharedPreferencesProvider).setString(
+            AppConstants.legalConsentAcceptedVersionKey,
+            AppConstants.currentLegalConsentVersion,
+          );
+      ref.read(legalConsentRevisionProvider.notifier).state++;
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -216,46 +224,35 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                  autocorrect: false,
+                  inputFormatters: AppConstants.citEmailInputFormatters,
                   decoration: const InputDecoration(
                     labelText: 'CITメールアドレス',
                     hintText: 'example@s.chibakoudai.jp / example@p.chibakoudai.jp / example@chibatech.ac.jp',
-                    helperText: '※ @s.chibakoudai.jp / @p.chibakoudai.jp / @chibatech.ac.jp のみ利用可能',
-                    helperMaxLines: 2,
+                    helperText:
+                        '${AppConstants.emailInputHelper}\n※ @s.chibakoudai.jp / @p.chibakoudai.jp / @chibatech.ac.jp のみ利用可能',
+                    helperMaxLines: 3,
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'メールアドレスを入力してください';
-                    }
-                    if (!value.contains('@')) {
-                      return AppConstants.errorInvalidEmail;
-                    }
-                    if (!AppConstants.isAllowedDomain(value)) {
-                      return AppConstants.errorInvalidDomain;
-                    }
-                    return null;
-                  },
+                  validator: AppConstants.validateCitEmail,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
+                  autocorrect: false,
+                  inputFormatters: AppConstants.passwordInputFormatters,
                   decoration: const InputDecoration(
                     labelText: 'パスワード',
+                    helperText: AppConstants.passwordInputHelper,
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'パスワードを入力してください';
-                    }
-                    if (value.length < 6) {
-                      return AppConstants.errorWeakPassword;
-                    }
-                    return null;
-                  },
+                  validator: AppConstants.validatePassword,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _confirmPasswordController,
                   obscureText: true,
+                  autocorrect: false,
+                  inputFormatters: AppConstants.passwordInputFormatters,
                   decoration: const InputDecoration(
                     labelText: 'パスワード確認',
                   ),

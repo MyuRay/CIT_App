@@ -56,10 +56,20 @@ class ConvenienceLinkNotifier extends StateNotifier<AsyncValue<List<ConvenienceL
 
   // リンクの順序を更新
   Future<void> reorderLinks(List<ConvenienceLink> reorderedLinks) async {
+    final previousState = state;
+    final now = DateTime.now();
+    final optimisticLinks = [
+      for (int i = 0; i < reorderedLinks.length; i++)
+        reorderedLinks[i].copyWith(order: i + 1, updatedAt: now),
+    ];
+
     try {
-      await ConvenienceLinkService.reorderLinks(_userId, reorderedLinks);
-      await _loadLinks(); // リロード
+      // ドラッグ完了直後に画面を更新し、保存は裏で行う。
+      // 保存後の再読込を挟むと並び順が一瞬戻るため、ここでは行わない。
+      state = AsyncValue.data(optimisticLinks);
+      await ConvenienceLinkService.reorderLinks(_userId, optimisticLinks);
     } catch (e) {
+      state = previousState;
       rethrow;
     }
   }

@@ -524,7 +524,7 @@ class ScheduleGridWidget extends StatelessWidget {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                _formatClassroomForCompactCell(scheduleClass.classroom),
+                scheduleClass.classroom.trim(),
                 softWrap: true,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Colors.black,
@@ -539,39 +539,6 @@ class ScheduleGridWidget extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _formatClassroomForCompactCell(String classroom) {
-    final text = classroom.trim();
-    if (text.length <= 7) {
-      return text;
-    }
-
-    final separators = [' ', '　', '/', '／', '-', '－', '・'];
-    final mid = text.length ~/ 2;
-
-    int bestIndex = -1;
-    int bestDistance = 1 << 30;
-    for (final sep in separators) {
-      var index = text.indexOf(sep);
-      while (index != -1) {
-        final distance = (index - mid).abs();
-        if (index > 1 && index < text.length - 2 && distance < bestDistance) {
-          bestDistance = distance;
-          bestIndex = index;
-        }
-        index = text.indexOf(sep, index + 1);
-      }
-    }
-
-    if (bestIndex != -1) {
-      final first = text.substring(0, bestIndex).trimRight();
-      final second = text.substring(bestIndex + 1).trimLeft();
-      return '$first\n$second';
-    }
-
-    final split = (text.length / 2).ceil();
-    return '${text.substring(0, split)}\n${text.substring(split)}';
   }
 
   double _additionalHeightForClassContent(int period) {
@@ -844,147 +811,116 @@ class ScheduleGridWidget extends StatelessWidget {
                         ),
                       ),
                     ],
+                    scheduleClassDetailDialogActionsWrap(
+                      children: [
+                        if (isEditingMemo) ...[
+                          TextButton(
+                            style: scheduleClassDetailDialogSecondaryActionStyle(
+                              dialogCtx,
+                            ),
+                            onPressed: () => Navigator.of(dialogCtx).pop(),
+                            child: scheduleClassDetailDialogActionLabel('閉じる'),
+                          ),
+                          if (onClassNotesSave != null) ...[
+                            TextButton(
+                              style:
+                                  scheduleClassDetailDialogSecondaryActionStyle(
+                                    dialogCtx,
+                                  ),
+                              onPressed:
+                                  isSaving
+                                      ? null
+                                      : () {
+                                        setDialogState(() {
+                                          isEditingMemo = false;
+                                        });
+                                      },
+                              child: scheduleClassDetailDialogActionLabel('キャンセル'),
+                            ),
+                            FilledButton(
+                              style: scheduleClassDetailDialogSaveButtonStyle(
+                                dialogCtx,
+                              ),
+                              onPressed:
+                                  isSaving
+                                      ? null
+                                      : () async {
+                                        setDialogState(() {
+                                          isSaving = true;
+                                        });
+                                        final ok = await onClassNotesSave!(
+                                          weekdayKey,
+                                          startPeriod,
+                                          scheduleClass,
+                                          notesController.text.trim().isEmpty
+                                              ? null
+                                              : notesController.text.trim(),
+                                        );
+                                        if (!dialogCtx.mounted) return;
+                                        setDialogState(() {
+                                          isSaving = false;
+                                        });
+                                        if (ok) {
+                                          Navigator.of(dialogCtx).pop();
+                                        }
+                                      },
+                              child:
+                                  isSaving
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : scheduleClassDetailDialogActionLabel('保存'),
+                            ),
+                          ],
+                        ] else ...[
+                          if (scheduleClass.classroom.trim().isNotEmpty)
+                            FilledButton(
+                              style: scheduleClassLookupRoomButtonStyle(),
+                              onPressed: () {
+                                final q = scheduleClass.classroom.trim();
+                                final uri = Uri(
+                                  path: '/classroom-map',
+                                  queryParameters: {'q': q},
+                                );
+                                Navigator.of(dialogCtx).pop();
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (!hostContext.mounted) return;
+                                  GoRouter.of(hostContext).push(uri.toString());
+                                });
+                              },
+                              child: scheduleClassDetailDialogActionLabel(
+                                '教室の場所を調べる',
+                              ),
+                            ),
+                          if (onClassNotesSave != null)
+                            TextButton(
+                              style:
+                                  scheduleClassDetailDialogSecondaryActionStyle(
+                                    dialogCtx,
+                                  ),
+                              onPressed: () {
+                                setDialogState(() {
+                                  isEditingMemo = true;
+                                });
+                              },
+                              child: scheduleClassDetailDialogActionLabel('メモを編集'),
+                            ),
+                          TextButton(
+                            style: scheduleClassDetailDialogSecondaryActionStyle(
+                              dialogCtx,
+                            ),
+                            onPressed: () => Navigator.of(dialogCtx).pop(),
+                            child: scheduleClassDetailDialogActionLabel('閉じる'),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
-                actions: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        reverse: false,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            if (isEditingMemo) ...[
-                              TextButton(
-                                style:
-                                    scheduleClassDetailDialogSecondaryActionStyle(
-                                      dialogCtx,
-                                    ),
-                                onPressed: () => Navigator.of(dialogCtx).pop(),
-                                child: const Text('閉じる'),
-                              ),
-                              if (onClassNotesSave != null) ...[
-                                const SizedBox(width: 4),
-                                TextButton(
-                                  style:
-                                      scheduleClassDetailDialogSecondaryActionStyle(
-                                        dialogCtx,
-                                      ),
-                                  onPressed:
-                                      isSaving
-                                          ? null
-                                          : () {
-                                            setDialogState(() {
-                                              isEditingMemo = false;
-                                            });
-                                          },
-                                  child: const Text('キャンセル'),
-                                ),
-                              ],
-                              if (onClassNotesSave != null) ...[
-                                const SizedBox(width: 4),
-                                FilledButton(
-                                  style:
-                                      scheduleClassDetailDialogSaveButtonStyle(
-                                        dialogCtx,
-                                      ),
-                                  onPressed:
-                                      isSaving
-                                          ? null
-                                          : () async {
-                                            setDialogState(() {
-                                              isSaving = true;
-                                            });
-                                            final ok = await onClassNotesSave!(
-                                              weekdayKey,
-                                              startPeriod,
-                                              scheduleClass,
-                                              notesController.text
-                                                      .trim()
-                                                      .isEmpty
-                                                  ? null
-                                                  : notesController.text.trim(),
-                                            );
-                                            if (!dialogCtx.mounted) return;
-                                            setDialogState(() {
-                                              isSaving = false;
-                                            });
-                                            if (ok) {
-                                              Navigator.of(dialogCtx).pop();
-                                            }
-                                          },
-                                  child:
-                                      isSaving
-                                          ? const SizedBox(
-                                            width: 14,
-                                            height: 14,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                          : const Text('保存'),
-                                ),
-                              ],
-                            ] else ...[
-                              if (scheduleClass.classroom.trim().isNotEmpty) ...[
-                                FilledButton(
-                                  style: scheduleClassLookupRoomButtonStyle(),
-                                  onPressed: () {
-                                    final q = scheduleClass.classroom.trim();
-                                    final uri = Uri(
-                                      path: '/classroom-map',
-                                      queryParameters: {'q': q},
-                                    );
-                                    Navigator.of(dialogCtx).pop();
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                          if (!hostContext.mounted) return;
-                                          GoRouter.of(
-                                            hostContext,
-                                          ).push(uri.toString());
-                                        });
-                                  },
-                                  child: const Text('教室の場所を調べる'),
-                                ),
-                              ],
-                              if (scheduleClass.classroom.trim().isNotEmpty &&
-                                  onClassNotesSave != null)
-                                const SizedBox(width: 4),
-                              if (onClassNotesSave != null)
-                                TextButton(
-                                  style:
-                                      scheduleClassDetailDialogSecondaryActionStyle(
-                                        dialogCtx,
-                                      ),
-                                  onPressed: () {
-                                    setDialogState(() {
-                                      isEditingMemo = true;
-                                    });
-                                  },
-                                  child: const Text('メモを編集'),
-                                ),
-                              if (scheduleClass.classroom.trim().isNotEmpty ||
-                                  onClassNotesSave != null)
-                                const SizedBox(width: 4),
-                              TextButton(
-                                style:
-                                    scheduleClassDetailDialogSecondaryActionStyle(
-                                      dialogCtx,
-                                    ),
-                                onPressed: () => Navigator.of(dialogCtx).pop(),
-                                child: const Text('閉じる'),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
               ),
         );
       },

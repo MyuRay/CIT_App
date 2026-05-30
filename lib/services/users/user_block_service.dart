@@ -1,10 +1,22 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../core/constants/app_constants.dart';
 import '../../models/users/blocked_user_model.dart';
+import '../community/cwitter_service.dart';
 
 class UserBlockService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
+  static String? _cachedOfficialUserId;
+
+  /// 公式アカウント（@citapp）の uid かどうか
+  static Future<bool> isOfficialAccountUserId(String userId) async {
+    if (userId.isEmpty) return false;
+    _cachedOfficialUserId ??= await CwitterService.fetchOfficialAccountUserId();
+    return _cachedOfficialUserId != null && _cachedOfficialUserId == userId;
+  }
 
   /// ユーザーをブロック
   static Future<void> blockUser({
@@ -23,6 +35,10 @@ class UserBlockService {
       // 自分自身をブロックしようとしていないかチェック
       if (currentUser.uid == blockedUserId) {
         throw Exception('自分自身をブロックすることはできません。');
+      }
+
+      if (await isOfficialAccountUserId(blockedUserId)) {
+        throw Exception(AppConstants.errorOfficialAccountBlockDenied);
       }
 
       // 既にブロック済みかチェック
@@ -52,6 +68,12 @@ class UserBlockService {
 
       // Firestoreに保存
       await _firestore.collection('blocked_users').add(blockedUser.toJson());
+
+      // Cwitter のフォロー関係を双方向で解除
+      await CwitterService.removeFollowRelationship(
+        userIdA: currentUser.uid,
+        userIdB: blockedUserId,
+      );
     } catch (e) {
       if (e is Exception) {
         rethrow;
@@ -158,6 +180,104 @@ class UserBlockService {
       print('ブロックユーザーID取得時のエラー: $e');
       return {};
     }
+  }
+
+  /// 自分をブロックしているユーザーIDのセットを取得
+  static Future<Set<String>> getUsersWhoBlockedMeIds() async {
+    try {
+      final User? currentUser = _auth.currentUser;
+      if (currentUser == null) {
+        return {};
+      }
+
+      final QuerySnapshot snapshot = await _firestore
+          .collection('blocked_users')
+          .where('blockedUserId', isEqualTo: currentUser.uid)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => doc.data() as Map<String, dynamic>)
+          .map((data) => data['userId'] as String)
+          .toSet();
+    } catch (e) {
+      print('被ブロックユーザーID取得時のエラー: $e');
+      return {};
+    }
+  }
+
+  /// 表示対象外にするユーザーID（自分がブロック + 自分をブロック）
+  static Future<Set<String>> getHiddenUserIds() async {
+    final blocked = await getBlockedUserIds();
+    final blockedBy = await getUsersWhoBlockedMeIds();
+    return {...blocked, ...blockedBy};
+  }
+
+  /// 表示対象外ユーザーIDをリアルタイム監視
+  static Stream<Set<String>> watchHiddenUserIds() {
+    final User? currentUser = _auth.currentUser;
+    if (currentUser == null) {
+      return Stream.value(<String>{});
+    }
+    final uid = currentUser.uid;
+
+    final blockedStream = _firestore
+        .collection('blocked_users')
+        .where('userId', isEqualTo: uid)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) =>
+                    (doc.data()['blockedUserId'] as String?) ?? '',
+              )
+              .where((id) => id.isNotEmpty)
+              .toSet(),
+        );
+
+    final blockedByStream = _firestore
+        .collection('blocked_users')
+        .where('blockedUserId', isEqualTo: uid)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => (doc.data()['userId'] as String?) ?? '')
+              .where((id) => id.isNotEmpty)
+              .toSet(),
+        );
+
+    return _mergeHiddenUserIdStreams(blockedStream, blockedByStream);
+  }
+
+  static Stream<Set<String>> _mergeHiddenUserIdStreams(
+    Stream<Set<String>> blockedStream,
+    Stream<Set<String>> blockedByStream,
+  ) {
+    return Stream.multi((controller) {
+      var blocked = <String>{};
+      var blockedBy = <String>{};
+
+      void emit() => controller.add({...blocked, ...blockedBy});
+
+      final blockedSub = blockedStream.listen(
+        (value) {
+          blocked = value;
+          emit();
+        },
+        onError: controller.addError,
+      );
+      final blockedBySub = blockedByStream.listen(
+        (value) {
+          blockedBy = value;
+          emit();
+        },
+        onError: controller.addError,
+      );
+
+      controller.onCancel = () {
+        blockedSub.cancel();
+        blockedBySub.cancel();
+      };
+    });
   }
 
   /// 特定のユーザーがブロック済みかチェック

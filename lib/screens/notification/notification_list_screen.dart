@@ -1,9 +1,15 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../models/notification/notification_model.dart';
 import '../../core/providers/notification_provider.dart';
 import '../bulletin/bulletin_post_detail_screen.dart';
-import '../../core/providers/bulletin_provider.dart';
+import '../community/widgets/cwitter_profile_screen.dart';
+import '../community/widgets/chiba_channel_thread_screen.dart';
+import '../../models/community/cwitter_profile_user.dart';
+import '../../models/community/chiba_channel_thread.dart';
+import '../../models/bulletin/bulletin_model.dart';
 import '../../core/providers/auth_provider.dart';
 
 class NotificationListScreen extends ConsumerWidget {
@@ -297,6 +303,8 @@ class NotificationListScreen extends ConsumerWidget {
         return Icons.reply;
       case NotificationType.like:
         return Icons.thumb_up;
+      case NotificationType.follow:
+        return Icons.person_add;
       case NotificationType.postApproved:
         return Icons.check_circle;
       case NotificationType.postRejected:
@@ -328,6 +336,8 @@ class NotificationListScreen extends ConsumerWidget {
         return Colors.green;
       case NotificationType.like:
         return Colors.red;
+      case NotificationType.follow:
+        return const Color(0xFF4CAF50);
       case NotificationType.postApproved:
         return Colors.green;
       case NotificationType.postRejected:
@@ -357,17 +367,106 @@ class NotificationListScreen extends ConsumerWidget {
       await ref.read(notificationNotifierProvider.notifier).markAsRead(notification.id);
     }
 
-    // 関連する投稿に移動
-    if (notification.postId != null) {
-      _navigateToPost(context, ref, notification.postId!);
+    final source = notification.data?['source'] as String?;
+    if (source == 'cwitter' &&
+        (notification.type == NotificationType.follow ||
+            notification.data?['type'] == 'follow')) {
+      await _navigateToCwitterProfile(context, notification);
+      return;
     }
+
+    if (notification.postId == null) return;
+
+    if (source == 'cwitter') {
+      if (context.mounted) {
+        context.go('/home?tab=community');
+      }
+      return;
+    }
+
+    if (source == 'chiba_channel' && notification.postId != null) {
+      await _navigateToChibaChannelThread(context, notification.postId!);
+      return;
+    }
+
+    _navigateToPost(context, ref, notification.postId!);
+  }
+
+  Future<void> _navigateToChibaChannelThread(
+    BuildContext context,
+    String threadId,
+  ) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('chiba_channel_threads')
+          .doc(threadId)
+          .get();
+      if (!doc.exists) {
+        if (context.mounted) {
+          context.go('/home?tab=community');
+        }
+        return;
+      }
+
+      final thread = ChibaChannelThread.fromFirestore(doc);
+      if (!context.mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ChibaChannelThreadScreen(thread: thread),
+        ),
+      );
+    } catch (_) {
+      if (context.mounted) {
+        context.go('/home?tab=community');
+      }
+    }
+  }
+
+  Future<void> _navigateToCwitterProfile(
+    BuildContext context,
+    AppNotification notification,
+  ) async {
+    final fromUserId = notification.fromUserId;
+    if (fromUserId == null || fromUserId.isEmpty) {
+      if (context.mounted) {
+        context.go('/home?tab=community');
+      }
+      return;
+    }
+
+    final cwitterId =
+        notification.data?['fromCwitterId']?.toString().trim() ?? '';
+    if (cwitterId.isEmpty) {
+      if (context.mounted) {
+        context.go('/home?tab=community');
+      }
+      return;
+    }
+
+    if (!context.mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CwitterProfileScreen(
+          user: CwitterProfileUser(
+            authorId: fromUserId,
+            displayName: notification.fromUserName ?? 'Unknown',
+            cwitterId: cwitterId,
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _navigateToPost(BuildContext context, WidgetRef ref, String postId) async {
     try {
-      // 投稿情報を取得
-      final posts = await ref.read(bulletinPostsProvider.future);
-      final post = posts.firstWhere((p) => p.id == postId);
+      final doc = await FirebaseFirestore.instance
+          .collection('bulletin_posts')
+          .doc(postId)
+          .get();
+      if (!doc.exists || doc.data() == null) {
+        throw StateError('投稿が見つかりません');
+      }
+      final post = BulletinPost.fromJson({'id': doc.id, ...doc.data()!});
       
       if (context.mounted) {
         Navigator.of(context).push(

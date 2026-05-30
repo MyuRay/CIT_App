@@ -34,16 +34,36 @@ class _ScheduleEditScreenState extends ConsumerState<ScheduleEditScreen> {
   bool _isLoading = false;
 
   final List<String> _colorOptions = [
+    // ベースカラー（Material 500系）
     '#2196F3', // Blue
-    '#4CAF50', // Green
-    '#FF9800', // Orange
-    '#F44336', // Red
-    '#9C27B0', // Purple
-    '#607D8B', // Blue Grey
-    '#795548', // Brown
-    '#E91E63', // Pink
+    '#03A9F4', // Light Blue
     '#00BCD4', // Cyan
+    '#009688', // Teal
+    '#4CAF50', // Green
     '#8BC34A', // Light Green
+    '#CDDC39', // Lime
+    '#FFEB3B', // Yellow
+    '#FFC107', // Amber
+    '#FF9800', // Orange
+    '#FF5722', // Deep Orange
+    '#F44336', // Red
+    '#E91E63', // Pink
+    '#9C27B0', // Purple
+    '#673AB7', // Deep Purple
+    '#3F51B5', // Indigo
+    '#795548', // Brown
+    '#607D8B', // Blue Grey
+    '#9E9E9E', // Grey
+    '#212121', // Almost Black
+    // 落ち着いた淡色（パステル系）
+    '#90CAF9', // Pastel Blue
+    '#80CBC4', // Pastel Teal
+    '#A5D6A7', // Pastel Green
+    '#FFE082', // Pastel Amber
+    '#FFAB91', // Pastel Coral
+    '#F48FB1', // Pastel Pink
+    '#CE93D8', // Pastel Purple
+    '#B0BEC5', // Pastel Blue Grey
   ];
 
   final Map<String, String> _weekdayNames = {
@@ -316,18 +336,36 @@ class _ScheduleEditScreenState extends ConsumerState<ScheduleEditScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '表示色',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          '表示色',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '(${_colorOptions.length}色)',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
+                      spacing: 10,
+                      runSpacing: 10,
                       children: _colorOptions.map((color) {
                         final isSelected = _selectedColor == color;
+                        final cellColor =
+                            Color(int.parse('0xff${color.substring(1)}'));
+                        final iconColor =
+                            ThemeData.estimateBrightnessForColor(cellColor) ==
+                                    Brightness.dark
+                                ? Colors.white
+                                : Colors.black;
                         return GestureDetector(
                           onTap: () {
                             setState(() {
@@ -335,27 +373,30 @@ class _ScheduleEditScreenState extends ConsumerState<ScheduleEditScreen> {
                             });
                           },
                           child: Container(
-                            width: 40,
-                            height: 40,
+                            width: 36,
+                            height: 36,
                             decoration: BoxDecoration(
-                              color: Color(int.parse('0xff${color.substring(1)}')),
+                              color: cellColor,
                               shape: BoxShape.circle,
                               border: isSelected
                                   ? Border.all(color: Colors.black, width: 3)
-                                  : null,
+                                  : Border.all(
+                                      color: Colors.black.withOpacity(0.08),
+                                      width: 1,
+                                    ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 4,
+                                  color: Colors.black.withOpacity(0.18),
+                                  blurRadius: 3,
                                   offset: const Offset(0, 2),
                                 ),
                               ],
                             ),
                             child: isSelected
-                                ? const Icon(
+                                ? Icon(
                                     Icons.check,
-                                    color: Colors.white,
-                                    size: 24,
+                                    color: iconColor,
+                                    size: 20,
                                   )
                                 : null,
                           ),

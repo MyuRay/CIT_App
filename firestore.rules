@@ -2,20 +2,123 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // CITユーザー判定関数（修正）
+    // 認証メール（小文字化。Firebase Auth の token.email は大小混在のことがある）
+    function authEmailLower() {
+      return request.auth != null && request.auth.token.email != null
+        ? request.auth.token.email.lower()
+        : '';
+    }
+
+    // 許可ドメイン: 旧ドメイン + 新ドメイン（@chibatech.ac.jp 含む）
+    function isAllowedCitEmailDomain() {
+      return authEmailLower().matches('.*@s\\.chibakoudai\\.jp$')
+        || authEmailLower().matches('.*@p\\.chibakoudai\\.jp$')
+        || authEmailLower().matches('.*@chibatech\\.ac\\.jp$');
+    }
+
+    // CITユーザー判定（一般機能・管理者機能の前提）
     function isCITUser() {
       return request.auth != null
         && request.auth.token.email != null
-        && (request.auth.token.email.matches('.*@s\\.chibakoudai\\.jp$') ||
-            request.auth.token.email.matches('.*@p\\.chibakoudai\\.jp$') ||
-            request.auth.token.email.matches('.*@chibatech\\.ac\\.jp$'));
+        && isAllowedCitEmailDomain();
     }
 
-    // 管理者判定関数（修正）
+    // 管理者判定（admin_permissions に isAdmin: true が必要）
+    // ドメインは isCITUser() 側で別途チェックするコレクションもある
     function isAdmin() {
       return request.auth != null
         && exists(/databases/$(database)/documents/admin_permissions/$(request.auth.uid))
         && get(/databases/$(database)/documents/admin_permissions/$(request.auth.uid)).data.get('isAdmin', false) == true;
+    }
+
+    // 管理者または本人のリソース読み取り
+    function isOwnerOrAdmin(userId) {
+      return request.auth != null
+        && (request.auth.uid == userId || isAdmin());
+    }
+
+    // Cwitter ID（半角英数字・_ ・小文字 3〜10 文字。ドキュメントIDも同形式）
+    function isValidCwitterIdLower(id) {
+      return id is string && id.matches('^[a-z0-9_]{3,10}$');
+    }
+
+    // users の cwitterId は初回設定のみ変更可
+    function cwitterIdFieldValidOnUpdate() {
+      let diff = request.resource.data.diff(resource.data);
+      return !diff.changedKeys().hasAny(['cwitterId'])
+        || (
+          (resource.data.get('cwitterId', '') == '' || resource.data.get('cwitterId', null) == null)
+          && isValidCwitterIdLower(request.resource.data.cwitterId)
+        )
+        || request.resource.data.cwitterId == resource.data.get('cwitterId', '');
+    }
+
+    // users の cwitterBio（自己紹介）は 160 文字以内
+    function cwitterBioFieldValidOnUpdate() {
+      let diff = request.resource.data.diff(resource.data);
+      return !diff.changedKeys().hasAny(['cwitterBio'])
+        || (
+          request.resource.data.cwitterBio is string
+          && request.resource.data.cwitterBio.size() <= 160
+        );
+    }
+
+    function cwitterTagValid(tag) {
+      return tag is string
+        && tag.size() > 0
+        && tag.size() <= 20;
+    }
+
+    function cwitterTagsFieldValidOnUpdate() {
+      let diff = request.resource.data.diff(resource.data);
+      return !diff.changedKeys().hasAny(['cwitterTags'])
+        || (
+          request.resource.data.cwitterTags is list
+          && request.resource.data.cwitterTags.size() <= 2
+          && (request.resource.data.cwitterTags.size() == 0
+            || cwitterTagValid(request.resource.data.cwitterTags[0]))
+          && (request.resource.data.cwitterTags.size() < 2
+            || cwitterTagValid(request.resource.data.cwitterTags[1]))
+        );
+    }
+
+    function cwitterSocialLinkValueValid(value) {
+      return value is string
+        && value.size() > 0
+        && value.size() <= 200;
+    }
+
+    function cwitterSocialLinksFieldValidOnUpdate() {
+      let diff = request.resource.data.diff(resource.data);
+      return !diff.changedKeys().hasAny(['cwitterSocialLinks'])
+        || (
+          request.resource.data.cwitterSocialLinks is map
+          && request.resource.data.cwitterSocialLinks.size() <= 4
+          && request.resource.data.cwitterSocialLinks.keys().hasOnly(
+            ['instagram', 'x', 'discord', 'github']
+          )
+          && (!('instagram' in request.resource.data.cwitterSocialLinks)
+            || cwitterSocialLinkValueValid(request.resource.data.cwitterSocialLinks.instagram))
+          && (!('x' in request.resource.data.cwitterSocialLinks)
+            || cwitterSocialLinkValueValid(request.resource.data.cwitterSocialLinks.x))
+          && (!('discord' in request.resource.data.cwitterSocialLinks)
+            || cwitterSocialLinkValueValid(request.resource.data.cwitterSocialLinks.discord))
+          && (!('github' in request.resource.data.cwitterSocialLinks)
+            || cwitterSocialLinkValueValid(request.resource.data.cwitterSocialLinks.github))
+        );
+    }
+
+    // 投稿者が設定済みの Cwitter ID と一致するか
+    function authorOwnsCwitterId(cwitterId) {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('cwitterId', '') == cwitterId;
+    }
+
+    // Cwitter 投稿・返信に付与する登録メール（Auth のメールと一致）
+    function cwitterAuthorEmailValidOnCreate() {
+      return request.resource.data.authorEmail is string
+        && request.resource.data.authorEmail.size() > 0
+        && request.resource.data.authorEmail == authEmailLower();
     }
 
     // 掲示板投稿のルール
@@ -123,10 +226,13 @@ service cloud.firestore {
         && request.auth != null
         && resource.data.userId == request.auth.uid;
 
-      // 自分のブロックのみ読み取り可能
+      // 自分のブロックのみ読み取り可能（相手側は被ブロック判定のため blockedUserId も可）
       allow read: if isCITUser()
         && request.auth != null
-        && resource.data.userId == request.auth.uid;
+        && (
+          resource.data.userId == request.auth.uid
+          || resource.data.blockedUserId == request.auth.uid
+        );
     }
 
     // 通知のルール（個人向け通知）
@@ -193,10 +299,566 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ユーザー設定（通知の受信設定など）
+    match /user_settings/{userId} {
+      allow read: if isCITUser() && request.auth.uid == userId;
+      allow create, update: if isCITUser()
+        && request.auth.uid == userId
+        && isValidNotificationPreferencesUpdate();
+      allow delete: if isCITUser() && request.auth.uid == userId;
+    }
+
     // ユーザー管理のルール
     match /users/{userId} {
       allow read: if isCITUser();
-      allow write: if isCITUser() && request.auth.uid == userId;
+      allow create: if isCITUser() && request.auth.uid == userId;
+      allow update: if isCITUser()
+        && request.auth.uid == userId
+        && cwitterIdFieldValidOnUpdate()
+        && cwitterBioFieldValidOnUpdate()
+        && cwitterTagsFieldValidOnUpdate()
+        && cwitterSocialLinksFieldValidOnUpdate();
+      allow delete: if isCITUser() && request.auth.uid == userId;
+    }
+
+    // Cwitter ID 予約（ドキュメントID = 小文字化したID。重複防止）
+    match /cwitter_ids/{cwitterId} {
+      allow read: if isCITUser();
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == request.resource.data.uid
+        && isValidCwitterIdLower(cwitterId)
+        && request.resource.data.cwitterId == cwitterId
+        && request.resource.data.keys().hasAll(['uid', 'cwitterId', 'createdAt']);
+      allow update, delete: if false;
+    }
+
+    // Cwitter 投稿のいいねのみ更新
+    function isCwitterLikeOnlyUpdate() {
+      return request.resource.data.keys().hasAll(resource.data.keys())
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['likedBy', 'likeCount']);
+    }
+
+    // Cwitter 投稿の返信数のみ更新（±1）
+    function isCwitterReplyCountOnlyUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['replyCount'])
+        && (
+          request.resource.data.replyCount == resource.data.replyCount + 1
+          || (
+            request.resource.data.replyCount == resource.data.replyCount - 1
+            && request.resource.data.replyCount >= 0
+          )
+        );
+    }
+
+    // Cwitter 投稿の recweet 数のみ更新（±1）
+    function isCwitterRecweetCountOnlyUpdate() {
+      let before = ('recweetCount' in resource.data) && resource.data.recweetCount is int
+        ? resource.data.recweetCount
+        : 0;
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['recweetCount'])
+        && request.resource.data.recweetCount is int
+        && (
+          request.resource.data.recweetCount == before + 1
+          || (
+            request.resource.data.recweetCount == before - 1
+            && request.resource.data.recweetCount >= 0
+          )
+        );
+    }
+
+    // ちばちゃんねる カテゴリ
+    function chibaChannelCategoryValid(category) {
+      return category is string
+        && category in [
+          '雑談', '時事ニュース', 'キャンパス', '勉強', '就活・バイト', 'サークル',
+          'イベント', 'ゲーム・趣味', 'エンタメ', '相談', '生活'
+        ];
+    }
+
+    function chibaChannelAuthorEmailValidOnCreate() {
+      return request.resource.data.authorEmail is string
+        && request.resource.data.authorEmail.size() > 0
+        && request.resource.data.authorEmail == authEmailLower();
+    }
+
+    function isChibaChannelCommentCountOnlyUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['commentCount'])
+        && request.resource.data.commentCount is int
+        && (
+          request.resource.data.commentCount == resource.data.commentCount + 1
+          || (
+            request.resource.data.commentCount == resource.data.commentCount - 1
+            && request.resource.data.commentCount >= 0
+          )
+        );
+    }
+
+    function chibaChannelAnonymousIdValid(id) {
+      return id is string && id.size() == 8 && id.matches('^[a-zA-Z0-9]{8}$');
+    }
+
+    function chibaChannelCommentBodyValidOnCreate() {
+      return request.resource.data.body is string
+        && request.resource.data.body.size() <= 1000;
+    }
+
+    function chibaChannelCommentImageUrlsValid(data) {
+      return ('imageUrls' in data)
+        && data.imageUrls is list
+        && data.imageUrls.size() > 0
+        && data.imageUrls.size() <= 4;
+    }
+
+    function chibaChannelCommentContentValidOnCreate() {
+      let body = request.resource.data.body;
+      let hasText = body is string && body.size() > 0;
+      let hasImages = chibaChannelCommentImageUrlsValid(request.resource.data);
+      return hasText || hasImages;
+    }
+
+    function isChibaChannelCommentSoftDeleteUpdate() {
+      let diff = request.resource.data.diff(resource.data);
+      return resource.data.authorId == request.auth.uid
+        && resource.data.get('isDeleted', false) != true
+        && request.resource.data.isDeleted == true
+        && request.resource.data.body == ''
+        && diff.changedKeys().hasOnly(['isDeleted', 'body', 'imageUrls'])
+        && request.resource.data.imageUrls is list
+        && request.resource.data.imageUrls.size() == 0;
+    }
+
+    function isChibaChannelThreadActivityUpdate() {
+      let diff = request.resource.data.diff(resource.data);
+      return diff.changedKeys().hasOnly(['commentCount', 'lastActivityAt'])
+        && request.resource.data.commentCount is int
+        && request.resource.data.lastActivityAt is timestamp
+        && (
+          request.resource.data.commentCount == resource.data.commentCount + 1
+          || (
+            request.resource.data.commentCount == resource.data.commentCount - 1
+            && request.resource.data.commentCount >= 0
+          )
+        );
+    }
+
+    function cwitterPollOptionValidOnCreate(option) {
+      return option is map
+        && option.keys().hasAll(['id', 'text', 'voteCount'])
+        && option.id is string
+        && option.text is string
+        && option.text.size() > 0
+        && option.text.size() <= 50
+        && option.voteCount is int
+        && option.voteCount == 0;
+    }
+
+    function cwitterPollOptionsValidOnCreate(options) {
+      return options is list
+        && options.size() >= 2
+        && options.size() <= 4
+        && cwitterPollOptionValidOnCreate(options[0])
+        && cwitterPollOptionValidOnCreate(options[1])
+        && (options.size() < 3 || cwitterPollOptionValidOnCreate(options[2]))
+        && (options.size() < 4 || cwitterPollOptionValidOnCreate(options[3]));
+    }
+
+    function cwitterPollValidOnCreate() {
+      return ('poll' in request.resource.data)
+        && request.resource.data.poll is map
+        && request.resource.data.poll.keys().hasAll(['options', 'votedBy'])
+        && request.resource.data.poll.votedBy is map
+        && request.resource.data.poll.votedBy.size() == 0
+        && cwitterPollOptionsValidOnCreate(request.resource.data.poll.options);
+    }
+
+    function cwitterPollVoteTotal(poll) {
+      return poll.options[0].voteCount
+        + poll.options[1].voteCount
+        + (poll.options.size() > 2 ? poll.options[2].voteCount : 0)
+        + (poll.options.size() > 3 ? poll.options[3].voteCount : 0);
+    }
+
+    function cwitterPollOptionUnchanged(beforeOption, afterOption) {
+      return beforeOption.id == afterOption.id
+        && beforeOption.text == afterOption.text;
+    }
+
+    function cwitterPollOptionVoteTransition(beforeOption, afterOption, selected) {
+      return cwitterPollOptionUnchanged(beforeOption, afterOption)
+        || (beforeOption.id == selected
+          && afterOption.id == beforeOption.id
+          && afterOption.text == beforeOption.text
+          && afterOption.voteCount == beforeOption.voteCount + 1);
+    }
+
+    function cwitterPollVoteTransitionValid(beforePoll, afterPoll, selected) {
+      return cwitterPollOptionVoteTransition(
+          beforePoll.options[0], afterPoll.options[0], selected)
+        && cwitterPollOptionVoteTransition(
+          beforePoll.options[1], afterPoll.options[1], selected)
+        && (beforePoll.options.size() < 3
+          || cwitterPollOptionVoteTransition(
+            beforePoll.options[2], afterPoll.options[2], selected))
+        && (beforePoll.options.size() < 4
+          || cwitterPollOptionVoteTransition(
+            beforePoll.options[3], afterPoll.options[3], selected));
+    }
+
+    function isCwitterPollVoteOnlyUpdate() {
+      let beforePoll = resource.data.poll;
+      let afterPoll = request.resource.data.poll;
+      let uid = request.auth.uid;
+      let selected = afterPoll.votedBy[uid];
+      return ('poll' in resource.data)
+        && ('poll' in request.resource.data)
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['poll'])
+        && beforePoll.options.size() == afterPoll.options.size()
+        && beforePoll.options.size() >= 2
+        && beforePoll.options.size() <= 4
+        && !(uid in beforePoll.votedBy)
+        && (uid in afterPoll.votedBy)
+        && selected is string
+        && afterPoll.votedBy.size() == beforePoll.votedBy.size() + 1
+        && cwitterPollVoteTotal(afterPoll) == cwitterPollVoteTotal(beforePoll) + 1
+        && cwitterPollVoteTransitionValid(beforePoll, afterPoll, selected);
+    }
+
+    function cwitterPostContentValidOnCreate() {
+      let body = request.resource.data.body;
+      let hasText = body is string && body.size() > 0;
+      let hasImages = cwitterPostImageUrlsValid(request.resource.data);
+      let hasPoll = cwitterPollValidOnCreate();
+      return hasText || hasImages || hasPoll;
+    }
+
+    function cwitterPostImageUrlsValid(data) {
+      return ('imageUrls' in data)
+        && data.imageUrls is list
+        && data.imageUrls.size() > 0
+        && data.imageUrls.size() <= 4;
+    }
+
+    function cwitterPostBodyValidOnCreate() {
+      return request.resource.data.body is string
+        && request.resource.data.body.size() <= 280;
+    }
+
+    function cwitterReplyContentValidOnCreate() {
+      let body = request.resource.data.body;
+      let hasText = body is string && body.size() > 0;
+      let hasImages = cwitterPostImageUrlsValid(request.resource.data);
+      return hasText || hasImages;
+    }
+
+    function cwitterReplyBodyValidOnCreate() {
+      return request.resource.data.body is string
+        && request.resource.data.body.size() <= 280;
+    }
+
+    // Cwitter 投稿
+    match /cwitter_posts/{postId} {
+      allow read: if isCITUser();
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == request.resource.data.authorId
+        && authorOwnsCwitterId(request.resource.data.cwitterId)
+        && isValidCwitterIdLower(request.resource.data.cwitterId)
+        && cwitterPostBodyValidOnCreate()
+        && cwitterPostContentValidOnCreate()
+        && (!('poll' in request.resource.data) || !('imageUrls' in request.resource.data))
+        && request.resource.data.displayName is string
+        && cwitterAuthorEmailValidOnCreate()
+        && request.resource.data.keys().hasAll([
+          'authorId', 'authorEmail', 'cwitterId', 'displayName', 'body', 'createdAt',
+          'replyCount', 'likeCount', 'recweetCount', 'likedBy'
+        ]);
+      allow update: if isCITUser()
+        && request.auth != null
+        && (
+          resource.data.authorId == request.auth.uid
+          || isCwitterLikeOnlyUpdate()
+          || isCwitterReplyCountOnlyUpdate()
+          || isCwitterRecweetCountOnlyUpdate()
+          || isCwitterPollVoteOnlyUpdate()
+        );
+      allow delete: if isCITUser()
+        && request.auth != null
+        && resource.data.authorId == request.auth.uid;
+
+      // Cwitter 返信
+      match /replies/{replyId} {
+        allow read: if isCITUser();
+        allow create: if isCITUser()
+          && request.auth != null
+          && request.auth.uid == request.resource.data.authorId
+          && authorOwnsCwitterId(request.resource.data.cwitterId)
+          && isValidCwitterIdLower(request.resource.data.cwitterId)
+          && cwitterReplyBodyValidOnCreate()
+          && cwitterReplyContentValidOnCreate()
+          && request.resource.data.displayName is string
+          && cwitterAuthorEmailValidOnCreate()
+          && request.resource.data.keys().hasAll([
+            'authorId', 'authorEmail', 'cwitterId', 'displayName', 'body', 'createdAt'
+          ]);
+        allow delete: if isCITUser()
+          && request.auth != null
+          && resource.data.authorId == request.auth.uid;
+        allow update: if false;
+      }
+    }
+
+    // Cwitter 返信インデックス（プロフィールの投稿一覧で返信を引くため）
+    match /cwitter_replies/{replyIndexId} {
+      allow read: if isCITUser();
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == request.resource.data.authorId
+        && authorOwnsCwitterId(request.resource.data.cwitterId)
+        && isValidCwitterIdLower(request.resource.data.cwitterId)
+        && request.resource.data.postId is string
+        && request.resource.data.replyId is string
+        && cwitterReplyBodyValidOnCreate()
+        && cwitterReplyContentValidOnCreate()
+        && request.resource.data.displayName is string
+        && cwitterAuthorEmailValidOnCreate()
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.keys().hasAll([
+          'postId', 'replyId', 'authorId', 'authorEmail', 'cwitterId',
+          'displayName', 'body', 'createdAt'
+        ]);
+      allow delete: if isCITUser()
+        && request.auth != null
+        && resource.data.authorId == request.auth.uid;
+      allow update: if false;
+    }
+
+    // ちばちゃんねる スレッド
+    match /chiba_channel_threads/{threadId} {
+      allow read: if isCITUser();
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == request.resource.data.authorId
+        && chibaChannelAuthorEmailValidOnCreate()
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 80
+        && chibaChannelCategoryValid(request.resource.data.category)
+        && request.resource.data.commentCount == 0
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.lastActivityAt is timestamp
+        && request.resource.data.keys().hasAll([
+          'title', 'category', 'authorId', 'authorEmail', 'commentCount',
+          'createdAt', 'lastActivityAt'
+        ]);
+      allow update: if isCITUser()
+        && request.auth != null
+        && (
+          isChibaChannelCommentCountOnlyUpdate()
+          || isChibaChannelThreadActivityUpdate()
+        );
+      allow delete: if isCITUser()
+        && request.auth != null
+        && (resource.data.authorId == request.auth.uid || isAdmin());
+
+      match /comments/{commentId} {
+        allow read: if isCITUser();
+        allow create: if isCITUser()
+          && request.auth != null
+          && request.auth.uid == request.resource.data.authorId
+          && chibaChannelAuthorEmailValidOnCreate()
+          && chibaChannelCommentBodyValidOnCreate()
+          && chibaChannelCommentContentValidOnCreate()
+          && chibaChannelAnonymousIdValid(request.resource.data.anonymousId)
+          && request.resource.data.commentNumber is int
+          && request.resource.data.commentNumber > 0
+          && request.resource.data.createdAt is timestamp
+          && (!('inReplyToCommentNumber' in request.resource.data)
+            || (request.resource.data.inReplyToCommentNumber is int
+              && request.resource.data.inReplyToCommentNumber > 0))
+          && (!('inReplyToCommentId' in request.resource.data)
+            || request.resource.data.inReplyToCommentId is string)
+          && (!('imageUrls' in request.resource.data)
+            || chibaChannelCommentImageUrlsValid(request.resource.data))
+          && request.resource.data.keys().hasAll([
+            'authorId', 'authorEmail', 'body', 'commentNumber', 'anonymousId', 'createdAt'
+          ]);
+        allow delete: if isCITUser()
+          && request.auth != null
+          && (
+            resource.data.authorId == request.auth.uid
+            || isAdmin()
+            || get(/databases/$(database)/documents/chiba_channel_threads/$(threadId)).data.authorId == request.auth.uid
+          );
+        allow update: if isCITUser()
+          && request.auth != null
+          && (
+            isChibaChannelCommentSoftDeleteUpdate()
+            || isAdmin()
+          );
+      }
+
+      match /anonymous_ids/{userId} {
+        allow read: if isCITUser();
+        allow create: if isCITUser()
+          && request.auth != null
+          && request.auth.uid == userId
+          && chibaChannelAnonymousIdValid(request.resource.data.anonymousId)
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.keys().hasAll(['anonymousId', 'createdAt']);
+        allow update: if false;
+        allow delete: if isCITUser()
+          && request.auth != null
+          && (
+            isAdmin()
+            || get(/databases/$(database)/documents/chiba_channel_threads/$(threadId)).data.authorId == request.auth.uid
+          );
+      }
+    }
+
+    // Cwitter いいね一覧（プロフィールの「いいね」タブ用）
+    match /users/{userId}/cwitter_likes/{postId} {
+      allow read: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == userId;
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasAll(['likedAt']);
+      allow delete: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == userId;
+      allow update: if false;
+    }
+
+    // Cwitter recweet（collection group クエリ用）
+    match /{path=**}/cwitter_recweets/{postId} {
+      allow read: if isCITUser();
+    }
+
+    // Cwitter recweet
+    match /users/{userId}/cwitter_recweets/{postId} {
+      allow read: if isCITUser();
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.postId == postId
+        && request.resource.data.originalAuthorId is string
+        && request.resource.data.displayName is string
+        && request.resource.data.cwitterId is string;
+      allow delete: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == userId;
+      allow update: if false;
+    }
+
+    // Cwitter フォロー（フォロー中リスト）
+    match /users/{userId}/cwitter_following/{targetId} {
+      allow read: if isCITUser();
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == userId
+        && request.auth.uid != targetId;
+      allow delete: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == userId;
+      allow update: if false;
+    }
+
+    // Cwitter フォロワー（collection group クエリ用・月間フォロワー増加ランキング等）
+    match /{path=**}/cwitter_followers/{followerId} {
+      allow read: if isCITUser();
+    }
+
+    // Cwitter フォロワー
+    match /users/{userId}/cwitter_followers/{followerId} {
+      allow read: if isCITUser();
+      allow create: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == followerId
+        && request.auth.uid != userId;
+      allow delete: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == followerId;
+      allow update: if false;
+    }
+
+    function isValidCwitterFollowStatsCreate(userId) {
+      let followerCount = request.resource.data.get('followerCount', 0);
+      let followingCount = request.resource.data.get('followingCount', 0);
+
+      return followerCount >= 0
+        && followingCount >= 0
+        && (
+          (
+            request.auth.uid == userId
+            && followingCount == 1
+            && followerCount == 0
+          )
+          || (
+            request.auth.uid != userId
+            && followerCount == 1
+            && followingCount == 0
+          )
+        );
+    }
+
+    function isValidCwitterFollowStatsUpdate(userId) {
+      return (
+        request.auth.uid == userId
+        && request.resource.data.diff(resource.data).changedKeys()
+          .hasOnly(['followingCount'])
+        && request.resource.data.get('followingCount', 0) >= 0
+        && (
+          request.resource.data.followingCount
+            == resource.data.get('followingCount', 0) + 1
+          || request.resource.data.followingCount
+            == resource.data.get('followingCount', 0) - 1
+        )
+      ) || (
+        request.auth.uid != userId
+        && request.resource.data.diff(resource.data).changedKeys()
+          .hasOnly(['followerCount'])
+        && request.resource.data.get('followerCount', 0) >= 0
+        && (
+          request.resource.data.followerCount
+            == resource.data.get('followerCount', 0) + 1
+          || request.resource.data.followerCount
+            == resource.data.get('followerCount', 0) - 1
+        )
+      );
+    }
+
+    // Cwitter フォロー数（users/{uid}/cwitter_social/stats）
+    match /users/{userId}/cwitter_social/{docId} {
+      allow read: if isCITUser();
+      allow create: if isCITUser()
+        && request.auth != null
+        && docId == 'stats'
+        && isValidCwitterFollowStatsCreate(userId);
+      allow update: if isCITUser()
+        && request.auth != null
+        && docId == 'stats'
+        && isValidCwitterFollowStatsUpdate(userId);
+      allow delete: if false;
+    }
+
+    // Cwitter 投稿レート制限（1分で2投稿）
+    match /users/{userId}/rate_limits/{limitKey} {
+      allow read: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == userId;
+      allow create, update: if isCITUser()
+        && request.auth != null
+        && request.auth.uid == userId
+        && limitKey == 'cwitter_post'
+        && request.resource.data.windowStart is timestamp
+        && request.resource.data.count is int
+        && request.resource.data.count >= 1
+        && request.resource.data.count <= 2
+        && (!('updatedAt' in request.resource.data)
+          || request.resource.data.updatedAt is timestamp);
+      allow delete: if false;
     }
 
     // 学食お気に入りのルール（サブコレクション）
@@ -290,9 +952,7 @@ service cloud.firestore {
 
     // 出欠記録
     match /attendance_records/{recordId} {
-      allow read: if isCITUser()
-        && request.auth != null
-        && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read: if isOwnerOrAdmin(resource.data.userId);
 
       allow create: if isCITUser()
         && request.auth != null
@@ -332,9 +992,7 @@ service cloud.firestore {
         && hasRequiredContactFormFields();
 
       // 自分のお問い合わせのみ読み取り可能、または管理者は全て読み取り可能
-      allow read: if isCITUser()
-        && request.auth != null
-        && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read: if isOwnerOrAdmin(resource.data.userId);
 
       // 管理者のみがお問い合わせを更新可能（ステータス変更、回答追加など）
       allow update: if isAdmin();
@@ -503,14 +1161,64 @@ service cloud.firestore {
 
     // 通報必須フィールド確認関数（新規追加）
     function hasRequiredReportFields() {
-      return request.resource.data.keys().hasAll(['type', 'targetId', 'reporterId', 'reporterName', 'reason', 'status', 'createdAt'])
+      return request.resource.data.keys().hasAll([
+          'type', 'targetId', 'reporterId', 'reporterName', 'reason', 'status', 'createdAt'
+        ])
         && request.resource.data.type is string
         && request.resource.data.targetId is string
         && request.resource.data.reporterId is string
         && request.resource.data.reporterName is string
         && request.resource.data.reason is string
         && request.resource.data.status is string
-        && request.resource.data.createdAt is timestamp;
+        && request.resource.data.createdAt is timestamp
+        && cwitterReportFieldsValidOnCreate()
+        && chibaChannelReportFieldsValidOnCreate();
+    }
+
+    function chibaChannelReportFieldsValidOnCreate() {
+      let isChiba = request.resource.data.type == 'chiba_channel_comment';
+      return !isChiba
+        || (
+          request.resource.data.keys().hasAll([
+            'reporterEmail', 'targetContent', 'targetAuthorId', 'targetAuthorName',
+            'targetAuthorEmail', 'targetPostId', 'source'
+          ])
+          && request.resource.data.reporterEmail is string
+          && request.resource.data.reporterEmail.size() > 0
+          && request.resource.data.reporterEmail == authEmailLower()
+          && request.resource.data.targetContent is string
+          && request.resource.data.targetContent.size() > 0
+          && request.resource.data.targetAuthorId is string
+          && request.resource.data.targetAuthorName is string
+          && request.resource.data.targetAuthorEmail is string
+          && request.resource.data.targetPostId is string
+          && request.resource.data.source is string
+          && request.resource.data.source == 'chiba_channel'
+        );
+    }
+
+    function cwitterReportFieldsValidOnCreate() {
+      let isCwitter = request.resource.data.type == 'cwitter_post'
+        || request.resource.data.type == 'cwitter_reply';
+      return !isCwitter
+        || (
+          request.resource.data.keys().hasAll([
+            'reporterEmail', 'targetContent', 'targetAuthorId', 'targetAuthorName',
+            'targetAuthorEmail', 'targetAuthorCwitterId', 'targetPostId', 'source'
+          ])
+          && request.resource.data.reporterEmail is string
+          && request.resource.data.reporterEmail.size() > 0
+          && request.resource.data.reporterEmail == authEmailLower()
+          && request.resource.data.targetContent is string
+          && request.resource.data.targetContent.size() > 0
+          && request.resource.data.targetAuthorId is string
+          && request.resource.data.targetAuthorName is string
+          && request.resource.data.targetAuthorEmail is string
+          && request.resource.data.targetAuthorCwitterId is string
+          && request.resource.data.targetPostId is string
+          && request.resource.data.source is string
+          && request.resource.data.source == 'cwitter'
+        );
     }
 
     // 非表示投稿必須フィールド確認関数（新規追加）
@@ -728,6 +1436,14 @@ service cloud.firestore {
         && request.resource.data.autoExtractedEntries.size() <= 200
         && request.resource.data.reviewedEntries.size() <= 200
         && request.resource.data.parserWarnings.size() <= 200;
+    }
+
+    // 通知受信設定の更新内容を検証
+    function isValidNotificationPreferencesUpdate() {
+      return (!('notificationPreferences' in request.resource.data)
+          || request.resource.data.notificationPreferences is map)
+        && (!('updatedAt' in request.resource.data)
+          || request.resource.data.updatedAt is timestamp);
     }
 
     // 学食お気に入り必須フィールド確認関数

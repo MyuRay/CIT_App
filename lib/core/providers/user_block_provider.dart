@@ -1,6 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../models/users/blocked_user_model.dart';
 import '../../services/users/user_block_service.dart';
+import 'schedule_provider.dart';
 
 // ブロック操作状態を管理するStateNotifier
 class UserBlockNotifier extends StateNotifier<AsyncValue<void>> {
@@ -49,12 +50,29 @@ final userBlockProvider = StateNotifierProvider<UserBlockNotifier, AsyncValue<vo
 
 // ブロック済みユーザー一覧プロバイダー（Stream）
 final blockedUsersProvider = StreamProvider<List<BlockedUser>>((ref) {
+  final uid = ref.watch(currentUserIdProvider);
+  if (uid == null) {
+    return Stream.value(const <BlockedUser>[]);
+  }
   return UserBlockService.watchBlockedUsers();
 });
 
 // ブロック済みユーザーID一覧プロバイダー
 final blockedUserIdsProvider = FutureProvider<Set<String>>((ref) async {
-  return await UserBlockService.getBlockedUserIds();
+  final uid = ref.watch(currentUserIdProvider);
+  if (uid == null) {
+    return const {};
+  }
+  return UserBlockService.getBlockedUserIds();
+});
+
+/// 表示対象外ユーザーID（自分がブロック + 自分をブロック）
+final hiddenUserIdsProvider = StreamProvider<Set<String>>((ref) {
+  final uid = ref.watch(currentUserIdProvider);
+  if (uid == null) {
+    return Stream.value(<String>{});
+  }
+  return UserBlockService.watchHiddenUserIds();
 });
 
 // 特定ユーザーのブロック状態チェックプロバイダー

@@ -169,16 +169,33 @@ class TodayScheduleWidgetProvider : HomeWidgetProvider() {
             views.setViewVisibility(R.id.empty_message, android.view.View.GONE)
             views.removeAllViews(R.id.classes_container)
 
-            // 1限〜maxSlots限をスロット表示（空き時限も行として表示し正しい位置に配置）
-            for (period in 1..maxSlots) {
+            // 1限〜maxSlots限を表示。連続コマは1つのセルとしてまとめる。
+            var period = 1
+            while (period <= maxSlots) {
                 val item = classByPeriod[period]
-                val row = if (item != null) {
-                    createClassRow(context, period, item, currentPeriod, showDetail)
+                if (item != null) {
+                    val endFromData = item.optInt("endPeriod", period)
+                    val duration = item.optInt("duration", 1).coerceAtLeast(1)
+                    val actualEndPeriod = maxOf(endFromData, period + duration - 1).coerceIn(period, MAX_PERIODS)
+                    val visibleEndPeriod = min(actualEndPeriod, maxSlots)
+                    views.addView(
+                        R.id.classes_container,
+                        createClassRow(
+                            context,
+                            period,
+                            actualEndPeriod,
+                            item,
+                            currentPeriod,
+                            showDetail,
+                            visibleEndPeriod - period + 1
+                        )
+                    )
+                    period = visibleEndPeriod + 1
                 } else {
-                    if (showEmptyRows) createEmptyRow(context, period) else null
-                }
-                if (row != null) {
-                    views.addView(R.id.classes_container, row)
+                    if (showEmptyRows) {
+                        views.addView(R.id.classes_container, createEmptyRow(context, period))
+                    }
+                    period += 1
                 }
             }
         } catch (e: Exception) {
@@ -189,10 +206,12 @@ class TodayScheduleWidgetProvider : HomeWidgetProvider() {
 
     private fun createClassRow(
         context: Context,
-        period: Int,
+        startPeriod: Int,
+        endPeriod: Int,
         item: JSONObject,
         currentPeriod: Int,
-        showDetail: Boolean
+        showDetail: Boolean,
+        blockSpan: Int
     ): RemoteViews {
         val row = RemoteViews(context.packageName, R.layout.item_today_class)
         val subject = item.optString("subject", "")
@@ -201,7 +220,12 @@ class TodayScheduleWidgetProvider : HomeWidgetProvider() {
         val startTime = item.optString("startTime", "")
         val endTime = item.optString("endTime", "")
 
-        row.setTextViewText(R.id.text_period, "${period}限")
+        val periodLabel = if (endPeriod > startPeriod) {
+            "${startPeriod}-${endPeriod}限"
+        } else {
+            "${startPeriod}限"
+        }
+        row.setTextViewText(R.id.text_period, periodLabel)
         row.setTextViewText(R.id.text_subject, subject)
         if (showDetail && room.isNotEmpty()) {
             row.setTextViewText(R.id.text_classroom, room)
@@ -209,8 +233,8 @@ class TodayScheduleWidgetProvider : HomeWidgetProvider() {
         } else {
             row.setViewVisibility(R.id.text_classroom, android.view.View.GONE)
         }
-        if (showDetail) {
-            val timeText = if (startTime.isNotEmpty() && endTime.isNotEmpty()) "$startTime-$endTime" else ""
+        val timeText = if (startTime.isNotEmpty() && endTime.isNotEmpty()) "$startTime-$endTime" else ""
+        if (timeText.isNotEmpty()) {
             row.setTextViewText(R.id.text_time, timeText)
             row.setViewVisibility(R.id.text_time, android.view.View.VISIBLE)
         } else {
@@ -225,18 +249,25 @@ class TodayScheduleWidgetProvider : HomeWidgetProvider() {
         row.setInt(R.id.text_period, "setBackgroundColor", periodBadgeColor)
         row.setTextColor(R.id.text_period, periodTextColor)
 
-        if (currentPeriod > 0 && period == currentPeriod) {
+        if (currentPeriod > 0 && currentPeriod in startPeriod..endPeriod) {
             try {
                 row.setInt(R.id.item_root, "setBackgroundColor", Color.parseColor("#E3F2FD"))
             } catch (_: Exception) {}
         }
 
+        row.setInt(
+            R.id.item_root,
+            "setMinimumHeight",
+            dpToPx(context, blockMinHeightDp(blockSpan))
+        )
+
         val intent = Intent(context, MainActivity::class.java)
         intent.putExtra("open_schedule", true)
+        intent.putExtra("open_period", startPeriod)
         intent.data = Uri.parse("citapp://schedule")
         intent.action = HomeWidgetLaunchIntent.HOME_WIDGET_LAUNCH_ACTION
         val pending = PendingIntent.getActivity(
-            context, period, intent,
+            context, startPeriod, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         row.setOnClickPendingIntent(R.id.item_root, pending)
@@ -299,5 +330,14 @@ class TodayScheduleWidgetProvider : HomeWidgetProvider() {
         )
         row.setOnClickPendingIntent(R.id.item_root, pending)
         return row
+    }
+
+    private fun blockMinHeightDp(blockSpan: Int): Int {
+        val span = blockSpan.coerceAtLeast(1)
+        return (36 * span) + (6 * (span - 1))
+    }
+
+    private fun dpToPx(context: Context, dp: Int): Int {
+        return (dp * context.resources.displayMetrics.density).toInt()
     }
 }

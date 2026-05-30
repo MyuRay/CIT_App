@@ -1,5 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// 掲示板コメントの表示順
+enum CommentSortOrder {
+  popular,
+  newest,
+  oldest;
+
+  String get displayName => switch (this) {
+        CommentSortOrder.popular => '人気順',
+        CommentSortOrder.newest => '新しい順',
+        CommentSortOrder.oldest => '古い順',
+      };
+}
+
 // コメントモデル
 class BulletinComment {
   final String id;

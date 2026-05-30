@@ -3,7 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import '../core/providers/firebase_menu_provider.dart';
-import 'common/interactive_viewer_double_tap_zoom.dart';
+import 'common/interactive_fullscreen_image_viewer.dart';
 
 class FirebaseBusTimetableWidget extends ConsumerStatefulWidget {
   final double? width;
@@ -286,192 +286,33 @@ class _FirebaseBusTimetableWidgetState extends ConsumerState<FirebaseBusTimetabl
   }
 
   void _showFullScreenImage(BuildContext context, String imageUrl, bool isAsset) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black87,
-      builder: (context) => _FullScreenImageViewer(
-        imageUrl: imageUrl,
-        isAsset: isAsset,
+    if (isAsset) {
+      showInteractiveFullscreenAssetImage(
+        context,
+        assetPath: imageUrl,
         title: '学バス時刻表',
-      ),
+        maxScale: 5.0,
+        errorMessage: 'バス時刻表の読み込みに失敗しました',
+      );
+      return;
+    }
+    showInteractiveFullscreenNetworkImage(
+      context,
+      imageUrl: imageUrl,
+      title: '学バス時刻表',
+      maxScale: 5.0,
+      fallbackAssetPath: 'assets/images/bus_timetable.png',
+      errorMessage: 'バス時刻表の読み込みに失敗しました',
     );
   }
 
   void _showFullScreenAssetImage(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black87,
-      builder: (context) => _FullScreenImageViewer(
-        imageUrl: 'assets/images/bus_timetable.png',
-        isAsset: true,
-        title: '学バス時刻表（オフライン版）',
-      ),
-    );
-  }
-}
-
-class _FullScreenImageViewer extends StatefulWidget {
-  final String imageUrl;
-  final bool isAsset;
-  final String title;
-
-  const _FullScreenImageViewer({
-    required this.imageUrl,
-    required this.isAsset,
-    required this.title,
-  });
-
-  @override
-  State<_FullScreenImageViewer> createState() => _FullScreenImageViewerState();
-}
-
-class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
-  late final TransformationController _transformationController;
-  static const double _zoomedScale = 2.5;
-
-  @override
-  void initState() {
-    super.initState();
-    _transformationController = TransformationController();
-  }
-
-  @override
-  void dispose() {
-    _transformationController.dispose();
-    super.dispose();
-  }
-
-  void _handleDoubleTap(TapDownDetails details) {
-    interactiveViewerToggleZoomAtFocalPoint(
-      _transformationController,
-      details,
-      zoomScale: _zoomedScale,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog.fullscreen(
-      backgroundColor: Colors.black87,
-      child: Stack(
-        children: [
-          // フルスクリーン画像（ズーム・パン対応）
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onDoubleTapDown: _handleDoubleTap,
-              child: InteractiveViewer(
-                transformationController: _transformationController,
-                minScale: 0.5,
-                maxScale: 5.0, // バス時刻表は詳細が多いので5倍まで拡大可能
-                clipBehavior: Clip.hardEdge,
-                child: widget.isAsset
-                    ? Image.asset(
-                        widget.imageUrl,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          return _buildFullScreenError();
-                        },
-                      )
-                    : (kIsWeb
-                        ? Image.network(
-                            widget.imageUrl,
-                            fit: BoxFit.contain,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return const Center(
-                                child: CircularProgressIndicator(color: Colors.white),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              return _buildFullScreenError();
-                            },
-                          )
-                        : CachedNetworkImage(
-                            imageUrl: widget.imageUrl,
-                            fit: BoxFit.contain,
-                            placeholder: (context, url) => const Center(
-                              child: CircularProgressIndicator(color: Colors.white),
-                            ),
-                            errorWidget: (context, url, error) => _buildFullScreenError(),
-                          )),
-              ),
-            ),
-          ),
-          // 閉じるボタン
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 8,
-            right: 16,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
-          ),
-          // タイトル
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 8,
-            left: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                widget.title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-          // ピンチアウトのヒント（下部）
-          Positioned(
-            bottom: MediaQuery.of(context).padding.bottom + 16,
-            left: 16,
-            right: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text(
-                'ダブルタップで拡大・縮小、ドラッグで移動できます',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFullScreenError() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.error, color: Colors.white, size: 48),
-          SizedBox(height: 16),
-          Text(
-            'バス時刻表の読み込みに失敗しました',
-            style: TextStyle(color: Colors.white),
-          ),
-        ],
-      ),
+    showInteractiveFullscreenAssetImage(
+      context,
+      assetPath: 'assets/images/bus_timetable.png',
+      title: '学バス時刻表（オフライン版）',
+      maxScale: 5.0,
+      errorMessage: 'バス時刻表の読み込みに失敗しました',
     );
   }
 }

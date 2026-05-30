@@ -1,6 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/notification/notification_model.dart';
+import '../../models/notification/notification_preference_model.dart';
 
 // ユーザーの通知一覧プロバイダー
 final userNotificationsProvider = StreamProvider.family<List<AppNotification>, String>((ref, userId) {
@@ -110,7 +111,10 @@ final unreadNotificationCountProvider = StreamProvider.family<int, String>((ref,
 
 // 通知サービス
 class NotificationService {
-  static Future<void> sendNotification(AppNotification notification) async {
+  static Future<void> sendNotification(
+    AppNotification notification, {
+    NotificationPreferenceKey? preferenceKey,
+  }) async {
     try {
       print('📢 sendNotification開始: ${notification.type.displayName}');
       print('🔍 通知送信対象ユーザーID: ${notification.userId}');
@@ -298,7 +302,10 @@ class NotificationService {
     print('  - message: ${notification.message}');
 
     print('📤 通知送信処理開始...');
-    await sendNotification(notification);
+    await sendNotification(
+      notification,
+      preferenceKey: NotificationPreferenceKey.bulletinComment,
+    );
     print('✅ sendCommentNotification完了');
   }
 
@@ -345,7 +352,10 @@ class NotificationService {
     print('  - message: ${notification.message}');
 
     print('📤 返信通知送信処理開始...');
-    await sendNotification(notification);
+    await sendNotification(
+      notification,
+      preferenceKey: NotificationPreferenceKey.bulletinReply,
+    );
     print('✅ sendReplyNotification完了');
   }
 
@@ -367,7 +377,10 @@ class NotificationService {
     );
 
     print('📤 投稿承認通知送信処理開始...');
-    await sendNotification(notification);
+    await sendNotification(
+      notification,
+      preferenceKey: NotificationPreferenceKey.bulletinModeration,
+    );
     print('✅ sendPostApprovedNotification完了');
   }
 
@@ -392,7 +405,10 @@ class NotificationService {
     );
 
     print('📤 投稿却下通知送信処理開始...');
-    await sendNotification(notification);
+    await sendNotification(
+      notification,
+      preferenceKey: NotificationPreferenceKey.bulletinModeration,
+    );
     print('✅ sendPostRejectedNotification完了');
   }
 
@@ -414,8 +430,131 @@ class NotificationService {
     );
 
     print('📤 ピン留め承認通知送信処理開始...');
-    await sendNotification(notification);
+    await sendNotification(
+      notification,
+      preferenceKey: NotificationPreferenceKey.bulletinModeration,
+    );
     print('✅ sendPinApprovedNotification完了');
+  }
+
+  static Future<void> sendCwitterReplyNotification({
+    required String postAuthorId,
+    required String postId,
+    required String replyId,
+    required String fromUserName,
+    required String fromCwitterId,
+    String? fromUserId,
+    String? postBodyPreview,
+  }) async {
+    if (fromUserId != null && fromUserId == postAuthorId) return;
+
+    final notification = NotificationFactory.createCwitterReplyNotification(
+      postAuthorId: postAuthorId,
+      postId: postId,
+      replyId: replyId,
+      fromUserName: fromUserName,
+      fromCwitterId: fromCwitterId,
+      fromUserId: fromUserId,
+      postBodyPreview: postBodyPreview,
+    );
+    await sendNotification(
+      notification,
+      preferenceKey: NotificationPreferenceKey.cwitterReply,
+    );
+  }
+
+  static Future<void> sendCwitterLikeNotification({
+    required String postAuthorId,
+    required String postId,
+    required String fromUserName,
+    required String fromCwitterId,
+    String? fromUserId,
+    String? postBodyPreview,
+  }) async {
+    if (fromUserId != null && fromUserId == postAuthorId) return;
+
+    final notification = NotificationFactory.createCwitterLikeNotification(
+      postAuthorId: postAuthorId,
+      postId: postId,
+      fromUserName: fromUserName,
+      fromCwitterId: fromCwitterId,
+      fromUserId: fromUserId,
+      postBodyPreview: postBodyPreview,
+    );
+    await sendNotification(
+      notification,
+      preferenceKey: NotificationPreferenceKey.cwitterLike,
+    );
+  }
+
+  static Future<void> sendCwitterFollowNotification({
+    required String followeeId,
+    required String fromUserName,
+    required String fromCwitterId,
+    String? fromUserId,
+  }) async {
+    if (fromUserId != null && fromUserId == followeeId) return;
+
+    final notification = NotificationFactory.createCwitterFollowNotification(
+      followeeId: followeeId,
+      fromUserName: fromUserName,
+      fromCwitterId: fromCwitterId,
+      fromUserId: fromUserId,
+    );
+    await sendNotification(
+      notification,
+      preferenceKey: NotificationPreferenceKey.cwitterFollow,
+    );
+  }
+
+  static Future<void> sendChibaChannelThreadReplyNotification({
+    required String threadAuthorId,
+    required String threadId,
+    required String threadTitle,
+    required String commentId,
+    required String fromUserId,
+    String? bodyPreview,
+  }) async {
+    if (fromUserId == threadAuthorId) return;
+
+    final notification =
+        NotificationFactory.createChibaChannelThreadReplyNotification(
+      threadAuthorId: threadAuthorId,
+      threadId: threadId,
+      threadTitle: threadTitle,
+      commentId: commentId,
+      bodyPreview: bodyPreview,
+    );
+    await sendNotification(
+      notification,
+      preferenceKey: NotificationPreferenceKey.chibaChannelThreadReply,
+    );
+  }
+
+  static Future<void> sendChibaChannelCommentReplyNotification({
+    required String commentAuthorId,
+    required String threadId,
+    required String threadTitle,
+    required String commentId,
+    required int replyToCommentNumber,
+    required String fromUserId,
+    String? bodyPreview,
+  }) async {
+    if (fromUserId == commentAuthorId) return;
+
+    final notification =
+        NotificationFactory.createChibaChannelCommentReplyNotification(
+      commentAuthorId: commentAuthorId,
+      threadId: threadId,
+      threadTitle: threadTitle,
+      commentId: commentId,
+      replyToCommentNumber: replyToCommentNumber,
+      bodyPreview: bodyPreview,
+    );
+    await sendNotification(
+      notification,
+      preferenceKey: NotificationPreferenceKey.chibaChannelCommentReply,
+    );
   }
 
   // ピン留め却下通知を送信
@@ -439,7 +578,10 @@ class NotificationService {
     );
 
     print('📤 ピン留め却下通知送信処理開始...');
-    await sendNotification(notification);
+    await sendNotification(
+      notification,
+      preferenceKey: NotificationPreferenceKey.bulletinModeration,
+    );
     print('✅ sendPinRejectedNotification完了');
   }
 }

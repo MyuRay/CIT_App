@@ -22,6 +22,33 @@ final userProvider = FutureProvider.family<AppUser?, String>((ref, uid) async {
   return await UserService.getUser(uid);
 });
 
+/// ユーザーの現在のプロフィール画像（変更後も過去の投稿・コメントに反映）
+final authorProfileImageUrlProvider =
+    StreamProvider.family<String?, String>((ref, authorId) {
+  return UserService.watchUser(authorId)
+      .map((user) => user?.profileImageUrl);
+});
+
+typedef AuthorDisplayNameQuery = ({String authorId, String fallback});
+
+/// 作者の最新表示名（変更後も過去の投稿・コメントに反映）
+final authorDisplayNameProvider =
+    StreamProvider.family<String, AuthorDisplayNameQuery>((ref, query) {
+  return UserService.watchUser(query.authorId).map((user) {
+    final name = user?.displayName.trim();
+    if (name != null && name.isNotEmpty) return name;
+    return query.fallback;
+  });
+});
+
+String resolveAuthorDisplayName(AsyncValue<String> async, String fallback) {
+  return async.when(
+    data: (name) => name,
+    loading: () => fallback,
+    error: (_, __) => fallback,
+  );
+}
+
 // ユーザー情報管理のStateNotifier
 class UserNotifier extends StateNotifier<AsyncValue<AppUser?>> {
   UserNotifier() : super(const AsyncValue.loading());

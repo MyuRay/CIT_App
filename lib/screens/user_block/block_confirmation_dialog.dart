@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import '../../core/constants/app_constants.dart';
 import '../../models/users/blocked_user_model.dart';
 import '../../core/providers/user_block_provider.dart';
+import '../../services/users/user_block_service.dart';
 
 class BlockConfirmationDialog extends ConsumerStatefulWidget {
   final String blockedUserId;
@@ -79,9 +81,18 @@ class _BlockConfirmationDialogState
     } catch (e) {
       if (!mounted) return;
 
+      final message = e.toString().replaceFirst('Exception: ', '');
+      if (message == AppConstants.errorOfficialAccountBlockDenied) {
+        Navigator.of(context).pop(false);
+        if (context.mounted) {
+          await showOfficialAccountBlockDeniedDialog(context);
+        }
+        return;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('ブロックに失敗しました: ${e.toString()}'),
+          content: Text('ブロックに失敗しました: $message'),
           backgroundColor: Colors.red,
         ),
       );
@@ -179,7 +190,9 @@ class _BlockConfirmationDialogState
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            '• このユーザーの投稿やコメントが非表示になります\n'
+                            '• このユーザーのCweet・掲示板の投稿やコメントが非表示になります\n'
+                            '• あなたのCweetも相手から見えなくなります\n'
+                            '• フォロー関係は自動的に解除されます\n'
                             '• あなたがブロックしたことは相手に通知されません\n'
                             '• いつでもブロックを解除できます',
                             style: TextStyle(
@@ -189,6 +202,25 @@ class _BlockConfirmationDialogState
                           ),
                         ],
                       ),
+                    ),
+                    const SizedBox(height: 12),
+                    CheckboxListTile(
+                      title: const Text(
+                        '上記の内容を理解しました',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      value: _confirmed,
+                      onChanged:
+                          _isLoading
+                              ? null
+                              : (value) {
+                                setState(() {
+                                  _confirmed = value ?? false;
+                                });
+                              },
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
                     ),
                     const SizedBox(height: 24),
                     const Text(
@@ -235,25 +267,6 @@ class _BlockConfirmationDialogState
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
-                    CheckboxListTile(
-                      title: const Text(
-                        '上記の内容を理解しました',
-                        style: TextStyle(fontSize: 14),
-                      ),
-                      value: _confirmed,
-                      onChanged:
-                          _isLoading
-                              ? null
-                              : (value) {
-                                setState(() {
-                                  _confirmed = value ?? false;
-                                });
-                              },
-                      controlAffinity: ListTileControlAffinity.leading,
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                    ),
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -290,20 +303,44 @@ class _BlockConfirmationDialogState
   }
 }
 
+/// 公式アカウントのブロック拒否メッセージを表示
+Future<void> showOfficialAccountBlockDeniedDialog(BuildContext context) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('ブロックできません'),
+      content: const Text(AppConstants.errorOfficialAccountBlockDenied),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('OK'),
+        ),
+      ],
+    ),
+  );
+}
+
 /// ブロック確認ダイアログを表示する関数
 Future<bool?> showBlockConfirmationDialog(
   BuildContext context, {
   required String blockedUserId,
   required String blockedUserName,
-}) {
-  print('📱 showBlockConfirmationDialog: context mounted = ${context.mounted}');
-  print('📱 blockedUserName = $blockedUserName, userId = $blockedUserId');
+  String? blockedUserCwitterId,
+}) async {
+  if (AppConstants.isOfficialCwitterAccount(blockedUserCwitterId) ||
+      await UserBlockService.isOfficialAccountUserId(blockedUserId)) {
+    if (context.mounted) {
+      await showOfficialAccountBlockDeniedDialog(context);
+    }
+    return false;
+  }
+
+  if (!context.mounted) return false;
 
   return showDialog<bool>(
     context: context,
     barrierDismissible: true,
     builder: (context) {
-      print('📱 ブロックダイアログbuilder実行中');
       return BlockConfirmationDialog(
         blockedUserId: blockedUserId,
         blockedUserName: blockedUserName,

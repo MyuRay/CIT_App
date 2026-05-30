@@ -229,14 +229,18 @@ class HomeWidgetsService {
           if (scheduleClass != null) {
             // 連続講義の開始セルのみ表示
             if (scheduleClass.isStartCell) {
+              final period = i + 1;
+              final duration = scheduleClass.duration > 0 ? scheduleClass.duration : 1;
+              final endPeriod = (period + duration - 1).clamp(1, 10);
               classes.add({
-                'period': i + 1,
+                'period': period,
+                'endPeriod': endPeriod,
                 'subject': scheduleClass.subjectName.isNotEmpty ? scheduleClass.subjectName : '未設定',
                 'classroom': scheduleClass.classroom.isNotEmpty ? scheduleClass.classroom : '',
                 'color': scheduleClass.color.isNotEmpty ? scheduleClass.color : '#2196F3',
-                'duration': scheduleClass.duration,
-                'startTime': _getPeriodStartTime(i + 1),
-                'endTime': _getPeriodEndTime(i + 1, scheduleClass.duration),
+                'duration': duration,
+                'startTime': _getPeriodStartTime(period),
+                'endTime': _getPeriodEndTime(period, duration),
               });
             }
           }
@@ -310,15 +314,15 @@ class HomeWidgetsService {
   static String _getPeriodStartTime(int period) {
     const times = [
       '9:00',  // 1限
-      '10:40', // 2限
-      '13:00', // 3限
-      '14:40', // 4限
-      '16:20', // 5限
-      '18:00', // 6限
-      '19:40', // 7限
-      '21:20', // 8限
-      '9:00',  // 9限（未使用）
-      '9:00',  // 10限（未使用）
+      '10:00', // 2限
+      '11:00', // 3限
+      '12:00', // 4限
+      '13:00', // 5限
+      '14:00', // 6限
+      '15:00', // 7限
+      '16:00', // 8限
+      '17:00',  // 9限
+      '18:00',  // 10限
     ];
     return period >= 1 && period <= times.length ? times[period - 1] : '9:00';
   }
@@ -326,16 +330,16 @@ class HomeWidgetsService {
   /// 時限の終了時刻を取得（連続講義を考慮）
   static String _getPeriodEndTime(int period, int duration) {
     const times = [
-      '10:30', // 1限
-      '12:10', // 2限
-      '14:30', // 3限
-      '16:10', // 4限
-      '17:50', // 5限
-      '19:30', // 6限
-      '21:10', // 7限
-      '22:50', // 8限
-      '10:30', // 9限（未使用）
-      '10:30', // 10限（未使用）
+      '10:00', // 1限
+      '11:00', // 2限
+      '12:00', // 3限
+      '13:00', // 4限
+      '14:00', // 5限
+      '15:00', // 6限
+      '16:00', // 7限
+      '17:00', // 8限
+      '18:00', // 9限
+      '19:00', // 10限
     ];
     final endPeriod = period + duration - 1;
     return endPeriod >= 1 && endPeriod <= times.length ? times[endPeriod - 1] : '10:30';

@@ -6,13 +6,15 @@ import '../../core/providers/report_provider.dart';
 class ReportFormDialog extends ConsumerStatefulWidget {
   final ReportType type;
   final String targetId;
-  final String targetTitle; // 対象の名前やタイトル
+  final String targetTitle;
+  final ReportModerationSnapshot? moderation;
 
   const ReportFormDialog({
     super.key,
     required this.type,
     required this.targetId,
     required this.targetTitle,
+    this.moderation,
   });
 
   @override
@@ -90,6 +92,7 @@ class _ReportFormDialogState extends ConsumerState<ReportFormDialog> {
             detail: _detailController.text.isNotEmpty
                 ? _detailController.text
                 : null,
+            moderation: widget.moderation,
           );
 
       if (!mounted) return;
@@ -297,20 +300,16 @@ Future<bool?> showReportDialog(
   required ReportType type,
   required String targetId,
   required String targetTitle,
+  ReportModerationSnapshot? moderation,
 }) {
-  print('📱 showReportDialog: context mounted = ${context.mounted}');
-  print('📱 targetTitle = $targetTitle, type = $type');
-
   return showDialog<bool>(
     context: context,
     barrierDismissible: true,
-    builder: (context) {
-      print('📱 ダイアログbuilder実行中');
-      return ReportFormDialog(
-        type: type,
-        targetId: targetId,
-        targetTitle: targetTitle,
-      );
-    },
+    builder: (context) => ReportFormDialog(
+      type: type,
+      targetId: targetId,
+      targetTitle: targetTitle,
+      moderation: moderation,
+    ),
   );
 }

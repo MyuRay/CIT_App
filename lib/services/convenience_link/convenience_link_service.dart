@@ -250,6 +250,13 @@ class ConvenienceLinkService {
         if (link.id == 'preset_library' || link.title == '図書館') {
           newUrl = 'https://opac2.lib.chibatech.ac.jp/';
         }
+
+        // 既存ユーザーの CIT ポータルリンクURLを新URLへ更新
+        // 旧: https://portal.it-chiba.ac.jp/
+        // 新: https://portal.chibatech.ac.jp/uprx/
+        if (link.id == 'preset_portal' || link.title == 'CITポータル') {
+          newUrl = 'https://portal.chibatech.ac.jp/uprx/';
+        }
         
         updatedLinks.add(link.copyWith(
           order: newOrder,

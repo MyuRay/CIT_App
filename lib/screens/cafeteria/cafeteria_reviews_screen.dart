@@ -899,7 +899,10 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
           child: Transform.translate(
             offset: Offset(0, _dragOffset),
             child: Hero(
-              tag: widget.imageUrl ?? widget.placeholder,
+              // Hero タグ衝突を避けるため、URL が未設定でも一意性を保つ
+              // プレフィックスを付ける
+              tag: 'cafeteria_full_image:'
+                  '${widget.imageUrl ?? widget.placeholder}',
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onDoubleTapDown: _handleDoubleTap,
@@ -1151,8 +1154,16 @@ class _MenuRowCardState extends ConsumerState<_MenuRowCard> {
   Widget build(BuildContext context) {
     final menuItem = widget.agg.menuItem;
     final priceText = _formatPrice();
-    final placeholder =
-        widget.agg.menuName.isNotEmpty ? widget.agg.menuName.substring(0, 1) : '?';
+    // 絵文字や合字などサロゲートペアを含むメニュー名でも安全に1文字取り出すため
+    // String.substring ではなく characters パッケージの first を使用する。
+    // （iOS のテキストレンダリングが lone surrogate でクラッシュするのを防ぐ）
+    final placeholder = widget.agg.menuName.characters.isNotEmpty
+        ? widget.agg.menuName.characters.first
+        : '?';
+    // Hero タグは画面間で一意になるよう cafeteriaId + menuName から生成する
+    // （photoUrl が null かつ placeholder が同じメニューが複数あると Hero タグが衝突するため）
+    final heroTag =
+        'cafeteria_menu_image:${widget.cafeteriaId}:${widget.agg.menuName}';
     final viewCount = menuItem?.viewCount ?? 0;
     final uid = FirebaseAuth.instance.currentUser?.uid;
     final isFavoriteAsync = menuItem != null && menuItem.id.isNotEmpty && uid != null
@@ -1196,7 +1207,7 @@ class _MenuRowCardState extends ConsumerState<_MenuRowCard> {
                           imageUrl: menuItem?.photoUrl,
                         ),
                     child: Hero(
-                      tag: menuItem?.photoUrl ?? placeholder,
+                      tag: heroTag,
                       child: _buildMenuImage(
                         imageUrl: menuItem?.photoUrl,
                         placeholder: placeholder,

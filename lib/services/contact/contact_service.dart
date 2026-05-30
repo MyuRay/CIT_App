@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/admin/admin_model.dart';
 import '../../models/notification/notification_model.dart';
+import '../../models/notification/notification_preference_model.dart';
 import '../../core/providers/notification_provider.dart';
 
 class ContactService {
@@ -225,7 +226,10 @@ class ContactService {
             responderName: responderName,
           );
 
-          await NotificationService.sendNotification(notification);
+          await NotificationService.sendNotification(
+            notification,
+            preferenceKey: NotificationPreferenceKey.contactReply,
+          );
           print('✅ お問い合わせ返信通知を送信しました: $contactUserId');
         } catch (notificationError) {
           // 通知送信エラーは返信処理を阻害しない

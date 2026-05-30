@@ -43,3 +43,8 @@ final isMenuFavoriteProvider =
   );
 });
 
+/// 特定メニューをお気に入り登録している人数
+final menuFavoriteUserCountProvider =
+    FutureProvider.family<int, String>((ref, menuItemId) async {
+  return CafeteriaFavoriteService.getMenuFavoriteUserCount(menuItemId);
+});

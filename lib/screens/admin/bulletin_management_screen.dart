@@ -597,7 +597,7 @@ class _BulletinManagementScreenState extends ConsumerState<BulletinManagementScr
         );
         
         // プロバイダーを更新
-        ref.invalidate(bulletinPostsProvider);
+        await ref.read(bulletinFeedProvider.notifier).refresh();
       }
     } catch (e) {
       if (mounted) {

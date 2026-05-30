@@ -1,3 +1,4 @@
+import 'package:characters/characters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -204,7 +205,8 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
                         CircleAvatar(
                           backgroundColor: _parseColor(routeData['color'] ?? '#2196F3'),
                           child: Text(
-                            routeData['shortName'] ?? (routeData['name']?.substring(0, 1) ?? 'B'),
+                            routeData['shortName'] ??
+                                _firstCharacterOrFallback(routeData['name'], 'B'),
                             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                           ),
                         ),
@@ -519,12 +521,9 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
                   radius: 14,
                   backgroundColor: _parseColor(route['color'] ?? '#2196F3'),
                   child: Text(
-                    (
-                      route['shortName'] ??
-                      ((route['name'] is String && (route['name'] as String).isNotEmpty)
-                          ? (route['name'] as String).substring(0, 1)
-                          : 'B')
-                    ).toString(),
+                    (route['shortName'] ??
+                            _firstCharacterOrFallback(route['name'], 'B'))
+                        .toString(),
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
@@ -1971,4 +1970,11 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
   }
 }
 
-
+/// 文字列の先頭1文字を絵文字/合字に対応した安全な方法で取り出す。
+/// 不正な lone surrogate を返さないよう characters パッケージを使用する。
+String _firstCharacterOrFallback(dynamic value, String fallback) {
+  if (value is String && value.characters.isNotEmpty) {
+    return value.characters.first;
+  }
+  return fallback;
+}

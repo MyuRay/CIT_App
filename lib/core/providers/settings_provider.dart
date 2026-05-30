@@ -3,6 +3,39 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 enum AppFontSizeOption { small, medium, large }
 
+enum CalendarWeekStart { sunday, monday }
+
+extension CalendarWeekStartX on CalendarWeekStart {
+  String get storageValue {
+    switch (this) {
+      case CalendarWeekStart.sunday:
+        return 'sunday';
+      case CalendarWeekStart.monday:
+        return 'monday';
+    }
+  }
+
+  String get displayName {
+    switch (this) {
+      case CalendarWeekStart.sunday:
+        return '日曜スタート';
+      case CalendarWeekStart.monday:
+        return '月曜スタート';
+    }
+  }
+}
+
+CalendarWeekStart _weekStartFromStorage(String? value) {
+  switch (value) {
+    case 'sunday':
+      return CalendarWeekStart.sunday;
+    case 'monday':
+      return CalendarWeekStart.monday;
+    default:
+      return CalendarWeekStart.monday;
+  }
+}
+
 extension AppFontSizeOptionX on AppFontSizeOption {
   String get storageValue {
     switch (this) {
@@ -65,6 +98,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
             preferredBusCampus: _prefs.getString('preferredBusCampus') ?? 'tsudanuma',
             scheduleNotificationEnabled: _prefs.getBool('scheduleNotificationEnabled') ?? false,
             appFontSize: _fontSizeFromStorage(_prefs.getString('appFontSize')),
+            calendarWeekStart: _weekStartFromStorage(_prefs.getString('calendarWeekStart')),
           ),
         );
 
@@ -100,6 +134,12 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     await _prefs.setString('appFontSize', fontSize.storageValue);
     state = state.copyWith(appFontSize: fontSize);
   }
+
+  // 学年暦カレンダーの週開始日を設定（日曜スタート / 月曜スタート）
+  Future<void> setCalendarWeekStart(CalendarWeekStart value) async {
+    await _prefs.setString('calendarWeekStart', value.storageValue);
+    state = state.copyWith(calendarWeekStart: value);
+  }
 }
 
 // 設定状態クラス
@@ -109,24 +149,28 @@ class SettingsState {
     required this.preferredBusCampus,
     required this.scheduleNotificationEnabled,
     required this.appFontSize,
+    required this.calendarWeekStart,
   });
 
   final bool showSaturday;
   final String preferredBusCampus; // 'tsudanuma' or 'narashino'
   final bool scheduleNotificationEnabled; // 講義通知の有効/無効
   final AppFontSizeOption appFontSize;
+  final CalendarWeekStart calendarWeekStart; // 学年暦カレンダーの週開始日
 
   SettingsState copyWith({
     bool? showSaturday,
     String? preferredBusCampus,
     bool? scheduleNotificationEnabled,
     AppFontSizeOption? appFontSize,
+    CalendarWeekStart? calendarWeekStart,
   }) {
     return SettingsState(
       showSaturday: showSaturday ?? this.showSaturday,
       preferredBusCampus: preferredBusCampus ?? this.preferredBusCampus,
       scheduleNotificationEnabled: scheduleNotificationEnabled ?? this.scheduleNotificationEnabled,
       appFontSize: appFontSize ?? this.appFontSize,
+      calendarWeekStart: calendarWeekStart ?? this.calendarWeekStart,
     );
   }
 }
@@ -175,6 +219,18 @@ final appFontSizeProvider = Provider<AppFontSizeOption>((ref) {
 // アプリ文字サイズ設定更新メソッドのプロバイダー
 final setAppFontSizeProvider = Provider<Future<void> Function(AppFontSizeOption)>((ref) {
   return (size) => ref.read(settingsProvider.notifier).setAppFontSize(size);
+});
+
+// 学年暦カレンダーの週開始日プロバイダー
+final calendarWeekStartProvider = Provider<CalendarWeekStart>((ref) {
+  return ref.watch(settingsProvider).calendarWeekStart;
+});
+
+// 学年暦カレンダーの週開始日更新メソッドのプロバイダー
+final setCalendarWeekStartProvider =
+    Provider<Future<void> Function(CalendarWeekStart)>((ref) {
+  return (value) =>
+      ref.read(settingsProvider.notifier).setCalendarWeekStart(value);
 });
 
 // 各タブチュートリアルの再表示要求シグナル（値をインクリメントして通知）
