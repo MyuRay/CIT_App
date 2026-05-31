@@ -23,7 +23,12 @@ class UserPostRateLimit {
         .doc(limitKey);
   }
 
-  static Future<void> enforceInTransaction({
+  /// 読み取りフェーズ。制限超過時は [rateLimitException] を投げ、
+  /// それ以外は書き込みフェーズで使用するデータを返す。
+  ///
+  /// Firestore トランザクションは「全ての読み取りを全ての書き込みより前に」
+  /// 実行する必要があるため、この関数では一切書き込みを行わない。
+  static Future<Map<String, dynamic>> evaluate({
     required Transaction transaction,
     required DocumentReference<Map<String, dynamic>> rateLimitRef,
     required DateTime now,
@@ -51,10 +56,39 @@ class UserPostRateLimit {
       }
     }
 
-    transaction.set(rateLimitRef, {
+    return <String, dynamic>{
       'windowStart': Timestamp.fromDate(nextWindowStart),
       'count': nextCount,
       'updatedAt': FieldValue.serverTimestamp(),
-    });
+    };
+  }
+
+  /// 書き込みフェーズ。[evaluate] が返したデータを保存する。
+  static void commit({
+    required Transaction transaction,
+    required DocumentReference<Map<String, dynamic>> rateLimitRef,
+    required Map<String, dynamic> data,
+  }) {
+    transaction.set(rateLimitRef, data);
+  }
+
+  /// 後続の読み取りが無いトランザクション向けの簡易版（読み取り→書き込み）。
+  static Future<void> enforceInTransaction({
+    required Transaction transaction,
+    required DocumentReference<Map<String, dynamic>> rateLimitRef,
+    required DateTime now,
+    required Exception rateLimitException,
+  }) async {
+    final data = await evaluate(
+      transaction: transaction,
+      rateLimitRef: rateLimitRef,
+      now: now,
+      rateLimitException: rateLimitException,
+    );
+    commit(
+      transaction: transaction,
+      rateLimitRef: rateLimitRef,
+      data: data,
+    );
   }
 }

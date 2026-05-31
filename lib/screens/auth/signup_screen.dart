@@ -229,11 +229,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '千葉工業大学のメールアドレスのみご利用いただけます。\n以下のドメインが利用可能です：',
+                        '千葉工業大学のメールアドレスのみご利用いただけます。\n'
+                        '新規登録は以下のドメインのみ利用可能です：',
                         style: TextStyle(fontSize: 13, color: Colors.blue.shade800),
                       ),
                       const SizedBox(height: 8),
-                      ...AppConstants.allowedDomains.map((domain) => Padding(
+                      ...AppConstants.signupAllowedDomains.map((domain) => Padding(
                             padding: const EdgeInsets.symmetric(vertical: 2),
                             child: Row(
                               children: [
@@ -278,14 +279,14 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   keyboardType: TextInputType.emailAddress,
                   autocorrect: false,
                   inputFormatters: AppConstants.citEmailInputFormatters,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'CITメールアドレス',
-                    hintText: 'example@s.chibakoudai.jp / example@p.chibakoudai.jp / example@chibatech.ac.jp',
+                    hintText: 'example@chibatech.ac.jp',
                     helperText:
-                        '${AppConstants.emailInputHelper}\n※ @s.chibakoudai.jp / @p.chibakoudai.jp / @chibatech.ac.jp のみ利用可能',
+                        '${AppConstants.emailInputHelper}\n※ ${AppConstants.newEmailDomain} のみ利用可能',
                     helperMaxLines: 3,
                   ),
-                  validator: AppConstants.validateCitEmail,
+                  validator: AppConstants.validateCitEmailForSignup,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(

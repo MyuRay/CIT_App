@@ -149,8 +149,13 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
     } catch (e) {
       replyCountNotifier.revert(widget.post.id);
       if (!mounted) return;
+      final isRateLimited = e is CwitterReplyRateLimitException;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('返信に失敗しました: $e')),
+        SnackBar(
+          content: Text(isRateLimited ? '$e' : '返信に失敗しました: $e'),
+          backgroundColor: isRateLimited ? Colors.orange.shade800 : null,
+          duration: Duration(seconds: isRateLimited ? 3 : 4),
+        ),
       );
     } finally {
       if (mounted) {

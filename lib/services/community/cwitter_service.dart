@@ -1469,7 +1469,7 @@ class CwitterService {
       'updatedAt': FieldValue.serverTimestamp(),
     };
     if (normalized.isEmpty) {
-      updates['cwitterTags'] = FieldValue.delete();
+      updates['cwitterTags'] = <String>[];
     } else {
       updates['cwitterTags'] = normalized;
     }

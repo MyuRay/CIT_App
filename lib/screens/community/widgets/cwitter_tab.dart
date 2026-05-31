@@ -449,8 +449,13 @@ class _CwitterTabState extends ConsumerState<CwitterTab> {
       );
     } catch (e) {
       if (!mounted) return;
+      final isRateLimited = e is CwitterPostRateLimitException;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
+        SnackBar(
+          content: Text('$e'),
+          backgroundColor: isRateLimited ? Colors.orange.shade800 : null,
+          duration: Duration(seconds: isRateLimited ? 3 : 4),
+        ),
       );
     } finally {
       if (mounted) {

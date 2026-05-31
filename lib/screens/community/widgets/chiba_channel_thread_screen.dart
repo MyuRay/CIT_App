@@ -290,11 +290,17 @@ class _ChibaChannelThreadScreenState
 
       if (!mounted) return;
 
+      final isRateLimited = error is ChibaChannelCommentRateLimitException;
+
       ScaffoldMessenger.of(context).showSnackBar(
 
         SnackBar(
 
           content: Text(error.toString().replaceFirst('ArgumentError: ', '')),
+
+          backgroundColor: isRateLimited ? Colors.orange.shade800 : null,
+
+          duration: Duration(seconds: isRateLimited ? 3 : 4),
 
         ),
 

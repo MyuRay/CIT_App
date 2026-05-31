@@ -81,10 +81,10 @@ class AuthService {
     required String password,
   }) async {
     try {
-      if (!isValidCITEmail(email)) {
+      if (!AppConstants.isValidCitEmailForSignup(email)) {
         throw FirebaseAuthException(
           code: 'invalid-domain',
-          message: AppConstants.errorInvalidDomain,
+          message: AppConstants.errorSignupInvalidDomain,
         );
       }
 

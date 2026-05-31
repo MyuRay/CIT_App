@@ -138,13 +138,17 @@ class ChibaChannelService {
       );
     }
 
+    final rateLimitRef = UserPostRateLimit.ref(
+      _firestore,
+      userId: authorId,
+      limitKey: UserPostRateLimit.chibaChannelCommentKey,
+    );
+    final anonRef =
+        threadRef.collection('anonymous_ids').doc(authorId);
+
     await _firestore.runTransaction((transaction) async {
-      final rateLimitRef = UserPostRateLimit.ref(
-        _firestore,
-        userId: authorId,
-        limitKey: UserPostRateLimit.chibaChannelCommentKey,
-      );
-      await UserPostRateLimit.enforceInTransaction(
+      // --- 読み取りフェーズ（全ての get をここで実施） ---
+      final rateLimitData = await UserPostRateLimit.evaluate(
         transaction: transaction,
         rateLimitRef: rateLimitRef,
         now: DateTime.now(),
@@ -155,16 +159,31 @@ class ChibaChannelService {
       if (!threadSnap.exists) {
         throw StateError('スレッドが見つかりません');
       }
-
       final currentCount =
           (threadSnap.data()?['commentCount'] as num?)?.toInt() ?? 0;
       final nextNumber = currentCount + 1;
 
-      final anonymousId = await _resolveAnonymousId(
+      final anonSnap = await transaction.get(anonRef);
+      String anonymousId =
+          (anonSnap.data()?['anonymousId'] as String?) ?? '';
+      final needCreateAnonId = anonymousId.isEmpty;
+      if (needCreateAnonId) {
+        anonymousId = _generateAnonymousId();
+      }
+
+      // --- 書き込みフェーズ（全ての set/update をここで実施） ---
+      UserPostRateLimit.commit(
         transaction: transaction,
-        threadRef: threadRef,
-        authorId: authorId,
+        rateLimitRef: rateLimitRef,
+        data: rateLimitData,
       );
+
+      if (needCreateAnonId) {
+        transaction.set(anonRef, {
+          'anonymousId': anonymousId,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
 
       final commentData = <String, dynamic>{
         'authorId': authorId,
@@ -276,26 +295,6 @@ class ChibaChannelService {
         bodyPreview: bodyPreview,
       );
     }
-  }
-
-  static Future<String> _resolveAnonymousId({
-    required Transaction transaction,
-    required DocumentReference<Map<String, dynamic>> threadRef,
-    required String authorId,
-  }) async {
-    final anonRef = threadRef.collection('anonymous_ids').doc(authorId);
-    final anonSnap = await transaction.get(anonRef);
-    if (anonSnap.exists) {
-      final existing = anonSnap.data()?['anonymousId'] as String? ?? '';
-      if (existing.isNotEmpty) return existing;
-    }
-
-    final anonymousId = _generateAnonymousId();
-    transaction.set(anonRef, {
-      'anonymousId': anonymousId,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    return anonymousId;
   }
 
   static String _generateAnonymousId() {

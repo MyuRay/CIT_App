@@ -568,8 +568,11 @@ class _ProfileTagsSectionState extends ConsumerState<_ProfileTagsSection> {
         tags: result,
       );
       if (!mounted) return;
+      final cleared = CwitterService.normalizeCwitterTags(result).isEmpty;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ハッシュタグを保存しました')),
+        SnackBar(
+          content: Text(cleared ? 'ハッシュタグを削除しました' : 'ハッシュタグを保存しました'),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -655,13 +658,22 @@ class _CwitterTagsEditorDialogState extends State<_CwitterTagsEditorDialog> {
   String? _validateTagField(String? value, {bool optional = false}) {
     final trimmed = (value ?? '').trim();
     if (trimmed.isEmpty) {
-      return optional ? null : '1つ目のハッシュタグを入力してください';
+      return optional ? null : _validateTag1Required(value);
     }
     final normalized = trimmed.startsWith('#')
         ? trimmed.substring(1).trim()
         : trimmed;
     if (!AppConstants.isValidCwitterTag(normalized)) {
       return AppConstants.errorCwitterTagFormat;
+    }
+    return null;
+  }
+
+  String? _validateTag1Required(String? value) {
+    final tag1 = (value ?? '').trim();
+    final tag2 = _tag2Controller.text.trim();
+    if (tag1.isEmpty && tag2.isNotEmpty) {
+      return '1つ目のハッシュタグを入力してください';
     }
     return null;
   }
@@ -688,7 +700,7 @@ class _CwitterTagsEditorDialogState extends State<_CwitterTagsEditorDialog> {
               decoration: const InputDecoration(
                 labelText: 'ハッシュタグ 1',
                 hintText: '例: 27卒',
-                helperText: AppConstants.cwitterTagsInputHelper,
+                helperText: '${AppConstants.cwitterTagsInputHelper}\n空のまま保存するとタグを削除できます',
                 border: OutlineInputBorder(),
                 prefixText: '#',
               ),

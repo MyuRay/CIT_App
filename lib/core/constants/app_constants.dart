@@ -26,9 +26,16 @@ class AppConstants {
 
   /// 移行先の新ドメイン
   static const String newEmailDomain = '@chibatech.ac.jp';
+
+  /// 新規登録で許可するドメイン（既存ユーザーのログイン等は [allowedDomains] のまま）
+  static const List<String> signupAllowedDomains = [
+    newEmailDomain,
+  ];
   
   static const String errorInvalidEmail = 'メールアドレスの形式が正しくありません';
   static const String errorInvalidDomain = 'CITのメールアドレスを使用してください\n（@s.chibakoudai.jp / @p.chibakoudai.jp / @chibatech.ac.jp）';
+  static const String errorSignupInvalidDomain =
+      '新規登録は @chibatech.ac.jp のメールアドレスのみ利用できます';
   static const String errorEmailLocalPart =
       'メールアドレス（@より前）は半角英数字（大文字・小文字）および . _ + - のみ使用できます';
   static const String errorWeakPassword = 'パスワードは6文字以上で入力してください';
@@ -145,6 +152,12 @@ class AppConstants {
     return allowedDomains.any((domain) => normalized.endsWith(domain.toLowerCase()));
   }
 
+  static bool isAllowedSignupDomain(String email) {
+    final normalized = email.trim().toLowerCase();
+    return signupAllowedDomains
+        .any((domain) => normalized.endsWith(domain.toLowerCase()));
+  }
+
   static bool isValidEmailLocalPart(String email) {
     final at = email.indexOf('@');
     if (at <= 0) return false;
@@ -163,6 +176,14 @@ class AppConstants {
     return isAllowedDomain(trimmed);
   }
 
+  /// 新規登録時のメール形式チェック（@chibatech.ac.jp のみ）
+  static bool isValidCitEmailForSignup(String email) {
+    final trimmed = email.trim();
+    if (!trimmed.contains('@')) return false;
+    if (!isValidEmailLocalPart(trimmed)) return false;
+    return isAllowedSignupDomain(trimmed);
+  }
+
   static String? validateCitEmail(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'メールアドレスを入力してください';
@@ -171,6 +192,17 @@ class AppConstants {
     if (!email.contains('@')) return errorInvalidEmail;
     if (!isValidEmailLocalPart(email)) return errorEmailLocalPart;
     if (!isAllowedDomain(email)) return errorInvalidDomain;
+    return null;
+  }
+
+  static String? validateCitEmailForSignup(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'メールアドレスを入力してください';
+    }
+    final email = value.trim();
+    if (!email.contains('@')) return errorInvalidEmail;
+    if (!isValidEmailLocalPart(email)) return errorEmailLocalPart;
+    if (!isAllowedSignupDomain(email)) return errorSignupInvalidDomain;
     return null;
   }
 
