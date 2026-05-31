@@ -319,7 +319,8 @@ class _BulletinDebugScreenState extends ConsumerState<BulletinDebugScreen> {
     try {
       // プロバイダーを直接呼び出してテスト
       _addLog('bulletinPostsProviderを呼び出し中...');
-      final posts = await ref.read(bulletinPostsProvider.future);
+      await ref.read(bulletinFeedProvider.notifier).refresh();
+      final posts = ref.read(bulletinPostsProvider).valueOrNull ?? const [];
       _addLog('✅ プロバイダー呼び出し成功');
       _addLog('取得した投稿数: ${posts.length}');
       

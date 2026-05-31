@@ -12,6 +12,7 @@ class ReportSubmitNotifier extends StateNotifier<AsyncValue<void>> {
     required String targetId,
     required ReportReason reason,
     String? detail,
+    ReportModerationSnapshot? moderation,
   }) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
@@ -20,6 +21,7 @@ class ReportSubmitNotifier extends StateNotifier<AsyncValue<void>> {
         targetId: targetId,
         reason: reason,
         detail: detail,
+        moderation: moderation,
       );
     });
   }

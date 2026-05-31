@@ -1,7 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../models/comment/comment_model.dart';
 import '../../services/users/content_filter_service.dart';
-import 'user_block_provider.dart';
+import '../../core/providers/user_block_provider.dart';
 
 /// ブロックユーザーのコメントを除外するヘルパー関数
 Future<List<BulletinComment>> filterComments(
@@ -9,12 +9,12 @@ Future<List<BulletinComment>> filterComments(
   List<BulletinComment> comments,
 ) async {
   // ブロックユーザーIDを取得
-  final blockedUserIds = await ref.read(blockedUserIdsProvider.future);
+  final hiddenUserIds = await ref.read(hiddenUserIdsProvider.future);
 
   // フィルタリングして返す
   return ContentFilterService.filterCommentsWithCachedIds(
     comments,
-    blockedUserIds,
+    hiddenUserIds,
   );
 }
 

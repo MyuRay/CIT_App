@@ -80,16 +80,25 @@ enum ReportStatus {
 enum ReportType {
   post,
   comment,
-  user;
+  user,
+  cwitterPost,
+  cwitterReply,
+  chibaChannelComment;
 
   String get displayName {
     switch (this) {
       case ReportType.post:
-        return '投稿';
+        return '掲示板投稿';
       case ReportType.comment:
-        return 'コメント';
+        return '掲示板コメント';
       case ReportType.user:
         return 'ユーザー';
+      case ReportType.cwitterPost:
+        return 'Cweet';
+      case ReportType.cwitterReply:
+        return 'Cwitter返信';
+      case ReportType.chibaChannelComment:
+        return 'ちばちゃんねるレス';
     }
   }
 
@@ -101,12 +110,72 @@ enum ReportType {
         return ReportType.comment;
       case 'user':
         return ReportType.user;
+      case 'cwitter_post':
+        return ReportType.cwitterPost;
+      case 'cwitter_reply':
+        return ReportType.cwitterReply;
+      case 'chiba_channel_comment':
+        return ReportType.chibaChannelComment;
       default:
         return ReportType.post;
     }
   }
 
-  String toJson() => name;
+  String toJson() {
+    switch (this) {
+      case ReportType.cwitterPost:
+        return 'cwitter_post';
+      case ReportType.cwitterReply:
+        return 'cwitter_reply';
+      case ReportType.chibaChannelComment:
+        return 'chiba_channel_comment';
+      default:
+        return name;
+    }
+  }
+}
+
+/// 管理者向けに保存する通報時点のスナップショット
+class ReportModerationSnapshot {
+  const ReportModerationSnapshot({
+    this.reporterEmail,
+    this.targetContent,
+    this.targetAuthorId,
+    this.targetAuthorName,
+    this.targetAuthorEmail,
+    this.targetAuthorCwitterId,
+    this.targetPostId,
+    this.source,
+  });
+
+  final String? reporterEmail;
+  final String? targetContent;
+  final String? targetAuthorId;
+  final String? targetAuthorName;
+  final String? targetAuthorEmail;
+  final String? targetAuthorCwitterId;
+  final String? targetPostId;
+  final String? source;
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (reporterEmail != null && reporterEmail!.isNotEmpty)
+        'reporterEmail': reporterEmail,
+      if (targetContent != null && targetContent!.isNotEmpty)
+        'targetContent': targetContent,
+      if (targetAuthorId != null && targetAuthorId!.isNotEmpty)
+        'targetAuthorId': targetAuthorId,
+      if (targetAuthorName != null && targetAuthorName!.isNotEmpty)
+        'targetAuthorName': targetAuthorName,
+      if (targetAuthorEmail != null && targetAuthorEmail!.isNotEmpty)
+        'targetAuthorEmail': targetAuthorEmail,
+      if (targetAuthorCwitterId != null && targetAuthorCwitterId!.isNotEmpty)
+        'targetAuthorCwitterId': targetAuthorCwitterId,
+      if (targetPostId != null && targetPostId!.isNotEmpty)
+        'targetPostId': targetPostId,
+      if (source != null && source!.isNotEmpty) 'source': source,
+    };
+  }
 }
 
 // 通報モデル
@@ -122,6 +191,14 @@ class Report {
   final DateTime createdAt;
   final DateTime? updatedAt;
   final String? resolutionNote; // 管理者の対応メモ
+  final String? reporterEmail;
+  final String? targetContent;
+  final String? targetAuthorId;
+  final String? targetAuthorName;
+  final String? targetAuthorEmail;
+  final String? targetAuthorCwitterId;
+  final String? targetPostId;
+  final String? source;
 
   const Report({
     required this.id,
@@ -135,6 +212,14 @@ class Report {
     required this.createdAt,
     this.updatedAt,
     this.resolutionNote,
+    this.reporterEmail,
+    this.targetContent,
+    this.targetAuthorId,
+    this.targetAuthorName,
+    this.targetAuthorEmail,
+    this.targetAuthorCwitterId,
+    this.targetPostId,
+    this.source,
   });
 
   factory Report.fromJson(Map<String, dynamic> json) {
@@ -151,6 +236,14 @@ class Report {
         createdAt: _parseDateTime(json['createdAt']),
         updatedAt: json['updatedAt'] != null ? _parseDateTime(json['updatedAt']) : null,
         resolutionNote: json['resolutionNote'] as String?,
+        reporterEmail: json['reporterEmail'] as String?,
+        targetContent: json['targetContent'] as String?,
+        targetAuthorId: json['targetAuthorId'] as String?,
+        targetAuthorName: json['targetAuthorName'] as String?,
+        targetAuthorEmail: json['targetAuthorEmail'] as String?,
+        targetAuthorCwitterId: json['targetAuthorCwitterId'] as String?,
+        targetPostId: json['targetPostId'] as String?,
+        source: json['source'] as String?,
       );
     } catch (e) {
       print('Report.fromJson エラー: $e');
@@ -202,7 +295,27 @@ class Report {
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
       'resolutionNote': resolutionNote,
+      if (reporterEmail != null) 'reporterEmail': reporterEmail,
+      if (targetContent != null) 'targetContent': targetContent,
+      if (targetAuthorId != null) 'targetAuthorId': targetAuthorId,
+      if (targetAuthorName != null) 'targetAuthorName': targetAuthorName,
+      if (targetAuthorEmail != null) 'targetAuthorEmail': targetAuthorEmail,
+      if (targetAuthorCwitterId != null)
+        'targetAuthorCwitterId': targetAuthorCwitterId,
+      if (targetPostId != null) 'targetPostId': targetPostId,
+      if (source != null) 'source': source,
     };
+  }
+
+  String get targetAuthorLabel {
+    final name = targetAuthorName?.trim();
+    final cwitterId = targetAuthorCwitterId?.trim();
+    if (name != null && name.isNotEmpty && cwitterId != null && cwitterId.isNotEmpty) {
+      return '$name (@$cwitterId)';
+    }
+    if (name != null && name.isNotEmpty) return name;
+    if (cwitterId != null && cwitterId.isNotEmpty) return '@$cwitterId';
+    return targetAuthorId ?? '不明';
   }
 
   // 時間表示用フォーマット

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
@@ -105,6 +106,27 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     }
   }
 
+  /// 学期切替（時間割切替）後に、通知が ON ならば新しく選択された時間割で
+  /// 講義通知を再予約する。古い学期の予約は内部で全キャンセルされる。
+  void _rescheduleNotificationsForSchedule(Schedule schedule) {
+    final notificationEnabled = ref.read(scheduleNotificationEnabledProvider);
+    if (!notificationEnabled) {
+      debugPrint(
+        '🔕 学期切替: 通知 OFF のため再予約スキップ (schedule=${schedule.id})',
+      );
+      return;
+    }
+    debugPrint('🔁 学期切替: ${schedule.semester} (${schedule.id}) で通知を再予約します');
+    // sync 文脈から呼ばれる想定なので fire-and-forget。
+    () async {
+      try {
+        await ScheduleNotificationService.scheduleWeeklyNotifications(schedule);
+      } catch (e) {
+        debugPrint('⚠️ 学期切替後の通知再予約に失敗: $e');
+      }
+    }();
+  }
+
   @override
   Widget build(BuildContext context) {
     final userId = ref.watch(currentUserIdProvider);
@@ -120,7 +142,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leadingWidth: userId != null ? 138 : null,
+        leadingWidth: userId != null ? 150 : null,
         leading:
             userId != null
                 ? Padding(
@@ -132,35 +154,42 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   ),
                 )
                 : null,
-        title: Text(
-          _isEditMode ? '時間割 - 編集モード' : '時間割',
-          style: _isEditMode ? const TextStyle(color: Colors.black) : null,
-        ),
+        title: _isEditMode
+            ? const Text(
+                '編集モード',
+                style: TextStyle(color: Colors.black),
+              )
+            : const SizedBox.shrink(),
         centerTitle: true,
         backgroundColor: _isEditMode ? Colors.orange.shade50 : null,
         foregroundColor: _isEditMode ? Colors.black : null,
         actions: [
-          // 講義通知ON/OFFボタン（表示モードのみ）- 非表示
-          // if (!_isEditMode)
-          //   Consumer(
-          //     builder: (context, ref, child) {
-          //       final notificationEnabled = ref.watch(scheduleNotificationEnabledProvider);
-          //       return IconButton(
-          //         icon: Icon(
-          //           notificationEnabled ? Icons.notifications_active : Icons.notifications_off,
-          //           color: notificationEnabled ? Theme.of(context).colorScheme.primary : Colors.grey,
-          //         ),
-          //         onPressed: () {
-          //           if (notificationEnabled) {
-          //             _showDisableNotificationDialog(context);
-          //           } else {
-          //             _showNotificationInfoDialog(context);
-          //           }
-          //         },
-          //         tooltip: notificationEnabled ? '講義通知をOFF' : '講義通知をON',
-          //       );
-          //     },
-          //   ),
+          // 講義通知ON/OFFボタン（表示モードのみ）
+          if (!_isEditMode)
+            Consumer(
+              builder: (context, ref, child) {
+                final notificationEnabled =
+                    ref.watch(scheduleNotificationEnabledProvider);
+                return IconButton(
+                  icon: Icon(
+                    notificationEnabled
+                        ? Icons.notifications_active
+                        : Icons.notifications_off,
+                    color: notificationEnabled
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.grey,
+                  ),
+                  onPressed: () {
+                    if (notificationEnabled) {
+                      _showDisableNotificationDialog(context);
+                    } else {
+                      _showNotificationInfoDialog(context);
+                    }
+                  },
+                  tooltip: notificationEnabled ? '講義通知をOFF' : '講義通知をON',
+                );
+              },
+            ),
 
           // 土曜日表示切り替えボタン（編集モードのみ）
           if (_isEditMode)
@@ -530,53 +559,60 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           return const SizedBox.shrink();
         }
         final selected = _resolveSelectedSchedule(schedules);
+        final colorScheme = Theme.of(context).colorScheme;
         return Material(
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(999),
-            onTap:
-                () => _showScheduleSwitchSheet(
-                  context: context,
-                  userId: userId,
-                  schedules: schedules,
-                  selected: selected,
+            onTap: () => _showScheduleSwitchSheet(
+              context: context,
+              userId: userId,
+              schedules: schedules,
+              selected: selected,
+            ),
+            child: Ink(
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: colorScheme.primary.withOpacity(0.35),
                 ),
-            child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: Theme.of(context).dividerColor),
-          ),
-          child: SizedBox(
-            height: 14,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 0),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.tune,
-                    size: 11,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 0.5),
-                  Flexible(
-                    child: Text(
-                      '学期切替',
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontSize: 15,
-                        height: 1.0,
-                        fontWeight: FontWeight.w700,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 3, 4, 3),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.calendar_today_rounded,
+                      size: 11,
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        _scheduleLabel(selected),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelMedium
+                            ?.copyWith(
+                              fontSize: 12,
+                              height: 1.0,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.onPrimaryContainer,
+                            ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 0),
-                  const Icon(Icons.expand_more, size: 11),
-                ],
+                    Icon(
+                      Icons.unfold_more_rounded,
+                      size: 13,
+                      color: colorScheme.onPrimaryContainer.withOpacity(0.7),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ),
             ),
           ),
         );
@@ -639,9 +675,11 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                               onSelected: (_) {
                                 if (!mounted) return;
                                 setState(() => _selectedScheduleId = s.id);
-                                ref.read(selectedScheduleIdProvider.notifier).state =
-                                    s.id;
+                                ref
+                                    .read(selectedScheduleIdProvider.notifier)
+                                    .set(s.id);
                                 _syncWidgetsForSelectedSchedule(s);
+                                _rescheduleNotificationsForSchedule(s);
                                 Navigator.of(sheetContext).pop();
                               },
                             ),
@@ -772,8 +810,11 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     ref.invalidate(scheduleListProvider(userId));
     if (!mounted) return;
     setState(() => _selectedScheduleId = null);
-    ref.read(selectedScheduleIdProvider.notifier).state = null;
+    await ref.read(selectedScheduleIdProvider.notifier).set(null);
     await _syncWidgetsForSelectedSchedule(null);
+    // 削除した時間割の予約済み通知が残らないようキャンセル
+    debugPrint('🗑️ 時間割削除: 講義通知を全キャンセル (deleted=${selected.id})');
+    unawaited(ScheduleNotificationService.cancelAllNotifications());
   }
 
   Future<void> _showCreateScheduleDialog(
@@ -800,9 +841,10 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       );
       if (!mounted) return;
       setState(() => _selectedScheduleId = created.id);
-      ref.read(selectedScheduleIdProvider.notifier).state = created.id;
+      await ref.read(selectedScheduleIdProvider.notifier).set(created.id);
       ref.invalidate(scheduleListProvider(userId));
       await _syncWidgetsForSelectedSchedule(created);
+      _rescheduleNotificationsForSchedule(created);
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(
@@ -858,8 +900,11 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       if (!mounted) return;
       ref.invalidate(scheduleListProvider(userId));
       setState(() => _selectedScheduleId = updatedSchedule.id);
-      ref.read(selectedScheduleIdProvider.notifier).state = updatedSchedule.id;
+      ref
+          .read(selectedScheduleIdProvider.notifier)
+          .set(updatedSchedule.id);
       _syncWidgetsForSelectedSchedule(updatedSchedule);
+      _rescheduleNotificationsForSchedule(updatedSchedule);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('学期名を「${_scheduleLabel(updatedSchedule)}」に変更しました'),
@@ -1620,9 +1665,10 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     if (mounted) {
       setState(() => _selectedScheduleId = fallbackId);
     }
-    ref.read(selectedScheduleIdProvider.notifier).state = fallbackId;
+    await ref.read(selectedScheduleIdProvider.notifier).set(fallbackId);
     final fallbackSchedule = schedules.firstWhere((s) => s.id == fallbackId);
     _syncWidgetsForSelectedSchedule(fallbackSchedule);
+    _rescheduleNotificationsForSchedule(fallbackSchedule);
     return fallbackId;
   }
 
@@ -2331,7 +2377,20 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
             const Text('講義通知をONにしますか？'),
           ],
         ),
-        content: const Text('講義開始10分前に通知を受け取ります。'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '講義開始の約15分前に「次の講義名・教室・QRで出席」の通知を受け取ります。',
+            ),
+            SizedBox(height: 12),
+            Text(
+              '※ アプリの仕様上、講義開始後まで通知が遅れる可能性があります。',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
@@ -2391,7 +2450,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('講義通知を有効にしました。講義開始10分前に通知します。'),
+          content: Text('講義通知を有効にしました。講義開始まもなく通知します。'),
           backgroundColor: Colors.green,
         ),
       );

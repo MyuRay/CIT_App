@@ -26,6 +26,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void initState() {
     super.initState();
     _loadRememberMe();
+    _loadPostEmailChangeLoginEmail();
+  }
+
+  Future<void> _loadPostEmailChangeLoginEmail() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final email = prefs.getString(AppConstants.postEmailChangeLoginEmailKey);
+      if (email == null || email.isEmpty || !mounted) return;
+
+      _emailController.text = email;
+      await prefs.remove(AppConstants.postEmailChangeLoginEmailKey);
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'メールアドレスの変更が完了しました。新しいメールアドレスでログインしてください。',
+            ),
+            duration: Duration(seconds: 5),
+          ),
+        );
+      });
+    } catch (_) {}
   }
 
   Future<void> _loadRememberMe() async {

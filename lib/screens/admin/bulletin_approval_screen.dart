@@ -56,7 +56,7 @@ class _BulletinApprovalScreenState extends ConsumerState<BulletinApprovalScreen>
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: () {
-                  ref.invalidate(bulletinPostsProvider);
+                  ref.read(bulletinFeedProvider.notifier).refresh();
                 },
                 tooltip: '更新',
               ),
@@ -496,7 +496,7 @@ class _BulletinApprovalScreenState extends ConsumerState<BulletinApprovalScreen>
         );
         
         // プロバイダーを更新
-        ref.invalidate(bulletinPostsProvider);
+        await ref.read(bulletinFeedProvider.notifier).refresh();
       }
     } catch (e) {
       if (mounted) {

@@ -3,11 +3,20 @@ import 'package:flutter/foundation.dart';
 import 'menu_image_service.dart';
 
 class MenuSchedulerService {
+  /// いったん無効化。再度有効にする場合は `true` にしてアプリをリビルドする。
+  static const bool scheduledUpdatesEnabled = false;
+
   static Timer? _weeklyTimer;
   static Timer? _dailyCheckTimer;
   
   /// 定期的なメニュー更新を開始
   static void startScheduledUpdates() {
+    if (!scheduledUpdatesEnabled) {
+      stopScheduledUpdates();
+      debugPrint('Menu scheduler: scheduled updates are disabled (scheduledUpdatesEnabled=false)');
+      return;
+    }
+
     // 既存のタイマーをキャンセル
     stopScheduledUpdates();
     

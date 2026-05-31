@@ -21,9 +21,21 @@ final adminPermissionsProvider = StreamProvider.family<AdminPermissions?, String
       .map((doc) {
     if (doc.exists) {
       final data = doc.data()!;
-      final permissions = AdminPermissions.fromJson(data);
-      print('✅ 管理者権限発見: $userId -> isAdmin: ${permissions.isAdmin}');
-      return permissions;
+      try {
+        final permissions = AdminPermissions.fromJson(data);
+        print('✅ 管理者権限発見: $userId -> isAdmin: ${permissions.isAdmin}');
+        return permissions;
+      } catch (e) {
+        if (data['isAdmin'] == true) {
+          return AdminPermissions.fromJson({
+            ...data,
+            'userId': data['userId'] ?? userId,
+            'grantedAt': data['grantedAt'] ?? Timestamp.now(),
+            'grantedBy': data['grantedBy'] ?? '',
+          });
+        }
+        return null;
+      }
     }
     
     print('❌ 管理者権限なし: $userId');
@@ -61,6 +73,14 @@ final currentUserAdminProvider = StreamProvider<AdminPermissions?>((ref) {
         } catch (parseError) {
           print('❌ AdminPermissions.fromJsonパースエラー: $parseError');
           print('❌ 問題のあるデータ: $data');
+          if (data['isAdmin'] == true) {
+            return AdminPermissions.fromJson({
+              ...data,
+              'userId': data['userId'] ?? user.uid,
+              'grantedAt': data['grantedAt'] ?? Timestamp.now(),
+              'grantedBy': data['grantedBy'] ?? '',
+            });
+          }
           return null;
         }
       }
@@ -128,7 +148,7 @@ final canManagePostsProvider = Provider<bool>((ref) {
 final canViewContactsProvider = Provider<bool>((ref) {
   final adminPermissions = ref.watch(currentUserAdminProvider);
   return adminPermissions.when(
-    data: (permissions) => permissions?.canViewContacts ?? false,
+    data: (permissions) => permissions?.canAccessContactManagement ?? false,
     loading: () => false,
     error: (_, __) => false,
   );

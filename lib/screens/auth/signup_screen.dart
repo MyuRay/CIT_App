@@ -3,7 +3,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/legal_consent_provider.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/providers/settings_provider.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -51,11 +53,20 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
+
+      await ref.read(sharedPreferencesProvider).setString(
+            AppConstants.legalConsentAcceptedVersionKey,
+            AppConstants.currentLegalConsentVersion,
+          );
+      ref.read(legalConsentRevisionProvider.notifier).state++;
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('確認メールを送信しました。メールを確認して認証を完了してください。'),
+            content: Text(
+              '確認メールを送信しました。認証完了後にログインし、'
+              '交流タブでCwitter IDを設定してご利用を開始できます。',
+            ),
             duration: Duration(seconds: 5),
           ),
         );
@@ -95,7 +106,56 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 8),
+                Text(
+                  '千葉工業大学の学生向けアプリです。'
+                  'Cwitter（学内マイクロブログ）やちばちゃんねるなどの交流機能のほか、'
+                  '時間割・掲示板・学食レビューなどもご利用いただけます。',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        height: 1.5,
+                      ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFA5D6A7)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.groups_outlined,
+                        color: Colors.green.shade800,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '初回ログイン後、交流タブで Cwitter ID（@から始まるID）を設定すると、'
+                          'Cweetの投稿・返信・recweet やフォローなどが利用できます。',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.green.shade900,
+                            height: 1.45,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Cwitter・ちばちゃんねるを含む本アプリのご利用には、'
+                  '以下への同意が必要です。',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: 8),
 
                 // 規約同意チェック
                 CheckboxListTile(
@@ -169,11 +229,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '千葉工業大学のメールアドレスのみご利用いただけます。\n以下のドメインが利用可能です：',
+                        '千葉工業大学のメールアドレスのみご利用いただけます。\n'
+                        '新規登録は以下のドメインのみ利用可能です：',
                         style: TextStyle(fontSize: 13, color: Colors.blue.shade800),
                       ),
                       const SizedBox(height: 8),
-                      ...AppConstants.allowedDomains.map((domain) => Padding(
+                      ...AppConstants.signupAllowedDomains.map((domain) => Padding(
                             padding: const EdgeInsets.symmetric(vertical: 2),
                             child: Row(
                               children: [
@@ -199,7 +260,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   controller: _displayNameController,
                   decoration: const InputDecoration(
                     labelText: '表示名',
-                    hintText: '掲示板コメントや学食レビューで表示されます',
+                    hintText: 'Cwitter・掲示板・学食レビューなどで表示されます',
                   ),
                   textInputAction: TextInputAction.next,
                   validator: (value) {
@@ -216,46 +277,35 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
+                  autocorrect: false,
+                  inputFormatters: AppConstants.citEmailInputFormatters,
+                  decoration: InputDecoration(
                     labelText: 'CITメールアドレス',
-                    hintText: 'example@s.chibakoudai.jp / example@p.chibakoudai.jp / example@chibatech.ac.jp',
-                    helperText: '※ @s.chibakoudai.jp / @p.chibakoudai.jp / @chibatech.ac.jp のみ利用可能',
-                    helperMaxLines: 2,
+                    hintText: 'example@chibatech.ac.jp',
+                    helperText:
+                        '${AppConstants.emailInputHelper}\n※ ${AppConstants.newEmailDomain} のみ利用可能',
+                    helperMaxLines: 3,
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'メールアドレスを入力してください';
-                    }
-                    if (!value.contains('@')) {
-                      return AppConstants.errorInvalidEmail;
-                    }
-                    if (!AppConstants.isAllowedDomain(value)) {
-                      return AppConstants.errorInvalidDomain;
-                    }
-                    return null;
-                  },
+                  validator: AppConstants.validateCitEmailForSignup,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
+                  autocorrect: false,
+                  inputFormatters: AppConstants.passwordInputFormatters,
                   decoration: const InputDecoration(
                     labelText: 'パスワード',
+                    helperText: AppConstants.passwordInputHelper,
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'パスワードを入力してください';
-                    }
-                    if (value.length < 6) {
-                      return AppConstants.errorWeakPassword;
-                    }
-                    return null;
-                  },
+                  validator: AppConstants.validatePassword,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _confirmPasswordController,
                   obscureText: true,
+                  autocorrect: false,
+                  inputFormatters: AppConstants.passwordInputFormatters,
                   decoration: const InputDecoration(
                     labelText: 'パスワード確認',
                   ),

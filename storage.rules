@@ -1,0 +1,115 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function authEmailLower() {
+      return request.auth != null && request.auth.token.email != null
+        ? request.auth.token.email.lower()
+        : '';
+    }
+
+    function isAllowedCitEmailDomain() {
+      return authEmailLower().matches('.*@s\\.chibakoudai\\.jp$')
+        || authEmailLower().matches('.*@p\\.chibakoudai\\.jp$')
+        || authEmailLower().matches('.*@chibatech\\.ac\\.jp$');
+    }
+
+    function isCITUser() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && isAllowedCitEmailDomain();
+    }
+
+    function isAdmin() {
+      return request.auth != null
+        && firestore.exists(
+          /databases/(default)/documents/admin_permissions/$(request.auth.uid)
+        )
+        && firestore.get(
+          /databases/(default)/documents/admin_permissions/$(request.auth.uid)
+        ).data.isAdmin == true;
+    }
+
+    // プロフィール表示アイコン（本人のみ書き込み・削除）
+    match /profile_images/{userId}/{fileName} {
+      allow read: if isCITUser();
+      allow write, delete: if isCITUser() && request.auth.uid == userId;
+    }
+
+    // 学食メニュー画像（公式スクレイピング・管理者アップロード）
+    match /menu_images/{fileName} {
+      allow read: if isCITUser();
+      allow write, delete: if isAdmin();
+    }
+
+    // キャンパスマップ・フロアマップ
+    match /campus_maps/{fileName} {
+      allow read: if isCITUser();
+      allow write, delete: if isAdmin();
+    }
+
+    match /floor_maps/{fileName} {
+      allow read: if isCITUser();
+      allow write, delete: if isAdmin();
+    }
+
+    // 学食メニュー個別レビュー用画像
+    match /cafeteria_menu_images/{fileName} {
+      allow read: if isCITUser();
+      allow create: if isCITUser();
+      allow update, delete: if isAdmin();
+    }
+
+    // Cwitter 投稿画像（本人のみ、投稿ごとに最大4枚）
+    match /cwitter_post_images/{userId}/{postId}/{fileName} {
+      allow read: if isCITUser();
+      allow write, delete: if isCITUser() && request.auth.uid == userId;
+    }
+
+    // Cwitter 返信画像（本人のみ、返信ごとに最大4枚）
+    match /cwitter_reply_images/{userId}/{postId}/{replyId}/{fileName} {
+      allow read: if isCITUser();
+      allow write, delete: if isCITUser() && request.auth.uid == userId;
+    }
+
+    // ちばちゃんねる レス画像（本人のみ、レスごとに最大4枚）
+    match /chiba_channel_comment_images/{userId}/{threadId}/{commentId}/{fileName} {
+      allow read: if isCITUser();
+      allow write, delete: if isCITUser() && request.auth.uid == userId;
+    }
+
+    // 掲示板投稿画像
+    match /bulletin_images/{fileName} {
+      allow read: if isCITUser();
+      allow create: if isCITUser();
+      allow update, delete: if isCITUser();
+    }
+
+    // バス時刻表 PDF/画像
+    match /bus_timetable/{fileName} {
+      allow read: if isCITUser();
+      allow write, delete: if isAdmin();
+    }
+
+    // 学年暦
+    match /year_calender/{allPaths=**} {
+      allow read: if isCITUser();
+      allow write, delete: if isAdmin();
+    }
+
+    // 時間割インポート学習データ（本人のみアップロード）
+    match /excel_import_training/{userId}/{allPaths=**} {
+      allow read: if isAdmin();
+      allow write, delete: if isCITUser() && request.auth.uid == userId;
+    }
+
+    // 接続テスト用（開発・診断）
+    match /test/{allPaths=**} {
+      allow read, write, delete: if isCITUser();
+    }
+
+    match /diagnostics/{allPaths=**} {
+      allow read, write, delete: if isCITUser();
+    }
+  }
+}

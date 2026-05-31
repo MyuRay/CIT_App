@@ -6,12 +6,17 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/providers/admin_provider.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/user_provider.dart';
 import '../../models/user/user_model.dart';
 import '../../services/user/user_service.dart';
+import '../../services/user/profile_image_service.dart';
+import '../../widgets/profile/user_avatar.dart';
+import '../../core/providers/cwitter_provider.dart';
 import '../admin/notification_management_screen.dart';
 import '../admin/user_management_screen.dart';
 import '../admin/contact_management_screen.dart';
@@ -27,6 +32,7 @@ import '../contact/user_contact_list_screen.dart';
 import '../legal/terms_of_service_screen.dart';
 import '../legal/privacy_policy_screen.dart';
 import '../cafeteria/cafeteria_my_screen.dart';
+import 'cit_app_recruitment_screen.dart';
 import '../../core/providers/settings_provider.dart';
 import '../user_block/blocked_user_list_screen.dart';
 import '../../core/providers/in_app_ad_provider.dart';
@@ -45,11 +51,12 @@ class SimpleProfileScreen extends ConsumerWidget {
     final themeModeNotifier = ref.read(themeModeProvider.notifier);
     final preferredBusCampus = ref.watch(preferredBusCampusProvider);
     final appFontSize = ref.watch(appFontSizeProvider);
+    final calendarWeekStart = ref.watch(calendarWeekStartProvider);
     final profileAdAsync = ref.watch(inAppAdProvider(AdPlacement.profileTop));
 
     print('🔧 テーマモード取得成功: $themeMode');
 
-    // 認証プロバイダーを監視して、表示名変更をリアルタイム反映
+    // Firestore ユーザーをリアルタイム監視して表示名・アイコン変更を即時反映
     final authUserAsync = ref.watch(authStateProvider);
     final currentUser = authUserAsync.when(
       data: (u) => u ?? FirebaseAuth.instance.currentUser,
@@ -58,10 +65,9 @@ class SimpleProfileScreen extends ConsumerWidget {
     );
     print('🔧 現在のユーザー: ${currentUser?.email ?? "ゲスト"}');
 
-    AsyncValue<AppUser?>? appUserAsync;
-    if (currentUser != null) {
-      appUserAsync = ref.watch(userProvider(currentUser.uid));
-    }
+    final appUserAsync = currentUser != null
+        ? ref.watch(currentAppUserStreamProvider)
+        : null;
 
     final firestoreDisplayName = appUserAsync?.maybeWhen(
       data: (appUser) => appUser?.displayName,
@@ -73,9 +79,9 @@ class SimpleProfileScreen extends ConsumerWidget {
       secondary: firebaseDisplayName,
       isLoggedIn: currentUser != null,
     );
-    final avatarInitial = _computeAvatarInitial(
-      effectiveDisplayName,
-      isLoggedIn: currentUser != null,
+    final profileImageUrl = appUserAsync?.maybeWhen(
+      data: (appUser) => appUser?.profileImageUrl,
+      orElse: () => currentUser?.photoURL,
     );
 
     return Scaffold(
@@ -90,19 +96,56 @@ class SimpleProfileScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      child: Text(
-                        avatarInitial,
-                        style: const TextStyle(
-                          fontSize: 32,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                    Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        UserAvatar(
+                          imageUrl: profileImageUrl,
+                          displayName: effectiveDisplayName,
+                          colorSeed: currentUser?.uid,
+                          radius: 40,
+                          initialTextStyle: const TextStyle(
+                            fontSize: 32,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
+                        if (currentUser != null)
+                          Material(
+                            color: Theme.of(context).colorScheme.primary,
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              onTap: () => _showAvatarEditSheet(
+                                context,
+                                ref,
+                                uid: currentUser.uid,
+                                profileImageUrl: profileImageUrl,
+                              ),
+                              customBorder: const CircleBorder(),
+                              child: const Padding(
+                                padding: EdgeInsets.all(6),
+                                child: Icon(
+                                  Icons.camera_alt,
+                                  size: 18,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
+                    if (currentUser != null)
+                      TextButton(
+                        onPressed: () => _showAvatarEditSheet(
+                          context,
+                          ref,
+                          uid: currentUser.uid,
+                          profileImageUrl: profileImageUrl,
+                        ),
+                        child: const Text('表示アイコンを変更'),
+                      ),
+                    const SizedBox(height: 8),
                     Text(
                       effectiveDisplayName,
                       style: Theme.of(context).textTheme.headlineSmall,
@@ -125,6 +168,17 @@ class SimpleProfileScreen extends ConsumerWidget {
                       icon: const Icon(Icons.edit, size: 16),
                       label: const Text('表示名を編集'),
                     ),
+                    if (currentUser != null &&
+                        AppConstants.shouldShowEmailChangeButton(
+                          currentUser.email,
+                        )) ...[
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: () => context.push('/change-email'),
+                        icon: const Icon(Icons.alternate_email, size: 16),
+                        label: const Text('メールアドレスを変更'),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -212,6 +266,21 @@ class SimpleProfileScreen extends ConsumerWidget {
                     subtitle: Text(appFontSize.displayName),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () => _showFontSizeDialog(context, ref, appFontSize),
+                  ),
+
+                  const Divider(height: 1),
+
+                  // 学年暦
+                  ListTile(
+                    leading: const Icon(Icons.calendar_month),
+                    title: const Text('学年暦'),
+                    subtitle: Text('カレンダー: ${calendarWeekStart.displayName}'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () => _showCalendarWeekStartDialog(
+                      context,
+                      ref,
+                      calendarWeekStart,
+                    ),
                   ),
 
                   const Divider(height: 1),
@@ -414,14 +483,7 @@ class SimpleProfileScreen extends ConsumerWidget {
 
           const Divider(height: 1),
 
-          ListTile(
-            leading: const Icon(Icons.school),
-            title: const Text('千葉工業大学 学生支援アプリ'),
-            subtitle: Text(
-              '時間割・掲示板・学食情報などを提供',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
+          const _AppDescriptionListTile(),
 
           const Divider(height: 1),
 
@@ -751,6 +813,139 @@ class SimpleProfileScreen extends ConsumerWidget {
     );
   }
 
+  void _showAvatarEditSheet(
+    BuildContext context,
+    WidgetRef ref, {
+    required String uid,
+    String? profileImageUrl,
+  }) {
+    final hasImage = profileImageUrl != null && profileImageUrl.trim().isNotEmpty;
+
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade400,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                '表示アイコン',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('ライブラリから選ぶ'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _updateAvatar(context, ref, uid, ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('カメラで撮影'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _updateAvatar(context, ref, uid, ImageSource.camera);
+              },
+            ),
+            if (hasImage)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text(
+                  'アイコンを削除',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _removeAvatar(context, ref, uid);
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updateAvatar(
+    BuildContext context,
+    WidgetRef ref,
+    String uid,
+    ImageSource source,
+  ) async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await ProfileImageService.pickAndUpload(uid: uid, source: source);
+      ref.invalidate(userProvider(uid));
+      ref.invalidate(authStateProvider);
+      ref.invalidate(currentAppUserStreamProvider);
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('表示アイコンを更新しました')),
+      );
+    } on ProfileImageCancelledException {
+      if (context.mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('アイコンの更新に失敗しました: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _removeAvatar(
+    BuildContext context,
+    WidgetRef ref,
+    String uid,
+  ) async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await ProfileImageService.removeProfileImage(uid);
+      ref.invalidate(userProvider(uid));
+      ref.invalidate(authStateProvider);
+      ref.invalidate(currentAppUserStreamProvider);
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('表示アイコンを削除しました')),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('アイコンの削除に失敗しました: $e')),
+        );
+      }
+    }
+  }
+
   void _showEditCommentNameDialog(
     BuildContext context,
     WidgetRef ref,
@@ -799,15 +994,13 @@ class SimpleProfileScreen extends ConsumerWidget {
                     }
                     await user.updateDisplayName(newName);
                     await user.reload();
-                    // Firestoreプロフィールも更新（存在しない場合は無視）
-                    try {
-                      await UserService.updateUserProfile(
-                        uid: user.uid,
-                        displayName: newName,
-                      );
-                    } catch (_) {}
-                    // 表示を即時反映
+                    await UserService.updateUserProfile(
+                      uid: user.uid,
+                      displayName: newName,
+                    );
                     ref.invalidate(authStateProvider);
+                    ref.invalidate(currentAppUserStreamProvider);
+                    ref.invalidate(userProvider(user.uid));
                   } catch (e) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(
@@ -888,6 +1081,50 @@ class SimpleProfileScreen extends ConsumerWidget {
               ),
             ],
           ),
+    );
+  }
+
+  void _showCalendarWeekStartDialog(
+    BuildContext context,
+    WidgetRef ref,
+    CalendarWeekStart current,
+  ) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.calendar_month),
+            SizedBox(width: 8),
+            Text('学年暦カレンダー'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: CalendarWeekStart.values
+              .map(
+                (option) => RadioListTile<CalendarWeekStart>(
+                  title: Text(option.displayName),
+                  value: option,
+                  groupValue: current,
+                  onChanged: (value) async {
+                    if (value == null) return;
+                    await ref.read(setCalendarWeekStartProvider)(value);
+                    if (dialogContext.mounted) {
+                      Navigator.of(dialogContext).pop();
+                    }
+                  },
+                ),
+              )
+              .toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('閉じる'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1148,6 +1385,42 @@ class SimpleProfileScreen extends ConsumerWidget {
   }
 }
 
+class _AppDescriptionListTile extends StatefulWidget {
+  const _AppDescriptionListTile();
+
+  @override
+  State<_AppDescriptionListTile> createState() => _AppDescriptionListTileState();
+}
+
+class _AppDescriptionListTileState extends State<_AppDescriptionListTile> {
+  int _tapCount = 0;
+
+  void _handleTap() {
+    _tapCount++;
+    if (_tapCount < AppConstants.developerRecruitmentTapThreshold) return;
+
+    _tapCount = 0;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const CitAppRecruitmentScreen(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.school),
+      title: const Text(AppConstants.appDescriptionTitle),
+      subtitle: Text(
+        AppConstants.appDescriptionSubtitle,
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
+      onTap: _handleTap,
+    );
+  }
+}
+
 String _resolveDisplayName({
   String? primary,
   String? secondary,
@@ -1162,11 +1435,3 @@ String _resolveDisplayName({
   return isLoggedIn ? 'ユーザー' : 'ゲストユーザー';
 }
 
-String _computeAvatarInitial(String displayName, {required bool isLoggedIn}) {
-  final trimmed = displayName.trim();
-  if (trimmed.isNotEmpty) {
-    final first = trimmed.characters.first;
-    return first.toUpperCase();
-  }
-  return isLoggedIn ? 'U' : 'G';
-}

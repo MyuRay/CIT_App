@@ -212,7 +212,7 @@ class PresetLinks {
     ConvenienceLink(
       id: 'preset_portal',
       title: 'CITポータル',
-      url: 'https://portal.it-chiba.ac.jp/',
+      url: 'https://portal.chibatech.ac.jp/uprx/',
       iconName: 'school',
       color: 'blue',
       order: 4,

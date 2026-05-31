@@ -12,6 +12,7 @@ class ReportService {
     required String targetId,
     required ReportReason reason,
     String? detail,
+    ReportModerationSnapshot? moderation,
   }) async {
     try {
       // 認証チェック
@@ -25,9 +26,11 @@ class ReportService {
         throw Exception('詳細は500文字以内で入力してください。');
       }
 
-      // 通報データを作成
-      final Report report = Report(
-        id: '', // Firestoreで自動生成
+      final reporterEmail = (currentUser.email ?? '').trim().toLowerCase();
+      final snapshot = moderation ?? const ReportModerationSnapshot();
+
+      final report = Report(
+        id: '',
         type: type,
         targetId: targetId,
         reporterId: currentUser.uid,
@@ -36,10 +39,21 @@ class ReportService {
         detail: detail,
         status: ReportStatus.pending,
         createdAt: DateTime.now(),
+        reporterEmail: snapshot.reporterEmail?.trim().isNotEmpty == true
+            ? snapshot.reporterEmail!.trim().toLowerCase()
+            : (reporterEmail.isNotEmpty ? reporterEmail : null),
+        targetContent: snapshot.targetContent,
+        targetAuthorId: snapshot.targetAuthorId,
+        targetAuthorName: snapshot.targetAuthorName,
+        targetAuthorEmail: snapshot.targetAuthorEmail?.trim().toLowerCase(),
+        targetAuthorCwitterId: snapshot.targetAuthorCwitterId,
+        targetPostId: snapshot.targetPostId,
+        source: snapshot.source,
       );
 
-      // Firestoreに保存
-      await _firestore.collection('reports').add(report.toJson());
+      final data = report.toJson();
+      data.remove('id');
+      await _firestore.collection('reports').add(data);
     } catch (e) {
       if (e is Exception) {
         rethrow;

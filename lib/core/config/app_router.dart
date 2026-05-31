@@ -5,12 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import '../constants/app_constants.dart';
 import '../providers/auth_provider.dart';
 import '../providers/simple_auth_provider.dart';
 import '../services/analytics_service.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/signup_screen.dart';
 import '../../screens/auth/email_verification_screen.dart';
+import '../../screens/profile/change_email_screen.dart';
+import '../../screens/profile/change_email_verification_screen.dart';
 import '../../screens/main/main_screen.dart';
 import '../../screens/legal/terms_of_service_screen.dart';
 import '../../screens/legal/privacy_policy_screen.dart';
@@ -36,16 +39,33 @@ final routerProvider = Provider<GoRouter>((ref) {
       final authPages = ['/login', '/signup', '/forgot-password'];
       final publicPages = ['/terms', '/privacy'];
       final verificationPage = '/email-verification';
+      final changeEmailPages = ['/change-email', '/change-email-verification'];
 
       final loc = state.matchedLocation;
       final goingAuth = authPages.contains(loc);
       final goingPublic = publicPages.contains(loc);
       final goingVerification = loc == verificationPage;
+      final goingChangeEmail = changeEmailPages.contains(loc);
+
+      // Android のホーム画面ウィジェットや citapp:// スキームから
+      // 渡される時間割系ディープリンクを正規化する。
+      // (例) `citapp://schedule`, `/schedule`, `schedule://...`
+      final fullLocation = state.uri.toString();
+      final lowerFull = fullLocation.toLowerCase();
+      final lowerLoc = loc.toLowerCase();
+      final isScheduleDeepLink =
+          lowerLoc == '/schedule' ||
+          lowerFull.startsWith('citapp://schedule') ||
+          lowerFull.startsWith('schedule://') ||
+          lowerFull.contains('://schedule');
+      if (isScheduleDeepLink && loc != '/home') {
+        return '/home?tab=schedule';
+      }
 
       // 認証状態がまだ判定中（null）の場合
       if (isLoggedIn == null || isEmailVerified == null) {
         // 公開ページと認証ページへのアクセスは許可
-        if (goingAuth || goingPublic || goingVerification) {
+        if (goingAuth || goingPublic || goingVerification || goingChangeEmail) {
           return null;
         }
         // それ以外の場合は、初回起動時なのでリダイレクトしない
@@ -66,11 +86,23 @@ final routerProvider = Provider<GoRouter>((ref) {
           if (goingAuth || goingVerification) {
             return '/home';
           }
+          // メール変更画面は旧ドメイン等のユーザーのみ（新ドメインは不要）
+          if (goingChangeEmail) {
+            if (AppConstants.hasChibatechEmailDomain(currentUser?.email)) {
+              return '/home';
+            }
+            return null;
+          }
         }
       }
 
-      // 未ログイン時は公開画面と認証画面のみ許可し、その他はサインアップへ
-      if (!isLoggedIn && !(goingAuth || goingPublic)) return '/signup';
+      // 未ログイン時は公開画面と認証画面のみ許可
+      if (!isLoggedIn) {
+        if (goingAuth || goingPublic) return null;
+        // メール変更フロー中にセッションが切れた場合はログインへ
+        if (goingChangeEmail) return '/login';
+        return '/signup';
+      }
 
       return null;
     },
@@ -91,6 +123,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const EmailVerificationScreen(),
       ),
       GoRoute(
+        path: '/change-email',
+        name: 'change-email',
+        builder: (context, state) => const ChangeEmailScreen(),
+      ),
+      GoRoute(
+        path: '/change-email-verification',
+        name: 'change-email-verification',
+        builder: (context, state) => const ChangeEmailVerificationScreen(),
+      ),
+      GoRoute(
         path: '/terms',
         name: 'terms',
         builder: (context, state) => const TermsOfServiceScreen(),
@@ -105,9 +147,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'home',
         builder: (context, state) {
           final tab = state.uri.queryParameters['tab'];
-          final initialTabIndex = tab == 'schedule' ? 1 : 0;
+          final initialTabIndex = switch (tab) {
+            'schedule' => 1,
+            'community' => 2,
+            _ => 0,
+          };
           return MainScreen(initialTabIndex: initialTabIndex);
         },
+      ),
+      // ホーム画面ウィジェット (今日の時間割) からのディープリンク
+      // `citapp://schedule` や `/schedule` を時間割タブに誘導する
+      GoRoute(
+        path: '/schedule',
+        name: 'schedule-shortcut',
+        redirect: (context, state) => '/home?tab=schedule',
       ),
       GoRoute(
         path: '/blocked-users',
@@ -136,29 +189,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
     ],
     observers: [analyticsObserver],
-    errorBuilder:
-        (context, state) => Scaffold(
-          appBar: AppBar(title: const Text('エラー')),
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                const SizedBox(height: 16),
-                Text(
-                  'ページが見つかりません',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 8),
-                Text(state.error.toString()),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => context.go('/home'),
-                  child: const Text('ホームに戻る'),
-                ),
-              ],
-            ),
-          ),
-        ),
+    errorBuilder: (context, state) {
+      // 想定外のディープリンクで到達した場合は、可能な限り意味のあるタブへ
+      // 自動フォールバックする。特にホーム画面ウィジェット由来の
+      // `citapp://schedule` 等を「ページが見つかりません」で止めない。
+      final raw = state.uri.toString().toLowerCase();
+      final fallback = raw.contains('schedule') ? '/home?tab=schedule' : '/home';
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          context.go(fallback);
+        }
+      });
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    },
   );
 });

@@ -22,6 +22,17 @@ final simpleAuthStateProvider = StreamProvider<User?>((ref) {
           );
         }
         return refreshedUser;
+      } on FirebaseAuthException catch (e) {
+        // メール変更直後などでトークンが無効化された場合
+        if (e.code == 'user-token-expired' || e.code == 'invalid-user-token') {
+          print('⚠️ 認証トークンが無効化されました: ${e.code}');
+          try {
+            await FirebaseAuth.instance.signOut();
+          } catch (_) {}
+          return null;
+        }
+        print('⚠️ ユーザー情報リロードエラー: $e');
+        return user;
       } catch (e) {
         print('⚠️ ユーザー情報リロードエラー: $e');
         return user;

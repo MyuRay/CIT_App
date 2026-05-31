@@ -189,11 +189,14 @@ class _InAppAdCardState extends ConsumerState<InAppAdCard> {
     }
 
     if (post == null) {
-      try {
-        final posts = await ref.read(bulletinPostsProvider.future);
-        post = posts.firstWhere((p) => p.id == id);
-      } catch (_) {
-        post = null;
+      final doc = await FirebaseFirestore.instance.doc(targetPath).get();
+      final data = doc.data();
+      if (doc.exists && data != null) {
+        try {
+          post = BulletinPost.fromJson({'id': doc.id, ...data});
+        } catch (_) {
+          post = null;
+        }
       }
     }
 

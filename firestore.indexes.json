@@ -1,0 +1,36 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "cwitter_posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "authorId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cwitter_replies",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "authorId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cwitter_recweets",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "postId", "order": "ASCENDING" },
+        { "fieldPath": "recweetedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cwitter_followers",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "followedAt", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

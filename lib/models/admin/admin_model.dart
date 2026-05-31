@@ -24,17 +24,32 @@ class AdminPermissions {
   });
 
   factory AdminPermissions.fromJson(Map<String, dynamic> json) {
+    final isAdmin = json['isAdmin'] as bool? ?? false;
     return AdminPermissions(
-      userId: json['userId'] as String,
-      isAdmin: json['isAdmin'] as bool? ?? false,
-      canManagePosts: json['canManagePosts'] as bool? ?? false,
-      canManageUsers: json['canManageUsers'] as bool? ?? false,
-      canViewContacts: json['canViewContacts'] as bool? ?? false,
-      canManageCategories: json['canManageCategories'] as bool? ?? false,
-      grantedAt: (json['grantedAt'] as Timestamp).toDate(),
-      grantedBy: json['grantedBy'] as String,
+      userId: json['userId'] as String? ?? '',
+      isAdmin: isAdmin,
+      // isAdmin は全管理者権限を含意（旧データでフラグ未設定の場合も許可）
+      canManagePosts: json['canManagePosts'] as bool? ?? isAdmin,
+      canManageUsers: json['canManageUsers'] as bool? ?? isAdmin,
+      canViewContacts: json['canViewContacts'] as bool? ?? isAdmin,
+      canManageCategories: json['canManageCategories'] as bool? ?? isAdmin,
+      grantedAt: _parseGrantedAt(json['grantedAt']),
+      grantedBy: json['grantedBy'] as String? ?? '',
     );
   }
+
+  static DateTime _parseGrantedAt(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (_) {}
+    }
+    return DateTime.now();
+  }
+
+  bool get canAccessContactManagement => isAdmin || canViewContacts;
 
   Map<String, dynamic> toJson() {
     return {

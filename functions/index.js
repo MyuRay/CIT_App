@@ -33,6 +33,7 @@ function getWebhook(kind) {
     report: process.env.DISCORD_WEBHOOK_URL_REPORT,
     coupon: process.env.DISCORD_WEBHOOK_URL_COUPON,
     comment: process.env.DISCORD_WEBHOOK_URL_COMMENT,
+    cwitter: process.env.DISCORD_WEBHOOK_URL_CWITTER,
   };
   const generic = process.env.DISCORD_WEBHOOK_URL;
 
@@ -89,6 +90,158 @@ function maskEmail(email) {
   const visiblePart = localPart.substring(0, 3);
   const maskedPart = '*'.repeat(localPart.length - 3);
   return `${visiblePart}${maskedPart}@${domain}`;
+}
+
+function clampDiscordText(text, maxLen = 1024) {
+  const value = String(text ?? '').trim() || '（なし）';
+  if (value.length <= maxLen) return value;
+  return `${value.substring(0, maxLen - 3)}...`;
+}
+
+function parseCwitterImageUrls(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+      .map((item) => String(item || '').trim())
+      .filter((url) => url.startsWith('http'))
+      .slice(0, 4);
+}
+
+function buildCwitterPollField(post) {
+  const poll = post.poll;
+  if (!poll || !Array.isArray(poll.options) || poll.options.length < 2) {
+    return null;
+  }
+  const pollLines = poll.options
+      .map((option, index) => `${index + 1}. ${option.text || '（未設定）'}`)
+      .join('\n');
+  return {
+    name: '投票',
+    value: clampDiscordText(pollLines, 1024),
+    inline: false,
+  };
+}
+
+function buildCwitterEntityEmbed({title, color, entity, entityId}) {
+  const displayName = entity.displayName || '匿名';
+  const cwitterId = entity.cwitterId || 'unknown';
+  const authorId = entity.authorId || 'unknown';
+  const email = maskEmail(entity.authorEmail || '（未設定）');
+  const body = (entity.body || '').trim();
+  const profileImageUrl = (entity.profileImageUrl || '').trim();
+  const imageUrls = parseCwitterImageUrls(entity.imageUrls);
+
+  const description = body ||
+    (imageUrls.length > 0 ? '（テキストなし・画像のみ）' : '（内容なし）');
+
+  const itemEmbed = {
+    title,
+    description: clampDiscordText(description, 4096),
+    color,
+    fields: [
+      {name: '投稿者', value: clampDiscordText(displayName, 256), inline: true},
+      {name: 'Cwitter ID', value: clampDiscordText(`@${cwitterId}`, 256), inline: true},
+      {name: 'メール', value: clampDiscordText(email, 256), inline: true},
+      {name: 'UID', value: clampDiscordText(authorId, 1024), inline: false},
+      {name: '投稿ID', value: clampDiscordText(entityId, 1024), inline: false},
+    ],
+    timestamp: new Date().toISOString(),
+  };
+
+  if (profileImageUrl.startsWith('http')) {
+    itemEmbed.thumbnail = {url: profileImageUrl};
+  }
+
+  if (imageUrls.length > 0) {
+    itemEmbed.fields.push({
+      name: '添付画像',
+      value: clampDiscordText(`${imageUrls.length}枚`, 1024),
+      inline: true,
+    });
+  }
+
+  const pollField = buildCwitterPollField(entity);
+  if (pollField) {
+    itemEmbed.fields.push(pollField);
+  }
+
+  return {embed: itemEmbed, imageUrls};
+}
+
+function appendCwitterImageEmbeds(embeds, imageUrls, color, labelPrefix) {
+  for (let i = 0; i < imageUrls.length; i++) {
+    embeds.push({
+      title: `📷 ${labelPrefix} ${i + 1}/${imageUrls.length}`,
+      color,
+      image: {url: imageUrls[i]},
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
+
+function buildCwitterPostDiscordPayload(post, postId) {
+  const {embed, imageUrls} = buildCwitterEntityEmbed({
+    title: '🐦 新規Cweet',
+    color: 0x4caf50,
+    entity: post,
+    entityId: postId,
+  });
+
+  const embeds = [embed];
+  appendCwitterImageEmbeds(embeds, imageUrls, 0x4caf50, '添付画像');
+  return {embeds: embeds.slice(0, 10)};
+}
+
+function buildCwitterReplyDiscordPayload({
+  originalPost,
+  originalPostId,
+  targetPost,
+  targetPostId,
+  reply,
+  replyId,
+}) {
+  const embeds = [];
+
+  const original = buildCwitterEntityEmbed({
+    title: '📌 元Cweet',
+    color: 0x4caf50,
+    entity: originalPost,
+    entityId: originalPostId,
+  });
+  embeds.push(original.embed);
+
+  const target = buildCwitterEntityEmbed({
+    title: '↩️ 返信先Cweet',
+    color: 0xff9800,
+    entity: targetPost,
+    entityId: targetPostId,
+  });
+  embeds.push(target.embed);
+
+  const replyEmbed = buildCwitterEntityEmbed({
+    title: '💬 返信Cweet',
+    color: 0x2196f3,
+    entity: reply,
+    entityId: replyId,
+  });
+  embeds.push(replyEmbed.embed);
+
+  appendCwitterImageEmbeds(
+      embeds,
+      original.imageUrls,
+      0x4caf50,
+      '元Cweetの画像',
+  );
+
+  if (targetPostId !== originalPostId) {
+    appendCwitterImageEmbeds(
+        embeds,
+        target.imageUrls,
+        0xff9800,
+        '返信先Cweetの画像',
+    );
+  }
+
+  return {embeds: embeds.slice(0, 10)};
 }
 
 exports.notifyUserCreated = onDocumentCreated('users/{uid}', async (event) => {
@@ -329,6 +482,52 @@ exports.notifyBulletinCommentCreated = onDocumentCreated('bulletin_comments/{id}
   await postToDiscord(getWebhook('comment'), payload);
 });
 
+// Cwitter: 新規Cweet作成時にDiscord通知
+exports.notifyCwitterPostCreated = onDocumentCreated('cwitter_posts/{id}', async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+
+  const post = snap.data() || {};
+  const payload = buildCwitterPostDiscordPayload(post, event.params.id);
+  await postToDiscord(getWebhook('cwitter'), payload);
+});
+
+// Cwitter: 返信作成時にDiscord通知
+exports.notifyCwitterReplyCreated = onDocumentCreated(
+    'cwitter_posts/{postId}/replies/{replyId}',
+    async (event) => {
+      const replySnap = event.data;
+      if (!replySnap) return;
+
+      const reply = replySnap.data() || {};
+      const originalPostId = event.params.postId;
+      const replyId = event.params.replyId;
+
+      let originalPost = {};
+      try {
+        const postDoc = await admin.firestore()
+            .collection('cwitter_posts')
+            .doc(originalPostId)
+            .get();
+        if (postDoc.exists) {
+          originalPost = postDoc.data() || {};
+        }
+      } catch (error) {
+        console.error('元Cweetの取得に失敗:', error);
+      }
+
+      const payload = buildCwitterReplyDiscordPayload({
+        originalPost,
+        originalPostId,
+        targetPost: originalPost,
+        targetPostId: originalPostId,
+        reply,
+        replyId,
+      });
+      await postToDiscord(getWebhook('cwitter'), payload);
+    },
+);
+
 // 学食メニュー: 追加時に通知
 exports.notifyMenuItemCreated = onDocumentCreated('cafeteria_menu_items/{id}', async (event) => {
   const snap = event.data;
@@ -362,37 +561,8 @@ exports.notifyMenuItemCreated = onDocumentCreated('cafeteria_menu_items/{id}', a
   await postToDiscord(getWebhook('menu'), payload);
 });
 
-// 学食レビュー: 追加時に通知
-exports.notifyReviewCreated = onDocumentCreated('cafeteria_reviews/{id}', async (event) => {
-  const snap = event.data;
-  if (!snap) return;
-
-  const review = snap.data() || {};
-  const menuName = review.menuItemName || review.menuName || '（メニュー不明）';
-  const rating = review.rating != null ? `${review.rating}` : '評価なし';
-  const reviewerName = review.userName || review.reviewerName || '匿名';
-  const comment = review.comment || review.text || '（コメントなし）';
-
-  // コメントが長すぎる場合は切り詰める
-  const truncatedComment = comment.length > 100
-    ? comment.substring(0, 100) + '...'
-    : comment;
-
-  const payload = embed({
-    title: '⭐ 新しい学食レビューが投稿されました',
-    description: '学食メニューに新しいレビューが追加されました。',
-    color: 0xfee75c,
-    fields: [
-      {name: 'メニュー名', value: String(menuName), inline: true},
-      {name: '評価', value: `${rating} / 5`, inline: true},
-      {name: '投稿者', value: String(reviewerName), inline: true},
-      {name: 'コメント', value: String(truncatedComment), inline: false},
-      {name: 'ドキュメントID', value: event.params.id, inline: false},
-    ],
-  });
-
-  await postToDiscord(getWebhook('review'), payload);
-});
+// 学食レビュー追加時のDiscord通知は廃止しました。
+// 再開する場合はGitの履歴から `notifyReviewCreated` を復元し、デプロイしてください。
 
 // 通報: 追加時に通知
 exports.notifyReportCreated = onDocumentCreated('reports/{id}', async (event) => {
@@ -444,21 +614,14 @@ exports.notifyReportCreated = onDocumentCreated('reports/{id}', async (event) =>
   await postToDiscord(getWebhook('report'), payload);
 });
 
-// 学食メニュー画像の自動更新（月曜日 1am JST）
-exports.updateMenuImagesAt1AM = onSchedule({
-  schedule: '0 1 * * 1',
+// 学食メニュー画像の自動更新（毎日 8:00 AM JST）
+// 平日のみにしたい場合は schedule を '0 8 * * 1-5' に変更する
+exports.updateMenuImagesDailyAt8AM = onSchedule({
+  schedule: '0 8 * * *',
   timeZone: 'Asia/Tokyo',
+  retryCount: 2,
 }, async (event) => {
-  console.log('🍽️ 学食メニュー画像更新開始 (1:00 AM JST)');
-  await updateMenuImages();
-});
-
-// 学食メニュー画像の自動更新（月曜日 8am JST）
-exports.updateMenuImagesAt8AM = onSchedule({
-  schedule: '0 8 * * 1',
-  timeZone: 'Asia/Tokyo',
-}, async (event) => {
-  console.log('🍽️ 学食メニュー画像更新開始 (8:00 AM JST)');
+  console.log('🍽️ 学食メニュー画像更新開始 (毎日 8:00 AM JST)');
   await updateMenuImages();
 });
 
@@ -1067,6 +1230,69 @@ exports.syncClubOrganizationsNow = onRequest(async (req, res) => {
   }
 });
 
+/** @returns {string|null} notificationPreferences のキー（プッシュ制御用） */
+function preferenceKeyFromNotification(notification) {
+  const type = String(notification.type || '');
+  const data = notification.data && typeof notification.data === 'object'
+    ? notification.data
+    : {};
+
+  switch (type) {
+    case 'comment':
+      if (data.source === 'chiba_channel') return 'chiba_channel_thread';
+      return 'bulletin_comment';
+    case 'reply':
+      if (data.source === 'cwitter') return 'cwitter_reply';
+      if (data.source === 'chiba_channel') return 'chiba_channel_comment_reply';
+      return 'bulletin_reply';
+    case 'like':
+      return data.source === 'cwitter' ? 'cwitter_like' : null;
+    case 'follow':
+      return data.source === 'cwitter' ? 'cwitter_follow' : null;
+    case 'post_approved':
+    case 'post_rejected':
+    case 'pin_approved':
+    case 'pin_rejected':
+      return 'bulletin_moderation';
+    case 'general':
+      return data.type === 'contact_response' ? 'contact_reply' : null;
+    case 'app_update':
+    case 'maintenance':
+    case 'important':
+    case 'feature':
+    case 'system':
+      return 'global_announcement';
+    default:
+      return null;
+  }
+}
+
+/**
+ * user_settings.notificationPreferences を参照（未設定はオン扱い）
+ * @param {string} userId
+ * @param {string} preferenceKey
+ * @param {Map<string, object>|null} prefsCache
+ */
+async function isPushEnabledForUser(userId, preferenceKey, prefsCache = null) {
+  if (!preferenceKey) return true;
+
+  let prefs = prefsCache?.get(userId);
+  if (prefs === undefined) {
+    const settingsDoc = await admin.firestore()
+      .collection('user_settings')
+      .doc(userId)
+      .get();
+    prefs = settingsDoc.exists
+      ? settingsDoc.data()?.notificationPreferences
+      : null;
+    if (prefsCache) prefsCache.set(userId, prefs);
+  }
+
+  if (!prefs || typeof prefs !== 'object') return true;
+  const value = prefs[preferenceKey];
+  return typeof value === 'boolean' ? value : true;
+}
+
 // 全体通知が作成されたら全ユーザーへプッシュ通知
 exports.notifyGlobalNotificationCreated = onDocumentCreated('global_notifications/{id}', async (event) => {
   const snap = event.data;
@@ -1095,18 +1321,31 @@ exports.notifyGlobalNotificationCreated = onDocumentCreated('global_notification
       return;
     }
 
-    const tokenEntries = tokensSnapshot.docs
-      .map((doc) => {
-        const data = doc.data();
-        if (!data) return null;
-        const token = data.fcmToken;
-        if (!token) return null;
-        return {token, userId: doc.id};
-      })
-      .filter(Boolean);
+    const settingsSnapshot = await admin.firestore()
+      .collection('user_settings')
+      .get();
+    const prefsCache = new Map();
+    settingsSnapshot.docs.forEach((doc) => {
+      prefsCache.set(doc.id, doc.data()?.notificationPreferences ?? null);
+    });
+
+    const globalPrefKey = 'global_announcement';
+    const tokenEntries = [];
+    for (const doc of tokensSnapshot.docs) {
+      const data = doc.data();
+      if (!data?.fcmToken) continue;
+      const userId = doc.id;
+      const pushEnabled = await isPushEnabledForUser(
+        userId,
+        globalPrefKey,
+        prefsCache,
+      );
+      if (!pushEnabled) continue;
+      tokenEntries.push({token: data.fcmToken, userId});
+    }
 
     if (tokenEntries.length === 0) {
-      console.log('有効なFCMトークンが存在しません');
+      console.log('プッシュ送信対象のFCMトークンがありません');
       return;
     }
 
@@ -1177,6 +1416,15 @@ exports.sendPushNotification = onDocumentCreated('notifications/{notificationId}
 
   if (!userId) {
     console.warn('通知にuserIdがありません');
+    return;
+  }
+
+  const preferenceKey = preferenceKeyFromNotification(notification);
+  const pushEnabled = await isPushEnabledForUser(userId, preferenceKey);
+  if (!pushEnabled) {
+    console.log(
+      `プッシュ通知をスキップ（ユーザー設定オフ）: ${preferenceKey} -> ${userId}`,
+    );
     return;
   }
 
@@ -1340,7 +1588,7 @@ exports.getUserGrowthStats = onRequest(async (req, res) => {
   }
 });
 
-// 既存ユーザー救済用: usersコレクションの emailVerified を一括で true に更新
+// 既存ユーザー救済用: usersコレクションの emailVerified / isEmailVerified を一括で true に更新
 exports.bulkVerifyExistingUsersNow = onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
@@ -1364,12 +1612,13 @@ exports.bulkVerifyExistingUsersNow = onRequest(async (req, res) => {
     for (const doc of snapshot.docs) {
       scanned += 1;
       const data = doc.data() || {};
-      if (data.emailVerified === true) {
+      if (data.emailVerified === true && data.isEmailVerified === true) {
         continue;
       }
 
       batch.update(doc.ref, {
         emailVerified: true,
+        isEmailVerified: true,
         updatedAt: syncedAt,
       });
       batchOps += 1;
@@ -1390,7 +1639,7 @@ exports.bulkVerifyExistingUsersNow = onRequest(async (req, res) => {
       ok: true,
       scanned,
       updated,
-      message: '既存ユーザーのemailVerified一括更新が完了しました',
+      message: '既存ユーザーのemailVerified/isEmailVerified一括更新が完了しました',
     });
   } catch (e) {
     console.error('❌ bulkVerifyExistingUsersNow error:', e);
