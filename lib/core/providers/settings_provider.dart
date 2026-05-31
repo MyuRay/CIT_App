@@ -65,6 +65,10 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
             preferredBusCampus: _prefs.getString('preferredBusCampus') ?? 'tsudanuma',
             scheduleNotificationEnabled: _prefs.getBool('scheduleNotificationEnabled') ?? false,
             appFontSize: _fontSizeFromStorage(_prefs.getString('appFontSize')),
+            trainPreferredDirectionTsudanuma:
+                _prefs.getString('train_preferred_direction_tsudanuma') ?? '',
+            trainPreferredDirectionNarashino:
+                _prefs.getString('train_preferred_direction_narashino') ?? '',
           ),
         );
 
@@ -100,6 +104,17 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     await _prefs.setString('appFontSize', fontSize.storageValue);
     state = state.copyWith(appFontSize: fontSize);
   }
+
+  /// 電車スナップショットの優先方面（`directionKey`、空なら先頭方面を使用）
+  Future<void> setTrainPreferredDirection(String campusKey, String directionKey) async {
+    if (campusKey == 'narashino') {
+      await _prefs.setString('train_preferred_direction_narashino', directionKey);
+      state = state.copyWith(trainPreferredDirectionNarashino: directionKey);
+    } else {
+      await _prefs.setString('train_preferred_direction_tsudanuma', directionKey);
+      state = state.copyWith(trainPreferredDirectionTsudanuma: directionKey);
+    }
+  }
 }
 
 // 設定状態クラス
@@ -109,24 +124,34 @@ class SettingsState {
     required this.preferredBusCampus,
     required this.scheduleNotificationEnabled,
     required this.appFontSize,
+    required this.trainPreferredDirectionTsudanuma,
+    required this.trainPreferredDirectionNarashino,
   });
 
   final bool showSaturday;
   final String preferredBusCampus; // 'tsudanuma' or 'narashino'
   final bool scheduleNotificationEnabled; // 講義通知の有効/無効
   final AppFontSizeOption appFontSize;
+  final String trainPreferredDirectionTsudanuma;
+  final String trainPreferredDirectionNarashino;
 
   SettingsState copyWith({
     bool? showSaturday,
     String? preferredBusCampus,
     bool? scheduleNotificationEnabled,
     AppFontSizeOption? appFontSize,
+    String? trainPreferredDirectionTsudanuma,
+    String? trainPreferredDirectionNarashino,
   }) {
     return SettingsState(
       showSaturday: showSaturday ?? this.showSaturday,
       preferredBusCampus: preferredBusCampus ?? this.preferredBusCampus,
       scheduleNotificationEnabled: scheduleNotificationEnabled ?? this.scheduleNotificationEnabled,
       appFontSize: appFontSize ?? this.appFontSize,
+      trainPreferredDirectionTsudanuma:
+          trainPreferredDirectionTsudanuma ?? this.trainPreferredDirectionTsudanuma,
+      trainPreferredDirectionNarashino:
+          trainPreferredDirectionNarashino ?? this.trainPreferredDirectionNarashino,
     );
   }
 }

@@ -59,6 +59,7 @@ dependencies:
   http: ^1.2.2
   html: ^0.15.5
   url_launcher: ^6.3.1
+  intl: ^0.20.2
   
   # Data storage
   shared_preferences: ^2.3.2
@@ -143,6 +144,8 @@ flutter:
   assets:
     - assets/icons/
     - assets/images/
+    - assets/data/
+    - assets/train/
     # ディレクトリ指定だけで拾えない環境向けに明示（新習志野 1・2号館1階）
     - assets/images/classroom_map/narashino_1_1f.png
     - assets/images/classroom_map/narashino_2_1f.png

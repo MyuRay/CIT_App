@@ -8,6 +8,7 @@
   "scripts": {
     "deploy": "firebase deploy --only functions",
     "serve": "firebase emulators:start --only functions",
+    "test": "node --test test/*.test.js",
     "export-stats": "node ../scripts/user-growth-stats.js"
   },
   "dependencies": {

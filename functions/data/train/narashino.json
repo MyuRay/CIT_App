@@ -1,0 +1,19 @@
+{
+  "stationName": "新習志野",
+  "dataVersion": "2026-03",
+  "source": "JR東日本公式時刻表（未登録・京葉線は今後追加）",
+  "directions": {
+    "kaihimmakuhari": {
+      "directionLabel": "海浜幕張方面",
+      "boardingPlatform": "1・2番ホーム",
+      "weekday": [],
+      "weekend": []
+    },
+    "tokyo": {
+      "directionLabel": "東京・舞浜方面",
+      "boardingPlatform": "3・4番ホーム",
+      "weekday": [],
+      "weekend": []
+    }
+  }
+}

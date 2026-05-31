@@ -4,4 +4,6 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Functions エミュレータ (http://10.0.2.2:5001) 向け。debug ビルドのみ -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>

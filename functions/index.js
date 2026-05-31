@@ -6,6 +6,7 @@ const {
 } = require('firebase-functions/v2/firestore');
 const {onSchedule} = require('firebase-functions/v2/scheduler');
 const {onRequest} = require('firebase-functions/v2/https');
+const {createTrainInfoHandler} = require('./train_info');
 const admin = require('firebase-admin');
 const axios = require('axios');
 const cheerio = require('cheerio');
@@ -1241,6 +1242,11 @@ exports.sendPushNotification = onDocumentCreated('notifications/{notificationId}
     }
   }
 });
+
+// 最寄駅電車情報プロキシ（mock | static | odpt）
+// GET ?campus=tsudanuma|narashino
+// env: TRAIN_INFO_MODE=mock|static|odpt, ODPT_ACL_CONSUMER_KEY=...
+exports.trainInfo = createTrainInfoHandler();
 
 // ユーザー数推移を取得するCloud Function
 exports.getUserGrowthStats = onRequest(async (req, res) => {

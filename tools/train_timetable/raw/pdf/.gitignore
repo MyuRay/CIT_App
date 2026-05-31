@@ -1,0 +1,9 @@
+# JR東公式 PDF（ローカル作業用。リポジトリには含めない）
+*.pdf
+
+# フォルダ構造は残す
+!.gitkeep
+!weekday/
+!weekday/.gitkeep
+!weekend/
+!weekend/.gitkeep

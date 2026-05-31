@@ -35,6 +35,7 @@ import '../cafeteria/cafeteria_reviews_screen.dart';
 import '../cafeteria/cafeteria_camera_info_screen.dart';
 import '../schedule/attendance_qr_reader_screen.dart';
 import '../../widgets/campus_map_widget.dart';
+import '../../widgets/home/train_access_home_card.dart';
 import '../../widgets/performance/optimized_notification_badge.dart';
 import '../../widgets/common/pulsing_dot_badge.dart';
 import '../../models/convenience_link/convenience_link_model.dart';
@@ -86,7 +87,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'timetable',
     'cafeteria',
     'bus',
+    'train_access',
     'campus_map',
+    'classroom_map',
     'academic_calendar',
     'convenience_links',
   ];
@@ -955,8 +958,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return _buildCafeteriaCard(context, ref, todayReviewExistsAsync);
       case 'bus':
         return _buildBusInfoCard(context, ref);
+      case 'train_access':
+        return const TrainAccessHomeCard();
       case 'campus_map':
         return _buildCampusMapCard(context);
+      case 'classroom_map':
+        return _buildClassroomMapCard(context);
       case 'academic_calendar':
         return _buildAcademicCalendarCard(context);
       case 'club_organizations':
@@ -1226,6 +1233,55 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildClassroomMapCard(BuildContext context) {
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _openClassroomMap(context),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.class_outlined,
+                  color: Theme.of(context).colorScheme.onSecondaryContainer,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '教室マップ',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '校舎・教室の位置を一覧と地図で確認できます',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
         ),
       ),
     );
@@ -1929,6 +1985,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ),
                     ),
                     const Divider(height: 1),
+                    const TrainHomeCardCampusSetting(),
+                    const Divider(height: 1),
                     Expanded(
                       child: ReorderableListView.builder(
                         itemCount: tempOrder.length,
@@ -2006,8 +2064,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return '学食情報';
       case 'bus':
         return '学バス情報';
+      case 'train_access':
+        return trainHomeCardTitle(ref.read(preferredBusCampusProvider));
       case 'campus_map':
         return 'キャンパスマップ';
+      case 'classroom_map':
+        return '教室マップ';
       case 'academic_calendar':
         return '学年歴';
       case 'club_organizations':
@@ -2035,6 +2097,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         result.insert(convenienceIndex, 'academic_calendar');
       } else {
         result.add('academic_calendar');
+      }
+    }
+    if (!result.contains('classroom_map')) {
+      final campusIndex = result.indexOf('campus_map');
+      if (campusIndex >= 0) {
+        result.insert(campusIndex + 1, 'classroom_map');
+      } else {
+        final acIndex = result.indexOf('academic_calendar');
+        if (acIndex >= 0) {
+          result.insert(acIndex, 'classroom_map');
+        } else {
+          result.add('classroom_map');
+        }
+      }
+    }
+    if (!result.contains('train_access')) {
+      final busIndex = result.indexOf('bus');
+      if (busIndex >= 0) {
+        result.insert(busIndex + 1, 'train_access');
+      } else {
+        final campusIndex = result.indexOf('campus_map');
+        if (campusIndex >= 0) {
+          result.insert(campusIndex, 'train_access');
+        } else {
+          result.add('train_access');
+        }
       }
     }
     for (final id in _defaultHomeCardOrder) {
