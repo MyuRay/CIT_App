@@ -19,6 +19,7 @@ import '../../models/community/cwitter_recweet.dart';
 import '../../models/community/cwitter_reply.dart';
 import '../../models/community/cwitter_social_platform.dart';
 import 'cwitter_post_image_service.dart';
+import '../common/user_post_rate_limit.dart';
 import '../users/user_block_service.dart';
 
 class CwitterPostsPageResult {
@@ -54,6 +55,13 @@ class CwitterPostRateLimitException implements Exception {
   String toString() => 'Cweetは1分間に2件までです。少し待ってからもう一度Cweetしてください';
 }
 
+class CwitterReplyRateLimitException implements Exception {
+  const CwitterReplyRateLimitException();
+
+  @override
+  String toString() => '返信は1分間に2件までです。少し待ってからもう一度返信してください';
+}
+
 class CwitterService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -61,8 +69,6 @@ class CwitterService {
   static const String _repliesIndexCollection = 'cwitter_replies';
   static const String _idsCollection = 'cwitter_ids';
   static const String _usersCollection = 'users';
-  static const String _rateLimitCollection = 'rate_limits';
-  static const String _postRateLimitDocId = 'cwitter_post';
   static const String _followingCollection = 'cwitter_following';
   static const String _followersCollection = 'cwitter_followers';
   static const String _recweetsCollection = 'cwitter_recweets';
@@ -1223,10 +1229,11 @@ class CwitterService {
     return controller.stream;
   }
 
-  /// ユーザーの Cweet 数（投稿 + recweet）
+  /// ユーザーの Cweet 数（投稿 + 返信 + recweet）
   static Stream<CwitterActivityCounts> watchUserCweetCounts(String userId) {
     late StreamController<CwitterActivityCounts> controller;
     var postCount = 0;
+    var replyCount = 0;
     var recweetCount = 0;
     final subscriptions =
         <StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>[];
@@ -1236,6 +1243,7 @@ class CwitterService {
       controller.add(
         CwitterActivityCounts(
           postCount: postCount,
+          replyCount: replyCount,
           recweetCount: recweetCount,
         ),
       );
@@ -1251,6 +1259,19 @@ class CwitterService {
               .listen(
             (snapshot) {
               postCount = snapshot.docs.length;
+              emit();
+            },
+            onError: controller.addError,
+          ),
+        );
+        subscriptions.add(
+          _firestore
+              .collection(_repliesIndexCollection)
+              .where('authorId', isEqualTo: userId)
+              .snapshots()
+              .listen(
+            (snapshot) {
+              replyCount = snapshot.docs.length;
               emit();
             },
             onError: controller.addError,
@@ -1721,13 +1742,12 @@ class CwitterService {
     }
 
     final postRef = _firestore.collection(_postsCollection).doc();
-    final rateLimitRef = _firestore
-        .collection(_usersCollection)
-        .doc(authorId)
-        .collection(_rateLimitCollection)
-        .doc(_postRateLimitDocId);
+    final rateLimitRef = UserPostRateLimit.ref(
+      _firestore,
+      userId: authorId,
+      limitKey: UserPostRateLimit.cwitterPostKey,
+    );
     final now = DateTime.now();
-    final windowDuration = const Duration(minutes: 1);
 
     final data = <String, dynamic>{
       'authorId': authorId,
@@ -1764,34 +1784,14 @@ class CwitterService {
     }
 
     await _firestore.runTransaction((transaction) async {
-      final rateSnap = await transaction.get(rateLimitRef);
-
-      var nextCount = 1;
-      var nextWindowStart = now;
-
-      if (rateSnap.exists) {
-        final rateData = rateSnap.data() ?? <String, dynamic>{};
-        final windowStartTs = rateData['windowStart'];
-        final currentCount = (rateData['count'] as num?)?.toInt() ?? 0;
-        final windowStart = windowStartTs is Timestamp
-            ? windowStartTs.toDate()
-            : now.subtract(windowDuration);
-
-        if (now.difference(windowStart) < windowDuration) {
-          if (currentCount >= 2) {
-            throw const CwitterPostRateLimitException();
-          }
-          nextCount = currentCount + 1;
-          nextWindowStart = windowStart;
-        }
-      }
+      await UserPostRateLimit.enforceInTransaction(
+        transaction: transaction,
+        rateLimitRef: rateLimitRef,
+        now: now,
+        rateLimitException: const CwitterPostRateLimitException(),
+      );
 
       transaction.set(postRef, data);
-      transaction.set(rateLimitRef, {
-        'windowStart': Timestamp.fromDate(nextWindowStart),
-        'count': nextCount,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
     });
   }
 
@@ -1948,19 +1948,34 @@ class CwitterService {
       );
     }
 
-    final batch = _firestore.batch();
     final replyIndexData = <String, dynamic>{
       ...replyData,
       'postId': postId,
       'replyId': replyRef.id,
     };
-    batch.set(replyRef, replyData);
-    batch.set(
-      _replyIndexRef(postId: postId, replyId: replyRef.id),
-      replyIndexData,
+
+    final rateLimitRef = UserPostRateLimit.ref(
+      _firestore,
+      userId: authorId,
+      limitKey: UserPostRateLimit.cwitterReplyKey,
     );
-    batch.update(postRef, {'replyCount': FieldValue.increment(1)});
-    await batch.commit();
+    final now = DateTime.now();
+
+    await _firestore.runTransaction((transaction) async {
+      await UserPostRateLimit.enforceInTransaction(
+        transaction: transaction,
+        rateLimitRef: rateLimitRef,
+        now: now,
+        rateLimitException: const CwitterReplyRateLimitException(),
+      );
+
+      transaction.set(replyRef, replyData);
+      transaction.set(
+        _replyIndexRef(postId: postId, replyId: replyRef.id),
+        replyIndexData,
+      );
+      transaction.update(postRef, {'replyCount': FieldValue.increment(1)});
+    });
 
     try {
       await NotificationService.sendCwitterReplyNotification(

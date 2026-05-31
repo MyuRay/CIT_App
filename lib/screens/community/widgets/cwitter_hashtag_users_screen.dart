@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import '../../../core/providers/cwitter_provider.dart';
 import '../../../core/providers/schedule_provider.dart';
 import '../../../core/providers/user_block_provider.dart';
 import '../../../models/community/cwitter_follow_user.dart';
@@ -117,7 +118,7 @@ class _CwitterHashtagUsersScreenState
   }
 }
 
-class _HashtagUserTile extends StatelessWidget {
+class _HashtagUserTile extends ConsumerWidget {
   const _HashtagUserTile({
     required this.user,
     required this.currentUid,
@@ -127,11 +128,14 @@ class _HashtagUserTile extends StatelessWidget {
   final String? currentUid;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isSelf = currentUid != null && currentUid == user.authorId;
     final showFollowButton = !isSelf && currentUid != null;
+    final tags =
+        ref.watch(cwitterUserTagsProvider(user.authorId)).valueOrNull ??
+            user.tags;
 
     return Card(
       elevation: 0,
@@ -190,9 +194,9 @@ class _HashtagUserTile extends StatelessWidget {
                         color: const Color(0xFF2E7D32),
                       ),
                     ),
-                    if (user.tags.isNotEmpty) ...[
+                    if (tags.isNotEmpty) ...[
                       const SizedBox(height: 6),
-                      CwitterTagsRow(tags: user.tags, compact: true),
+                      CwitterTagsRow(tags: tags, compact: true),
                     ],
                   ],
                 ),

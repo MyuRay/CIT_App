@@ -63,7 +63,10 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('確認メールを送信しました。メールを確認して認証を完了してください。'),
+            content: Text(
+              '確認メールを送信しました。認証完了後にログインし、'
+              '交流タブでCwitter IDを設定してご利用を開始できます。',
+            ),
             duration: Duration(seconds: 5),
           ),
         );
@@ -103,7 +106,56 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 8),
+                Text(
+                  '千葉工業大学の学生向けアプリです。'
+                  'Cwitter（学内マイクロブログ）やちばちゃんねるなどの交流機能のほか、'
+                  '時間割・掲示板・学食レビューなどもご利用いただけます。',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        height: 1.5,
+                      ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFA5D6A7)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.groups_outlined,
+                        color: Colors.green.shade800,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '初回ログイン後、交流タブで Cwitter ID（@から始まるID）を設定すると、'
+                          'Cweetの投稿・返信・recweet やフォローなどが利用できます。',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.green.shade900,
+                            height: 1.45,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Cwitter・ちばちゃんねるを含む本アプリのご利用には、'
+                  '以下への同意が必要です。',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: 8),
 
                 // 規約同意チェック
                 CheckboxListTile(
@@ -207,7 +259,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   controller: _displayNameController,
                   decoration: const InputDecoration(
                     labelText: '表示名',
-                    hintText: '掲示板コメントや学食レビューで表示されます',
+                    hintText: 'Cwitter・掲示板・学食レビューなどで表示されます',
                   ),
                   textInputAction: TextInputAction.next,
                   validator: (value) {

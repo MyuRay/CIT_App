@@ -529,6 +529,12 @@ class _InAppAdManagementScreenState
         return '時間割下部';
       case AdPlacement.profileTop:
         return 'マイページ上部';
+      case AdPlacement.cwitterFeed:
+        return 'Cwitterフィード';
+      case AdPlacement.chibaChannelThreadList:
+        return 'ちばちゃんねる（スレ一覧）';
+      case AdPlacement.chibaChannelThreadReplies:
+        return 'ちばちゃんねる（スレ内レス）';
     }
   }
 

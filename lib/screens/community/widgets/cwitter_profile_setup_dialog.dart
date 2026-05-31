@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/providers/cwitter_provider.dart';
 import '../../../services/community/cwitter_service.dart';
 
 /// Cwitter ID 初回設定後に表示するプロフィール設定ダイアログ
@@ -19,18 +21,18 @@ class CwitterProfileSetupDialog {
   }
 }
 
-class _CwitterProfileSetupDialogBody extends StatefulWidget {
+class _CwitterProfileSetupDialogBody extends ConsumerStatefulWidget {
   const _CwitterProfileSetupDialogBody({required this.uid});
 
   final String uid;
 
   @override
-  State<_CwitterProfileSetupDialogBody> createState() =>
+  ConsumerState<_CwitterProfileSetupDialogBody> createState() =>
       _CwitterProfileSetupDialogBodyState();
 }
 
 class _CwitterProfileSetupDialogBodyState
-    extends State<_CwitterProfileSetupDialogBody> {
+    extends ConsumerState<_CwitterProfileSetupDialogBody> {
   final _formKey = GlobalKey<FormState>();
   final _bioController = TextEditingController();
   final _tag1Controller = TextEditingController();
@@ -71,7 +73,8 @@ class _CwitterProfileSetupDialogBodyState
         await CwitterService.updateCwitterBio(uid: widget.uid, bio: bio);
       }
       if (tag1.isNotEmpty || tag2.isNotEmpty) {
-        await CwitterService.updateCwitterTags(
+        await saveCwitterTags(
+          ref,
           uid: widget.uid,
           tags: [tag1, tag2],
         );

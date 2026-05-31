@@ -4,6 +4,12 @@ import 'package:flutter/services.dart';
 class AppConstants {
   static const String appName = 'CIT App';
   static const String appVersion = '1.0.0';
+  static const String appDescriptionTitle = '千葉工業大学向け大学生活支援アプリ';
+  static const String appDescriptionSubtitle = '時間割・掲示板・学食情報などを提供';
+  static const int developerRecruitmentTapThreshold = 50;
+  static const String developerRecruitmentUrl = 'https://cit-app.com/';
+  static const String developerRecruitmentEmail = 'citapp919@gmail.com';
+  static const String developerRecruitmentEmailSubject = '開発メンバー応募';
   
   // 許可されたドメイン（複数対応）
   static const List<String> allowedDomains = [

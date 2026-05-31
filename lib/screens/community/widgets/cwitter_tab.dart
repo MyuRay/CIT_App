@@ -21,6 +21,10 @@ import 'cwitter_post_images_grid.dart';
 import 'cwitter_id_setup_view.dart';
 import 'cwitter_post_card.dart';
 import 'cwitter_posting_guidelines_dialog.dart';
+import '../../../widgets/ads/in_app_ad_banner_slot.dart';
+import '../../../widgets/ads/in_app_ad_intervals.dart';
+import '../../../widgets/ads/in_app_ad_list_inserter.dart';
+import 'package:cit_app/models/ads/in_app_ad_model.dart';
 
 const _composerPlaceholders = [
   'いま何してる？',
@@ -457,6 +461,8 @@ class _CwitterTabState extends ConsumerState<CwitterTab> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(cwitterTagsOverrideSyncProvider);
+
     if (widget.isActiveTab) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _syncComposerBackGate();
@@ -617,6 +623,11 @@ class _CwitterTabState extends ConsumerState<CwitterTab> {
     final feed = ref.watch(cwitterFeedProvider);
     final showLoadMore =
         _feedTab == CwitterFeedTab.everyone && feed.isLoadingMore;
+    final feedChildren = interleaveWidgetListWithBannerAds(
+      items: children,
+      interval: InAppAdIntervals.cwitterFeed,
+      ad: const InAppAdBannerSlot(placement: AdPlacement.cwitterFeed),
+    );
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -675,7 +686,7 @@ class _CwitterTabState extends ConsumerState<CwitterTab> {
                   ),
                 )
               else
-                ...children,
+                ...feedChildren,
               if (showLoadMore)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),

@@ -28,6 +28,11 @@ import 'chiba_channel_reply_chain_sheet.dart';
 import 'chiba_channel_report_helper.dart';
 import 'cwitter_post_images_grid.dart';
 
+import 'package:cit_app/models/ads/in_app_ad_model.dart';
+import '../../../widgets/ads/in_app_ad_banner_slot.dart';
+import '../../../widgets/ads/in_app_ad_intervals.dart';
+import '../../../widgets/ads/in_app_ad_list_inserter.dart';
+
 
 
 class ChibaChannelThreadScreen extends ConsumerStatefulWidget {
@@ -600,23 +605,26 @@ class _ChibaChannelThreadScreenState
 
                         else
 
-                          ...comments.map(
-
-                            (comment) => _CommentTile(
-                          comment: comment,
-                          allComments: comments,
-                          thread: widget.thread,
-                          threadAuthorId: widget.thread.authorId,
-                          canDelete:
-                              uid == comment.authorId && !comment.isDeleted,
-                          canReport: uid != null &&
-                              uid != comment.authorId &&
-                              !comment.isDeleted,
-                          onReply: () => _startReplyTo(comment),
-                          onDelete: () => _deleteComment(comment),
-                          onReport: () => _reportComment(comment),
-                        ),
-
+                          ...interleaveWidgetsWithBannerAds(
+                            items: comments,
+                            interval: InAppAdIntervals.chibaChannelThreadReplies,
+                            itemBuilder: (comment) => _CommentTile(
+                              comment: comment,
+                              allComments: comments,
+                              thread: widget.thread,
+                              threadAuthorId: widget.thread.authorId,
+                              canDelete:
+                                  uid == comment.authorId && !comment.isDeleted,
+                              canReport: uid != null &&
+                                  uid != comment.authorId &&
+                                  !comment.isDeleted,
+                              onReply: () => _startReplyTo(comment),
+                              onDelete: () => _deleteComment(comment),
+                              onReport: () => _reportComment(comment),
+                            ),
+                            adBuilder: () => const InAppAdBannerSlot(
+                              placement: AdPlacement.chibaChannelThreadReplies,
+                            ),
                           ),
 
                       ],

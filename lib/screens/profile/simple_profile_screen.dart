@@ -32,6 +32,7 @@ import '../contact/user_contact_list_screen.dart';
 import '../legal/terms_of_service_screen.dart';
 import '../legal/privacy_policy_screen.dart';
 import '../cafeteria/cafeteria_my_screen.dart';
+import 'cit_app_recruitment_screen.dart';
 import '../../core/providers/settings_provider.dart';
 import '../user_block/blocked_user_list_screen.dart';
 import '../../core/providers/in_app_ad_provider.dart';
@@ -482,14 +483,7 @@ class SimpleProfileScreen extends ConsumerWidget {
 
           const Divider(height: 1),
 
-          ListTile(
-            leading: const Icon(Icons.school),
-            title: const Text('千葉工業大学 学生支援アプリ'),
-            subtitle: Text(
-              '時間割・掲示板・学食情報などを提供',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
+          const _AppDescriptionListTile(),
 
           const Divider(height: 1),
 
@@ -1387,6 +1381,42 @@ class SimpleProfileScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AppDescriptionListTile extends StatefulWidget {
+  const _AppDescriptionListTile();
+
+  @override
+  State<_AppDescriptionListTile> createState() => _AppDescriptionListTileState();
+}
+
+class _AppDescriptionListTileState extends State<_AppDescriptionListTile> {
+  int _tapCount = 0;
+
+  void _handleTap() {
+    _tapCount++;
+    if (_tapCount < AppConstants.developerRecruitmentTapThreshold) return;
+
+    _tapCount = 0;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const CitAppRecruitmentScreen(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.school),
+      title: const Text(AppConstants.appDescriptionTitle),
+      subtitle: Text(
+        AppConstants.appDescriptionSubtitle,
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
+      onTap: _handleTap,
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../models/community/cwitter_activity_counts.dart';
 import '../../models/community/cwitter_follow_counts.dart';
 import '../../models/community/cwitter_follow_user.dart';
+import '../../models/community/cwitter_hashtag_summary.dart';
 import '../../models/community/cwitter_post.dart';
 import '../../models/community/cwitter_profile_activity.dart';
 import '../../models/community/cwitter_ranking_entry.dart';
@@ -18,6 +19,7 @@ import '../../services/users/content_filter_service.dart';
 import 'schedule_provider.dart';
 import 'settings_provider.dart';
 import 'user_block_provider.dart';
+import 'cwitter_tags_override_provider.dart';
 
 /// SharedPreferences: 既読時点の最新「投稿」作成日時（ミリ秒・返信は含めない）
 const String cwitterLastSeenAtKey = 'cwitter_last_seen_at';
@@ -161,11 +163,59 @@ final cwitterUserBioProvider = StreamProvider.family<String?, String>((ref, user
   return UserService.watchUser(userId).map((user) => user?.cwitterBio);
 });
 
-/// 指定ユーザーの Cwitter プロフィールハッシュタグ
-final cwitterUserTagsProvider =
+/// 指定ユーザーの Cwitter プロフィールハッシュタグ（Firestore）
+final _cwitterUserTagsStreamProvider =
     StreamProvider.family<List<String>, String>((ref, userId) {
   return UserService.watchUser(userId).map((user) => user?.cwitterTags ?? const []);
 });
+
+/// 指定ユーザーの Cwitter プロフィールハッシュタグ（楽観的更新込み）
+final cwitterUserTagsProvider =
+    Provider.family<AsyncValue<List<String>>, String>((ref, userId) {
+  final override = ref.watch(cwitterTagsOverrideProvider)[userId];
+  if (override != null) {
+    return AsyncValue.data(override);
+  }
+  return ref.watch(_cwitterUserTagsStreamProvider(userId));
+});
+
+/// 自分のハッシュタグ変更を Firestore 反映後にオーバーライド解除
+final cwitterTagsOverrideSyncProvider = Provider<void>((ref) {
+  final uid = ref.watch(currentUserIdProvider);
+  if (uid == null) return;
+
+  ref.listen(_cwitterUserTagsStreamProvider(uid), (_, next) {
+    next.whenData((tags) {
+      ref.read(cwitterTagsOverrideProvider.notifier).syncWithTags(uid, tags);
+    });
+  });
+});
+
+/// 登録済みハッシュタグ一覧
+final cwitterRegisteredHashtagsProvider =
+    FutureProvider<List<CwitterHashtagSummary>>((ref) {
+  return CwitterService.fetchRegisteredHashtags();
+});
+
+/// ハッシュタグを保存し、UI に即時反映する
+Future<void> saveCwitterTags(WidgetRef ref, {
+  required String uid,
+  required List<String> tags,
+}) async {
+  final normalized = CwitterService.normalizeCwitterTags(tags);
+  ref.read(cwitterTagsOverrideProvider.notifier).apply(
+        userId: uid,
+        tags: normalized,
+      );
+  ref.invalidate(cwitterRegisteredHashtagsProvider);
+
+  try {
+    await CwitterService.updateCwitterTags(uid: uid, tags: tags);
+  } catch (e) {
+    ref.read(cwitterTagsOverrideProvider.notifier).revert(uid);
+    rethrow;
+  }
+}
 
 /// 指定ユーザーの Cwitter プロフィール SNS リンク
 final cwitterUserSocialLinksProvider =
@@ -273,7 +323,7 @@ final cwitterFollowCountsProvider =
   return CwitterService.watchFollowCounts(userId);
 });
 
-/// Cweet 数（投稿 + recweet）
+/// Cweet 数（投稿 + 返信 + recweet）
 final cwitterUserCweetCountsProvider =
     StreamProvider.family<CwitterActivityCounts, String>((ref, userId) {
   return CwitterService.watchUserCweetCounts(userId);

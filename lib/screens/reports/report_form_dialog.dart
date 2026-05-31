@@ -125,6 +125,8 @@ class _ReportFormDialogState extends ConsumerState<ReportFormDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final mediaQuery = MediaQuery.of(context);
 
     return AnimatedPadding(
@@ -132,7 +134,6 @@ class _ReportFormDialogState extends ConsumerState<ReportFormDialog> {
       curve: Curves.easeOut,
       padding: EdgeInsets.only(bottom: mediaQuery.viewInsets.bottom),
       child: AlertDialog(
-        backgroundColor: Colors.white,
         contentPadding: EdgeInsets.zero,
         content: ConstrainedBox(
           constraints: BoxConstraints(
@@ -157,18 +158,17 @@ class _ReportFormDialogState extends ConsumerState<ReportFormDialog> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 '通報する',
-                                style: TextStyle(
-                                  fontSize: 20,
+                                style: theme.textTheme.titleLarge?.copyWith(
                                   fontWeight: FontWeight.bold,
+                                  color: colorScheme.onSurface,
                                 ),
                               ),
                               Text(
                                 widget.targetTitle,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[600],
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -176,7 +176,7 @@ class _ReportFormDialogState extends ConsumerState<ReportFormDialog> {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close),
+                          icon: Icon(Icons.close, color: colorScheme.onSurface),
                           onPressed: () => Navigator.of(context).pop(),
                         ),
                       ],
@@ -188,20 +188,23 @@ class _ReportFormDialogState extends ConsumerState<ReportFormDialog> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.orange[50],
+                        color: colorScheme.secondaryContainer
+                            .withValues(alpha: 0.65),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange[200]!),
+                        border: Border.all(color: colorScheme.outlineVariant),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.info_outline, color: Colors.orange[700]),
+                          Icon(
+                            Icons.info_outline,
+                            color: colorScheme.onSecondaryContainer,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               '不適切なコンテンツを見つけた場合は、通報してください。管理者が確認します。',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.orange[900],
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSecondaryContainer,
                               ),
                             ),
                           ),
@@ -212,17 +215,20 @@ class _ReportFormDialogState extends ConsumerState<ReportFormDialog> {
                     const SizedBox(height: 24),
 
                     // 通報理由選択
-                    const Text(
+                    Text(
                       '通報理由 *',
-                      style: TextStyle(
+                      style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        color: colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 8),
                     ...ReportReason.values.map((reason) {
                       return RadioListTile<ReportReason>(
-                        title: Text(reason.displayName),
+                        title: Text(
+                          reason.displayName,
+                          style: TextStyle(color: colorScheme.onSurface),
+                        ),
                         value: reason,
                         groupValue: _selectedReason,
                         onChanged: _isLoading

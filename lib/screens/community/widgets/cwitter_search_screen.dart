@@ -10,6 +10,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../../core/providers/schedule_provider.dart';
 
+import '../../../core/providers/cwitter_provider.dart';
+
 import '../../../core/providers/user_block_provider.dart';
 
 import '../../../models/community/cwitter_follow_user.dart';
@@ -70,19 +72,13 @@ class _CwitterSearchScreenState extends ConsumerState<CwitterSearchScreen>
 
   bool _isSearching = false;
 
-  bool _isLoadingHashtags = false;
-
   String? _errorMessage;
-
-  String? _hashtagLoadError;
 
   List<CwitterPost> _postResults = const [];
 
   List<CwitterFollowUser> _userResults = const [];
 
   List<CwitterFollowUser> _tagUserResults = const [];
-
-  List<CwitterHashtagSummary> _registeredHashtags = const [];
 
 
 
@@ -99,8 +95,6 @@ class _CwitterSearchScreenState extends ConsumerState<CwitterSearchScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
 
       _searchFocusNode.requestFocus();
-
-      _loadRegisteredHashtags();
 
     });
 
@@ -131,54 +125,6 @@ class _CwitterSearchScreenState extends ConsumerState<CwitterSearchScreen>
     _debounce?.cancel();
 
     _debounce = Timer(const Duration(milliseconds: 400), _runSearch);
-
-  }
-
-
-
-  Future<void> _loadRegisteredHashtags() async {
-
-    if (_isLoadingHashtags || _registeredHashtags.isNotEmpty) return;
-
-
-
-    setState(() {
-
-      _isLoadingHashtags = true;
-
-      _hashtagLoadError = null;
-
-    });
-
-
-
-    try {
-
-      final hashtags = await CwitterService.fetchRegisteredHashtags();
-
-      if (!mounted) return;
-
-      setState(() {
-
-        _registeredHashtags = hashtags;
-
-        _isLoadingHashtags = false;
-
-      });
-
-    } catch (e) {
-
-      if (!mounted) return;
-
-      setState(() {
-
-        _isLoadingHashtags = false;
-
-        _hashtagLoadError = '$e';
-
-      });
-
-    }
 
   }
 
@@ -292,13 +238,16 @@ class _CwitterSearchScreenState extends ConsumerState<CwitterSearchScreen>
 
 
 
-  List<CwitterHashtagSummary> _filteredHashtags(String query) {
+  List<CwitterHashtagSummary> _filteredHashtags(
+    List<CwitterHashtagSummary> registeredHashtags,
+    String query,
+  ) {
 
     final needle = query.trim().toLowerCase().replaceFirst(RegExp(r'^#'), '');
 
-    if (needle.isEmpty) return _registeredHashtags;
+    if (needle.isEmpty) return registeredHashtags;
 
-    return _registeredHashtags
+    return registeredHashtags
 
         .where((summary) => summary.tag.toLowerCase().contains(needle))
 
@@ -586,17 +535,15 @@ class _CwitterSearchScreenState extends ConsumerState<CwitterSearchScreen>
 
   ) {
 
-    if (_isLoadingHashtags && _registeredHashtags.isEmpty) {
-
-      return const Center(child: CircularProgressIndicator());
-
-    }
+    final hashtagsAsync = ref.watch(cwitterRegisteredHashtagsProvider);
 
 
 
-    if (_hashtagLoadError != null && _registeredHashtags.isEmpty) {
+    return hashtagsAsync.when(
 
-      return Center(
+      loading: () => const Center(child: CircularProgressIndicator()),
+
+      error: (error, _) => Center(
 
         child: Padding(
 
@@ -608,7 +555,7 @@ class _CwitterSearchScreenState extends ConsumerState<CwitterSearchScreen>
 
             children: [
 
-              Text('ハッシュタグ一覧の取得に失敗しました: $_hashtagLoadError'),
+              Text('ハッシュタグ一覧の取得に失敗しました: $error'),
 
               const SizedBox(height: 12),
 
@@ -616,9 +563,7 @@ class _CwitterSearchScreenState extends ConsumerState<CwitterSearchScreen>
 
                 onPressed: () {
 
-                  setState(() => _registeredHashtags = const []);
-
-                  _loadRegisteredHashtags();
+                  ref.invalidate(cwitterRegisteredHashtagsProvider);
 
                 },
 
@@ -632,19 +577,45 @@ class _CwitterSearchScreenState extends ConsumerState<CwitterSearchScreen>
 
         ),
 
-      );
+      ),
 
-    }
+      data: (registeredHashtags) => _buildHashtagResultsBody(
+
+        theme,
+
+        colorScheme,
+
+        query,
+
+        registeredHashtags,
+
+      ),
+
+    );
+
+  }
 
 
 
-    final filteredTags = _filteredHashtags(query);
+  Widget _buildHashtagResultsBody(
+
+    ThemeData theme,
+
+    ColorScheme colorScheme,
+
+    String query,
+
+    List<CwitterHashtagSummary> registeredHashtags,
+
+  ) {
+
+    final filteredTags = _filteredHashtags(registeredHashtags, query);
 
     final showUserResults = query.isNotEmpty;
 
 
 
-    if (!showUserResults && _registeredHashtags.isEmpty) {
+    if (!showUserResults && registeredHashtags.isEmpty) {
 
       return _buildHint(
 
@@ -1015,6 +986,9 @@ class _SearchUserTile extends ConsumerWidget {
     final colorScheme = theme.colorScheme;
     final isSelf = currentUid != null && currentUid == user.authorId;
     final canFollow = showFollowButton && !isSelf && currentUid != null;
+    final tags =
+        ref.watch(cwitterUserTagsProvider(user.authorId)).valueOrNull ??
+            user.tags;
 
     return Card(
       elevation: 0,
@@ -1073,9 +1047,9 @@ class _SearchUserTile extends ConsumerWidget {
                         color: const Color(0xFF2E7D32),
                       ),
                     ),
-                    if (showTags && user.tags.isNotEmpty) ...[
+                    if (showTags && tags.isNotEmpty) ...[
                       const SizedBox(height: 6),
-                      CwitterTagsRow(tags: user.tags, compact: true),
+                      CwitterTagsRow(tags: tags, compact: true),
                     ],
                   ],
                 ),

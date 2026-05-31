@@ -843,7 +843,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Cwitter 投稿レート制限（1分で2投稿）
+    // Cwitter 投稿・返信 / ちばちゃんねるレスの連投防止（1分で2投稿）
     match /users/{userId}/rate_limits/{limitKey} {
       allow read: if isCITUser()
         && request.auth != null
@@ -851,7 +851,9 @@ service cloud.firestore {
       allow create, update: if isCITUser()
         && request.auth != null
         && request.auth.uid == userId
-        && limitKey == 'cwitter_post'
+        && (limitKey == 'cwitter_post'
+          || limitKey == 'cwitter_reply'
+          || limitKey == 'chiba_channel_comment')
         && request.resource.data.windowStart is timestamp
         && request.resource.data.count is int
         && request.resource.data.count >= 1

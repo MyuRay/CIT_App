@@ -1,6 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum AdPlacement { homeTop, cafeteria, scheduleBottom, profileTop }
+/// アプリ内広告の表示場所
+enum AdPlacement {
+  homeTop,
+  cafeteria,
+  scheduleBottom,
+  profileTop,
+  cwitterFeed,
+  chibaChannelThreadList,
+  chibaChannelThreadReplies,
+}
 
 enum AdActionType { bulletin, external }
 
@@ -23,6 +32,12 @@ String adPlacementToString(AdPlacement placement) {
       return 'schedule_bottom';
     case AdPlacement.profileTop:
       return 'profile_top';
+    case AdPlacement.cwitterFeed:
+      return 'cwitter_feed';
+    case AdPlacement.chibaChannelThreadList:
+      return 'chiba_channel_thread_list';
+    case AdPlacement.chibaChannelThreadReplies:
+      return 'chiba_channel_thread_replies';
   }
 }
 
@@ -36,6 +51,12 @@ AdPlacement? adPlacementFromString(String? value) {
       return AdPlacement.scheduleBottom;
     case 'profile_top':
       return AdPlacement.profileTop;
+    case 'cwitter_feed':
+      return AdPlacement.cwitterFeed;
+    case 'chiba_channel_thread_list':
+      return AdPlacement.chibaChannelThreadList;
+    case 'chiba_channel_thread_replies':
+      return AdPlacement.chibaChannelThreadReplies;
     default:
       return null;
   }

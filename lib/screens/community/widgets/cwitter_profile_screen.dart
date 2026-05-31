@@ -93,6 +93,7 @@ class _CwitterProfileScreenState extends ConsumerState<CwitterProfileScreen>
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentUid = ref.watch(currentUserIdProvider);
+    ref.watch(cwitterTagsOverrideSyncProvider);
     final appUser = ref.watch(currentAppUserStreamProvider).valueOrNull;
 
     final isMyPage = widget.user == null;
@@ -561,7 +562,8 @@ class _ProfileTagsSectionState extends ConsumerState<_ProfileTagsSection> {
 
     setState(() => _isSaving = true);
     try {
-      await CwitterService.updateCwitterTags(
+      await saveCwitterTags(
+        ref,
         uid: widget.authorId,
         tags: result,
       );

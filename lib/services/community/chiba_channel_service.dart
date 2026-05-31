@@ -7,6 +7,14 @@ import '../../models/community/chiba_channel_comment.dart';
 import '../../models/community/chiba_channel_thread.dart';
 import '../../core/providers/notification_provider.dart';
 import 'chiba_channel_image_service.dart';
+import '../common/user_post_rate_limit.dart';
+
+class ChibaChannelCommentRateLimitException implements Exception {
+  const ChibaChannelCommentRateLimitException();
+
+  @override
+  String toString() => 'レスは1分間に2件までです。少し待ってからもう一度投稿してください';
+}
 
 class ChibaChannelService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -131,6 +139,18 @@ class ChibaChannelService {
     }
 
     await _firestore.runTransaction((transaction) async {
+      final rateLimitRef = UserPostRateLimit.ref(
+        _firestore,
+        userId: authorId,
+        limitKey: UserPostRateLimit.chibaChannelCommentKey,
+      );
+      await UserPostRateLimit.enforceInTransaction(
+        transaction: transaction,
+        rateLimitRef: rateLimitRef,
+        now: DateTime.now(),
+        rateLimitException: const ChibaChannelCommentRateLimitException(),
+      );
+
       final threadSnap = await transaction.get(threadRef);
       if (!threadSnap.exists) {
         throw StateError('スレッドが見つかりません');

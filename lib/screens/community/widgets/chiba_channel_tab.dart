@@ -3,8 +3,12 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../../core/providers/chiba_channel_provider.dart';
 import '../../../models/community/chiba_channel_thread.dart';
+import 'package:cit_app/models/ads/in_app_ad_model.dart';
 import 'chiba_channel_create_thread_sheet.dart';
 import 'chiba_channel_thread_screen.dart';
+import '../../../widgets/ads/in_app_ad_banner_slot.dart';
+import '../../../widgets/ads/in_app_ad_intervals.dart';
+import '../../../widgets/ads/in_app_ad_list_inserter.dart';
 import 'thread_card.dart';
 
 class ChibaChannelTab extends ConsumerWidget {
@@ -49,10 +53,15 @@ class ChibaChannelTab extends ConsumerWidget {
                           '24時間以内にレスがあったスレ (${feed.hotThreads.length})',
                     ),
                     const SizedBox(height: 10),
-                    ...feed.hotThreads.map(
-                      (thread) => ThreadCard(
+                    ...interleaveWidgetsWithBannerAds(
+                      items: feed.hotThreads,
+                      interval: InAppAdIntervals.chibaChannelThreadList,
+                      itemBuilder: (thread) => ThreadCard(
                         thread: thread,
                         onTap: () => _openThread(context, thread),
+                      ),
+                      adBuilder: () => const InAppAdBannerSlot(
+                        placement: AdPlacement.chibaChannelThreadList,
                       ),
                     ),
                   ],
@@ -97,10 +106,15 @@ class ChibaChannelTab extends ConsumerWidget {
                       ),
                     )
                   else
-                    ...feed.activeThreads.map(
-                      (thread) => ThreadCard(
+                    ...interleaveWidgetsWithBannerAds(
+                      items: feed.activeThreads,
+                      interval: InAppAdIntervals.chibaChannelThreadList,
+                      itemBuilder: (thread) => ThreadCard(
                         thread: thread,
                         onTap: () => _openThread(context, thread),
+                      ),
+                      adBuilder: () => const InAppAdBannerSlot(
+                        placement: AdPlacement.chibaChannelThreadList,
                       ),
                     ),
                 ],

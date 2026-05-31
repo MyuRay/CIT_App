@@ -142,7 +142,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leadingWidth: userId != null ? 138 : null,
+        leadingWidth: userId != null ? 150 : null,
         leading:
             userId != null
                 ? Padding(
@@ -559,53 +559,60 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           return const SizedBox.shrink();
         }
         final selected = _resolveSelectedSchedule(schedules);
+        final colorScheme = Theme.of(context).colorScheme;
         return Material(
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(999),
-            onTap:
-                () => _showScheduleSwitchSheet(
-                  context: context,
-                  userId: userId,
-                  schedules: schedules,
-                  selected: selected,
+            onTap: () => _showScheduleSwitchSheet(
+              context: context,
+              userId: userId,
+              schedules: schedules,
+              selected: selected,
+            ),
+            child: Ink(
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: colorScheme.primary.withOpacity(0.35),
                 ),
-            child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: Theme.of(context).dividerColor),
-          ),
-          child: SizedBox(
-            height: 14,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 0),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.tune,
-                    size: 11,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 0.5),
-                  Flexible(
-                    child: Text(
-                      '学期切替',
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontSize: 15,
-                        height: 1.0,
-                        fontWeight: FontWeight.w700,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 3, 4, 3),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.calendar_today_rounded,
+                      size: 11,
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        _scheduleLabel(selected),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelMedium
+                            ?.copyWith(
+                              fontSize: 12,
+                              height: 1.0,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.onPrimaryContainer,
+                            ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 0),
-                  const Icon(Icons.expand_more, size: 11),
-                ],
+                    Icon(
+                      Icons.unfold_more_rounded,
+                      size: 13,
+                      color: colorScheme.onPrimaryContainer.withOpacity(0.7),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ),
             ),
           ),
         );
