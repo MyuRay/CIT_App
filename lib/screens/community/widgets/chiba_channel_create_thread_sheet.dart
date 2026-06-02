@@ -6,6 +6,7 @@ import '../../../core/providers/cwitter_provider.dart';
 import '../../../core/providers/schedule_provider.dart';
 import '../../../models/community/chiba_channel_thread.dart';
 import '../../../services/community/chiba_channel_service.dart';
+import 'admin_ban_dialog.dart';
 
 class ChibaChannelCreateThreadSheet extends ConsumerStatefulWidget {
   const ChibaChannelCreateThreadSheet({super.key});
@@ -73,6 +74,7 @@ class _ChibaChannelCreateThreadSheetState
       );
     } catch (error) {
       if (!mounted) return;
+      if (maybeShowBanNotice(context, error)) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.toString().replaceFirst('ArgumentError: ', ''))),
       );

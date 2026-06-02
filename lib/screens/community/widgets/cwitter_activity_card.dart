@@ -7,6 +7,8 @@ import '../../../models/community/cwitter_profile_activity.dart';
 import '../../../models/community/cwitter_reply.dart';
 import '../../../services/community/cwitter_service.dart';
 import '../community_time_format.dart';
+import '../../../core/providers/admin_provider.dart';
+import 'admin_ban_dialog.dart';
 import 'cwitter_author_header.dart';
 import 'cwitter_body_text.dart';
 import 'cwitter_handle_text.dart';
@@ -57,6 +59,7 @@ class _ReplyActivityCard extends ConsumerWidget {
     final mutedColor = colorScheme.onSurface.withValues(alpha: 0.65);
     final uid = ref.watch(currentUserIdProvider);
     final isOwner = uid != null && uid == reply.authorId;
+    final isAdmin = ref.watch(isAdminProvider);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -140,6 +143,14 @@ class _ReplyActivityCard extends ConsumerWidget {
                               blockedUserId: reply.authorId,
                               blockedUserName: reply.displayName,
                               blockedUserCwitterId: reply.cwitterId,
+                            ),
+                    onBan: (!isAdmin || isOwner || uid == null)
+                        ? null
+                        : () => showAdminBanDialog(
+                              context,
+                              targetUserId: reply.authorId,
+                              targetLabel: '@${reply.cwitterId}',
+                              adminId: uid,
                             ),
                   ),
                 ],

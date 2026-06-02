@@ -1,29 +1,38 @@
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../models/community/chiba_channel_comment.dart';
 import '../../models/community/chiba_channel_thread.dart';
 import '../../core/providers/notification_provider.dart';
 import 'chiba_channel_image_service.dart';
+import 'user_ban_service.dart';
 import '../common/user_post_rate_limit.dart';
 
 class ChibaChannelCommentRateLimitException implements Exception {
   const ChibaChannelCommentRateLimitException();
 
   @override
-  String toString() => 'レスは1分間に2件までです。少し待ってからもう一度投稿してください';
+  String toString() => 'レスは1分間に3件までです。少し待ってからもう一度投稿してください';
 }
 
 class ChibaChannelService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static final FirebaseAuth _auth = FirebaseAuth.instance;
 
   static const String _threadsCollection = 'chiba_channel_threads';
   static const int _maxTitleLength = 80;
   static const int _maxBodyLength = 1000;
   static const _anonymousIdChars =
       'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+  static String _currentAuthEmailLower({String fallback = ''}) {
+    final authEmail = _auth.currentUser?.email?.trim().toLowerCase();
+    if (authEmail != null && authEmail.isNotEmpty) return authEmail;
+    return fallback.trim().toLowerCase();
+  }
 
   static Stream<List<ChibaChannelThread>> watchThreads({int limit = 50}) {
     return _firestore
@@ -58,6 +67,8 @@ class ChibaChannelService {
     required String title,
     required String category,
   }) async {
+    await UserBanService.requireNotBanned(authorId);
+
     final trimmedTitle = title.trim();
     if (trimmedTitle.isEmpty) {
       throw ArgumentError('タイトルを入力してください');
@@ -69,7 +80,7 @@ class ChibaChannelService {
       throw ArgumentError('カテゴリが不正です');
     }
 
-    final email = authorEmail.trim().toLowerCase();
+    final email = _currentAuthEmailLower(fallback: authorEmail);
     if (email.isEmpty) {
       throw ArgumentError('登録メールアドレスを取得できませんでした');
     }
@@ -96,6 +107,8 @@ class ChibaChannelService {
     String? inReplyToCommentId,
     List<XFile>? imageFiles,
   }) async {
+    await UserBanService.requireNotBanned(authorId);
+
     var trimmed = body.trim();
     final files = imageFiles ?? const <XFile>[];
 
@@ -120,7 +133,7 @@ class ChibaChannelService {
       );
     }
 
-    final email = authorEmail.trim().toLowerCase();
+    final email = _currentAuthEmailLower(fallback: authorEmail);
     if (email.isEmpty) {
       throw ArgumentError('登録メールアドレスを取得できませんでした');
     }
@@ -153,6 +166,7 @@ class ChibaChannelService {
         rateLimitRef: rateLimitRef,
         now: DateTime.now(),
         rateLimitException: const ChibaChannelCommentRateLimitException(),
+        maxPostsPerWindow: UserPostRateLimit.chibaChannelMaxPostsPerWindow,
       );
 
       final threadSnap = await transaction.get(threadRef);

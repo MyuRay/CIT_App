@@ -1,9 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// ユーザー投稿の連投防止（1分間に2件まで）
+/// ユーザー投稿の連投防止
 class UserPostRateLimit {
   static const Duration windowDuration = Duration(minutes: 1);
-  static const int maxPostsPerWindow = 2;
+  static const int defaultMaxPostsPerWindow = 2;
+  static const int chibaChannelMaxPostsPerWindow = 3;
   static const String usersCollection = 'users';
   static const String rateLimitsCollection = 'rate_limits';
 
@@ -33,6 +34,7 @@ class UserPostRateLimit {
     required DocumentReference<Map<String, dynamic>> rateLimitRef,
     required DateTime now,
     required Exception rateLimitException,
+    int maxPostsPerWindow = defaultMaxPostsPerWindow,
   }) async {
     final rateSnap = await transaction.get(rateLimitRef);
 
@@ -78,12 +80,14 @@ class UserPostRateLimit {
     required DocumentReference<Map<String, dynamic>> rateLimitRef,
     required DateTime now,
     required Exception rateLimitException,
+    int maxPostsPerWindow = defaultMaxPostsPerWindow,
   }) async {
     final data = await evaluate(
       transaction: transaction,
       rateLimitRef: rateLimitRef,
       now: now,
       rateLimitException: rateLimitException,
+      maxPostsPerWindow: maxPostsPerWindow,
     );
     commit(
       transaction: transaction,

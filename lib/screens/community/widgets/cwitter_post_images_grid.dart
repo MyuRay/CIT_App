@@ -1,10 +1,10 @@
 import 'dart:typed_data';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../widgets/common/interactive_fullscreen_image_viewer.dart';
+import '../../../widgets/common/network_post_image.dart';
 
 /// Cwitter 投稿画像（1〜4枚）の Twitter 風グリッド
 class CwitterPostImagesGrid extends StatelessWidget {
@@ -125,25 +125,11 @@ class CwitterPostImagesGrid extends StatelessWidget {
 
     Widget image;
     if (hasUrl) {
-      image = CachedNetworkImage(
+      image = NetworkPostImage(
         imageUrl: urls[index],
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
-        placeholder: (_, __) => ColoredBox(
-          color: Colors.grey.shade200,
-          child: const Center(
-            child: SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          ),
-        ),
-        errorWidget: (_, __, ___) => ColoredBox(
-          color: Colors.grey.shade300,
-          child: const Icon(Icons.broken_image_outlined),
-        ),
       );
     } else if (hasFile) {
       image = _LocalXFileImage(file: fileList[index]);

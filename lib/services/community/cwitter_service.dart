@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/providers/notification_provider.dart';
@@ -19,6 +20,7 @@ import '../../models/community/cwitter_recweet.dart';
 import '../../models/community/cwitter_reply.dart';
 import '../../models/community/cwitter_social_platform.dart';
 import 'cwitter_post_image_service.dart';
+import 'user_ban_service.dart';
 import '../common/user_post_rate_limit.dart';
 import '../users/user_block_service.dart';
 
@@ -64,6 +66,7 @@ class CwitterReplyRateLimitException implements Exception {
 
 class CwitterService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static final FirebaseAuth _auth = FirebaseAuth.instance;
 
   static const String _postsCollection = 'cwitter_posts';
   static const String _repliesIndexCollection = 'cwitter_replies';
@@ -80,6 +83,12 @@ class CwitterService {
 
   static bool isValidCwitterIdFormat(String id) {
     return AppConstants.cwitterIdPattern.hasMatch(id.trim());
+  }
+
+  static String _currentAuthEmailLower({String fallback = ''}) {
+    final authEmail = _auth.currentUser?.email?.trim().toLowerCase();
+    if (authEmail != null && authEmail.isNotEmpty) return authEmail;
+    return fallback.trim().toLowerCase();
   }
 
   /// 利用可能か（大文字小文字を区別しない）
@@ -1111,6 +1120,8 @@ class CwitterService {
     required String originalAuthorId,
     String? profileImageUrl,
   }) async {
+    await UserBanService.requireNotBanned(userId);
+
     if (userId != originalAuthorId &&
         await UserBlockService.isBlocked(
           userId: userId,
@@ -1716,6 +1727,8 @@ class CwitterService {
     List<XFile>? imageFiles,
     List<String>? pollOptions,
   }) async {
+    await UserBanService.requireNotBanned(authorId);
+
     final trimmed = body.trim();
     final files = imageFiles ?? const <XFile>[];
     final pollTexts = _normalizePollOptions(pollOptions);
@@ -1736,7 +1749,7 @@ class CwitterService {
       );
     }
 
-    final email = authorEmail.trim().toLowerCase();
+    final email = _currentAuthEmailLower(fallback: authorEmail);
     if (email.isEmpty) {
       throw ArgumentError('登録メールアドレスを取得できませんでした');
     }
@@ -1896,6 +1909,8 @@ class CwitterService {
     String? inReplyToReplyId,
     List<XFile>? imageFiles,
   }) async {
+    await UserBanService.requireNotBanned(authorId);
+
     final trimmed = body.trim();
     final files = imageFiles ?? const <XFile>[];
     if (trimmed.isEmpty && files.isEmpty) {
@@ -1920,7 +1935,7 @@ class CwitterService {
     final postBody = postData['body'] as String? ?? '';
 
     final replyRef = postRef.collection('replies').doc();
-    final email = authorEmail.trim().toLowerCase();
+    final email = _currentAuthEmailLower(fallback: authorEmail);
     if (email.isEmpty) {
       throw ArgumentError('登録メールアドレスを取得できませんでした');
     }

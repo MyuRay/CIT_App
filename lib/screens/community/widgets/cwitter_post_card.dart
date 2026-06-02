@@ -24,7 +24,11 @@ import '../../../core/providers/cwitter_reply_count_override_provider.dart';
 
 import '../../../core/providers/cwitter_provider.dart';
 
+import '../../../core/providers/admin_provider.dart';
+
 import 'cwitter_author_header.dart';
+
+import 'admin_ban_dialog.dart';
 
 import 'cwitter_more_menu.dart';
 
@@ -123,6 +127,8 @@ class CwitterPostCard extends ConsumerWidget {
     );
 
     final isOwner = uid != null && uid == post.authorId;
+
+    final isAdmin = ref.watch(isAdminProvider);
 
 
 
@@ -235,6 +241,22 @@ class CwitterPostCard extends ConsumerWidget {
                               blockedUserName: post.displayName,
 
                               blockedUserCwitterId: post.cwitterId,
+
+                            ),
+
+                    onBan: (!isAdmin || isOwner || uid == null)
+
+                        ? null
+
+                        : () => showAdminBanDialog(
+
+                              context,
+
+                              targetUserId: post.authorId,
+
+                              targetLabel: '@${post.cwitterId}',
+
+                              adminId: uid,
 
                             ),
 
@@ -385,6 +407,7 @@ class CwitterPostCard extends ConsumerWidget {
                             } catch (e) {
                               notifier.revert(post.id);
                               if (!context.mounted) return;
+                              if (maybeShowBanNotice(context, e)) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text('$e')),
                               );

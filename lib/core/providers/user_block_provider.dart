@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../models/users/blocked_user_model.dart';
 import '../../services/users/user_block_service.dart';
+import '../../services/community/user_ban_service.dart';
 import 'schedule_provider.dart';
 
 // ブロック操作状態を管理するStateNotifier
@@ -66,14 +69,55 @@ final blockedUserIdsProvider = FutureProvider<Set<String>>((ref) async {
   return UserBlockService.getBlockedUserIds();
 });
 
-/// 表示対象外ユーザーID（自分がブロック + 自分をブロック）
+/// 表示対象外ユーザーID（自分がブロック + 自分をブロック + 運営によるBAN中）
 final hiddenUserIdsProvider = StreamProvider<Set<String>>((ref) {
   final uid = ref.watch(currentUserIdProvider);
   if (uid == null) {
     return Stream.value(<String>{});
   }
-  return UserBlockService.watchHiddenUserIds();
+  return _mergeIdSetStreams([
+    UserBlockService.watchHiddenUserIds(),
+    UserBanService.watchActiveBannedUserIds(),
+  ]);
 });
+
+/// 複数の ID 集合ストリームを「最新値の和集合」として 1 本にまとめる。
+Stream<Set<String>> _mergeIdSetStreams(List<Stream<Set<String>>> streams) {
+  return Stream.multi((controller) {
+    final latest = List<Set<String>>.generate(
+      streams.length,
+      (_) => <String>{},
+    );
+    final subscriptions = <StreamSubscription<Set<String>>>[];
+
+    void emit() {
+      final merged = <String>{};
+      for (final set in latest) {
+        merged.addAll(set);
+      }
+      controller.add(merged);
+    }
+
+    for (var i = 0; i < streams.length; i++) {
+      final index = i;
+      subscriptions.add(
+        streams[i].listen(
+          (value) {
+            latest[index] = value;
+            emit();
+          },
+          onError: controller.addError,
+        ),
+      );
+    }
+
+    controller.onCancel = () async {
+      for (final sub in subscriptions) {
+        await sub.cancel();
+      }
+    };
+  });
+}
 
 // 特定ユーザーのブロック状態チェックプロバイダー
 final isUserBlockedProvider = FutureProvider.family<bool, String>((ref, blockedUserId) async {

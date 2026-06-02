@@ -69,7 +69,7 @@ class ScheduleNotificationService {
     tz.setLocalLocation(tz.getLocation('Asia/Tokyo'));
 
     const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@mipmap/launcher_icon');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -390,7 +390,7 @@ class ScheduleNotificationService {
         priority: Priority.high,
         playSound: true,
         enableVibration: true,
-        icon: '@mipmap/ic_launcher',
+        icon: '@mipmap/launcher_icon',
         styleInformation: BigTextStyleInformation(body),
       ),
       iOS: const DarwinNotificationDetails(

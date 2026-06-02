@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+
+import '../../../core/providers/admin_provider.dart';
 
 /// Cweet・返信・プロフィールの ⋮ メニュー
-class CwitterMoreMenu extends StatelessWidget {
+class CwitterMoreMenu extends ConsumerWidget {
   const CwitterMoreMenu({
     super.key,
     required this.isOwner,
@@ -9,6 +12,7 @@ class CwitterMoreMenu extends StatelessWidget {
     this.onDeleteReply,
     this.onReport,
     this.onBlock,
+    this.onBan,
     this.iconSize = 20,
     this.constraints = const BoxConstraints(minWidth: 32, minHeight: 32),
   });
@@ -18,6 +22,9 @@ class CwitterMoreMenu extends StatelessWidget {
   final Future<void> Function()? onDeleteReply;
   final VoidCallback? onReport;
   final VoidCallback? onBlock;
+
+  /// 管理者のみに表示する「BANする」アクション
+  final VoidCallback? onBan;
   final double iconSize;
   final BoxConstraints constraints;
 
@@ -26,8 +33,12 @@ class CwitterMoreMenu extends StatelessWidget {
   bool get _hasBlock => onBlock != null;
 
   @override
-  Widget build(BuildContext context) {
-    if (!_hasDelete && !_hasReport && !_hasBlock) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // BANは管理者のみ。非管理者にはコールバックが渡っていても絶対に表示しない。
+    final isAdmin = ref.watch(isAdminProvider);
+    final hasBan = onBan != null && isAdmin;
+
+    if (!_hasDelete && !_hasReport && !_hasBlock && !hasBan) {
       return const SizedBox.shrink();
     }
 
@@ -50,6 +61,10 @@ class CwitterMoreMenu extends StatelessWidget {
           }
           if (value == 'block') {
             onBlock?.call();
+            return;
+          }
+          if (value == 'ban') {
+            if (hasBan) onBan?.call();
             return;
           }
           if (value != 'delete') return;
@@ -134,6 +149,20 @@ class CwitterMoreMenu extends StatelessWidget {
                     Icon(Icons.delete_outline, color: Colors.red, size: 20),
                     SizedBox(width: 8),
                     Text('削除', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            );
+          }
+          if (hasBan) {
+            items.add(
+              const PopupMenuItem(
+                value: 'ban',
+                child: Row(
+                  children: [
+                    Icon(Icons.gavel, color: Colors.red, size: 20),
+                    SizedBox(width: 8),
+                    Text('BANする', style: TextStyle(color: Colors.red)),
                   ],
                 ),
               ),

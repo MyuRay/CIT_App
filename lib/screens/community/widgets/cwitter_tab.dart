@@ -16,11 +16,14 @@ import '../../../models/community/cwitter_follow_user.dart';
 import '../../../models/user/user_model.dart';
 import '../../../services/community/cwitter_post_image_service.dart';
 import '../../../services/community/cwitter_service.dart';
+import '../../../utils/community/post_image_utils.dart';
+import 'admin_ban_dialog.dart';
 import 'cwitter_avatar.dart';
 import 'cwitter_post_images_grid.dart';
 import 'cwitter_id_setup_view.dart';
 import 'cwitter_post_card.dart';
 import 'cwitter_posting_guidelines_dialog.dart';
+import 'cwitter_profile_screen.dart';
 import '../../../widgets/ads/in_app_ad_banner_slot.dart';
 import '../../../widgets/ads/in_app_ad_intervals.dart';
 import '../../../widgets/ads/in_app_ad_list_inserter.dart';
@@ -365,19 +368,49 @@ class _CwitterTabState extends ConsumerState<CwitterTab> {
     }
 
     final picker = ImagePicker();
-    final picked = await picker.pickMultiImage(
-      imageQuality: 85,
-      maxWidth: 2048,
-      maxHeight: 2048,
-    );
+    final remaining =
+        CwitterPostImageService.maxImagesPerPost - _pendingImages.length;
+    final picked = await picker.pickMultipleMedia(limit: remaining);
     if (!mounted || picked.isEmpty) return;
 
+    final images = picked.where(isSupportedPostImageXFile).toList();
+    if (images.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('画像ファイルを選択してください')),
+      );
+      return;
+    }
+
     setState(() {
-      final remaining =
-          CwitterPostImageService.maxImagesPerPost - _pendingImages.length;
-      _pendingImages.addAll(picked.take(remaining));
+      _pendingImages.addAll(images.take(remaining));
       _composerExpanded = true;
     });
+  }
+
+  void _openMyProfile() {
+    _composerFocusNode.unfocus();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const CwitterProfileScreen(),
+      ),
+    );
+  }
+
+  Widget _buildComposerAvatar(AppUser appUser) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _openMyProfile,
+        customBorder: const CircleBorder(),
+        child: CwitterAvatar(
+          authorId: appUser.uid,
+          displayName: appUser.displayName,
+          cwitterId: appUser.cwitterId,
+          profileImageUrl: appUser.profileImageUrl,
+        ),
+      ),
+    );
   }
 
   Future<void> _onPostTap() async {
@@ -449,6 +482,7 @@ class _CwitterTabState extends ConsumerState<CwitterTab> {
       );
     } catch (e) {
       if (!mounted) return;
+      if (maybeShowBanNotice(context, e)) return;
       final isRateLimited = e is CwitterPostRateLimitException;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -766,12 +800,7 @@ class _CwitterTabState extends ConsumerState<CwitterTab> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        CwitterAvatar(
-          authorId: appUser.uid,
-          displayName: appUser.displayName,
-          cwitterId: appUser.cwitterId,
-          profileImageUrl: appUser.profileImageUrl,
-        ),
+        _buildComposerAvatar(appUser),
         const SizedBox(width: 12),
         Expanded(
           child: Material(
@@ -808,16 +837,7 @@ class _CwitterTabState extends ConsumerState<CwitterTab> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        GestureDetector(
-          onTap: _dismissComposerIfEmpty,
-          behavior: HitTestBehavior.opaque,
-          child: CwitterAvatar(
-            authorId: appUser.uid,
-            displayName: appUser.displayName,
-            cwitterId: appUser.cwitterId,
-            profileImageUrl: appUser.profileImageUrl,
-          ),
-        ),
+        _buildComposerAvatar(appUser),
         const SizedBox(width: 12),
         Expanded(
           child: Column(

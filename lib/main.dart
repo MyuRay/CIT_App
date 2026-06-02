@@ -11,6 +11,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme/app_theme.dart';
+import 'widgets/common/ui_feedback_listener.dart';
 import 'core/config/app_router.dart';
 import 'core/constants/app_constants.dart';
 import 'core/providers/settings_provider.dart';
@@ -516,7 +517,9 @@ class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
           data: mediaQuery.copyWith(
             textScaler: TextScaler.linear(appFontSize.textScale),
           ),
-          child: child ?? const SizedBox.shrink(),
+          child: UiFeedbackListener(
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
     );

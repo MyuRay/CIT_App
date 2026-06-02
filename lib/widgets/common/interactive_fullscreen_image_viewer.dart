@@ -1,8 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'animated_image_placeholder.dart';
+import 'network_post_image.dart';
 
 const _kHintText = 'ダブルタップで拡大・縮小、ドラッグで移動できます';
 const _kZoomedScale = 2.5;
@@ -563,18 +563,9 @@ class _NetworkFullscreenImage extends StatelessWidget {
       );
     }
 
-    return CachedNetworkImage(
+    return NetworkPostImageFullscreen(
       imageUrl: imageUrl,
-      width: double.infinity,
-      height: double.infinity,
-      fit: BoxFit.contain,
-      placeholder: (context, url) => const AnimatedImagePlaceholder(
-        width: 220,
-        height: 220,
-        borderRadius: 12,
-        borderColor: Colors.white24,
-      ),
-      errorWidget: (context, url, error) => _buildErrorWidget(context),
+      errorWidget: _buildErrorWidget(context),
     );
   }
 

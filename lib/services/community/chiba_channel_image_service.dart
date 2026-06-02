@@ -4,6 +4,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../utils/community/post_image_utils.dart';
+
 class ChibaChannelImageService {
   static const int maxImagesPerComment = 4;
 
@@ -14,6 +16,7 @@ class ChibaChannelImageService {
     required String threadId,
     required String commentId,
     required int index,
+    required String extension,
   }) {
     return _storage
         .ref()
@@ -21,7 +24,7 @@ class ChibaChannelImageService {
         .child(userId)
         .child(threadId)
         .child(commentId)
-        .child('$index.jpg');
+        .child('$index.$extension');
   }
 
   static Future<List<String>> uploadCommentImages({
@@ -37,14 +40,16 @@ class ChibaChannelImageService {
 
     final urls = <String>[];
     for (var i = 0; i < files.length; i++) {
+      final file = files[i];
       final ref = _commentImageRef(
         userId: userId,
         threadId: threadId,
         commentId: commentId,
         index: i,
+        extension: imageUploadExtension(file),
       );
-      final metadata = SettableMetadata(contentType: 'image/jpeg');
-      final file = files[i];
+      final metadata =
+          SettableMetadata(contentType: imageUploadContentType(file));
 
       if (kIsWeb) {
         final bytes = await file.readAsBytes();
@@ -65,14 +70,17 @@ class ChibaChannelImageService {
   }) async {
     final futures = <Future<void>>[];
     for (var i = 0; i < maxIndex; i++) {
-      futures.add(
-        _commentImageRef(
-          userId: userId,
-          threadId: threadId,
-          commentId: commentId,
-          index: i,
-        ).delete().catchError((_) {}),
-      );
+      for (final ext in const ['jpg', 'gif']) {
+        futures.add(
+          _commentImageRef(
+            userId: userId,
+            threadId: threadId,
+            commentId: commentId,
+            index: i,
+            extension: ext,
+          ).delete().catchError((_) {}),
+        );
+      }
     }
     await Future.wait(futures);
   }

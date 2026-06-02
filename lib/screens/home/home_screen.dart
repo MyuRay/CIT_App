@@ -90,7 +90,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'bus',
     'train_access',
     'campus_map',
-    'classroom_map',
     'academic_calendar',
     'convenience_links',
   ];
@@ -963,8 +962,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return const TrainAccessHomeCard();
       case 'campus_map':
         return _buildCampusMapCard(context);
-      case 'classroom_map':
-        return _buildClassroomMapCard(context);
       case 'academic_calendar':
         return _buildAcademicCalendarCard(context);
       case 'club_organizations':
@@ -1234,55 +1231,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildClassroomMapCard(BuildContext context) {
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => _openClassroomMap(context),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  Icons.class_outlined,
-                  color: Theme.of(context).colorScheme.onSecondaryContainer,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '教室マップ',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '校舎・教室の位置を一覧と地図で確認できます',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
         ),
       ),
     );
@@ -1649,6 +1597,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       final key = _dateKey(event.date);
       eventsByDate.putIfAbsent(key, () => <AcademicCalendarEvent>[]).add(event);
     }
+    final now = DateTime.now();
+    final isCurrentMonth = year == now.year && month == now.month;
+    final todayColumnIndex = weekStart == CalendarWeekStart.sunday
+        ? now.weekday % 7
+        : now.weekday - 1;
 
     return Padding(
       padding: const EdgeInsets.all(12),
@@ -1662,13 +1615,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           const SizedBox(height: 8),
           Row(
             children:
-                weekdayLabels.map((label) {
+                weekdayLabels.asMap().entries.map((entry) {
+                  final isTodayColumn =
+                      isCurrentMonth && entry.key == todayColumnIndex;
                   return Expanded(
                     child: Center(
                       child: Text(
-                        label,
+                        entry.value,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontWeight: FontWeight.w700,
+                          color: isTodayColumn
+                              ? Theme.of(context).colorScheme.primary
+                              : null,
                         ),
                       ),
                     ),
@@ -1697,26 +1655,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     (dayEvents != null && dayEvents.isNotEmpty)
                         ? dayEvents.first
                         : null;
+                final isToday =
+                    cellDate != null && _isTodayCalendarDate(cellDate);
 
                 return Container(
                   alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(6),
-                    color:
-                        isInCurrentMonth
-                            ? (representativeEvent != null
-                                ? _colorFromHex(
-                                  representativeEvent.colorHex,
-                                ).withOpacity(0.2)
-                                : Theme.of(context).colorScheme.surfaceContainerHighest)
-                            : Colors.transparent,
+                  decoration: _academicCalendarDayDecoration(
+                    context,
+                    isInCurrentMonth: isInCurrentMonth,
+                    isToday: isToday,
+                    representativeEvent: representativeEvent,
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
                         isInCurrentMonth ? '$dayNumber' : '',
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        style: _academicCalendarDayTextStyle(
+                          context,
+                          isInCurrentMonth: isInCurrentMonth,
+                          isToday: isToday,
+                          baseStyle: Theme.of(context).textTheme.bodyMedium,
+                        ),
                       ),
                       if (dayEvents != null && dayEvents.isNotEmpty)
                         Padding(
@@ -1784,6 +1744,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       final key = _dateKey(event.date);
       eventsByDate.putIfAbsent(key, () => <AcademicCalendarEvent>[]).add(event);
     }
+    final now = DateTime.now();
+    final isCurrentMonth = year == now.year && month == now.month;
+    final todayColumnIndex = weekStart == CalendarWeekStart.sunday
+        ? now.weekday % 7
+        : now.weekday - 1;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1797,13 +1762,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         const SizedBox(height: 8),
         Row(
           children:
-              weekdayLabels.map((label) {
+              weekdayLabels.asMap().entries.map((entry) {
+                final isTodayColumn =
+                    isCurrentMonth && entry.key == todayColumnIndex;
                 return Expanded(
                   child: Center(
                     child: Text(
-                      label,
+                      entry.value,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         fontWeight: FontWeight.w700,
+                        color: isTodayColumn
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
                       ),
                     ),
                   ),
@@ -1832,25 +1802,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 (dayEvents != null && dayEvents.isNotEmpty)
                     ? dayEvents.first
                     : null;
+            final isToday =
+                cellDate != null && _isTodayCalendarDate(cellDate);
             return Container(
               alignment: Alignment.center,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6),
-                color:
-                    isInCurrentMonth
-                        ? (representativeEvent != null
-                            ? _colorFromHex(
-                              representativeEvent.colorHex,
-                            ).withOpacity(0.2)
-                            : Theme.of(context).colorScheme.surfaceContainerHighest)
-                        : Colors.transparent,
+              decoration: _academicCalendarDayDecoration(
+                context,
+                isInCurrentMonth: isInCurrentMonth,
+                isToday: isToday,
+                representativeEvent: representativeEvent,
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     isInCurrentMonth ? '$dayNumber' : '',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: _academicCalendarDayTextStyle(
+                      context,
+                      isInCurrentMonth: isInCurrentMonth,
+                      isToday: isToday,
+                      baseStyle: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ),
                   if (dayEvents != null && dayEvents.isNotEmpty)
                     Padding(
@@ -1896,6 +1868,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   String _dateKey(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  bool _isTodayCalendarDate(DateTime date) {
+    return DateUtils.isSameDay(date, DateTime.now());
+  }
+
+  BoxDecoration _academicCalendarDayDecoration(
+    BuildContext context, {
+    required bool isInCurrentMonth,
+    required bool isToday,
+    required AcademicCalendarEvent? representativeEvent,
+  }) {
+    if (!isInCurrentMonth) {
+      return BoxDecoration(borderRadius: BorderRadius.circular(6));
+    }
+
+    final colorScheme = Theme.of(context).colorScheme;
+    Color background;
+    if (isToday) {
+      background = colorScheme.primary.withValues(alpha: 0.2);
+    } else if (representativeEvent != null) {
+      background = _colorFromHex(representativeEvent.colorHex).withValues(alpha: 0.2);
+    } else {
+      background = colorScheme.surfaceContainerHighest;
+    }
+
+    return BoxDecoration(
+      borderRadius: BorderRadius.circular(6),
+      color: background,
+      border: isToday
+          ? Border.all(color: colorScheme.primary, width: 2)
+          : null,
+    );
+  }
+
+  TextStyle? _academicCalendarDayTextStyle(
+    BuildContext context, {
+    required bool isInCurrentMonth,
+    required bool isToday,
+    TextStyle? baseStyle,
+  }) {
+    if (!isInCurrentMonth) return baseStyle;
+    if (!isToday) return baseStyle;
+    return baseStyle?.copyWith(
+      color: Theme.of(context).colorScheme.primary,
+      fontWeight: FontWeight.bold,
+    );
   }
 
   static Color _colorFromHex(String hex) {
@@ -2080,8 +2099,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return trainHomeCardTitle(ref.read(preferredBusCampusProvider));
       case 'campus_map':
         return 'キャンパスマップ';
-      case 'classroom_map':
-        return '教室マップ';
       case 'academic_calendar':
         return '学年歴';
       case 'club_organizations':
@@ -2109,19 +2126,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         result.insert(convenienceIndex, 'academic_calendar');
       } else {
         result.add('academic_calendar');
-      }
-    }
-    if (!result.contains('classroom_map')) {
-      final campusIndex = result.indexOf('campus_map');
-      if (campusIndex >= 0) {
-        result.insert(campusIndex + 1, 'classroom_map');
-      } else {
-        final acIndex = result.indexOf('academic_calendar');
-        if (acIndex >= 0) {
-          result.insert(acIndex, 'classroom_map');
-        } else {
-          result.add('classroom_map');
-        }
       }
     }
     if (!result.contains('train_access')) {

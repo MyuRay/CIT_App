@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../services/user/user_service.dart';
+import 'widgets/auth_components.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -95,16 +96,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
-      
+
       // ログイン後、メール認証状態をFirestoreに同期
       // （ルーターがFirestoreの状態を監視して自動的にリダイレクトする）
       if (mounted) {
         // メール認証状態をFirestoreに同期（ルーターが監視して遷移する）
         await UserService.syncCurrentUserEmailVerification();
-        
+
         // ルーターが自動的に遷移するまで少し待つ
         await Future.delayed(const Duration(milliseconds: 300));
-        
+
         // 念のため、Firebase Authの状態も確認して遷移
         final isVerified = await authService.checkEmailVerification();
         if (mounted) {
@@ -131,7 +132,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _showForgotPasswordDialog() async {
-    final emailController = TextEditingController(text: _emailController.text.trim());
+    final emailController =
+        TextEditingController(text: _emailController.text.trim());
     String? errorText;
     bool sending = false;
 
@@ -164,7 +166,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: sending ? null : () => Navigator.of(dialogContext).pop(),
+                  onPressed:
+                      sending ? null : () => Navigator.of(dialogContext).pop(),
                   child: const Text('キャンセル'),
                 ),
                 FilledButton(
@@ -176,7 +179,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             errorText = null;
                           });
                           try {
-                            await ref.read(authServiceProvider).sendPasswordResetEmail(
+                            await ref
+                                .read(authServiceProvider)
+                                .sendPasswordResetEmail(
                                   email: emailController.text,
                                 );
                             if (!dialogContext.mounted) return;
@@ -217,287 +222,216 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     emailController.dispose();
   }
 
+  String? _validateEmail(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'メールアドレスを入力してください';
+    }
+    if (!value.contains('@')) {
+      return AppConstants.errorInvalidEmail;
+    }
+    if (!AppConstants.isAllowedDomain(value)) {
+      return AppConstants.errorInvalidDomain;
+    }
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'パスワードを入力してください';
+    }
+    if (value.length < 6) {
+      return AppConstants.errorWeakPassword;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       body: GestureDetector(
         behavior: HitTestBehavior.deferToChild,
         onTap: () => FocusScope.of(context).unfocus(),
-        child: SafeArea(
-          child: Stack(
-            children: [
-              // Header background (brand color)
-              Container(
-                height: 240,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      colorScheme.primary,
-                      colorScheme.primary.withOpacity(0.85),
-                    ],
-                  ),
-                ),
-              ),
-              Positioned(
-                top: -40,
-                right: -30,
-                child: _buildGlowCircle(
-                  color: Colors.white.withOpacity(0.18),
-                  size: 170,
-                ),
-              ),
-              Positioned(
-                top: 90,
-                left: -36,
-                child: _buildGlowCircle(
-                  color: Colors.white.withOpacity(0.12),
-                  size: 130,
-                ),
-              ),
-
-              // Scrollable content
-              LayoutBuilder(
+        child: Stack(
+          children: [
+            const AuthBackgroundDecoration(),
+            SafeArea(
+              child: LayoutBuilder(
                 builder: (context, constraints) {
                   return SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 520),
-                        child: TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0, end: 1),
-                          duration: const Duration(milliseconds: 550),
-                          curve: Curves.easeOutCubic,
-                          builder: (context, t, child) {
-                            return Opacity(
-                              opacity: t,
-                              child: Transform.translate(
-                                offset: Offset(0, (1 - t) * 26),
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: Column(
-                            children: [
-                              const SizedBox(height: 8),
-                              // Logo + App name
-                              Column(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.20),
-                                      borderRadius: BorderRadius.circular(22),
-                                      border: Border.all(
-                                        color: Colors.white.withOpacity(0.45),
-                                        width: 1.4,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.14),
-                                          blurRadius: 14,
-                                          offset: const Offset(0, 6),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Container(
-                                      width: 72,
-                                      height: 72,
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(18),
-                                      ),
-                                      child: Image.asset(
-                                        'assets/icons/app_icon.png',
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (_, __, ___) => Icon(
-                                          Icons.school,
-                                          size: 56,
-                                          color: colorScheme.primary,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    AppConstants.appName,
-                                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: 24),
-
-                              // Card with form
-                              Card(
-                                elevation: 10,
-                                shadowColor: colorScheme.primary.withOpacity(0.30),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-                                  child: Form(
-                                    key: _formKey,
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
-                                      Text(
-                                        'ログイン',
-                                        textAlign: TextAlign.center,
-                                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Container(
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: colorScheme.primaryContainer.withOpacity(0.35),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Icon(Icons.info_outline, size: 20, color: colorScheme.primary),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                '千葉工業大学のメールアドレスのみ利用可能です\n${AppConstants.allowedDomains.join(' / ')}',
-                                                style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.4),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      TextFormField(
-                                        controller: _emailController,
-                                        keyboardType: TextInputType.emailAddress,
-                                        textInputAction: TextInputAction.next,
-                                        decoration: const InputDecoration(
-                                          labelText: 'CITメールアドレス',
-                                          hintText: 'example@s.chibakoudai.jp / example@p.chibakoudai.jp / example@chibatech.ac.jp',
-                                          prefixIcon: Icon(Icons.email_outlined),
-                                          helperText: '※ 上記のドメインのみ利用可能',
-                                          helperMaxLines: 2,
-                                        ),
-                                        validator: (value) {
-                                          if (value == null || value.isEmpty) {
-                                            return 'メールアドレスを入力してください';
-                                          }
-                                          if (!value.contains('@')) {
-                                            return AppConstants.errorInvalidEmail;
-                                          }
-                                          if (!AppConstants.isAllowedDomain(value)) {
-                                            return AppConstants.errorInvalidDomain;
-                                          }
-                                          return null;
-                                        },
-                                      ),
-                                      const SizedBox(height: 14),
-                                      TextFormField(
-                                        controller: _passwordController,
-                                        obscureText: _obscurePassword,
-                                        decoration: InputDecoration(
-                                          labelText: 'パスワード',
-                                          prefixIcon: const Icon(Icons.lock_outline),
-                                          suffixIcon: IconButton(
-                                            tooltip: _obscurePassword ? 'パスワードを表示' : 'パスワードを非表示',
-                                            icon: Icon(
-                                              _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                                            ),
-                                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                                      ),
-                                    ),
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty) {
-                                        return 'パスワードを入力してください';
-                                      }
-                                      if (value.length < 6) {
-                                        return AppConstants.errorWeakPassword;
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: TextButton(
-                                      onPressed: _isLoading ? null : _showForgotPasswordDialog,
-                                      child: const Text('パスワードを忘れた方'),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Checkbox(
-                                        value: _rememberMe,
-                                        onChanged: _isLoading
-                                            ? null
-                                            : (v) => setState(() => _rememberMe = v ?? true),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      const Text('ログイン状態を保持する'),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 20),
-                                  SizedBox(
-                                    height: 48,
-                                    child: FilledButton(
-                                      onPressed: _isLoading ? null : _signIn,
-                                          child: _isLoading
-                                              ? const SizedBox(
-                                                  height: 22,
-                                                  width: 22,
-                                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                                )
-                                              : const Text('ログイン'),
-                                        ),
-                                      ),
-                                        const SizedBox(height: 8),
-                                        TextButton(
-                                          onPressed: _isLoading ? null : () => context.go('/signup'),
-                                          child: const Text('アカウントをお持ちでない方はこちら'),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-                          ),
+                    padding: EdgeInsets.only(
+                      left: 24,
+                      right: 24,
+                      top: 16,
+                      bottom: 24 + MediaQuery.viewInsetsOf(context).bottom,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight - 40,
+                      ),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 460),
+                          child: _buildContent(theme),
                         ),
                       ),
                     ),
                   );
                 },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildGlowCircle({required Color color, required double size}) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(
-            colors: [color, color.withOpacity(0)],
+  Widget _buildContent(ThemeData theme) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 550),
+      curve: Curves.easeOutCubic,
+      builder: (context, t, child) {
+        return Opacity(
+          opacity: t,
+          child: Transform.translate(
+            offset: Offset(0, (1 - t) * 26),
+            child: child,
           ),
+        );
+      },
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 8),
+            const AuthHeader(title: 'ログイン'),
+            const SizedBox(height: 28),
+            AllowedEmailInfoCard(
+              headline: '千葉工業大学のメールアドレスのみ利用可能です',
+              domains: AppConstants.allowedDomains,
+            ),
+            const SizedBox(height: 22),
+            AuthTextField(
+              controller: _emailController,
+              hintText: 'CITメールアドレス',
+              prefixIcon: Icons.email_outlined,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              enabled: !_isLoading,
+              autocorrect: false,
+              validator: _validateEmail,
+            ),
+            const SizedBox(height: 16),
+            AuthTextField(
+              controller: _passwordController,
+              hintText: 'パスワード',
+              prefixIcon: Icons.lock_outline,
+              obscureText: _obscurePassword,
+              textInputAction: TextInputAction.done,
+              enabled: !_isLoading,
+              autocorrect: false,
+              validator: _validatePassword,
+              onFieldSubmitted: (_) => _isLoading ? null : _signIn(),
+              suffixIcon: IconButton(
+                tooltip: _obscurePassword ? 'パスワードを表示' : 'パスワードを非表示',
+                icon: Icon(
+                  _obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                ),
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _isLoading ? null : _showForgotPasswordDialog,
+                style: TextButton.styleFrom(
+                  foregroundColor: AuthPalette.forgotLink,
+                ),
+                child: const Text('パスワードを忘れた方'),
+              ),
+            ),
+            const SizedBox(height: 4),
+            _RememberLoginRow(
+              value: _rememberMe,
+              onChanged: _isLoading
+                  ? null
+                  : (v) => setState(() => _rememberMe = v),
+            ),
+            const SizedBox(height: 22),
+            PrimaryAuthButton(
+              label: 'ログイン',
+              isLoading: _isLoading,
+              onPressed: _isLoading ? null : _signIn,
+            ),
+            const SizedBox(height: 22),
+            const AuthDivider(),
+            const SizedBox(height: 22),
+            AuthNavigationCard(
+              label: 'アカウントをお持ちでない方はこちら',
+              tinted: true,
+              onTap: _isLoading ? null : () => context.go('/signup'),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 「ログイン状態を保持する」行（広いタップ領域）。
+class _RememberLoginRow extends StatelessWidget {
+  const _RememberLoginRow({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final enabled = onChanged != null;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: enabled ? () => onChanged!(!value) : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: Checkbox(
+                value: value,
+                onChanged: enabled ? (v) => onChanged!(v ?? true) : null,
+                activeColor: AuthPalette.green,
+                checkColor: Colors.white,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'ログイン状態を保持する',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+              ),
+            ),
+          ],
         ),
       ),
     );

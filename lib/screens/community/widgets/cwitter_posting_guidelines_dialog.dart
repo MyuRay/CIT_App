@@ -73,6 +73,9 @@ class _CwitterPostingGuidelinesDialogBodyState
               text: '誹謗中傷・差別・迷惑行為・著作権侵害など、他者や大学に不利益となるCweetはしないでください。',
             ),
             const _GuidelineItem(
+              text: '営利目的の宣伝・勧誘、商品・サービスの販売、広告・PR等を目的としたCweetはしないでください（運営者が許可したものを除く）。',
+            ),
+            const _GuidelineItem(
               text: 'R18コンテンツや暴力的な内容のCweetはしないでください。',
             ),
             const _GuidelineItem(

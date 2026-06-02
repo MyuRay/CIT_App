@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../core/providers/cwitter_provider.dart';
+import '../../services/ui/ui_feedback_service.dart';
 import 'widgets/chiba_channel_archive_screen.dart';
 import 'widgets/chiba_channel_info_dialog.dart';
 import 'widgets/chiba_channel_tab.dart';
@@ -123,6 +124,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           indicatorColor: const Color(0xFF4CAF50),
           labelColor: const Color(0xFF2E7D32),
           unselectedLabelColor: colorScheme.onSurface.withValues(alpha: 0.6),
+          onTap: (_) => UiFeedbackService.tabSwitch(),
           tabs: [
             Tab(
               child: _TabLabel(

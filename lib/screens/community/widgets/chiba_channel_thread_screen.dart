@@ -10,6 +10,8 @@ import '../../../core/providers/chiba_channel_provider.dart';
 
 import '../../../core/providers/cwitter_provider.dart';
 
+import '../../../core/providers/admin_provider.dart';
+
 import '../../../core/providers/schedule_provider.dart';
 
 import '../../../models/community/chiba_channel_comment.dart';
@@ -17,12 +19,14 @@ import '../../../models/community/chiba_channel_comment.dart';
 import '../../../models/community/chiba_channel_thread.dart';
 
 import '../../../services/community/chiba_channel_image_service.dart';
+import '../../../utils/community/post_image_utils.dart';
 
 import '../../../services/community/chiba_channel_reply_sound_service.dart';
 import '../../../services/community/chiba_channel_service.dart';
 
 import '../community_time_format.dart';
 
+import 'admin_ban_dialog.dart';
 import 'chiba_channel_comment_body.dart';
 import 'chiba_channel_reply_chain_sheet.dart';
 import 'chiba_channel_report_helper.dart';
@@ -196,27 +200,34 @@ class _ChibaChannelThreadScreenState
 
     final picker = ImagePicker();
 
-    final picked = await picker.pickMultiImage(
+    final remaining =
+        ChibaChannelImageService.maxImagesPerComment - _pendingImages.length;
 
-      imageQuality: 85,
-
-      maxWidth: 2048,
-
-      maxHeight: 2048,
-
-    );
+    final picked = await picker.pickMultipleMedia(limit: remaining);
 
     if (!mounted || picked.isEmpty) return;
+
+    final images = picked.where(isSupportedPostImageXFile).toList();
+
+    if (images.isEmpty) {
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+
+        const SnackBar(content: Text('画像ファイルを選択してください')),
+
+      );
+
+      return;
+
+    }
 
 
 
     setState(() {
 
-      final remaining =
-
-          ChibaChannelImageService.maxImagesPerComment - _pendingImages.length;
-
-      _pendingImages.addAll(picked.take(remaining));
+      _pendingImages.addAll(images.take(remaining));
 
     });
 
@@ -290,6 +301,8 @@ class _ChibaChannelThreadScreenState
 
       if (!mounted) return;
 
+      if (maybeShowBanNotice(context, error)) return;
+
       final isRateLimited = error is ChibaChannelCommentRateLimitException;
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -321,6 +334,17 @@ class _ChibaChannelThreadScreenState
       context,
       comment: comment,
       thread: widget.thread,
+    );
+  }
+
+  Future<void> _banCommentAuthor(ChibaChannelComment comment) async {
+    final adminId = ref.read(currentUserIdProvider);
+    if (adminId == null || comment.authorId.isEmpty) return;
+    await showAdminBanDialog(
+      context,
+      targetUserId: comment.authorId,
+      targetLabel: '${comment.displayName}[${comment.displayIdLabel}]',
+      adminId: adminId,
     );
   }
 
@@ -484,6 +508,8 @@ class _ChibaChannelThreadScreenState
 
     final uid = ref.watch(currentUserIdProvider);
 
+    final isAdmin = ref.watch(isAdminProvider);
+
     final commentsAsync =
 
         ref.watch(chibaChannelCommentsProvider(widget.thread.id));
@@ -624,9 +650,14 @@ class _ChibaChannelThreadScreenState
                               canReport: uid != null &&
                                   uid != comment.authorId &&
                                   !comment.isDeleted,
+                              canBan: isAdmin &&
+                                  uid != comment.authorId &&
+                                  comment.authorId.isNotEmpty &&
+                                  !comment.isDeleted,
                               onReply: () => _startReplyTo(comment),
                               onDelete: () => _deleteComment(comment),
                               onReport: () => _reportComment(comment),
+                              onBan: () => _banCommentAuthor(comment),
                             ),
                             adBuilder: () => const InAppAdBannerSlot(
                               placement: AdPlacement.chibaChannelThreadReplies,
@@ -1096,9 +1127,11 @@ class _CommentTile extends StatelessWidget {
     required this.threadAuthorId,
     required this.canDelete,
     required this.canReport,
+    required this.canBan,
     required this.onReply,
     required this.onDelete,
     required this.onReport,
+    required this.onBan,
   });
 
   final ChibaChannelComment comment;
@@ -1107,9 +1140,11 @@ class _CommentTile extends StatelessWidget {
   final String threadAuthorId;
   final bool canDelete;
   final bool canReport;
+  final bool canBan;
   final VoidCallback onReply;
   final VoidCallback onDelete;
   final VoidCallback onReport;
+  final VoidCallback onBan;
 
 
 
@@ -1306,12 +1341,14 @@ class _CommentTile extends StatelessWidget {
 
             ),
 
-            if (canDelete || canReport)
+            if (canDelete || canReport || canBan)
               _CommentMoreMenu(
                 canDelete: canDelete,
                 canReport: canReport,
+                canBan: canBan,
                 onDelete: onDelete,
                 onReport: onReport,
+                onBan: onBan,
               ),
 
           ],
@@ -1390,23 +1427,29 @@ class _ScrollToLatestButton extends StatelessWidget {
 
 
 
-class _CommentMoreMenu extends StatelessWidget {
+class _CommentMoreMenu extends ConsumerWidget {
   const _CommentMoreMenu({
     required this.canDelete,
     required this.canReport,
+    required this.canBan,
     required this.onDelete,
     required this.onReport,
+    required this.onBan,
   });
 
   final bool canDelete;
   final bool canReport;
+  final bool canBan;
   final VoidCallback onDelete;
   final VoidCallback onReport;
+  final VoidCallback onBan;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final iconColor =
         Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55);
+    // BANは管理者のみ。非管理者には絶対に表示しない。
+    final showBan = canBan && ref.watch(isAdminProvider);
 
     return PopupMenuButton<String>(
       padding: EdgeInsets.zero,
@@ -1417,6 +1460,10 @@ class _CommentMoreMenu extends StatelessWidget {
       onSelected: (value) {
         if (value == 'report') {
           onReport();
+          return;
+        }
+        if (value == 'ban') {
+          if (showBan) onBan();
           return;
         }
         if (value == 'delete') {
@@ -1448,6 +1495,20 @@ class _CommentMoreMenu extends StatelessWidget {
                   Icon(Icons.delete_outline, color: Colors.red, size: 20),
                   SizedBox(width: 8),
                   Text('削除', style: TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
+          );
+        }
+        if (showBan) {
+          items.add(
+            const PopupMenuItem(
+              value: 'ban',
+              child: Row(
+                children: [
+                  Icon(Icons.gavel, color: Colors.red, size: 20),
+                  SizedBox(width: 8),
+                  Text('BANする', style: TextStyle(color: Colors.red)),
                 ],
               ),
             ),

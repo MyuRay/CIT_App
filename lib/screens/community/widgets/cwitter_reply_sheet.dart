@@ -4,16 +4,19 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/providers/cwitter_provider.dart';
 import '../../../core/providers/cwitter_reply_count_override_provider.dart';
+import '../../../core/providers/admin_provider.dart';
 import '../../../core/providers/schedule_provider.dart';
 import '../../../models/community/cwitter_post.dart';
 import '../../../models/community/cwitter_reply.dart';
 import '../../../services/community/cwitter_post_image_service.dart';
 import '../../../services/community/cwitter_service.dart';
+import '../../../utils/community/post_image_utils.dart';
 import '../community_time_format.dart';
 import 'cwitter_author_header.dart';
 import 'cwitter_avatar.dart';
 import 'cwitter_body_text.dart';
 import 'cwitter_post_images_grid.dart';
+import 'admin_ban_dialog.dart';
 import 'cwitter_more_menu.dart';
 import 'cwitter_reply_context.dart';
 import 'cwitter_report_helper.dart';
@@ -83,17 +86,22 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
     }
 
     final picker = ImagePicker();
-    final picked = await picker.pickMultiImage(
-      imageQuality: 85,
-      maxWidth: 2048,
-      maxHeight: 2048,
-    );
+    final remaining =
+        CwitterPostImageService.maxImagesPerPost - _pendingImages.length;
+    final picked = await picker.pickMultipleMedia(limit: remaining);
     if (!mounted || picked.isEmpty) return;
 
+    final images = picked.where(isSupportedPostImageXFile).toList();
+    if (images.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('画像ファイルを選択してください')),
+      );
+      return;
+    }
+
     setState(() {
-      final remaining =
-          CwitterPostImageService.maxImagesPerPost - _pendingImages.length;
-      _pendingImages.addAll(picked.take(remaining));
+      _pendingImages.addAll(images.take(remaining));
     });
   }
 
@@ -149,6 +157,7 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
     } catch (e) {
       replyCountNotifier.revert(widget.post.id);
       if (!mounted) return;
+      if (maybeShowBanNotice(context, e)) return;
       final isRateLimited = e is CwitterReplyRateLimitException;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -449,6 +458,8 @@ class _PostPreviewHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final uid = ref.watch(currentUserIdProvider);
+    final isAdmin = ref.watch(isAdminProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -462,6 +473,14 @@ class _PostPreviewHeader extends ConsumerWidget {
                 ? null
                 : () => showCwitterPostReportDialog(context, post: post),
             onBlock: onBlock,
+            onBan: (!isAdmin || isOwner || uid == null)
+                ? null
+                : () => showAdminBanDialog(
+                      context,
+                      targetUserId: post.authorId,
+                      targetLabel: '@${post.cwitterId}',
+                      adminId: uid,
+                    ),
           ),
         ),
         Padding(
@@ -513,6 +532,8 @@ class _ReplyListTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final uid = ref.watch(currentUserIdProvider);
+    final isAdmin = ref.watch(isAdminProvider);
     final targetReply = resolveReplyTarget(
       reply: reply,
       post: post,
@@ -551,6 +572,14 @@ class _ReplyListTile extends ConsumerWidget {
                             reply: reply,
                           ),
                   onBlock: onBlock,
+                  onBan: (!isAdmin || isOwner || uid == null)
+                      ? null
+                      : () => showAdminBanDialog(
+                            context,
+                            targetUserId: reply.authorId,
+                            targetLabel: '@${reply.cwitterId}',
+                            adminId: uid,
+                          ),
                 ),
               ],
             ),

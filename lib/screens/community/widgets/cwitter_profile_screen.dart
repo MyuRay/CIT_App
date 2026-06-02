@@ -8,6 +8,8 @@ import '../../../core/providers/cwitter_like_override_provider.dart';
 import '../../../core/providers/cwitter_provider.dart';
 import '../../../core/providers/schedule_provider.dart';
 import '../../../core/providers/user_block_provider.dart';
+import '../../../core/providers/admin_provider.dart';
+import 'admin_ban_dialog.dart';
 import '../../../models/community/cwitter_follow_counts.dart';
 import '../../../models/community/cwitter_post.dart';
 import '../../../models/community/cwitter_profile_activity.dart';
@@ -186,6 +188,14 @@ class _CwitterProfileScreenState extends ConsumerState<CwitterProfileScreen>
                           Navigator.of(context).pop();
                         }
                       },
+                onBan: !ref.watch(isAdminProvider)
+                    ? null
+                    : () => showAdminBanDialog(
+                          context,
+                          targetUserId: profileUser.authorId,
+                          targetLabel: '@${profileUser.cwitterId}',
+                          adminId: currentUid,
+                        ),
               ),
             ),
         ],

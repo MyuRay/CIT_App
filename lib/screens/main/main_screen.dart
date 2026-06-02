@@ -38,6 +38,7 @@ import '../../models/admin/admin_model.dart';
 import '../admin/admin_management_screen.dart';
 import '../../widgets/auth/legacy_email_migration_dialog.dart';
 import '../legal/community_legal_update_consent_gate.dart';
+import '../../widgets/common/ui_feedback_listener.dart';
 
 // モック画像の背景パターンを描画するCustomPainter
 class MockImagePainter extends CustomPainter {
@@ -522,7 +523,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         body: currentScreen,
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: safeCurrentIndex,
-          onTap: (index) {
+          onTap: uiFeedbackTabIndexHandler((index) {
             print('🔧 タブ ${index} がタップされました');
             // インデックス範囲チェック（0-4の5つのタブ）
             if (index >= 0 && index <= 4) {
@@ -543,7 +544,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 _currentIndex = 0;
               });
             }
-          },
+          }),
           type: BottomNavigationBarType.fixed,
           items: [
             const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'ホーム'),

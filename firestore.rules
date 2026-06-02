@@ -37,6 +37,20 @@ service cloud.firestore {
         && (request.auth.uid == userId || isAdmin());
     }
 
+    // 垢BAN判定（banned_users/{uid} が存在し、永久 or 期限内）
+    function isBanned() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/banned_users/$(request.auth.uid))
+        && (
+          get(/databases/$(database)/documents/banned_users/$(request.auth.uid)).data.get('permanent', false) == true
+          || !(
+            get(/databases/$(database)/documents/banned_users/$(request.auth.uid)).data.get('expiresAt', null)
+              is timestamp
+          )
+          || get(/databases/$(database)/documents/banned_users/$(request.auth.uid)).data.expiresAt > request.time
+        );
+    }
+
     // Cwitter ID（半角英数字・_ ・小文字 3〜10 文字。ドキュメントIDも同形式）
     function isValidCwitterIdLower(id) {
       return id is string && id.matches('^[a-z0-9_]{3,10}$');
@@ -564,6 +578,7 @@ service cloud.firestore {
         && request.auth.uid == request.resource.data.authorId
         && authorOwnsCwitterId(request.resource.data.cwitterId)
         && isValidCwitterIdLower(request.resource.data.cwitterId)
+        && !isBanned()
         && cwitterPostBodyValidOnCreate()
         && cwitterPostContentValidOnCreate()
         && (!('poll' in request.resource.data) || !('imageUrls' in request.resource.data))
@@ -594,6 +609,7 @@ service cloud.firestore {
           && request.auth.uid == request.resource.data.authorId
           && authorOwnsCwitterId(request.resource.data.cwitterId)
           && isValidCwitterIdLower(request.resource.data.cwitterId)
+          && !isBanned()
           && cwitterReplyBodyValidOnCreate()
           && cwitterReplyContentValidOnCreate()
           && request.resource.data.displayName is string
@@ -618,6 +634,7 @@ service cloud.firestore {
         && isValidCwitterIdLower(request.resource.data.cwitterId)
         && request.resource.data.postId is string
         && request.resource.data.replyId is string
+        && !isBanned()
         && cwitterReplyBodyValidOnCreate()
         && cwitterReplyContentValidOnCreate()
         && request.resource.data.displayName is string
@@ -640,6 +657,7 @@ service cloud.firestore {
         && request.auth != null
         && request.auth.uid == request.resource.data.authorId
         && chibaChannelAuthorEmailValidOnCreate()
+        && !isBanned()
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0
         && request.resource.data.title.size() <= 80
@@ -667,6 +685,7 @@ service cloud.firestore {
           && request.auth != null
           && request.auth.uid == request.resource.data.authorId
           && chibaChannelAuthorEmailValidOnCreate()
+          && !isBanned()
           && chibaChannelCommentBodyValidOnCreate()
           && chibaChannelCommentContentValidOnCreate()
           && chibaChannelAnonymousIdValid(request.resource.data.anonymousId)
@@ -704,6 +723,7 @@ service cloud.firestore {
           && request.auth != null
           && request.auth.uid == userId
           && chibaChannelAnonymousIdValid(request.resource.data.anonymousId)
+          && !isBanned()
           && request.resource.data.createdAt is timestamp
           && request.resource.data.keys().hasAll(['anonymousId', 'createdAt']);
         allow update: if false;
@@ -742,6 +762,7 @@ service cloud.firestore {
       allow create: if isCITUser()
         && request.auth != null
         && request.auth.uid == userId
+        && !isBanned()
         && request.resource.data.postId == postId
         && request.resource.data.originalAuthorId is string
         && request.resource.data.displayName is string
@@ -843,7 +864,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Cwitter 投稿・返信 / ちばちゃんねるレスの連投防止（1分で2投稿）
+    // Cwitter 投稿・返信 / ちばちゃんねるレスの連投防止
     match /users/{userId}/rate_limits/{limitKey} {
       allow read: if isCITUser()
         && request.auth != null
@@ -857,7 +878,12 @@ service cloud.firestore {
         && request.resource.data.windowStart is timestamp
         && request.resource.data.count is int
         && request.resource.data.count >= 1
-        && request.resource.data.count <= 2
+        && (
+          (limitKey == 'chiba_channel_comment'
+            && request.resource.data.count <= 3)
+          || ((limitKey == 'cwitter_post' || limitKey == 'cwitter_reply')
+            && request.resource.data.count <= 2)
+        )
         && (!('updatedAt' in request.resource.data)
           || request.resource.data.updatedAt is timestamp);
       allow delete: if false;
@@ -892,6 +918,20 @@ service cloud.firestore {
     // 管理者のルール
     match /admins/{adminId} {
       allow read, write: if isAdmin();
+    }
+
+    // 垢BAN（運営のみが作成・解除可能。本人と管理者が読み取り可能）
+    match /banned_users/{bannedUserId} {
+      allow read: if request.auth != null
+        && (request.auth.uid == bannedUserId || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    // BAN中ユーザーの投稿を全員から非表示にするための公開索引。
+    // 理由などの機微情報は含まず UID と期限のみ。認証済みユーザーは読み取り可、書き込みは管理者のみ。
+    match /moderation/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
     }
 
     // 管理者権限のルール

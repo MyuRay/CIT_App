@@ -16,6 +16,30 @@ class CwitterTagsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     if (tags.isEmpty) return const SizedBox.shrink();
 
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: tags
+          .take(AppConstants.cwitterTagsMaxCount)
+          .map((tag) => CwitterTagChip(tag: tag, compact: compact))
+          .toList(),
+    );
+  }
+}
+
+/// 単一のハッシュタグチップ。[Wrap] の子として個別に折り返しできる。
+class CwitterTagChip extends StatelessWidget {
+  const CwitterTagChip({
+    super.key,
+    required this.tag,
+    this.compact = false,
+  });
+
+  final String tag;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final fontSize = compact ? 10.0 : 11.0;
@@ -30,33 +54,24 @@ class CwitterTagsRow extends StatelessWidget {
         ? textColor.withValues(alpha: 0.55)
         : const Color(0xFF4CAF50).withValues(alpha: 0.28);
 
-    return Wrap(
-      spacing: 4,
-      runSpacing: 4,
-      children: tags
-          .take(AppConstants.cwitterTagsMaxCount)
-          .map(
-            (tag) => Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: horizontalPadding,
-                vertical: verticalPadding,
-              ),
-              decoration: BoxDecoration(
-                color: backgroundColor,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: borderColor),
-              ),
-              child: Text(
-                '#$tag',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  fontSize: fontSize,
-                  color: textColor,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          )
-          .toList(),
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: verticalPadding,
+      ),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: borderColor),
+      ),
+      child: Text(
+        '#$tag',
+        style: theme.textTheme.labelSmall?.copyWith(
+          fontSize: fontSize,
+          color: textColor,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
