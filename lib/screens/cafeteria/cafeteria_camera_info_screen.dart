@@ -352,30 +352,13 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
               width: double.infinity,
               color: Colors.black,
               child: isActive && imageUrl != null
-                  ? CachedNetworkImage(
-                      key: ValueKey('${cafeteriaKey}_${_lastUpdate.millisecondsSinceEpoch ~/ (1000 * 60 * 5)}'), // 5分単位のキーでキャッシュを無効化
+                  ? _CafeteriaCameraImage(
+                      cafeteriaKey: cafeteriaKey,
+                      cafeteriaName: cafeteriaName,
                       imageUrl: imageUrl,
-                      fit: BoxFit.cover,
-                      maxWidthDiskCache: 1920, // ディスクキャッシュの最大幅
-                      maxHeightDiskCache: 1080, // ディスクキャッシュの最大高さ
-                      placeholder: (context, url) => Container(
-                        color: Colors.grey.shade900,
-                        child: const Center(
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      errorWidget: (context, url, error) {
-                        debugPrint('カメラ画像読み込みエラー: $url, error: $error');
-                        return _buildPlaceholderImage(
-                          context,
-                          cafeteriaName,
-                          'カメラ画像の読み込みに失敗しました',
-                        );
-                      },
-                      fadeInDuration: const Duration(milliseconds: 300),
-                      fadeOutDuration: const Duration(milliseconds: 100),
+                      // 5分単位のバケット。自動更新時にリセットされる。
+                      refreshBucket:
+                          _lastUpdate.millisecondsSinceEpoch ~/ (1000 * 60 * 5),
                     )
                   : _buildPlaceholderImage(
                       context,
@@ -447,6 +430,170 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
           ),
         ),
       ],
+    );
+  }
+}
+
+/// カメラ画像。取得失敗・ハング時にスピナーが回り続けないよう、
+/// タイムアウトと手動再読み込みで復帰できるようにする。
+class _CafeteriaCameraImage extends StatefulWidget {
+  const _CafeteriaCameraImage({
+    required this.cafeteriaKey,
+    required this.cafeteriaName,
+    required this.imageUrl,
+    required this.refreshBucket,
+  });
+
+  final String cafeteriaKey;
+  final String cafeteriaName;
+  final String imageUrl;
+  final int refreshBucket;
+
+  @override
+  State<_CafeteriaCameraImage> createState() => _CafeteriaCameraImageState();
+}
+
+class _CafeteriaCameraImageState extends State<_CafeteriaCameraImage> {
+  // 読み込みがこの時間を超えたら失敗扱いにして、無限スピナーを防ぐ。
+  static const Duration _loadTimeout = Duration(seconds: 12);
+
+  int _attempt = 0;
+  bool _failed = false;
+  Timer? _timeoutTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimeout();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CafeteriaCameraImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 5分ごとの自動更新（バケット変化）でリセットして再取得を試みる。
+    if (oldWidget.refreshBucket != widget.refreshBucket) {
+      _attempt = 0;
+      _failed = false;
+      _startTimeout();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timeoutTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startTimeout() {
+    _timeoutTimer?.cancel();
+    _timeoutTimer = Timer(_loadTimeout, () {
+      if (mounted && !_failed) {
+        setState(() => _failed = true);
+      }
+    });
+  }
+
+  void _stopTimeout() {
+    _timeoutTimer?.cancel();
+  }
+
+  void _retry() {
+    setState(() {
+      _attempt++;
+      _failed = false;
+    });
+    _startTimeout();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_failed) {
+      return _buildError();
+    }
+
+    // 試行ごとにキャッシュバスティングして、失敗した取得が
+    // 5分間キャッシュに残り続けないようにする。
+    final separator = widget.imageUrl.contains('?') ? '&' : '?';
+    final url = '${widget.imageUrl}${separator}a=$_attempt';
+
+    return CachedNetworkImage(
+      key: ValueKey('${widget.cafeteriaKey}_${widget.refreshBucket}_$_attempt'),
+      imageUrl: url,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      maxWidthDiskCache: 1920,
+      maxHeightDiskCache: 1080,
+      imageBuilder: (context, imageProvider) {
+        _stopTimeout();
+        return Image(
+          image: imageProvider,
+          fit: BoxFit.cover,
+          width: double.infinity,
+        );
+      },
+      placeholder: (context, _) => Container(
+        color: Colors.grey.shade900,
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      ),
+      errorWidget: (context, errorUrl, error) {
+        debugPrint('カメラ画像読み込みエラー: $errorUrl, error: $error');
+        _stopTimeout();
+        // ビルド中の setState を避けつつ失敗状態へ遷移。
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && !_failed) {
+            setState(() => _failed = true);
+          }
+        });
+        return Container(
+          color: Colors.grey.shade900,
+          child: const Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          ),
+        );
+      },
+      fadeInDuration: const Duration(milliseconds: 300),
+      fadeOutDuration: const Duration(milliseconds: 100),
+    );
+  }
+
+  Widget _buildError() {
+    return Container(
+      color: Colors.grey.shade900,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.videocam_off, size: 56, color: Colors.grey.shade600),
+            const SizedBox(height: 12),
+            Text(
+              widget.cafeteriaName,
+              style: TextStyle(
+                color: Colors.grey.shade400,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'カメラ画像を取得できませんでした',
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _retry,
+              icon: const Icon(Icons.refresh, size: 18),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: BorderSide(color: Colors.grey.shade600),
+              ),
+              label: const Text('再読み込み'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

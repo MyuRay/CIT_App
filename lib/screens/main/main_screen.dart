@@ -21,6 +21,7 @@ import '../../core/providers/filtered_bulletin_provider.dart';
 import '../../core/providers/bulletin_provider.dart';
 import '../../core/providers/cwitter_provider.dart';
 import '../../core/providers/cwitter_composer_back_provider.dart';
+import '../../core/providers/community_tab_provider.dart';
 import '../../core/providers/schedule_provider.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/providers/admin_provider.dart';
@@ -523,8 +524,21 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         body: currentScreen,
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: safeCurrentIndex,
-          onTap: uiFeedbackTabIndexHandler((index) {
+          onTap: uiFeedbackTabIndexHandler((index) async {
             print('🔧 タブ ${index} がタップされました');
+            // 交流タブを開いている状態で再タップしたら Cwitter / ちばちゃんねる を切り替える
+            if (index == 2 && safeCurrentIndex == 2) {
+              ref.read(communityTabReselectSignalProvider.notifier).state++;
+              return;
+            }
+            // 交流タブから離れる際、Cwitter入力中なら破棄確認を出す
+            if (safeCurrentIndex == 2 && index != 2) {
+              final gate = ref.read(cwitterComposerBackGateProvider);
+              if (gate.shouldIntercept && gate.handleBack != null) {
+                final proceed = await gate.handleBack!();
+                if (!proceed || !mounted) return;
+              }
+            }
             // インデックス範囲チェック（0-4の5つのタブ）
             if (index >= 0 && index <= 4) {
               setState(() {

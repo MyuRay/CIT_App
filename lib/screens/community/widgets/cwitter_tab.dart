@@ -57,7 +57,8 @@ class CwitterTab extends ConsumerStatefulWidget {
   ConsumerState<CwitterTab> createState() => _CwitterTabState();
 }
 
-class _CwitterTabState extends ConsumerState<CwitterTab> {
+class _CwitterTabState extends ConsumerState<CwitterTab>
+    with AutomaticKeepAliveClientMixin {
   final _composerController = TextEditingController();
   final _composerFocusNode = FocusNode();
   final _scrollController = ScrollController();
@@ -294,8 +295,11 @@ class _CwitterTabState extends ConsumerState<CwitterTab> {
     _syncComposerBackGate();
   }
 
-  Future<void> _handleComposerBackPress() async {
-    if (!_isComposerInputActive || _isPosting) return;
+  Future<bool> _handleComposerBackPress() async {
+    // 入力中でなければ離脱を止める理由はない
+    if (!_isComposerInputActive) return true;
+    // 投稿処理中は離脱させない
+    if (_isPosting) return false;
 
     _isHandlingComposerBack = true;
     try {
@@ -328,13 +332,14 @@ class _CwitterTabState extends ConsumerState<CwitterTab> {
               }
             });
           }
-          return;
+          return false;
         }
         _resetComposer();
-        return;
+        return true;
       }
 
       _collapseComposer();
+      return true;
     } finally {
       _isHandlingComposerBack = false;
       _syncComposerBackGate();
@@ -499,7 +504,11 @@ class _CwitterTabState extends ConsumerState<CwitterTab> {
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     ref.watch(cwitterTagsOverrideSyncProvider);
 
     if (widget.isActiveTab) {

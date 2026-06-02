@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import '../../core/providers/community_tab_provider.dart';
 import '../../core/providers/cwitter_provider.dart';
 import '../../services/ui/ui_feedback_service.dart';
 import 'widgets/chiba_channel_archive_screen.dart';
@@ -49,10 +50,22 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     super.dispose();
   }
 
+  void _toggleCommunityTab() {
+    if (!mounted) return;
+    final next = _tabController.index == 0 ? 1 : 0;
+    _tabController.animateTo(next);
+    UiFeedbackService.tabSwitch();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+
+    // ボトムナビの交流タブ再タップで Cwitter / ちばちゃんねる を切り替える
+    ref.listen<int>(communityTabReselectSignalProvider, (previous, next) {
+      _toggleCommunityTab();
+    });
     final hasNewCwitter = ref.watch(hasNewCwitterPostsProvider);
     final showCwitterTabNew = hasNewCwitter && _tabController.index != 0;
     final hasCwitterId = ref.watch(hasCwitterIdProvider);
