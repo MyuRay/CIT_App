@@ -819,7 +819,7 @@ class ScheduleGridWidget extends StatelessWidget {
                               dialogCtx,
                             ),
                             onPressed: () => Navigator.of(dialogCtx).pop(),
-                            child: scheduleClassDetailDialogActionLabel('閉じる'),
+                            child: scheduleClassDetailDialogActionLabel(dialogCtx,'閉じる'),
                           ),
                           if (onClassNotesSave != null) ...[
                             TextButton(
@@ -835,7 +835,7 @@ class ScheduleGridWidget extends StatelessWidget {
                                           isEditingMemo = false;
                                         });
                                       },
-                              child: scheduleClassDetailDialogActionLabel('キャンセル'),
+                              child: scheduleClassDetailDialogActionLabel(dialogCtx,'キャンセル'),
                             ),
                             FilledButton(
                               style: scheduleClassDetailDialogSaveButtonStyle(
@@ -873,13 +873,13 @@ class ScheduleGridWidget extends StatelessWidget {
                                             strokeWidth: 2,
                                           ),
                                         )
-                                      : scheduleClassDetailDialogActionLabel('保存'),
+                                      : scheduleClassDetailDialogActionLabel(dialogCtx,'保存'),
                             ),
                           ],
                         ] else ...[
                           if (scheduleClass.classroom.trim().isNotEmpty)
                             FilledButton(
-                              style: scheduleClassLookupRoomButtonStyle(),
+                              style: scheduleClassLookupRoomButtonStyle(dialogCtx),
                               onPressed: () {
                                 final q = scheduleClass.classroom.trim();
                                 final uri = Uri(
@@ -892,7 +892,7 @@ class ScheduleGridWidget extends StatelessWidget {
                                   GoRouter.of(hostContext).push(uri.toString());
                                 });
                               },
-                              child: scheduleClassDetailDialogActionLabel(
+                              child: scheduleClassDetailDialogActionLabel(dialogCtx,
                                 '教室の場所を調べる',
                               ),
                             ),
@@ -907,14 +907,14 @@ class ScheduleGridWidget extends StatelessWidget {
                                   isEditingMemo = true;
                                 });
                               },
-                              child: scheduleClassDetailDialogActionLabel('メモを編集'),
+                              child: scheduleClassDetailDialogActionLabel(dialogCtx,'メモを編集'),
                             ),
                           TextButton(
                             style: scheduleClassDetailDialogSecondaryActionStyle(
                               dialogCtx,
                             ),
                             onPressed: () => Navigator.of(dialogCtx).pop(),
-                            child: scheduleClassDetailDialogActionLabel('閉じる'),
+                            child: scheduleClassDetailDialogActionLabel(dialogCtx,'閉じる'),
                           ),
                         ],
                       ],

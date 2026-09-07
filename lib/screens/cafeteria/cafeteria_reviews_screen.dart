@@ -1,9 +1,9 @@
 import 'package:characters/characters.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../widgets/common/interactive_viewer_double_tap_zoom.dart';
-import '../../widgets/common/animated_image_placeholder.dart';
+import '../../widgets/common/safe_cached_network_image.dart';
+import '../../widgets/cafeteria/cafeteria_menu_item_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/providers/cafeteria_review_provider.dart';
 import '../../models/cafeteria/cafeteria_review_model.dart';
@@ -751,52 +751,6 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
   }
 }
 
-Widget _buildMenuImage({
-  String? imageUrl,
-  required String placeholder,
-  double fontSize = 28,
-  double? width,
-  double? height,
-}) {
-  if (imageUrl == null || imageUrl.isEmpty) {
-    return Container(
-      width: width,
-      height: height,
-      color: Colors.grey.shade200,
-      child: Center(
-        child: Text(
-          placeholder,
-          style: TextStyle(
-            fontSize: fontSize,
-            color: Colors.grey.shade500,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-  return CachedNetworkImage(
-    imageUrl: imageUrl,
-    fit: BoxFit.cover,
-    placeholder:
-        (context, url) =>
-            AnimatedImagePlaceholder(width: width, height: height),
-    errorWidget:
-        (context, url, error) => Container(
-          width: width,
-          height: height,
-          color: Colors.grey.shade200,
-          child: const Center(
-            child: Icon(
-              Icons.image_not_supported,
-              size: 32,
-              color: Colors.grey,
-            ),
-          ),
-        ),
-  );
-}
-
 class _FullScreenImagePage extends StatefulWidget {
   const _FullScreenImagePage({
     required this.imageUrl,
@@ -914,7 +868,7 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
                   scaleEnabled: true,
                   clipBehavior: Clip.hardEdge,
                   boundaryMargin: const EdgeInsets.all(double.infinity),
-                  child: _buildMenuImage(
+                  child: CafeteriaMenuItemImage(
                     imageUrl: widget.imageUrl,
                     placeholder: widget.placeholder,
                     fontSize: 48,
@@ -978,10 +932,10 @@ void _openFullScreenImage(
                       child: InteractiveViewer(
                         minScale: 1.0,
                         maxScale: 4.0,
-                        child: CachedNetworkImage(
+                        child: SafeCachedNetworkImage(
                           imageUrl: imageUrl,
                           fit: BoxFit.contain,
-                          placeholder: (context, url) => Container(
+                          placeholder: Container(
                             color: Colors.black,
                             alignment: Alignment.center,
                             child: const SizedBox(
@@ -990,7 +944,7 @@ void _openFullScreenImage(
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                           ),
-                          errorWidget: (context, url, error) => Container(
+                          errorWidget: Container(
                             color: Colors.black,
                             alignment: Alignment.center,
                             child: const Icon(
@@ -1208,7 +1162,7 @@ class _MenuRowCardState extends ConsumerState<_MenuRowCard> {
                         ),
                     child: Hero(
                       tag: heroTag,
-                      child: _buildMenuImage(
+                      child: CafeteriaMenuItemImage(
                         imageUrl: menuItem?.photoUrl,
                         placeholder: placeholder,
                         width: 100,

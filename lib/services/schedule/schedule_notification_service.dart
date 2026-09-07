@@ -34,6 +34,16 @@ class ScheduleNotificationService {
   static const String _channelName = '授業出席通知';
   static const String _channelDescription = '講義開始まもなくお知らせします';
 
+  /// FCM プッシュ（フォアグラウンド表示）/ 汎用通知用チャンネル。
+  ///
+  /// `AndroidManifest.xml` の
+  /// `com.google.firebase.messaging.default_notification_channel_id` と一致させ、
+  /// バックグラウンド/フォアグラウンドで同一チャンネルに集約する。
+  static const String _pushChannelId = 'default_channel';
+  static const String _pushChannelName = 'お知らせ';
+  static const String _pushChannelDescription =
+      'コメント・返信・いいね・運営からのお知らせなど';
+
   /// 通知 ID の名前空間。授業出席通知は `0x10000000` 以上に割り当て、
   /// 他のローカル通知 ID と衝突しないようにする。
   static const int _attendanceIdMin = 0x10000000;
@@ -106,22 +116,82 @@ class ScheduleNotificationService {
       debugPrint('⚠️ getNotificationAppLaunchDetails 失敗: $e');
     }
 
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(
-          const AndroidNotificationChannel(
-            _channelId,
-            _channelName,
-            description: _channelDescription,
-            importance: Importance.high,
-          ),
-        );
+    final androidImpl = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+
+    await androidImpl?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        _channelId,
+        _channelName,
+        description: _channelDescription,
+        importance: Importance.high,
+      ),
+    );
+
+    // FCM/汎用プッシュ用チャンネルもコードで明示作成する。
+    // OEM によっては manifest の default_channel 自動作成に頼ると
+    // 重要度や表示が安定しないため、ここで high importance に固定する。
+    await androidImpl?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        _pushChannelId,
+        _pushChannelName,
+        description: _pushChannelDescription,
+        importance: Importance.high,
+      ),
+    );
 
     await _requestAndroidPermissions();
 
     _initialized = true;
     debugPrint('✅ ScheduleNotificationService initialized');
+  }
+
+  /// FCM プッシュをフォアグラウンドで受信した際などに、その場で 1 件表示する。
+  ///
+  /// 授業通知 ID 範囲（[_attendanceIdMin] 以上）とは別の範囲を使い、
+  /// `cancelAllNotifications()`（授業通知のみ削除）の対象外にする。
+  /// payload は付けない（タップしてもアプリを開くだけ。授業出席フローには載せない）。
+  static Future<void> showImmediateNotification({
+    required String title,
+    required String body,
+  }) async {
+    if (!_initialized) {
+      await initialize();
+    }
+    if (title.trim().isEmpty && body.trim().isEmpty) return;
+
+    // attendance 範囲（>= _attendanceIdMin）と衝突しない ID を採番する。
+    final id = DateTime.now().millisecondsSinceEpoch.remainder(_attendanceIdMin);
+
+    final details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        _pushChannelId,
+        _pushChannelName,
+        channelDescription: _pushChannelDescription,
+        importance: Importance.high,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+        icon: '@mipmap/launcher_icon',
+        styleInformation: BigTextStyleInformation(body),
+      ),
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
+    );
+
+    try {
+      await _plugin.show(
+        id,
+        title.isNotEmpty ? title : 'お知らせ',
+        body,
+        details,
+      );
+    } catch (e) {
+      debugPrint('⚠️ フォアグラウンド通知の表示に失敗: $e');
+    }
   }
 
   static Future<void> _requestAndroidPermissions() async {

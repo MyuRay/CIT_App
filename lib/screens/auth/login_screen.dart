@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../services/user/user_service.dart';
+import '../../utils/auth_error_message.dart';
 import 'widgets/auth_components.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -22,12 +23,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _rememberMe = true;
+  String? _loginErrorText;
 
   @override
   void initState() {
     super.initState();
     _loadRememberMe();
     _loadPostEmailChangeLoginEmail();
+    _emailController.addListener(_clearLoginError);
+    _passwordController.addListener(_clearLoginError);
+  }
+
+  void _clearLoginError() {
+    if (_loginErrorText == null) return;
+    setState(() => _loginErrorText = null);
+  }
+
+  void _showLoginError(String message) {
+    setState(() => _loginErrorText = message);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
   }
 
   Future<void> _loadPostEmailChangeLoginEmail() async {
@@ -65,6 +87,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   void dispose() {
+    _emailController.removeListener(_clearLoginError);
+    _passwordController.removeListener(_clearLoginError);
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -73,7 +97,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loginErrorText = null;
+    });
 
     try {
       // 明示的なログイン保持設定
@@ -119,11 +146,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         }
       }
     } on FirebaseAuthException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message ?? 'ログインに失敗しました')),
-        );
-      }
+      _showLoginError(loginAuthErrorMessage(e));
+    } catch (_) {
+      _showLoginError('ログインに失敗しました');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -367,6 +392,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   : (v) => setState(() => _rememberMe = v),
             ),
             const SizedBox(height: 22),
+            if (_loginErrorText != null) ...[
+              AuthInlineError(message: _loginErrorText!),
+              const SizedBox(height: 14),
+            ],
             PrimaryAuthButton(
               label: 'ログイン',
               isLoading: _isLoading,

@@ -648,7 +648,6 @@ class FirebaseDebugScreen extends ConsumerWidget {
                       SelectableText(
                         url,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontFamily: 'monospace',
                           fontSize: 10,
                         ),
                       ),

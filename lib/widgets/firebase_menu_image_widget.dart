@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/providers/firebase_menu_provider.dart';
 import 'common/animated_image_placeholder.dart';
+import 'common/safe_cached_network_image.dart';
 import 'common/interactive_viewer_double_tap_zoom.dart';
 
 class FirebaseMenuImageWidget extends ConsumerWidget {
@@ -82,41 +82,17 @@ class FirebaseMenuImageWidget extends ConsumerWidget {
               transitionOnUserGestures: true,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child:
-                    kIsWeb
-                        ? // Web版：Image.networkを使用（Firebase SDKでCORS解決済み）
-                        Image.network(
-                          imageUrl,
-                          width: width,
-                          height: height,
-                          fit: fit,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return _buildLoadingWidget(context);
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            debugPrint('Firebase画像読み込みエラー: $error');
-                            debugPrint('StackTrace: $stackTrace');
-                            return _buildErrorWidget(
-                              context,
-                              'ネットワークエラー (Status: 0)',
-                            );
-                          },
-                        )
-                        : // モバイル版：CachedNetworkImageを使用
-                        CachedNetworkImage(
-                          imageUrl: imageUrl,
-                          width: width,
-                          height: height,
-                          fit: fit,
-                          placeholder:
-                              (context, url) => _buildLoadingWidget(context),
-                          errorWidget:
-                              (context, url, error) => _buildErrorWidget(
-                                context,
-                                'Firebase画像の読み込みエラー',
-                              ),
-                        ),
+                child: SafeCachedNetworkImage(
+                  imageUrl: imageUrl,
+                  width: width,
+                  height: height,
+                  fit: fit,
+                  placeholder: _buildLoadingWidget(context),
+                  errorWidget: _buildErrorWidget(
+                    context,
+                    kIsWeb ? 'ネットワークエラー' : 'Firebase画像の読み込みエラー',
+                  ),
+                ),
               ),
             ),
           ),
@@ -474,47 +450,23 @@ class _FullScreenMenuImageDialogState
           return _buildMessage(context, 'この食堂のメニュー画像は登録されていません');
         }
 
-        final imageWidget = kIsWeb
-            ? Image.network(
-                imageUrl,
-                width: double.infinity,
-                height: double.infinity,
-                fit: BoxFit.contain,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return const AnimatedImagePlaceholder(
-                    width: 220,
-                    height: 220,
-                    borderRadius: 12,
-                    borderColor: Colors.white24,
-                  );
-                },
-                errorBuilder:
-                    (context, error, stackTrace) => _buildMessage(
-                      context,
-                      'メニュー画像の読み込みに失敗しました',
-                      icon: Icons.error_outline,
-                    ),
-              )
-            : CachedNetworkImage(
-                            imageUrl: imageUrl,
-                width: double.infinity,
-                height: double.infinity,
-                fit: BoxFit.contain,
-                placeholder:
-                    (context, url) => const AnimatedImagePlaceholder(
-                      width: 220,
-                      height: 220,
-                      borderRadius: 12,
-                      borderColor: Colors.white24,
-                          ),
-                errorWidget:
-                    (context, url, error) => _buildMessage(
-                            context,
-                      'メニュー画像の読み込みに失敗しました',
-                            icon: Icons.error_outline,
-                          ),
-                        );
+        final imageWidget = SafeCachedNetworkImage(
+          imageUrl: imageUrl,
+          width: double.infinity,
+          height: double.infinity,
+          fit: BoxFit.contain,
+          placeholder: const AnimatedImagePlaceholder(
+            width: 220,
+            height: 220,
+            borderRadius: 12,
+            borderColor: Colors.white24,
+          ),
+          errorWidget: _buildMessage(
+            context,
+            'メニュー画像の読み込みに失敗しました',
+            icon: Icons.error_outline,
+          ),
+        );
 
         return LayoutBuilder(
           builder: (context, constraints) {
@@ -787,82 +739,27 @@ class FirebaseWeeklyMenuWidget extends ConsumerWidget {
                                         ),
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(6),
-                                      child:
-                                          kIsWeb
-                                              ? Image.network(
-                                                imageUrl,
-                                                width: 100,
-                                                height: 80,
-                                                fit: BoxFit.cover,
-                                                loadingBuilder: (
-                                                  context,
-                                                  child,
-                                                  loadingProgress,
-                                                ) {
-                                                  if (loadingProgress == null)
-                                                    return child;
-                                                  return Container(
-                                                    color: Colors.grey.shade200,
-                                                    child: const Center(
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                            strokeWidth: 2,
-                                                          ),
-                                                    ),
-                                                  );
-                                                },
-                                                errorBuilder:
-                                                    (
-                                                      context,
-                                                      error,
-                                                      stackTrace,
-                                                    ) => Container(
-                                                      color:
-                                                          Colors.grey.shade100,
-                                                      child: Icon(
-                                                        Icons
-                                                            .image_not_supported,
-                                                        color:
-                                                            Colors
-                                                                .grey
-                                                                .shade400,
-                                                      ),
-                                                    ),
-                                              )
-                                              : CachedNetworkImage(
-                                                imageUrl: imageUrl,
-                                                width: 100,
-                                                height: 80,
-                                                fit: BoxFit.cover,
-                                                placeholder:
-                                                    (context, url) => Container(
-                                                      color:
-                                                          Colors.grey.shade200,
-                                                      child: const Center(
-                                                        child:
-                                                            CircularProgressIndicator(
-                                                              strokeWidth: 2,
-                                                            ),
-                                                      ),
-                                                    ),
-                                                errorWidget:
-                                                    (
-                                                      context,
-                                                      url,
-                                                      error,
-                                                    ) => Container(
-                                                      color:
-                                                          Colors.grey.shade100,
-                                                      child: Icon(
-                                                        Icons
-                                                            .image_not_supported,
-                                                        color:
-                                                            Colors
-                                                                .grey
-                                                                .shade400,
-                                                      ),
-                                                    ),
-                                              ),
+                                      child: SafeCachedNetworkImage(
+                                        imageUrl: imageUrl,
+                                        width: 100,
+                                        height: 80,
+                                        fit: BoxFit.cover,
+                                        placeholder: Container(
+                                          color: Colors.grey.shade200,
+                                          child: const Center(
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          ),
+                                        ),
+                                        errorWidget: Container(
+                                          color: Colors.grey.shade100,
+                                          child: Icon(
+                                            Icons.image_not_supported,
+                                            color: Colors.grey.shade400,
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   )
                                   : Container(
@@ -1025,51 +922,25 @@ class _SingleImageFullScreenDialogState
     final opacity = (1 - (_dragOffset / 360)).clamp(0.32, 1.0).toDouble();
     final dragScale = (1 - (_dragOffset / 1400)).clamp(0.9, 1.0).toDouble();
 
-    final imageWidget = kIsWeb
-        ? Image.network(
-            widget.imageUrl,
-            width: double.infinity,
-            height: double.infinity,
-            fit: BoxFit.contain,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return const AnimatedImagePlaceholder(
-                width: 220,
-                height: 220,
-                borderRadius: 12,
-                borderColor: Colors.white24,
-              );
-            },
-            errorBuilder:
-                (context, error, stackTrace) => const Center(
-                  child: Icon(
-                    Icons.broken_image,
-                    color: Colors.white70,
-                    size: 48,
-                  ),
-                ),
-          )
-        : CachedNetworkImage(
-            imageUrl: widget.imageUrl,
-            width: double.infinity,
-            height: double.infinity,
-            fit: BoxFit.contain,
-            placeholder:
-                (context, url) => const AnimatedImagePlaceholder(
-                  width: 220,
-                  height: 220,
-                  borderRadius: 12,
-                  borderColor: Colors.white24,
-                ),
-            errorWidget:
-                (context, url, error) => const Center(
-                  child: Icon(
-                    Icons.broken_image,
-                    color: Colors.white70,
-                    size: 48,
-                  ),
-                ),
-          );
+    final imageWidget = SafeCachedNetworkImage(
+      imageUrl: widget.imageUrl,
+      width: double.infinity,
+      height: double.infinity,
+      fit: BoxFit.contain,
+      placeholder: const AnimatedImagePlaceholder(
+        width: 220,
+        height: 220,
+        borderRadius: 12,
+        borderColor: Colors.white24,
+      ),
+      errorWidget: const Center(
+        child: Icon(
+          Icons.broken_image,
+          color: Colors.white70,
+          size: 48,
+        ),
+      ),
+    );
 
     return Dialog.fullscreen(
       backgroundColor: Colors.black.withValues(alpha: opacity),

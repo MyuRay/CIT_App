@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../widgets/common/safe_cached_network_image.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -39,6 +39,7 @@ import '../../models/admin/admin_model.dart';
 import '../admin/admin_management_screen.dart';
 import '../../widgets/auth/legacy_email_migration_dialog.dart';
 import '../legal/community_legal_update_consent_gate.dart';
+import '../../core/providers/legal_consent_provider.dart';
 import '../../widgets/common/ui_feedback_listener.dart';
 
 // モック画像の背景パターンを描画するCustomPainter
@@ -392,6 +393,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // 認証状態を確認
     final authState = ref.watch(authStateProvider);
     final tutorialReplaySignal = ref.watch(tabTutorialReplaySignalProvider);
+    // 利用規約同意ポップアップと被らないよう、同意完了後にチュートリアルを開始する
+    final hasLegalConsent = ref.watch(hasAcceptedCurrentLegalConsentProvider);
 
     return authState.when(
       data: (user) {
@@ -399,11 +402,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           // ユーザーが未認証の場合は空のコンテナ（ルーターがリダイレクトを処理）
           return const Scaffold(body: Center(child: Text('リダイレクト中...')));
         }
-        if (!_didCheckTabTutorial) {
-          _didCheckTabTutorial = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _maybeStartTabTutorial();
-          });
+        // 利用規約同意が済んでからチュートリアルを開始（ポップアップの重なり防止）
+        ref.listen<bool>(hasAcceptedCurrentLegalConsentProvider, (prev, next) {
+          if (prev == false && next == true) {
+            _scheduleTabTutorialIfNeeded();
+          }
+        });
+        if (hasLegalConsent) {
+          _scheduleTabTutorialIfNeeded();
         }
         if (!_didBootstrapScheduleNotifications) {
           _didBootstrapScheduleNotifications = true;
@@ -411,7 +417,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             _bootstrapScheduleNotifications();
           });
         }
-        if (!_didCheckEmailMigrationPrompt) {
+        // メール移行プロンプトも同意完了後に表示
+        if (hasLegalConsent && !_didCheckEmailMigrationPrompt) {
           _didCheckEmailMigrationPrompt = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _maybeShowLegacyEmailMigrationPrompt(user.email);
@@ -419,9 +426,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         }
         if (tutorialReplaySignal != _lastTutorialReplaySignal) {
           _lastTutorialReplaySignal = tutorialReplaySignal;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _maybeStartTabTutorial(force: true);
-          });
+          if (hasLegalConsent) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _maybeStartTabTutorial(force: true);
+            });
+          }
         }
         return CommunityLegalUpdateConsentGate(
           child: _buildMainContent(),
@@ -599,31 +608,45 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     bool hasNew, {
     String badgeLabel = 'NEW',
   }) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Icon(icon),
-        if (hasNew)
+    final badgeWidth = badgeLabel.length > 3 ? 64.0 : 32.0;
+
+    return SizedBox(
+      width: badgeWidth,
+      height: 32,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
           Positioned(
-            right: -6,
-            top: -4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              decoration: BoxDecoration(
-                color: Colors.redAccent,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                badgeLabel,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: badgeLabel.length > 3 ? 7 : 8,
-                  fontWeight: FontWeight.bold,
+            bottom: 0,
+            child: Icon(icon),
+          ),
+          if (hasNew)
+            Positioned(
+              top: -6,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    badgeLabel,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: badgeLabel.length > 3 ? 7 : 8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -663,8 +686,24 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
   }
 
+  /// 利用規約同意ポップアップが閉じた後にチュートリアルを開始する。
+  /// 同意UIと AlertDialog が同時に出ないよう、短い遅延を挟む。
+  void _scheduleTabTutorialIfNeeded() {
+    if (_didCheckTabTutorial || !mounted) return;
+    if (!ref.read(hasAcceptedCurrentLegalConsentProvider)) return;
+
+    _didCheckTabTutorial = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      if (!mounted) return;
+      if (!ref.read(hasAcceptedCurrentLegalConsentProvider)) return;
+      await _maybeStartTabTutorial();
+    });
+  }
+
   Future<void> _maybeStartTabTutorial({bool force = false}) async {
     if (!mounted || _isTabTutorialShowing) return;
+    if (!ref.read(hasAcceptedCurrentLegalConsentProvider)) return;
     final prefs = ref.read(sharedPreferencesProvider);
     final seenVersion = prefs.getString(_tabTutorialSeenVersionKey);
     if (!force && seenVersion == _tabTutorialCurrentVersion) return;
@@ -999,10 +1038,7 @@ class _BulletinScreenState extends ConsumerState<BulletinScreen> {
                     ),
                     child: Text(
                       '$error',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontFamily: 'monospace',
-                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -1099,46 +1135,19 @@ class _BulletinScreenState extends ConsumerState<BulletinScreen> {
                 aspectRatio: 16 / 8.5,
                 child:
                     post.imageUrl.isNotEmpty
-                        ? (kIsWeb
-                            ? Image.network(
-                              post.imageUrl,
-                              fit: BoxFit.cover,
-                              alignment: Alignment(
-                                post.thumbAlignX,
-                                post.thumbAlignY,
-                              ),
-                              loadingBuilder: (
-                                context,
-                                child,
-                                loadingProgress,
-                              ) {
-                                if (loadingProgress == null) return child;
-                                return const AnimatedImagePlaceholder(
-                                  borderRadius: 0,
-                                  borderColor: Colors.transparent,
-                                );
-                              },
-                              errorBuilder:
-                                  (context, error, stackTrace) =>
-                                      _buildMockImage(post.category),
-                            )
-                            : CachedNetworkImage(
-                              imageUrl: post.imageUrl,
-                              fit: BoxFit.cover,
-                              alignment: Alignment(
-                                post.thumbAlignX,
-                                post.thumbAlignY,
-                              ),
-                              placeholder:
-                                  (context, url) =>
-                                      const AnimatedImagePlaceholder(
-                                        borderRadius: 0,
-                                        borderColor: Colors.transparent,
-                                      ),
-                              errorWidget:
-                                  (context, url, error) =>
-                                      _buildMockImage(post.category),
-                            ))
+                        ? SafeCachedNetworkImage(
+                          imageUrl: post.imageUrl,
+                          fit: BoxFit.cover,
+                          alignment: Alignment(
+                            post.thumbAlignX,
+                            post.thumbAlignY,
+                          ),
+                          placeholder: const AnimatedImagePlaceholder(
+                            borderRadius: 0,
+                            borderColor: Colors.transparent,
+                          ),
+                          errorWidget: _buildMockImage(post.category),
+                        )
                         : _buildMockImage(post.category),
               ),
             ),

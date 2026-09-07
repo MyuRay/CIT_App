@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+
+import '../firebase/storage_direct_url.dart';
 import 'dart:io';
 import '../../models/cafeteria/cafeteria_menu_item_model.dart';
 
@@ -72,9 +74,15 @@ class CafeteriaMenuItemService {
           .child('cafeteria_menu_images')
           .child(fileName);
       
-      final uploadTask = ref.putFile(imageFile);
+      final token = StorageDirectUrl.newDownloadToken();
+      final uploadTask = ref.putFile(
+        imageFile,
+        SettableMetadata(
+          customMetadata: {'firebaseStorageDownloadTokens': token},
+        ),
+      );
       final snapshot = await uploadTask;
-      return await snapshot.ref.getDownloadURL();
+      return StorageDirectUrl.mediaWithToken(snapshot.ref.fullPath, token);
     } catch (e) {
       throw Exception('画像のアップロードに失敗しました: $e');
     }

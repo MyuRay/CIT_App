@@ -1,10 +1,8 @@
-import 'dart:io';
-
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../utils/community/post_image_utils.dart';
+import '../firebase/storage_upload_helper.dart';
 
 class ChibaChannelImageService {
   static const int maxImagesPerComment = 4;
@@ -48,16 +46,14 @@ class ChibaChannelImageService {
         index: i,
         extension: imageUploadExtension(file),
       );
-      final metadata =
-          SettableMetadata(contentType: imageUploadContentType(file));
 
-      if (kIsWeb) {
-        final bytes = await file.readAsBytes();
-        await ref.putData(bytes, metadata);
-      } else {
-        await ref.putFile(File(file.path), metadata);
-      }
-      urls.add(await ref.getDownloadURL());
+      final url = await StorageUploadHelper.uploadXFile(
+        ref: ref,
+        file: file,
+        userId: userId,
+        contentType: imageUploadContentType(file),
+      );
+      urls.add(url);
     }
     return urls;
   }
@@ -70,7 +66,7 @@ class ChibaChannelImageService {
   }) async {
     final futures = <Future<void>>[];
     for (var i = 0; i < maxIndex; i++) {
-      for (final ext in const ['jpg', 'gif']) {
+      for (final ext in const ['jpg', 'gif', 'png', 'webp']) {
         futures.add(
           _commentImageRef(
             userId: userId,

@@ -206,7 +206,11 @@ final firebaseBusTimetableProvider = FutureProvider<String?>((ref) async {
       final cachedUrl = await cache.getPersistentCache<String>(cacheKey);
 
       if (cachedUrl != null) {
-        return cachedUrl;
+        final isValid = await FirebaseMenuService.isValidDownloadUrl(cachedUrl);
+        if (isValid) {
+          return cachedUrl;
+        }
+        await cache.removePersistentCache(cacheKey);
       }
     }
 

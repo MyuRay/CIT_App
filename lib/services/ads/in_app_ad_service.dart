@@ -8,24 +8,29 @@ class InAppAdService {
   );
 
   static Stream<List<InAppAd>> streamAds() {
-    return _collection
-        .orderBy('targetType')
-        .orderBy('title')
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs
-                  .map(
-                    (doc) => InAppAd.fromFirestore(
-                      doc as DocumentSnapshot<Map<String, dynamic>>,
-                    ),
-                  )
-                  .toList(),
-        );
+    return _collection.snapshots().map((snapshot) {
+      final ads =
+          snapshot.docs
+              .map(
+                (doc) => InAppAd.fromFirestore(
+                  doc as DocumentSnapshot<Map<String, dynamic>>,
+                ),
+              )
+              .toList();
+      ads.sort((a, b) {
+        final byPlacement = adPlacementToString(
+          a.placement,
+        ).compareTo(adPlacementToString(b.placement));
+        if (byPlacement != 0) return byPlacement;
+        return a.title.compareTo(b.title);
+      });
+      return ads;
+    });
   }
 
   static Future<void> createAd(InAppAd ad) async {
-    await _collection.add({...ad.toFirestore(), 'createdAt': Timestamp.now()});
+    final data = {...ad.toFirestore(), 'createdAt': Timestamp.now()};
+    await _collection.add(data);
   }
 
   static Future<void> updateAd(String id, InAppAd ad) async {

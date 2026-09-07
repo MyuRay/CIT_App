@@ -1,7 +1,8 @@
 import 'package:characters/characters.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../widgets/common/safe_cached_network_image.dart';
+import '../../widgets/cafeteria/cafeteria_menu_item_image.dart';
 import '../../core/providers/cafeteria_review_provider.dart';
 import '../../core/providers/cafeteria_menu_provider.dart';
 import '../../models/cafeteria/cafeteria_review_model.dart';
@@ -350,7 +351,7 @@ class _Header extends ConsumerWidget {
               ),
               child: Hero(
                 tag: heroTag,
-                child: _buildMenuImage(
+                child: CafeteriaMenuItemImage(
                   imageUrl: menuItem?.photoUrl,
                   placeholder: placeholder,
                   fontSize: 64,
@@ -683,37 +684,6 @@ class _ReviewCard extends ConsumerWidget {
 
 // いいね（グッド）関連UIは削除しました
 
-// ==== Image viewer helpers (copied to match review cards) ====
-Widget _buildMenuImage({String? imageUrl, required String placeholder, double fontSize = 28}) {
-  if (imageUrl == null || imageUrl.isEmpty) {
-    return Container(
-      color: Colors.grey.shade200,
-      child: Center(
-        child: Text(
-          placeholder,
-          style: TextStyle(fontSize: fontSize, color: Colors.grey.shade500, fontWeight: FontWeight.w600),
-        ),
-      ),
-    );
-  }
-  return CachedNetworkImage(
-    imageUrl: imageUrl,
-    fit: BoxFit.cover,
-    placeholder: (context, url) => Container(
-      color: Colors.grey.shade100,
-      child: const Center(
-        child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
-      ),
-    ),
-    errorWidget: (context, url, error) => Container(
-      color: Colors.grey.shade200,
-      child: Center(
-        child: Icon(Icons.broken_image_outlined, size: fontSize + 4, color: Colors.grey.shade500),
-      ),
-    ),
-  );
-}
-
 class _VolumeDescriptionChip extends StatelessWidget {
   const _VolumeDescriptionChip({required this.value});
   final int value; // 1..5
@@ -882,7 +852,7 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
                   scaleEnabled: true,
                   clipBehavior: Clip.hardEdge,
                   boundaryMargin: const EdgeInsets.all(double.infinity),
-                  child: _buildMenuImage(
+                  child: CafeteriaMenuItemImage(
                     imageUrl: widget.imageUrl,
                     placeholder: widget.placeholder,
                     fontSize: 48,
@@ -1085,10 +1055,10 @@ void _openFullScreenImage(BuildContext context, {required String placeholder, St
                       child: InteractiveViewer(
                         minScale: 1.0,
                         maxScale: 4.0,
-                        child: CachedNetworkImage(
+                        child: SafeCachedNetworkImage(
                           imageUrl: imageUrl,
                           fit: BoxFit.contain,
-                          placeholder: (context, url) => Container(
+                          placeholder: Container(
                             color: Colors.black,
                             alignment: Alignment.center,
                             child: const SizedBox(
@@ -1097,7 +1067,7 @@ void _openFullScreenImage(BuildContext context, {required String placeholder, St
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                           ),
-                          errorWidget: (context, url, error) => Container(
+                          errorWidget: Container(
                             color: Colors.black,
                             alignment: Alignment.center,
                             child: const Icon(

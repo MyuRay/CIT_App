@@ -156,7 +156,7 @@ class NotificationListScreen extends ConsumerWidget {
                     ),
                     child: Text(
                       'エラー詳細: $error',
-                      style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -195,7 +195,7 @@ class NotificationListScreen extends ConsumerWidget {
                 ),
                 child: Text(
                   'エラー: $e',
-                  style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
             ],

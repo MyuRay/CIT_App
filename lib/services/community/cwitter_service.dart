@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/constants/app_constants.dart';
-import '../../core/providers/notification_provider.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../models/community/cwitter_activity_counts.dart';
@@ -1566,9 +1565,9 @@ class CwitterService {
     final followerStatsRef = _followStatsRef(followerId);
     final followeeStatsRef = _followStatsRef(followeeId);
 
-    final didFollow = await _firestore.runTransaction<bool>((transaction) async {
+    await _firestore.runTransaction((transaction) async {
       final followingSnap = await transaction.get(followingRef);
-      if (followingSnap.exists) return false;
+      if (followingSnap.exists) return;
 
       final followerSnap = await transaction.get(followerRef);
       final followerStatsSnap = await transaction.get(followerStatsRef);
@@ -1576,6 +1575,7 @@ class CwitterService {
 
       transaction.set(followingRef, {
         'followedAt': FieldValue.serverTimestamp(),
+        if (!sendNotification) 'suppressNotification': true,
       });
       if (followerSnap.exists) {
         // 不整合データ（followers のみ残存）を修復してから再作成
@@ -1607,35 +1607,9 @@ class CwitterService {
         });
       }
 
-      return true;
     });
 
-    if (!didFollow || !sendNotification) return;
-
-    try {
-      final followerSnap =
-          await _firestore.collection(_usersCollection).doc(followerId).get();
-      if (!followerSnap.exists) return;
-
-      final followerData = followerSnap.data()!;
-      final displayName = followerData['displayName']?.toString().trim();
-      final cwitterId = followerData['cwitterId']?.toString().trim();
-      if (displayName == null ||
-          displayName.isEmpty ||
-          cwitterId == null ||
-          cwitterId.isEmpty) {
-        return;
-      }
-
-      await NotificationService.sendCwitterFollowNotification(
-        followeeId: followeeId,
-        fromUserName: displayName,
-        fromCwitterId: normalizeCwitterId(cwitterId),
-        fromUserId: followerId,
-      );
-    } catch (_) {
-      // フォロー自体は成功しているため通知失敗は握りつぶす
-    }
+    // アプリ内通知は Cloud Functions が送信
   }
 
   static Future<void> unfollowUser({
@@ -1778,34 +1752,45 @@ class CwitterService {
       data['profileImageUrl'] = profileImageUrl.trim();
     }
 
-    if (files.isNotEmpty) {
-      final imageUrls = await CwitterPostImageService.uploadPostImages(
-        userId: authorId,
-        postId: postRef.id,
-        files: files,
-      );
-      data['imageUrls'] = imageUrls;
+    List<String>? uploadedImageUrls;
+    try {
+      if (files.isNotEmpty) {
+        uploadedImageUrls = await CwitterPostImageService.uploadPostImages(
+          userId: authorId,
+          postId: postRef.id,
+          files: files,
+        );
+        data['imageUrls'] = uploadedImageUrls;
+      }
+
+      if (pollTexts != null) {
+        data['poll'] = CwitterPoll(
+          options: [
+            for (var i = 0; i < pollTexts.length; i++)
+              CwitterPollOption(id: '$i', text: pollTexts[i]),
+          ],
+        ).toMap();
+      }
+
+      await _firestore.runTransaction((transaction) async {
+        await UserPostRateLimit.enforceInTransaction(
+          transaction: transaction,
+          rateLimitRef: rateLimitRef,
+          now: now,
+          rateLimitException: const CwitterPostRateLimitException(),
+        );
+
+        transaction.set(postRef, data);
+      });
+    } catch (e) {
+      if (uploadedImageUrls != null) {
+        await CwitterPostImageService.deletePostImages(
+          userId: authorId,
+          postId: postRef.id,
+        );
+      }
+      rethrow;
     }
-
-    if (pollTexts != null) {
-      data['poll'] = CwitterPoll(
-        options: [
-          for (var i = 0; i < pollTexts.length; i++)
-            CwitterPollOption(id: '$i', text: pollTexts[i]),
-        ],
-      ).toMap();
-    }
-
-    await _firestore.runTransaction((transaction) async {
-      await UserPostRateLimit.enforceInTransaction(
-        transaction: transaction,
-        rateLimitRef: rateLimitRef,
-        now: now,
-        rateLimitException: const CwitterPostRateLimitException(),
-      );
-
-      transaction.set(postRef, data);
-    });
   }
 
   static List<String>? _normalizePollOptions(List<String>? pollOptions) {
@@ -1930,10 +1915,6 @@ class CwitterService {
     if (!postSnap.exists) {
       throw StateError('Cweetが見つかりません');
     }
-    final postData = postSnap.data()!;
-    final postAuthorId = postData['authorId'] as String? ?? '';
-    final postBody = postData['body'] as String? ?? '';
-
     final replyRef = postRef.collection('replies').doc();
     final email = _currentAuthEmailLower(fallback: authorEmail);
     if (email.isEmpty) {
@@ -1992,19 +1973,7 @@ class CwitterService {
       transaction.update(postRef, {'replyCount': FieldValue.increment(1)});
     });
 
-    try {
-      await NotificationService.sendCwitterReplyNotification(
-        postAuthorId: postAuthorId,
-        postId: postId,
-        replyId: replyRef.id,
-        fromUserName: displayName,
-        fromCwitterId: normalizeCwitterId(cwitterId),
-        fromUserId: authorId,
-        postBodyPreview: postBody,
-      );
-    } catch (_) {
-      // 返信自体は成功しているため通知失敗は握りつぶす
-    }
+    // アプリ内通知は Cloud Functions が送信
   }
 
   static Future<void> toggleLike({
@@ -2014,17 +1983,12 @@ class CwitterService {
     required String likerCwitterId,
   }) async {
     final postRef = _firestore.collection(_postsCollection).doc(postId);
-    var addedLike = false;
-    String postAuthorId = '';
-    String postBody = '';
 
     await _firestore.runTransaction((transaction) async {
       final snap = await transaction.get(postRef);
       if (!snap.exists) return;
 
       final data = snap.data()!;
-      postAuthorId = data['authorId'] as String? ?? '';
-      postBody = data['body'] as String? ?? '';
       final likedBy = Map<String, dynamic>.from(
         data['likedBy'] as Map<String, dynamic>? ?? {},
       );
@@ -2042,7 +2006,6 @@ class CwitterService {
         transaction.delete(likeRef);
       } else {
         likedBy[userId] = true;
-        addedLike = true;
         transaction.update(postRef, {
           'likedBy': likedBy,
           'likeCount': currentCount + 1,
@@ -2053,19 +2016,7 @@ class CwitterService {
       }
     });
 
-    if (!addedLike) return;
-
-    // UI をブロックしないよう通知は非同期で送る
-    unawaited(
-      NotificationService.sendCwitterLikeNotification(
-        postAuthorId: postAuthorId,
-        postId: postId,
-        fromUserName: likerDisplayName,
-        fromCwitterId: normalizeCwitterId(likerCwitterId),
-        fromUserId: userId,
-        postBodyPreview: postBody,
-      ).catchError((_) {}),
-    );
+    // アプリ内通知は Cloud Functions が送信
   }
 
   static Future<void> deletePost({

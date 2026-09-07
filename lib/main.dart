@@ -10,6 +10,7 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'core/theme/app_theme.dart';
 import 'widgets/common/ui_feedback_listener.dart';
 import 'core/config/app_router.dart';
@@ -30,6 +31,7 @@ import 'services/schedule/schedule_notification_service.dart';
 import 'services/firebase/firebase_menu_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
+import 'utils/auth_storage_reconciler.dart';
 
 // バックグラウンド通知ハンドラー（トップレベル関数として定義）
 @pragma('vm:entry-point')
@@ -75,9 +77,9 @@ void main() async {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'エラーが発生しました',
-                        style: TextStyle(
+                        style: GoogleFonts.notoSansJp(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -85,7 +87,7 @@ void main() async {
                       const SizedBox(height: 12),
                       Text(
                         details.exceptionAsString(),
-                        style: const TextStyle(
+                        style: GoogleFonts.notoSansJp(
                           fontSize: 14,
                           color: Colors.black87,
                         ),
@@ -196,6 +198,9 @@ void main() async {
       // 永続化設定エラーでもアプリは継続
     }
 
+    // 再インストール後の Auto Backup 復元で壊れた認証キャッシュを修復
+    await AuthStorageReconciler.reconcileAfterFirebaseInit();
+
     // 現在のユーザー状態をログで確認
     final currentUser = auth.currentUser;
     if (currentUser != null) {
@@ -248,7 +253,7 @@ void main() async {
       debugPrint('❌ Firebase Analytics ログ送信失敗: $analyticsError');
     }
 
-    // Firebase App Check初期化
+    // Firebase App Check: debug=debug provider / release=Play Integrity（SHA-256 登録後）
     try {
       debugPrint('Firebase App Check初期化開始');
       await FirebaseAppCheck.instance.activate(
@@ -261,9 +266,21 @@ void main() async {
                 : AppleProvider.appAttestWithDeviceCheckFallback,
       );
       debugPrint('Firebase App Check初期化完了');
+
+      if (kDebugMode) {
+        try {
+          final debugToken = await FirebaseAppCheck.instance.getToken();
+          if (debugToken != null && debugToken.isNotEmpty) {
+            debugPrint(
+              '🔐 App Check debug token（Firebase Console → App Check → デバッグトークン管理）: $debugToken',
+            );
+          }
+        } catch (tokenError) {
+          debugPrint('App Check debug token 取得スキップ: $tokenError');
+        }
+      }
     } catch (appCheckError) {
       debugPrint('Firebase App Check初期化警告: $appCheckError');
-      // App Checkは必須ではないため、エラーでもアプリ継続
     }
 
     // Firebase Storage接続テスト（ネットワーク状況を考慮）
@@ -482,6 +499,14 @@ class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
     try {
       // Firebase Auth が自動的に認証状態を復元するため、特別な処理は不要
       debugPrint('✅ アプリ再開: Firebase Auth による自動復元を待機');
+
+      // ログイン中なら FCM トークンを再登録しておく。
+      // 端末側でトークンが更新されてもアプリ起動中でないと
+      // onTokenRefresh を取りこぼし、サーバーが古いトークンに送って
+      // 「通知が来ない」状態になるのを防ぐ。
+      if (FirebaseAuth.instance.currentUser != null) {
+        NotificationService.refreshTokenRegistration();
+      }
     } catch (e) {
       debugPrint('⚠️ アプリ再開時認証チェックエラー: $e');
     }
@@ -513,12 +538,18 @@ class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
         final mediaQuery = MediaQuery.of(context);
+        final theme = Theme.of(context);
+        final defaultTextStyle =
+            theme.textTheme.bodyMedium ?? const TextStyle();
         return MediaQuery(
           data: mediaQuery.copyWith(
             textScaler: TextScaler.linear(appFontSize.textScale),
           ),
-          child: UiFeedbackListener(
-            child: child ?? const SizedBox.shrink(),
+          child: DefaultTextStyle(
+            style: defaultTextStyle,
+            child: UiFeedbackListener(
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         );
       },

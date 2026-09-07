@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../../models/bulletin/bulletin_model.dart';
+import '../firebase/storage_upload_helper.dart';
 
 class BulletinService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -52,23 +53,22 @@ class BulletinService {
   /// 画像をFirebase Storageにアップロード
   static Future<String> _uploadImage(File imageFile) async {
     try {
-      // 認証ユーザーIDを取得
       final String userId = _getCurrentUserId();
-      
-      // ファイル名を生成（タイムスタンプ + 元ファイル名）
-      final String fileName = '${DateTime.now().millisecondsSinceEpoch}_${imageFile.path.split('/').last}';
-      
-      // 新しいパス構造: /bulletin_images/{userId}/{imageId}
+      final String fileName =
+          '${DateTime.now().millisecondsSinceEpoch}_${imageFile.path.split('/').last}';
       final Reference ref = _storage
           .ref()
           .child('bulletin_images')
-          .child(userId)
           .child(fileName);
-      
-      final UploadTask uploadTask = ref.putFile(imageFile);
-      final TaskSnapshot snapshot = await uploadTask;
-      
-      return await snapshot.ref.getDownloadURL();
+
+      return await StorageUploadHelper.uploadFile(
+        ref: ref,
+        file: imageFile,
+        userId: userId,
+        contentType: 'image/jpeg',
+      );
+    } on FirebaseException catch (e) {
+      throw StorageUploadHelper.wrapStorageUploadError(e);
     } catch (e) {
       throw Exception('画像のアップロードに失敗しました: $e');
     }

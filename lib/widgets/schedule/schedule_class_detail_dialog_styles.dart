@@ -11,13 +11,19 @@ const EdgeInsets scheduleClassDetailDialogActionPadding = EdgeInsets.symmetric(
 const double scheduleClassDetailDialogActionMinHeight = 48;
 
 /// アクション一行の共通文字スタイル（メモ／閉じる／教室／保存で揃える）。
-TextStyle scheduleClassDetailDialogActionTextStyle({Color? foreground}) =>
-    TextStyle(
-      fontSize: scheduleClassDetailDialogActionFontSize,
-      fontWeight: FontWeight.w600,
-      height: 1.2,
-      color: foreground,
-    );
+TextStyle scheduleClassDetailDialogActionTextStyle(
+  BuildContext context, {
+  Color? foreground,
+}) {
+  final base =
+      Theme.of(context).textTheme.labelLarge ?? const TextStyle();
+  return base.copyWith(
+    fontSize: scheduleClassDetailDialogActionFontSize,
+    fontWeight: FontWeight.w600,
+    height: 1.2,
+    color: foreground,
+  );
+}
 
 /// ダイアログ下部アクションを同一行・幅いっぱいに並べる。
 Widget scheduleClassDetailDialogActionsWrap({required List<Widget> children}) {
@@ -38,15 +44,22 @@ Widget scheduleClassDetailDialogActionsWrap({required List<Widget> children}) {
 }
 
 /// ボタンラベル（同一行内で幅に合わせて縮小）。
-Widget scheduleClassDetailDialogActionLabel(String label) {
+Widget scheduleClassDetailDialogActionLabel(
+  BuildContext context,
+  String label,
+) {
   return FittedBox(
     fit: BoxFit.scaleDown,
-    child: Text(label, maxLines: 1),
+    child: Text(
+      label,
+      maxLines: 1,
+      style: scheduleClassDetailDialogActionTextStyle(context),
+    ),
   );
 }
 
 /// 「教室の場所を調べる」：青ベタ・白文字（枠線なし）。
-ButtonStyle scheduleClassLookupRoomButtonStyle() {
+ButtonStyle scheduleClassLookupRoomButtonStyle(BuildContext context) {
   final blue = Colors.blue.shade700;
   return FilledButton.styleFrom(
     foregroundColor: Colors.white,
@@ -57,6 +70,7 @@ ButtonStyle scheduleClassLookupRoomButtonStyle() {
     minimumSize: const Size(0, scheduleClassDetailDialogActionMinHeight),
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     textStyle: scheduleClassDetailDialogActionTextStyle(
+      context,
       foreground: Colors.white,
     ),
   );
@@ -73,6 +87,7 @@ ButtonStyle scheduleClassDetailDialogSecondaryActionStyle(
     minimumSize: const Size(0, scheduleClassDetailDialogActionMinHeight),
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     textStyle: scheduleClassDetailDialogActionTextStyle(
+      context,
       foreground: scheme.primary,
     ),
   );
@@ -89,6 +104,7 @@ ButtonStyle scheduleClassDetailDialogSaveButtonStyle(BuildContext context) {
     minimumSize: const Size(0, scheduleClassDetailDialogActionMinHeight),
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     textStyle: scheduleClassDetailDialogActionTextStyle(
+      context,
       foreground: scheme.onPrimary,
     ),
   );

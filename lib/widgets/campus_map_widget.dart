@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../core/providers/firebase_campus_provider.dart';
 import 'common/animated_image_placeholder.dart';
+import 'common/safe_cached_network_image.dart';
 
 class CampusMapWidget extends ConsumerWidget {
   final String campus;
@@ -80,31 +80,14 @@ class CampusMapWidget extends ConsumerWidget {
         child: GestureDetector(
           onTap:
               () => _showFullScreenMap(context, campus, mapUrl, campusOptions),
-          child:
-              kIsWeb
-                  ? Image.network(
-                    mapUrl,
-                    width: width,
-                    height: height ?? 200,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return _buildLoadingWidget(context);
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return _buildErrorWidget(context, 'マップ画像の読み込みエラー');
-                    },
-                  )
-                  : CachedNetworkImage(
-                    imageUrl: mapUrl,
-                    width: width,
-                    height: height ?? 200,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => _buildLoadingWidget(context),
-                    errorWidget:
-                        (context, url, error) =>
-                            _buildErrorWidget(context, 'マップ画像の読み込みエラー'),
-                  ),
+          child: SafeCachedNetworkImage(
+            imageUrl: mapUrl,
+            width: width,
+            height: height ?? 200,
+            fit: BoxFit.cover,
+            placeholder: _buildLoadingWidget(context),
+            errorWidget: _buildErrorWidget(context, 'マップ画像の読み込みエラー'),
+          ),
         ),
       ),
     );
@@ -411,45 +394,22 @@ class _FullScreenCampusMapDialogState
           return _buildMessage(context, '${campusName}のマップが見つかりません');
         }
         
-        final imageWidget = kIsWeb
-            ? Image.network(
-                effectiveUrl,
-                width: double.infinity,
-                height: double.infinity,
-                fit: BoxFit.contain,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return const AnimatedImagePlaceholder(
-                    width: 220,
-                    height: 220,
-                    borderRadius: 12,
-                    borderColor: Colors.white24,
-                  );
-                },
-                errorBuilder:
-                    (context, error, stackTrace) => _buildMessage(
-                      context,
-                      '${campusName}のマップの読み込みに失敗しました',
-                    ),
-              )
-            : CachedNetworkImage(
-                imageUrl: effectiveUrl,
-                width: double.infinity,
-                height: double.infinity,
-                fit: BoxFit.contain,
-                placeholder:
-                    (context, url) => const AnimatedImagePlaceholder(
-                      width: 220,
-                      height: 220,
-                      borderRadius: 12,
-                      borderColor: Colors.white24,
-                    ),
-                errorWidget:
-                    (context, url, error) => _buildMessage(
-                      context,
-                      '${campusName}のマップの読み込みに失敗しました',
-                    ),
-              );
+        final imageWidget = SafeCachedNetworkImage(
+          imageUrl: effectiveUrl,
+          width: double.infinity,
+          height: double.infinity,
+          fit: BoxFit.contain,
+          placeholder: const AnimatedImagePlaceholder(
+            width: 220,
+            height: 220,
+            borderRadius: 12,
+            borderColor: Colors.white24,
+          ),
+          errorWidget: _buildMessage(
+            context,
+            '${campusName}のマップの読み込みに失敗しました',
+          ),
+        );
 
         return LayoutBuilder(
           builder: (context, constraints) {
@@ -691,31 +651,14 @@ class FloorMapWidget extends ConsumerWidget {
               onTapForFullscreen ??
               () =>
                   _showFullScreenMap(context, campus, mapUrl, campusOptions),
-          child:
-              kIsWeb
-                  ? Image.network(
-                    mapUrl,
-                    width: width,
-                    height: height ?? 200,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return _buildLoadingWidget(context);
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return _buildErrorWidget(context, 'マップ画像の読み込みエラー');
-                    },
-                  )
-                  : CachedNetworkImage(
-                    imageUrl: mapUrl,
-                    width: width,
-                    height: height ?? 200,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => _buildLoadingWidget(context),
-                    errorWidget:
-                        (context, url, error) =>
-                            _buildErrorWidget(context, 'マップ画像の読み込みエラー'),
-                  ),
+          child: SafeCachedNetworkImage(
+            imageUrl: mapUrl,
+            width: width,
+            height: height ?? 200,
+            fit: BoxFit.cover,
+            placeholder: _buildLoadingWidget(context),
+            errorWidget: _buildErrorWidget(context, 'マップ画像の読み込みエラー'),
+          ),
         ),
       ),
     );

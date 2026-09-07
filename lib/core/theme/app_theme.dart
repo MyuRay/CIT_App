@@ -1,138 +1,137 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class AppTheme {
-  static ThemeData get lightTheme {
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF1976D2), // CIT Blue
-        brightness: Brightness.light,
-      ),
-      // フォントテーマの設定
-      textTheme: GoogleFonts.notoSansJpTextTheme(),
-      appBarTheme: AppBarTheme(
-        centerTitle: true,
-        elevation: 0,
-        titleTextStyle: GoogleFonts.notoSansJp(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: Colors.black87,
-        ),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          minimumSize: const Size(double.infinity, 48),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          textStyle: GoogleFonts.notoSansJp(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          textStyle: GoogleFonts.notoSansJp(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        filled: true,
-        fillColor: Colors.grey[50],
-        labelStyle: GoogleFonts.notoSansJp(),
-        hintStyle: GoogleFonts.notoSansJp(
-          color: Colors.grey[600],
-        ),
-      ),
-      // BottomNavigationBarのフォント
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        selectedLabelStyle: GoogleFonts.notoSansJp(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-        ),
-        unselectedLabelStyle: GoogleFonts.notoSansJp(
-          fontSize: 12,
-          fontWeight: FontWeight.normal,
-        ),
-      ),
-    );
-  }
+/// アプリ全体で使用するフォントファミリー（Noto Sans JP）。
+class AppFonts {
+  AppFonts._();
 
-  static ThemeData get darkTheme {
-    return ThemeData(
+  static String? get family => GoogleFonts.notoSansJp().fontFamily;
+
+  static TextTheme textTheme(TextTheme base) {
+    return GoogleFonts.notoSansJpTextTheme(base);
+  }
+}
+
+class AppTheme {
+  static const Color _seedColor = Color(0xFF1976D2);
+
+  static ThemeData get lightTheme => _buildTheme(Brightness.light);
+
+  static ThemeData get darkTheme => _buildTheme(Brightness.dark);
+
+  static ThemeData _buildTheme(Brightness brightness) {
+    final isDark = brightness == Brightness.dark;
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: _seedColor,
+      brightness: brightness,
+    );
+    final base = ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF1976D2), // CIT Blue
-        brightness: Brightness.dark,
-      ),
-      // フォントテーマの設定
-      textTheme: GoogleFonts.notoSansJpTextTheme(ThemeData.dark().textTheme),
+      brightness: brightness,
+      colorScheme: colorScheme,
+    );
+    final textTheme = AppFonts.textTheme(base.textTheme).apply(
+      bodyColor: colorScheme.onSurface,
+      displayColor: colorScheme.onSurface,
+    );
+    final primaryTextTheme = AppFonts.textTheme(base.primaryTextTheme);
+
+    return base.copyWith(
+      textTheme: textTheme,
+      primaryTextTheme: primaryTextTheme,
+      scaffoldBackgroundColor: isDark ? Colors.grey[900] : null,
       appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: 0,
-        titleTextStyle: GoogleFonts.notoSansJp(
-          fontSize: 20,
+        backgroundColor: colorScheme.surface,
+        foregroundColor: colorScheme.onSurface,
+        titleTextStyle: textTheme.titleLarge?.copyWith(
           fontWeight: FontWeight.w600,
-          color: Colors.white,
         ),
+        toolbarTextStyle: textTheme.bodyMedium,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           minimumSize: const Size(double.infinity, 48),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          textStyle: GoogleFonts.notoSansJp(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: textTheme.labelLarge,
         ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(textStyle: textTheme.labelLarge),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(textStyle: textTheme.labelLarge),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          textStyle: GoogleFonts.notoSansJp(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        style: TextButton.styleFrom(textStyle: textTheme.labelLarge),
       ),
       inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         filled: true,
-        fillColor: Colors.grey[800],
-        labelStyle: GoogleFonts.notoSansJp(),
-        hintStyle: GoogleFonts.notoSansJp(
-          color: Colors.grey[400],
+        fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
+        labelStyle: textTheme.bodyMedium,
+        hintStyle: textTheme.bodyMedium?.copyWith(
+          color: isDark ? Colors.grey[400] : Colors.grey[600],
         ),
+        helperStyle: textTheme.bodySmall,
+        errorStyle: textTheme.bodySmall?.copyWith(color: colorScheme.error),
       ),
-      // BottomNavigationBarのフォント
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        selectedLabelStyle: GoogleFonts.notoSansJp(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-        ),
-        unselectedLabelStyle: GoogleFonts.notoSansJp(
-          fontSize: 12,
-          fontWeight: FontWeight.normal,
-        ),
-        backgroundColor: Colors.grey[900],
+        selectedLabelStyle: textTheme.labelSmall,
+        unselectedLabelStyle: textTheme.labelSmall,
+        backgroundColor: isDark ? Colors.grey[900] : null,
       ),
-      // カードのテーマ
+      navigationBarTheme: NavigationBarThemeData(
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return textTheme.labelSmall?.copyWith(
+            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+          );
+        }),
+      ),
+      navigationRailTheme: NavigationRailThemeData(
+        selectedLabelTextStyle: textTheme.labelSmall,
+        unselectedLabelTextStyle: textTheme.labelSmall,
+      ),
+      tabBarTheme: TabBarThemeData(
+        labelStyle: textTheme.labelLarge,
+        unselectedLabelStyle: textTheme.labelLarge,
+      ),
+      dialogTheme: DialogThemeData(
+        titleTextStyle: textTheme.headlineSmall,
+        contentTextStyle: textTheme.bodyMedium,
+      ),
+      snackBarTheme: SnackBarThemeData(contentTextStyle: textTheme.bodyMedium),
+      chipTheme: ChipThemeData(
+        labelStyle: textTheme.labelMedium,
+        secondaryLabelStyle: textTheme.labelMedium,
+      ),
+      listTileTheme: ListTileThemeData(
+        titleTextStyle: textTheme.titleMedium,
+        subtitleTextStyle: textTheme.bodyMedium,
+        leadingAndTrailingTextStyle: textTheme.bodyMedium,
+      ),
+      popupMenuTheme: PopupMenuThemeData(textStyle: textTheme.bodyMedium),
+      tooltipTheme: TooltipThemeData(textStyle: textTheme.bodySmall),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        extendedTextStyle: textTheme.labelLarge,
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(textStyle: WidgetStatePropertyAll(textTheme.labelLarge)),
+      ),
+      drawerTheme: DrawerThemeData(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+      ),
       cardTheme: CardThemeData(
-        color: Colors.grey.shade800,
-        elevation: 2,
+        color: isDark ? Colors.grey.shade800 : null,
+        elevation: isDark ? 2 : 1,
       ),
-      // Scaffoldのテーマ
-      scaffoldBackgroundColor: Colors.grey[900],
+      badgeTheme: BadgeThemeData(textStyle: textTheme.labelSmall),
+      expansionTileTheme: ExpansionTileThemeData(
+        textColor: colorScheme.onSurface,
+        collapsedTextColor: colorScheme.onSurface,
+      ),
     );
   }
 }

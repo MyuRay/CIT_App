@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/notification/notification_model.dart';
+import '../schedule/schedule_notification_service.dart';
 import 'package:flutter/foundation.dart';
 
 class NotificationService {
@@ -9,7 +10,11 @@ class NotificationService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Firebase Messaging初期化
+  /// FCM リスナーの二重登録を防ぐためのガード。
+  /// `initialize()` は起動時・ログイン時・復帰時など複数経路から呼ばれ得る。
+  static bool _messagingHandlersRegistered = false;
+
+  // Firebase Messaging初期化（複数回呼ばれても安全）
   static Future<void> initialize() async {
     // 通知権限を要求
     NotificationSettings settings = await _messaging.requestPermission(
@@ -24,13 +29,27 @@ class NotificationService {
 
     print('ユーザー通知権限: ${settings.authorizationStatus}');
 
+    // フォアグラウンド表示用にローカル通知サービスを初期化しておく。
+    try {
+      await ScheduleNotificationService.initialize();
+    } catch (e) {
+      print('ローカル通知初期化エラー（無視）: $e');
+    }
+
     // FCMトークンを取得してFirestoreに保存
     await _saveFCMToken();
+
+    // 以降のストリーム購読は 1 度だけ登録する（二重登録防止）。
+    if (_messagingHandlersRegistered) {
+      // トークンの再保存だけ済ませて戻る。
+      return;
+    }
+    _messagingHandlersRegistered = true;
 
     // トークンリフレッシュ時の処理
     _messaging.onTokenRefresh.listen((fcmToken) async {
       print('FCMトークンがリフレッシュされました: $fcmToken');
-      await _saveFCMToken();
+      await _saveFCMToken(token: fcmToken);
     });
 
     // フォアグラウンド通知受信時の処理
@@ -53,24 +72,30 @@ class NotificationService {
     }
   }
 
+  /// 現在のユーザーの FCM トークンを Firestore に再登録する。
+  /// アプリ復帰時などに呼び、古い/失効したトークンによる送信失敗を防ぐ。
+  static Future<void> refreshTokenRegistration() async {
+    await _saveFCMToken();
+  }
+
   // FCMトークンを保存
-  static Future<void> _saveFCMToken() async {
+  static Future<void> _saveFCMToken({String? token}) async {
     try {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      final token = await _messaging.getToken();
-      if (token != null) {
+      final resolvedToken = token ?? await _messaging.getToken();
+      if (resolvedToken != null) {
         await _firestore
             .collection('user_tokens')
             .doc(user.uid)
             .set({
-          'fcmToken': token,
+          'fcmToken': resolvedToken,
           'updatedAt': FieldValue.serverTimestamp(),
           'platform': defaultTargetPlatform.name,
         }, SetOptions(merge: true));
-        
-        print('FCMトークンを保存: $token');
+
+        print('FCMトークンを保存: $resolvedToken');
       }
     } catch (e) {
       print('FCMトークン保存エラー: $e');
@@ -79,8 +104,23 @@ class NotificationService {
 
   // フォアグラウンド通知処理
   static void _handleForegroundMessage(RemoteMessage message) {
-    // アプリ内通知表示（SnackBarなど）
-    // TODO: 実装
+    // フォアグラウンドでは OS がプッシュを自動表示しないため、
+    // ローカル通知として明示的に表示する（「開いている時は通知が来ない」対策）。
+    final notification = message.notification;
+    final title = notification?.title ??
+        (message.data['title'] as String?) ??
+        'お知らせ';
+    final body = notification?.body ??
+        (message.data['body'] as String?) ??
+        (message.data['message'] as String?) ??
+        '';
+
+    if (title.trim().isEmpty && body.trim().isEmpty) return;
+
+    ScheduleNotificationService.showImmediateNotification(
+      title: title,
+      body: body,
+    );
   }
 
   // バックグラウンド通知タップ処理

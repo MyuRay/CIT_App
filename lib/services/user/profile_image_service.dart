@@ -1,10 +1,8 @@
-import 'dart:io';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../firebase/storage_upload_helper.dart';
 import 'user_service.dart';
 
 class ProfileImageService {
@@ -36,16 +34,12 @@ class ProfileImageService {
     required XFile file,
   }) async {
     final ref = _avatarRef(uid);
-    final metadata = SettableMetadata(contentType: 'image/jpeg');
-
-    if (kIsWeb) {
-      final bytes = await file.readAsBytes();
-      await ref.putData(bytes, metadata);
-    } else {
-      await ref.putFile(File(file.path), metadata);
-    }
-
-    final url = await ref.getDownloadURL();
+    final url = await StorageUploadHelper.uploadXFile(
+      ref: ref,
+      file: file,
+      userId: uid,
+      contentType: 'image/jpeg',
+    );
     await _saveProfileImageUrl(uid, url);
 
     final authUser = FirebaseAuth.instance.currentUser;

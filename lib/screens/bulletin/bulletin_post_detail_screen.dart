@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../widgets/common/safe_cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -260,12 +260,15 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
                   child: Container(
                     width: double.infinity,
                     height: 250,
-                    child: CachedNetworkImage(
+                    child: SafeCachedNetworkImage(
                       imageUrl: widget.post.imageUrl,
                       fit: BoxFit.cover,
-                      alignment: Alignment(widget.post.thumbAlignX, widget.post.thumbAlignY),
-                      placeholder: (context, url) => const _BulletinImagePlaceholder(),
-                      errorWidget: (context, url, error) => Container(
+                      alignment: Alignment(
+                        widget.post.thumbAlignX,
+                        widget.post.thumbAlignY,
+                      ),
+                      placeholder: const _BulletinImagePlaceholder(),
+                      errorWidget: Container(
                         color: Colors.grey[200],
                         child: const Center(
                           child: Icon(Icons.image_not_supported, size: 48),
@@ -1139,11 +1142,11 @@ class _BulletinPostDetailScreenState extends ConsumerState<BulletinPostDetailScr
                 maxScale: 3.0,
                 child: Hero(
                   tag: 'image_${widget.post.id}',
-                  child: CachedNetworkImage(
+                  child: SafeCachedNetworkImage(
                     imageUrl: widget.post.imageUrl,
                     fit: BoxFit.contain,
-                    placeholder: (context, url) => const _BulletinImagePlaceholder(),
-                    errorWidget: (context, url, error) => Container(
+                    placeholder: const _BulletinImagePlaceholder(),
+                    errorWidget: Container(
                       color: Colors.grey[200],
                       child: const Center(
                         child: Icon(Icons.image_not_supported, size: 48),

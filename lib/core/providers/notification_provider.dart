@@ -10,11 +10,11 @@ final userNotificationsProvider = StreamProvider.family<List<AppNotification>, S
   try {
     print('📢 Firestoreから通知監視開始: $userId');
     
-    // まずはシンプルなクエリでテスト（orderByなし）
     final stream = FirebaseFirestore.instance
         .collection('notifications')
         .where('userId', isEqualTo: userId)
-        .limit(50) // 最新50件
+        .orderBy('createdAt', descending: true)
+        .limit(50)
         .snapshots();
     
     print('🔗 Firestoreストリームを作成しました');
@@ -47,9 +47,6 @@ final userNotificationsProvider = StreamProvider.family<List<AppNotification>, S
           print('❌ エラースタック: $stackTrace');
         }
       }
-      
-      // Dartコード側でソート
-      notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       
       print('📢 通知データ処理完了: ${notifications.length}件');
       if (notifications.isNotEmpty) {

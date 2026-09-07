@@ -5,6 +5,7 @@ import '../constants/app_constants.dart';
 import '../../services/user/user_service.dart';
 import '../../services/notification/notification_service.dart';
 import '../../models/user/user_model.dart';
+import '../../utils/auth_error_message.dart';
 import 'settings_provider.dart';
 
 final firebaseAuthProvider = Provider<FirebaseAuth>((ref) {
@@ -193,8 +194,11 @@ class AuthService {
       }
 
       return credential;
-    } on FirebaseAuthException {
-      rethrow;
+    } on FirebaseAuthException catch (e) {
+      throw FirebaseAuthException(
+        code: e.code,
+        message: loginAuthErrorMessage(e),
+      );
     } catch (e) {
       print('❌ ログインエラー: $e');
       rethrow;

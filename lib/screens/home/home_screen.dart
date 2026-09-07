@@ -35,7 +35,8 @@ import '../cafeteria/cafeteria_reviews_screen.dart';
 import '../cafeteria/cafeteria_camera_info_screen.dart';
 import '../schedule/attendance_qr_reader_screen.dart';
 import '../../widgets/campus_map_widget.dart';
-import '../../widgets/home/train_access_home_card.dart';
+// 一時非表示: JR津田沼駅発（電車アクセス）カード
+// import '../../widgets/home/train_access_home_card.dart';
 import '../../widgets/performance/optimized_notification_badge.dart';
 import '../../widgets/common/pulsing_dot_badge.dart';
 import '../../models/convenience_link/convenience_link_model.dart';
@@ -88,7 +89,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     'timetable',
     'cafeteria',
     'bus',
-    'train_access',
+    // 'train_access', // 一時非表示: JR津田沼駅発
     'campus_map',
     'academic_calendar',
     'convenience_links',
@@ -908,6 +909,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         _homeCardOrder.where((id) {
           if (_hiddenHomeCards.contains(id)) return false;
           if (id == 'timetable' && autoHideTimetable) return false;
+          // 一時非表示: JR津田沼駅発（保存済みレイアウトに残っていても出さない）
+          if (id == 'train_access') return false;
           return true;
         }).toList();
     if (visibleCardIds.isEmpty) {
@@ -958,8 +961,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return _buildCafeteriaCard(context, ref, todayReviewExistsAsync);
       case 'bus':
         return _buildBusInfoCard(context, ref);
-      case 'train_access':
-        return const TrainAccessHomeCard();
+      // 一時非表示: JR津田沼駅発
+      // case 'train_access':
+      //   return const TrainAccessHomeCard();
       case 'campus_map':
         return _buildCampusMapCard(context);
       case 'academic_calendar':
@@ -1123,7 +1127,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               horizontal: 12,
                               vertical: 10,
                             ),
-                            textStyle: const TextStyle(fontSize: 13),
+                            textStyle: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(fontSize: 13),
                           ),
                         ),
                       ),
@@ -1159,7 +1164,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         horizontal: 12,
                         vertical: 10,
                       ),
-                      textStyle: const TextStyle(fontSize: 13),
+                      textStyle: Theme.of(context).textTheme.labelMedium
+                          ?.copyWith(fontSize: 13),
                     ),
                   ),
                 ),
@@ -2015,9 +2021,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         ],
                       ),
                     ),
-                    const Divider(height: 1),
-                    const TrainHomeCardCampusSetting(),
-                    const Divider(height: 1),
+                    // 一時非表示: JR津田沼駅発（キャンパス切替）
+                    // const Divider(height: 1),
+                    // const TrainHomeCardCampusSetting(),
+                    // const Divider(height: 1),
                     Expanded(
                       child: ReorderableListView.builder(
                         itemCount: tempOrder.length,
@@ -2095,8 +2102,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return '学食情報';
       case 'bus':
         return '学バス情報';
-      case 'train_access':
-        return trainHomeCardTitle(ref.read(preferredBusCampusProvider));
+      // case 'train_access':
+      //   return trainHomeCardTitle(ref.read(preferredBusCampusProvider));
       case 'campus_map':
         return 'キャンパスマップ';
       case 'academic_calendar':
@@ -2128,19 +2135,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         result.add('academic_calendar');
       }
     }
-    if (!result.contains('train_access')) {
-      final busIndex = result.indexOf('bus');
-      if (busIndex >= 0) {
-        result.insert(busIndex + 1, 'train_access');
-      } else {
-        final campusIndex = result.indexOf('campus_map');
-        if (campusIndex >= 0) {
-          result.insert(campusIndex, 'train_access');
-        } else {
-          result.add('train_access');
-        }
-      }
-    }
+    // 一時非表示: JR津田沼駅発
+    // if (!result.contains('train_access')) {
+    //   final busIndex = result.indexOf('bus');
+    //   if (busIndex >= 0) {
+    //     result.insert(busIndex + 1, 'train_access');
+    //   } else {
+    //     final campusIndex = result.indexOf('campus_map');
+    //     if (campusIndex >= 0) {
+    //       result.insert(campusIndex, 'train_access');
+    //     } else {
+    //       result.add('train_access');
+    //     }
+    //   }
+    // }
     for (final id in _defaultHomeCardOrder) {
       if (!result.contains(id)) {
         result.add(id);
@@ -3675,7 +3683,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               dialogCtx,
                             ),
                             onPressed: () => Navigator.of(dialogCtx).pop(),
-                            child: scheduleClassDetailDialogActionLabel('閉じる'),
+                            child: scheduleClassDetailDialogActionLabel(dialogCtx,'閉じる'),
                           ),
                           if (scheduleId != null && weekdayKey != null) ...[
                             TextButton(
@@ -3691,7 +3699,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                           isEditingMemo = false;
                                         });
                                       },
-                              child: scheduleClassDetailDialogActionLabel('キャンセル'),
+                              child: scheduleClassDetailDialogActionLabel(dialogCtx,'キャンセル'),
                             ),
                             FilledButton(
                               style: scheduleClassDetailDialogSaveButtonStyle(
@@ -3731,13 +3739,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                             strokeWidth: 2,
                                           ),
                                         )
-                                      : scheduleClassDetailDialogActionLabel('保存'),
+                                      : scheduleClassDetailDialogActionLabel(dialogCtx,'保存'),
                             ),
                           ],
                         ] else ...[
                           if (scheduleClass.classroom.trim().isNotEmpty)
                             FilledButton(
-                              style: scheduleClassLookupRoomButtonStyle(),
+                              style: scheduleClassLookupRoomButtonStyle(dialogCtx),
                               onPressed: () {
                                 final q = scheduleClass.classroom.trim();
                                 final uri = Uri(
@@ -3750,7 +3758,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                   GoRouter.of(hostContext).push(uri.toString());
                                 });
                               },
-                              child: scheduleClassDetailDialogActionLabel(
+                              child: scheduleClassDetailDialogActionLabel(dialogCtx,
                                 '教室の場所を調べる',
                               ),
                             ),
@@ -3765,14 +3773,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                   isEditingMemo = true;
                                 });
                               },
-                              child: scheduleClassDetailDialogActionLabel('メモを編集'),
+                              child: scheduleClassDetailDialogActionLabel(dialogCtx,'メモを編集'),
                             ),
                           TextButton(
                             style: scheduleClassDetailDialogSecondaryActionStyle(
                               dialogCtx,
                             ),
                             onPressed: () => Navigator.of(dialogCtx).pop(),
-                            child: scheduleClassDetailDialogActionLabel('閉じる'),
+                            child: scheduleClassDetailDialogActionLabel(dialogCtx,'閉じる'),
                           ),
                         ],
                       ],

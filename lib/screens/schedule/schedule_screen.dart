@@ -1167,10 +1167,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   ),
                   child: Text(
                     imagePath,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontFamily: 'monospace',
-                    ),
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -1365,10 +1362,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                           const SizedBox(height: 8),
                           Text(
                             '画像は以下のパスに保存されました：\n$imagePath',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontFamily: 'monospace',
-                            ),
+                            style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
                       ),

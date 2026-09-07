@@ -1,10 +1,8 @@
-import 'dart:io';
-
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../utils/community/post_image_utils.dart';
+import '../firebase/storage_upload_helper.dart';
 
 class CwitterPostImageService {
   static const int maxImagesPerPost = 4;
@@ -47,6 +45,7 @@ class CwitterPostImageService {
     required List<XFile> files,
   }) async {
     return _uploadImages(
+      userId: userId,
       files: files,
       refBuilder: (index, file) => _postImageRef(
         userId: userId,
@@ -64,6 +63,7 @@ class CwitterPostImageService {
     required List<XFile> files,
   }) async {
     return _uploadImages(
+      userId: userId,
       files: files,
       refBuilder: (index, file) => _replyImageRef(
         userId: userId,
@@ -76,6 +76,7 @@ class CwitterPostImageService {
   }
 
   static Future<List<String>> _uploadImages({
+    required String userId,
     required List<XFile> files,
     required Reference Function(int index, XFile file) refBuilder,
   }) async {
@@ -87,17 +88,24 @@ class CwitterPostImageService {
     final urls = <String>[];
     for (var i = 0; i < files.length; i++) {
       final file = files[i];
-      final ref = refBuilder(i, file);
-      final metadata =
-          SettableMetadata(contentType: imageUploadContentType(file));
-
-      if (kIsWeb) {
-        final bytes = await file.readAsBytes();
-        await ref.putData(bytes, metadata);
-      } else {
-        await ref.putFile(File(file.path), metadata);
+      if (isHeicXFile(file)) {
+        throw ArgumentError(
+          'HEIC形式は未対応です。JPEG/PNG/GIF を選ぶか、カメラ設定を「互換性優先」にしてください',
+        );
       }
-      urls.add(await ref.getDownloadURL());
+
+      final ref = refBuilder(i, file);
+      try {
+        final url = await StorageUploadHelper.uploadXFile(
+          ref: ref,
+          file: file,
+          userId: userId,
+          contentType: imageUploadContentType(file),
+        );
+        urls.add(url);
+      } on FirebaseException catch (e) {
+        throw StorageUploadHelper.wrapStorageUploadError(e);
+      }
     }
     return urls;
   }
@@ -110,7 +118,7 @@ class CwitterPostImageService {
   }) async {
     final futures = <Future<void>>[];
     for (var i = 0; i < maxIndex; i++) {
-      for (final ext in const ['jpg', 'gif']) {
+      for (final ext in const ['jpg', 'gif', 'png', 'webp']) {
         futures.add(
           _postImageRef(
             userId: userId,
@@ -132,7 +140,7 @@ class CwitterPostImageService {
   }) async {
     final futures = <Future<void>>[];
     for (var i = 0; i < maxIndex; i++) {
-      for (final ext in const ['jpg', 'gif']) {
+      for (final ext in const ['jpg', 'gif', 'png', 'webp']) {
         futures.add(
           _replyImageRef(
             userId: userId,

@@ -7,6 +7,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/bulletin/bulletin_model.dart';
 import '../../core/providers/admin_provider.dart';
+import '../../services/firebase/storage_upload_helper.dart';
 
 class BulletinPostFormScreen extends ConsumerStatefulWidget {
   const BulletinPostFormScreen({super.key});
@@ -866,12 +867,17 @@ class _BulletinPostFormScreenState
       print('スタックトレース: $stackTrace');
       
       String errorMessage = '投稿に失敗しました';
-      if (e.toString().contains('permission-denied')) {
+      final errorText = e.toString();
+      if (errorText.contains('permission-denied')) {
         errorMessage = 'アクセス権限が不足しています';
-      } else if (e.toString().contains('network')) {
+      } else if (errorText.contains('network')) {
         errorMessage = 'ネットワークエラーが発生しました';
-      } else if (e.toString().contains('Firebase Storage')) {
+      } else if (errorText.contains('Firebase Storage') ||
+          errorText.contains('画像のアップロード')) {
         errorMessage = '画像のアップロードに失敗しました';
+      } else if (errorText.contains('unknown') ||
+          errorText.contains('An unknown error')) {
+        errorMessage = 'サーバーとの通信に失敗しました。接続を確認して再試行してください';
       }
       
       if (mounted) {
@@ -916,75 +922,49 @@ class _BulletinPostFormScreenState
   }
 
   Future<String> _uploadImage() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('ユーザーが認証されていません');
+    }
+
+    print('📤 画像アップロード開始...');
+    final String fileName =
+        'bulletin_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final Reference ref =
+        FirebaseStorage.instance.ref().child('bulletin_images/$fileName');
+
+    final fileSize = await _selectedImage!.length();
+    print('アップロード先: ${ref.fullPath}');
+    print('画像ファイル: ${_selectedImage!.path}');
+    print('ファイルサイズ: ${(fileSize / 1024).toStringAsFixed(1)} KB');
+
+    if (mounted) {
+      setState(() {
+        _uploadProgress = 0.4;
+        _uploadStatus = 'アップロード中...';
+      });
+    }
+
     try {
-      print('📤 画像アップロード開始...');
-      final String fileName =
-          'bulletin_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final Reference ref =
-          FirebaseStorage.instance.ref().child('bulletin_images/$fileName');
-
-      final fileSize = await _selectedImage!.length();
-      print('アップロード先: ${ref.fullPath}');
-      print('画像ファイル: ${_selectedImage!.path}');
-      print('ファイルサイズ: ${(fileSize / 1024).toStringAsFixed(1)} KB');
-
-      // Firebase Storageのタイムアウト設定を最適化
-      final storage = FirebaseStorage.instance;
-      storage.setMaxUploadRetryTime(const Duration(minutes: 2));
-      
-      // メタデータを追加してキャッシュ最適化
-      final metadata = SettableMetadata(
+      final downloadUrl = await StorageUploadHelper.uploadFile(
+        ref: ref,
+        file: _selectedImage!,
+        userId: user.uid,
         contentType: 'image/jpeg',
-        cacheControl: 'public,max-age=31536000', // 1年キャッシュ
-        customMetadata: {
-          'uploaded_by': 'bulletin_app',
-          'upload_time': DateTime.now().toIso8601String(),
-        },
       );
 
-      final UploadTask uploadTask = ref.putFile(_selectedImage!, metadata);
-      
-      // アップロード進行状況をUIに反映
-      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-        final percentage = (progress * 100).toStringAsFixed(1);
-        print('進行状況: $percentage%');
-        
-        if (mounted) {
-          setState(() {
-            _uploadProgress = progress * 0.8; // 80%までをアップロード、残り20%をFirestore保存に割り当て
-            _uploadStatus = 'アップロード中... $percentage%';
-          });
-        }
-      });
-      
-      final TaskSnapshot snapshot = await uploadTask;
-      final String downloadUrl = await snapshot.ref.getDownloadURL();
-      
       if (mounted) {
         setState(() {
           _uploadProgress = 0.8;
           _uploadStatus = 'アップロード完了!';
         });
       }
-      
+
       print('✅ 画像アップロード成功');
       print('ダウンロードURL: $downloadUrl');
-      
       return downloadUrl;
-    } catch (e, stackTrace) {
-      print('❌ 画像アップロードエラー: $e');
-      print('スタックトレース: $stackTrace');
-      
-      if (e.toString().contains('permission-denied')) {
-        throw 'Firebase Storage の権限が不足しています。管理者にお問い合わせください。';
-      } else if (e.toString().contains('network')) {
-        throw 'ネットワークエラーが発生しました。接続を確認してください。';
-      } else if (e.toString().contains('quota-exceeded')) {
-        throw 'ストレージ容量が上限に達しています。';
-      }
-      
-      rethrow;
+    } on FirebaseException catch (e) {
+      throw StorageUploadHelper.wrapStorageUploadError(e);
     }
   }
 
@@ -995,6 +975,7 @@ class _BulletinPostFormScreenState
       if (user == null) {
         throw Exception('ユーザーが認証されていません');
       }
+      await user.getIdToken(true);
 
       final String postId = FirebaseFirestore.instance
           .collection('bulletin_posts')
@@ -2054,58 +2035,48 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
   }
 
   Future<String> _uploadImage() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('ユーザーが認証されていません');
+    }
+
+    print('📤 画像アップロード開始(編集)...');
+    final String fileName =
+        'bulletin_edit_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final Reference ref =
+        FirebaseStorage.instance.ref().child('bulletin_images/$fileName');
+
+    final fileSize = await _selectedImage!.length();
+    print('アップロード先: ${ref.fullPath}');
+    print('画像ファイル: ${_selectedImage!.path}');
+    print('ファイルサイズ: ${(fileSize / 1024).toStringAsFixed(1)} KB');
+
+    if (mounted) {
+      setState(() {
+        _uploadProgress = 0.4;
+        _uploadStatus = 'アップロード中...';
+      });
+    }
+
     try {
-      print('📤 画像アップロード開始(編集)...');
-      final String fileName =
-          'bulletin_edit_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final Reference ref =
-          FirebaseStorage.instance.ref().child('bulletin_images/$fileName');
-
-      final fileSize = await _selectedImage!.length();
-      print('アップロード先: ${ref.fullPath}');
-      print('画像ファイル: ${_selectedImage!.path}');
-      print('ファイルサイズ: ${(fileSize / 1024).toStringAsFixed(1)} KB');
-
-      // 最適化されたメタデータ
-      final metadata = SettableMetadata(
+      final downloadUrl = await StorageUploadHelper.uploadFile(
+        ref: ref,
+        file: _selectedImage!,
+        userId: user.uid,
         contentType: 'image/jpeg',
-        cacheControl: 'public,max-age=31536000',
-        customMetadata: {
-          'uploaded_by': 'bulletin_edit',
-          'upload_time': DateTime.now().toIso8601String(),
-        },
       );
 
-      final UploadTask uploadTask = ref.putFile(_selectedImage!, metadata);
-      
-      // 進行状況監視
-      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-        final percentage = (progress * 100).toStringAsFixed(1);
-        
-        if (mounted) {
-          setState(() {
-            _uploadProgress = progress * 0.8;
-            _uploadStatus = 'アップロード中... $percentage%';
-          });
-        }
-      });
-      
-      final TaskSnapshot snapshot = await uploadTask;
-      final String downloadUrl = await snapshot.ref.getDownloadURL();
-      
       if (mounted) {
         setState(() {
           _uploadProgress = 0.8;
           _uploadStatus = 'アップロード完了!';
         });
       }
-      
+
       print('✅ 画像アップロード成功: $downloadUrl');
       return downloadUrl;
-    } catch (e) {
-      print('❌ 画像アップロードエラー: $e');
-      rethrow;
+    } on FirebaseException catch (e) {
+      throw StorageUploadHelper.wrapStorageUploadError(e);
     }
   }
 

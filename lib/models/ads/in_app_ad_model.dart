@@ -171,7 +171,7 @@ class InAppAd {
       if (startAt != null) 'startAt': Timestamp.fromDate(startAt!),
       if (endAt != null) 'endAt': Timestamp.fromDate(endAt!),
       'weight': weight,
-      'updatedAt': Timestamp.now(),
+      'updatedAt': FieldValue.serverTimestamp(),
     };
   }
 }

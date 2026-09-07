@@ -475,10 +475,10 @@ class SimpleProfileScreen extends ConsumerWidget {
           ),
           const Divider(height: 1),
 
-          const ListTile(
-            leading: Icon(Icons.info),
-            title: Text('バージョン'),
-            subtitle: Text('2.0.0'),
+          ListTile(
+            leading: const Icon(Icons.info),
+            title: const Text('バージョン'),
+            subtitle: Text(AppConstants.appVersion),
           ),
 
           const Divider(height: 1),

@@ -1,5 +1,9 @@
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+
+import 'storage_direct_url.dart';
+import 'storage_url_validator.dart';
 
 class FirebaseCampusService {
   static final _storage = FirebaseStorage.instance;
@@ -13,13 +17,11 @@ class FirebaseCampusService {
       final fullPath = '$_campusMapPath/$fileName';
       debugPrint('🗺️ キャンパスマップ取得開始 | campus=$campus, fileName=$fileName, path=$fullPath');
 
-      final ref = _storage.ref().child(fullPath);
-      debugPrint('🗺️ Storage reference created | fullPath=${ref.fullPath}');
-
-      final downloadUrl = await ref.getDownloadURL();
-      debugPrint('✅ キャンパスマップURL取得成功 | campus=$campus, url=$downloadUrl');
-      return downloadUrl;
-
+      final url = await _resolveStorageImageUrl(fullPath);
+      if (url != null) {
+        debugPrint('✅ キャンパスマップURL取得成功 | campus=$campus, url=$url');
+      }
+      return url;
     } catch (e, stackTrace) {
       debugPrint('❌ キャンパスマップ取得エラー | campus=$campus, error=$e');
       debugPrint('❌ StackTrace: $stackTrace');
@@ -34,13 +36,11 @@ class FirebaseCampusService {
       final fullPath = '$_floorMapPath/$fileName';
       debugPrint('🏢 フロアマップ取得開始 | campus=$campus, building=$building, floor=$floor, fileName=$fileName, path=$fullPath');
 
-      final ref = _storage.ref().child(fullPath);
-      debugPrint('🏢 Storage reference created | fullPath=${ref.fullPath}');
-
-      final downloadUrl = await ref.getDownloadURL();
-      debugPrint('✅ フロアマップURL取得成功 | campus=$campus, building=$building, floor=$floor, url=$downloadUrl');
-      return downloadUrl;
-
+      final url = await _resolveStorageImageUrl(fullPath);
+      if (url != null) {
+        debugPrint('✅ フロアマップURL取得成功 | campus=$campus, building=$building, floor=$floor, url=$url');
+      }
+      return url;
     } catch (e, stackTrace) {
       debugPrint('❌ フロアマップ取得エラー | campus=$campus, building=$building, floor=$floor, error=$e');
       debugPrint('❌ StackTrace: $stackTrace');
@@ -67,7 +67,9 @@ class FirebaseCampusService {
             final floorStr = parts[2].replaceAll('.png', '');
             final floor = int.tryParse(floorStr.replaceAll('F', '')) ?? 1;
             
-            final downloadUrl = await item.getDownloadURL();
+            final downloadUrl = await _resolveStorageImageUrl(item.fullPath);
+            
+            if (downloadUrl == null) continue;
             
             floorMaps.add({
               'campus': campus,
@@ -121,6 +123,32 @@ class FirebaseCampusService {
   }
   
   // =========== プライベートメソッド ===========
+
+  static Future<String?> _resolveStorageImageUrl(String fullPath) async {
+    final publicUrl = StorageDirectUrl.publicGcsUrl(fullPath);
+    if (await StorageUrlValidator.isReachable(publicUrl)) {
+      return publicUrl;
+    }
+
+    final ref = _storage.ref().child(fullPath);
+    final metadata = await ref.getMetadata();
+    final token = metadata.customMetadata?['firebaseStorageDownloadTokens']
+        ?.split(',')
+        .first
+        .trim();
+    if (token != null && token.isNotEmpty) {
+      final tokenUrl = StorageDirectUrl.mediaWithToken(fullPath, token);
+      if (await StorageUrlValidator.isReachable(tokenUrl)) {
+        return tokenUrl;
+      }
+    }
+
+    final downloadUrl = await ref.getDownloadURL();
+    if (await StorageUrlValidator.isReachable(downloadUrl)) {
+      return downloadUrl;
+    }
+    return null;
+  }
   
   /// キャンパスマップファイル名を生成
   static String _generateCampusMapFileName(String campus) {

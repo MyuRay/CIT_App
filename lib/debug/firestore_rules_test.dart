@@ -118,9 +118,8 @@ class _FirestoreRulesTestScreenState extends ConsumerState<FirestoreRulesTestScr
                         ),
                         child: Text(
                           _testResult,
-                          style: const TextStyle(
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Colors.white,
-                            fontFamily: 'monospace',
                             fontSize: 12,
                           ),
                         ),
@@ -154,12 +153,11 @@ class _FirestoreRulesTestScreenState extends ConsumerState<FirestoreRulesTestScr
                         color: Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text(
+                      child: Text(
                         'match /admin_permissions/{document} {\n'
                         '  allow read, write: if request.auth != null;\n'
                         '}',
-                        style: TextStyle(
-                          fontFamily: 'monospace',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontSize: 12,
                         ),
                       ),

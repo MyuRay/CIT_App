@@ -3,10 +3,12 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/notification_preference_provider.dart';
+import '../../core/providers/schedule_provider.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../models/notification/notification_preference_model.dart';
 import '../../services/notification/notification_preference_service.dart';
 import '../../services/schedule/schedule_notification_service.dart';
+import '../../services/schedule/schedule_service.dart';
 
 /// プッシュ通知の受信設定（アプリ内の通知一覧はオフでも表示されます）
 class NotificationSettingsScreen extends ConsumerWidget {
@@ -136,7 +138,11 @@ class NotificationSettingsScreen extends ConsumerWidget {
         await ref
             .read(settingsProvider.notifier)
             .setScheduleNotificationEnabled(value);
-        if (!value) {
+        if (value) {
+          // ON にしたら現在の時間割で通知を予約する。
+          // （以前は ON 時に何もせず、再起動するまで通知が来なかった）
+          await _rescheduleScheduleNotifications(ref, uid);
+        } else {
           await ScheduleNotificationService.cancelAllNotifications();
         }
         return;
@@ -155,6 +161,31 @@ class NotificationSettingsScreen extends ConsumerWidget {
           backgroundColor: Colors.red,
         ),
       );
+    }
+  }
+
+  /// 現在選択中（なければ先頭）の時間割で講義通知を予約し直す。
+  static Future<void> _rescheduleScheduleNotifications(
+    WidgetRef ref,
+    String uid,
+  ) async {
+    try {
+      final schedules = await ScheduleService.getAllSchedulesByUserId(uid);
+      if (schedules.isEmpty) return;
+      final selectedId = ref.read(selectedScheduleIdProvider);
+      var schedule = schedules.first;
+      if (selectedId != null) {
+        for (final s in schedules) {
+          if (s.id == selectedId) {
+            schedule = s;
+            break;
+          }
+        }
+      }
+      await ScheduleNotificationService.scheduleWeeklyNotifications(schedule);
+    } catch (e) {
+      // 予約失敗は通知設定自体の保存を妨げない。
+      debugPrint('⚠️ 講義通知の再予約に失敗: $e');
     }
   }
 }

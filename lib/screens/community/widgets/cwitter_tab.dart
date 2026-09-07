@@ -381,8 +381,15 @@ class _CwitterTabState extends ConsumerState<CwitterTab>
     final images = picked.where(isSupportedPostImageXFile).toList();
     if (images.isEmpty) {
       if (!mounted) return;
+      final hasHeic = picked.any(isHeicXFile);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('画像ファイルを選択してください')),
+        SnackBar(
+          content: Text(
+            hasHeic
+                ? 'HEIC形式は未対応です。JPEG/PNG/GIF を選んでください'
+                : '画像ファイルを選択してください',
+          ),
+        ),
       );
       return;
     }

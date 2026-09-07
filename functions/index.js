@@ -22,6 +22,14 @@ const REGION = (
 
 setGlobalOptions({region: REGION});
 
+function pickWebhookUrl(...candidates) {
+  for (const candidate of candidates) {
+    const value = String(candidate || '').trim();
+    if (value.startsWith('https://')) return value;
+  }
+  return null;
+}
+
 function getWebhook(kind) {
   // 優先順位: 種類別 env → 共通 env
   const envKey = {
@@ -29,19 +37,22 @@ function getWebhook(kind) {
     contacts: process.env.DISCORD_WEBHOOK_URL_CONTACTS,
     bulletin: process.env.DISCORD_WEBHOOK_URL_BULLETIN,
     menu: process.env.DISCORD_WEBHOOK_URL_MENU,
+    menu_image: process.env.DISCORD_WEBHOOK_URL_MENU_IMAGE,
     review: process.env.DISCORD_WEBHOOK_URL_REVIEW,
     report: process.env.DISCORD_WEBHOOK_URL_REPORT,
     coupon: process.env.DISCORD_WEBHOOK_URL_COUPON,
     comment: process.env.DISCORD_WEBHOOK_URL_COMMENT,
     cwitter: process.env.DISCORD_WEBHOOK_URL_CWITTER,
+    chiba_channel_thread: process.env.DISCORD_WEBHOOK_URL_CHIBA_CHANNEL_THREAD,
+    chiba_channel_reply: process.env.DISCORD_WEBHOOK_URL_CHIBA_CHANNEL_REPLY,
   };
   const generic = process.env.DISCORD_WEBHOOK_URL;
 
-  return (
-    envKey[kind] ||
-    generic ||
-    null
-  );
+  const url = pickWebhookUrl(envKey[kind], generic);
+  if (!url) {
+    console.warn(`No Discord webhook URL configured for kind="${kind}".`);
+  }
+  return url;
 }
 
 async function postToDiscord(webhookUrl, payload) {
@@ -96,6 +107,46 @@ function clampDiscordText(text, maxLen = 1024) {
   const value = String(text ?? '').trim() || '（なし）';
   if (value.length <= maxLen) return value;
   return `${value.substring(0, maxLen - 3)}...`;
+}
+
+function truncatePreview(text, maxLen = 40) {
+  const value = String(text ?? '').trim();
+  if (!value) return '';
+  if (value.length <= maxLen) return value;
+  return `${value.substring(0, maxLen)}…`;
+}
+
+function normalizeCwitterId(raw) {
+  return String(raw ?? '').trim().toLowerCase();
+}
+
+async function createInAppNotification(notification) {
+  try {
+    await admin.firestore().collection('notifications').add({
+      ...notification,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      isRead: false,
+    });
+    console.log(`アプリ内通知を作成: ${notification.type} -> ${notification.userId}`);
+  } catch (error) {
+    console.error('アプリ内通知の作成に失敗:', error);
+  }
+}
+
+async function fetchCwitterUserProfile(userId) {
+  if (!userId) return null;
+  try {
+    const userDoc = await admin.firestore().collection('users').doc(userId).get();
+    if (!userDoc.exists) return null;
+    const data = userDoc.data() || {};
+    const displayName = String(data.displayName || '').trim();
+    const cwitterId = normalizeCwitterId(data.cwitterId);
+    if (!displayName || !cwitterId) return null;
+    return {displayName, cwitterId};
+  } catch (error) {
+    console.error(`Cwitterユーザープロフィール取得に失敗 (${userId}):`, error);
+    return null;
+  }
 }
 
 function parseCwitterImageUrls(raw) {
@@ -525,6 +576,199 @@ exports.notifyCwitterReplyCreated = onDocumentCreated(
         replyId,
       });
       await postToDiscord(getWebhook('cwitter'), payload);
+
+      const replyAuthorId = String(reply.authorId || '').trim();
+      const postAuthorId = String(originalPost.authorId || '').trim();
+      if (replyAuthorId && postAuthorId && replyAuthorId !== postAuthorId) {
+        const fromUserName = String(reply.displayName || '匿名').trim() || '匿名';
+        const fromCwitterId = normalizeCwitterId(reply.cwitterId) || 'unknown';
+        const preview = truncatePreview(originalPost.body, 40);
+        const suffix = preview ? `「${preview}」` : '';
+        await createInAppNotification({
+          userId: postAuthorId,
+          type: 'reply',
+          title: 'Cwitterに返信がありました',
+          message:
+            `${fromUserName} (@${fromCwitterId}) さんがあなたのCweetに返信しました${suffix}`,
+          postId: originalPostId,
+          commentId: replyId,
+          fromUserId: replyAuthorId,
+          fromUserName,
+          data: {source: 'cwitter'},
+        });
+      }
+    },
+);
+
+// Cwitter: いいね時にアプリ内通知
+exports.notifyCwitterLikeCreated = onDocumentCreated(
+    'users/{userId}/cwitter_likes/{postId}',
+    async (event) => {
+      const likerId = event.params.userId;
+      const postId = event.params.postId;
+
+      let postAuthorId = '';
+      let postBody = '';
+      try {
+        const postDoc = await admin.firestore()
+            .collection('cwitter_posts')
+            .doc(postId)
+            .get();
+        if (!postDoc.exists) return;
+        const postData = postDoc.data() || {};
+        postAuthorId = String(postData.authorId || '').trim();
+        postBody = String(postData.body || '');
+      } catch (error) {
+        console.error('いいね対象Cweetの取得に失敗:', error);
+        return;
+      }
+
+      if (!postAuthorId || likerId === postAuthorId) return;
+
+      const likerProfile = await fetchCwitterUserProfile(likerId);
+      if (!likerProfile) return;
+
+      const preview = truncatePreview(postBody, 40);
+      const suffix = preview ? `「${preview}」` : '';
+      await createInAppNotification({
+        userId: postAuthorId,
+        type: 'like',
+        title: 'Cwitterにいいねがつきました',
+        message:
+          `${likerProfile.displayName} (@${likerProfile.cwitterId}) さんがあなたのCweetにいいねしました${suffix}`,
+        postId,
+        fromUserId: likerId,
+        fromUserName: likerProfile.displayName,
+        data: {source: 'cwitter'},
+      });
+    },
+);
+
+// Cwitter: フォロー時にアプリ内通知
+exports.notifyCwitterFollowCreated = onDocumentCreated(
+    'users/{followerId}/cwitter_following/{followeeId}',
+    async (event) => {
+      const snap = event.data;
+      if (!snap) return;
+      if (snap.data()?.suppressNotification === true) return;
+
+      const followerId = event.params.followerId;
+      const followeeId = event.params.followeeId;
+      if (!followerId || !followeeId || followerId === followeeId) return;
+
+      const followerProfile = await fetchCwitterUserProfile(followerId);
+      if (!followerProfile) return;
+
+      await createInAppNotification({
+        userId: followeeId,
+        type: 'follow',
+        title: 'Cwitterでフォローされました',
+        message:
+          `${followerProfile.displayName} (@${followerProfile.cwitterId}) さんがあなたをフォローしました`,
+        fromUserId: followerId,
+        fromUserName: followerProfile.displayName,
+        data: {
+          source: 'cwitter',
+          type: 'follow',
+          fromCwitterId: followerProfile.cwitterId,
+        },
+      });
+    },
+);
+
+// ちばちゃんねる: 新規スレッド作成時にDiscord通知
+exports.notifyChibaChannelThreadCreated = onDocumentCreated(
+    'chiba_channel_threads/{threadId}',
+    async (event) => {
+      const snap = event.data;
+      if (!snap) return;
+
+      const thread = snap.data() || {};
+      const threadId = event.params.threadId;
+      const title = thread.title || '（無題）';
+      const category = thread.category || '未分類';
+      const authorId = thread.authorId || 'unknown';
+      const email = maskEmail(thread.authorEmail || '（未設定）');
+
+      const payload = embed({
+        title: '🧵 新規スレッド（ちばちゃんねる）',
+        description: clampDiscordText(title, 4096),
+        color: 0x9c27b0,
+        fields: [
+          {name: 'カテゴリ', value: clampDiscordText(category, 256), inline: true},
+          {name: 'メール', value: clampDiscordText(email, 256), inline: true},
+          {name: 'UID', value: clampDiscordText(authorId, 1024), inline: false},
+          {name: 'スレッドID', value: clampDiscordText(threadId, 1024), inline: false},
+        ],
+      });
+
+      await postToDiscord(getWebhook('chiba_channel_thread'), payload);
+    },
+);
+
+// ちばちゃんねる: 新規レス作成時にDiscord通知
+exports.notifyChibaChannelCommentCreated = onDocumentCreated(
+    'chiba_channel_threads/{threadId}/comments/{commentId}',
+    async (event) => {
+      const snap = event.data;
+      if (!snap) return;
+
+      const comment = snap.data() || {};
+      if (comment.isDeleted === true) return;
+
+      const threadId = event.params.threadId;
+      const commentId = event.params.commentId;
+      const commentNumber = (comment.commentNumber ?? '?').toString();
+      const anonymousId = comment.anonymousId || '--------';
+      const body = (comment.body || '').trim();
+      const imageUrls = parseCwitterImageUrls(comment.imageUrls);
+      const email = maskEmail(comment.authorEmail || '（未設定）');
+      const replyTo = comment.inReplyToCommentNumber != null
+        ? `>>${comment.inReplyToCommentNumber}`
+        : 'なし';
+
+      let threadTitle = '（タイトル不明）';
+      try {
+        const threadDoc = await admin.firestore()
+            .collection('chiba_channel_threads')
+            .doc(threadId)
+            .get();
+        if (threadDoc.exists) {
+          threadTitle = threadDoc.data()?.title || threadTitle;
+        }
+      } catch (error) {
+        console.error('ちばちゃんねるスレッド取得に失敗:', error);
+      }
+
+      const description = body ||
+        (imageUrls.length > 0 ? '（テキストなし・画像のみ）' : '（内容なし）');
+
+      const fields = [
+        {name: 'スレッド', value: clampDiscordText(threadTitle, 1024), inline: false},
+        {name: 'レス番号', value: clampDiscordText(commentNumber, 256), inline: true},
+        {name: 'ID', value: clampDiscordText(`ID:${anonymousId}`, 256), inline: true},
+        {name: '返信先', value: clampDiscordText(replyTo, 256), inline: true},
+        {name: 'メール', value: clampDiscordText(email, 256), inline: true},
+        {name: 'スレッドID', value: clampDiscordText(threadId, 1024), inline: false},
+        {name: 'レスID', value: clampDiscordText(commentId, 1024), inline: false},
+      ];
+
+      if (imageUrls.length > 0) {
+        fields.push({
+          name: '添付画像',
+          value: clampDiscordText(`${imageUrls.length}枚`, 1024),
+          inline: true,
+        });
+      }
+
+      const payload = embed({
+        title: `💬 新規レス #${commentNumber}（ちばちゃんねる）`,
+        description: clampDiscordText(description, 4096),
+        color: 0x7b1fa2,
+        fields,
+      });
+
+      await postToDiscord(getWebhook('chiba_channel_reply'), payload);
     },
 );
 
@@ -809,7 +1053,7 @@ async function updateMenuImages() {
 
     // 3. Discordへ更新通知（画像付き）
     try {
-      const menuWebhook = getWebhook('menu');
+      const menuWebhook = getWebhook('menu_image');
       const entries = [
         {key: 'td.png', label: '津田沼食堂'},
         {key: 'sd1.png', label: '新習志野食堂 1F'},

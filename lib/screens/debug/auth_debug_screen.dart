@@ -95,7 +95,7 @@ class AuthDebugScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             
             // ログ表示
-            _buildLogSection(),
+            _buildLogSection(context),
           ],
         ),
       ),
@@ -175,7 +175,7 @@ class AuthDebugScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDebugInfoCard(Map<String, dynamic> info) {
+  Widget _buildDebugInfoCard(BuildContext context, Map<String, dynamic> info) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -205,7 +205,7 @@ class AuthDebugScreen extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       entry.value?.toString() ?? 'null',
-                      style: const TextStyle(fontFamily: 'monospace'),
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
                 ],
@@ -299,7 +299,7 @@ class AuthDebugScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildLogSection() {
+  Widget _buildLogSection(BuildContext context) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -320,7 +320,7 @@ class AuthDebugScreen extends ConsumerWidget {
                 color: Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
+              child: Text(
                 '認証関連のログは開発者コンソールで確認してください。\n'
                 'Android Studio: Run タブ\n'
                 'VS Code: Debug Console\n'
@@ -330,9 +330,8 @@ class AuthDebugScreen extends ConsumerWidget {
                 '• ✅ 認証復元\n'
                 '• ❌ 認証エラー\n'
                 '• 🔄 再接続試行',
-                style: TextStyle(
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontSize: 13,
-                  fontFamily: 'monospace',
                 ),
               ),
             ),

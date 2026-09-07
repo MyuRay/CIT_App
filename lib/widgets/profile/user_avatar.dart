@@ -1,5 +1,6 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+
+import '../common/firebase_storage_image.dart';
 
 /// プロフィール表示用アバター（画像 or 頭文字）
 class UserAvatar extends StatelessWidget {
@@ -41,12 +42,12 @@ class UserAvatar extends StatelessWidget {
         radius: radius,
         backgroundColor: color.withValues(alpha: 0.15),
         child: ClipOval(
-          child: CachedNetworkImage(
+          child: FirebaseStorageImage(
+            imageUrl: url,
             width: radius * 2,
             height: radius * 2,
-            imageUrl: url,
             fit: BoxFit.cover,
-            placeholder: (_, __) => Center(
+            placeholder: Center(
               child: Text(
                 _initial,
                 style: TextStyle(
@@ -56,7 +57,7 @@ class UserAvatar extends StatelessWidget {
                 ),
               ),
             ),
-            errorWidget: (_, __, ___) => Container(
+            errorWidget: Container(
               width: radius * 2,
               height: radius * 2,
               color: color.withValues(alpha: 0.2),

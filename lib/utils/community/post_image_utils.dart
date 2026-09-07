@@ -8,18 +8,45 @@ bool isGifXFile(XFile file) {
   return path.endsWith('.gif') || name.endsWith('.gif');
 }
 
+bool isHeicXFile(XFile file) {
+  final mime = file.mimeType?.toLowerCase();
+  if (mime == 'image/heic' || mime == 'image/heif') return true;
+  final lower = '${file.path} ${file.name}'.toLowerCase();
+  return lower.contains('.heic') || lower.contains('.heif');
+}
+
 bool isGifUrl(String url) {
   final uri = Uri.tryParse(url);
   if (uri == null) return false;
   return uri.path.toLowerCase().endsWith('.gif');
 }
 
-String imageUploadExtension(XFile file) => isGifXFile(file) ? 'gif' : 'jpg';
+String imageUploadExtension(XFile file) {
+  if (isGifXFile(file)) return 'gif';
 
-String imageUploadContentType(XFile file) =>
-    isGifXFile(file) ? 'image/gif' : 'image/jpeg';
+  final mime = file.mimeType?.toLowerCase();
+  if (mime == 'image/png') return 'png';
+  if (mime == 'image/webp') return 'webp';
+  if (mime == 'image/jpeg' || mime == 'image/jpg') return 'jpg';
+
+  final lower = '${file.path} ${file.name}'.toLowerCase();
+  if (lower.contains('.png')) return 'png';
+  if (lower.contains('.webp')) return 'webp';
+  return 'jpg';
+}
+
+String imageUploadContentType(XFile file) {
+  return switch (imageUploadExtension(file)) {
+    'gif' => 'image/gif',
+    'png' => 'image/png',
+    'webp' => 'image/webp',
+    _ => 'image/jpeg',
+  };
+}
 
 bool isSupportedPostImageXFile(XFile file) {
+  if (isHeicXFile(file)) return false;
+
   final mime = file.mimeType?.toLowerCase();
   if (mime != null) {
     return mime.startsWith('image/');
@@ -29,7 +56,5 @@ bool isSupportedPostImageXFile(XFile file) {
       lower.contains('.jpg') ||
       lower.contains('.jpeg') ||
       lower.contains('.png') ||
-      lower.contains('.webp') ||
-      lower.contains('.heic') ||
-      lower.contains('.heif');
+      lower.contains('.webp');
 }

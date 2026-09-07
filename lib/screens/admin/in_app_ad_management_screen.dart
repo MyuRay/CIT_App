@@ -17,8 +17,6 @@ class InAppAdManagementScreen extends ConsumerStatefulWidget {
 
 class _InAppAdManagementScreenState
     extends ConsumerState<InAppAdManagementScreen> {
-  bool _isSaving = false;
-
   @override
   Widget build(BuildContext context) {
     final adsAsync = ref.watch(inAppAdsStreamProvider);
@@ -227,9 +225,10 @@ class _InAppAdManagementScreenState
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (context) {
+      builder: (dialogContext) {
+        var isSaving = false;
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (context, setDialogState) {
             return AlertDialog(
               title: Text(ad == null ? '広告を追加' : '広告を編集'),
               content: SingleChildScrollView(
@@ -259,7 +258,7 @@ class _InAppAdManagementScreenState
                       decoration: const InputDecoration(labelText: '表示場所'),
                       onChanged: (value) {
                         if (value != null) {
-                          setState(() => placement = value);
+                          setDialogState(() => placement = value);
                         }
                       },
                       items:
@@ -278,7 +277,7 @@ class _InAppAdManagementScreenState
                       decoration: const InputDecoration(labelText: '動作'),
                       onChanged: (value) {
                         if (value != null) {
-                          setState(() => actionType = value);
+                          setDialogState(() => actionType = value);
                         }
                       },
                       items: const [
@@ -345,7 +344,7 @@ class _InAppAdManagementScreenState
                             onPressed: () async {
                               final result = await _pickDateTime(startAt);
                               if (result != null) {
-                                setState(() => startAt = result);
+                                setDialogState(() => startAt = result);
                               }
                             },
                             icon: const Icon(Icons.play_arrow),
@@ -360,7 +359,7 @@ class _InAppAdManagementScreenState
                             onPressed: () async {
                               final result = await _pickDateTime(endAt);
                               if (result != null) {
-                                setState(() => endAt = result);
+                                setDialogState(() => endAt = result);
                               }
                             },
                             icon: const Icon(Icons.stop),
@@ -370,7 +369,7 @@ class _InAppAdManagementScreenState
                         IconButton(
                           tooltip: '日時をクリア',
                           onPressed:
-                              () => setState(() {
+                              () => setDialogState(() {
                                 startAt = null;
                                 endAt = null;
                               }),
@@ -391,7 +390,7 @@ class _InAppAdManagementScreenState
                             onChanged: (value) {
                               final parsed = int.tryParse(value);
                               if (parsed != null && parsed > 0) {
-                                setState(() => weight = parsed);
+                                setDialogState(() => weight = parsed);
                               }
                             },
                           ),
@@ -404,7 +403,8 @@ class _InAppAdManagementScreenState
                             Switch(
                               value: isActive,
                               onChanged:
-                                  (value) => setState(() => isActive = value),
+                                  (value) =>
+                                      setDialogState(() => isActive = value),
                             ),
                           ],
                         ),
@@ -416,16 +416,16 @@ class _InAppAdManagementScreenState
               actions: [
                 TextButton(
                   onPressed:
-                      _isSaving
+                      isSaving
                           ? null
                           : () {
-                            Navigator.of(context).pop();
+                            Navigator.of(dialogContext).pop();
                           },
                   child: const Text('キャンセル'),
                 ),
                 FilledButton(
                   onPressed:
-                      _isSaving
+                      isSaving
                           ? null
                           : () async {
                             final title = titleCtrl.text.trim();
@@ -435,7 +435,7 @@ class _InAppAdManagementScreenState
                             if (title.isEmpty ||
                                 body.isEmpty ||
                                 payload.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
                                 const SnackBar(
                                   content: Text('タイトル・本文・動作パラメータは必須です'),
                                 ),
@@ -443,7 +443,7 @@ class _InAppAdManagementScreenState
                               return;
                             }
 
-                            setState(() => _isSaving = true);
+                            setDialogState(() => isSaving = true);
                             final newAd = InAppAd(
                               id: ad?.id ?? '',
                               title: title,
@@ -471,8 +471,11 @@ class _InAppAdManagementScreenState
                               } else {
                                 await InAppAdService.updateAd(ad.id, newAd);
                               }
+                              if (dialogContext.mounted) {
+                                Navigator.of(dialogContext).pop();
+                              }
                               if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                ScaffoldMessenger.of(this.context).showSnackBar(
                                   SnackBar(
                                     content: Text(
                                       ad == null ? '広告を追加しました' : '広告を更新しました',
@@ -480,19 +483,23 @@ class _InAppAdManagementScreenState
                                   ),
                                 );
                               }
-                              if (mounted) {
-                                Navigator.of(context).pop();
-                              }
                             } catch (e) {
-                              setState(() => _isSaving = false);
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
+                              setDialogState(() => isSaving = false);
+                              if (dialogContext.mounted) {
+                                ScaffoldMessenger.of(dialogContext).showSnackBar(
                                   SnackBar(content: Text('保存に失敗しました: $e')),
                                 );
                               }
                             }
                           },
-                  child: Text(ad == null ? '追加' : '更新'),
+                  child:
+                      isSaving
+                          ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : Text(ad == null ? '追加' : '更新'),
                 ),
               ],
             );
@@ -601,7 +608,6 @@ class _BulletinPostPickerDialogState
           await FirebaseFirestore.instance
               .collection('bulletin_posts')
               .where('isActive', isEqualTo: true)
-              .orderBy('createdAt', descending: true)
               .limit(50)
               .get();
       final list =
@@ -609,10 +615,11 @@ class _BulletinPostPickerDialogState
               .map(
                 (doc) => BulletinPost.fromJson({
                   'id': doc.id,
-                  ...doc.data() as Map<String, dynamic>,
+                  ...doc.data(),
                 }),
               )
-              .toList();
+              .toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       setState(() {
         _posts = list;
         _loading = false;
@@ -648,8 +655,8 @@ class _BulletinPostPickerDialogState
       title: const Text('掲示板投稿を選択'),
       content: SizedBox(
         width: 420,
+        height: 360,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: _searchCtrl,

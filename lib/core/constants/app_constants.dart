@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 class AppConstants {
   static const String appName = 'CIT App';
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '2.2.0';
 
   static const String appDescriptionTitle = '千葉工業大学向け大学生活支援アプリ';
   static const String appDescriptionSubtitle = '時間割・掲示板・学食情報などを提供';
@@ -70,6 +70,8 @@ class AppConstants {
   static const String errorEmailLocalPart =
       'メールアドレス（@より前）は半角英数字（大文字・小文字）および . _ + - のみ使用できます';
   static const String errorWeakPassword = 'パスワードは6文字以上で入力してください';
+  static const String errorLoginInvalidCredentials =
+      'パスワードかメールアドレスが間違っています';
   static const String errorPasswordChars =
       'パスワードは半角英数字（大文字・小文字）のみ使用できます';
   static const String errorPasswordMismatch = 'パスワードが一致しません';

@@ -5,41 +5,9 @@ import '../../models/user/user_model.dart';
 import '../../services/user/user_service.dart';
 
 /// シンプルな認証プロバイダー
-/// Firebase Authの状態のみを信頼し、複雑なロジックを排除
+/// Firebase Auth の永続セッションをそのまま信頼する（起動時の reload / 強制 signOut は行わない）
 final simpleAuthStateProvider = StreamProvider<User?>((ref) {
-  return FirebaseAuth.instance.authStateChanges().asyncMap((user) async {
-    // ユーザー情報を最新の状態に更新（メール認証状態を含む）
-    if (user != null) {
-      try {
-        await user.reload();
-        // reload()後、最新のユーザー情報を取得
-        final refreshedUser = FirebaseAuth.instance.currentUser;
-        if (refreshedUser != null) {
-          // Firestoreにメール認証状態を同期
-          await UserService.syncEmailVerificationStatus(
-            refreshedUser.uid,
-            refreshedUser.emailVerified,
-          );
-        }
-        return refreshedUser;
-      } on FirebaseAuthException catch (e) {
-        // メール変更直後などでトークンが無効化された場合
-        if (e.code == 'user-token-expired' || e.code == 'invalid-user-token') {
-          print('⚠️ 認証トークンが無効化されました: ${e.code}');
-          try {
-            await FirebaseAuth.instance.signOut();
-          } catch (_) {}
-          return null;
-        }
-        print('⚠️ ユーザー情報リロードエラー: $e');
-        return user;
-      } catch (e) {
-        print('⚠️ ユーザー情報リロードエラー: $e');
-        return user;
-      }
-    }
-    return user;
-  });
+  return FirebaseAuth.instance.authStateChanges();
 });
 
 /// ログイン状態の判定（シンプル版）
