@@ -98,10 +98,7 @@ const Map<String, String> _zw7 = {
 };
 
 String _zenRoomCode(String roomCode) {
-  return roomCode.replaceAllMapped(
-    RegExp(r'\d'),
-    (m) => _zw7[m[0]]!,
-  );
+  return roomCode.replaceAllMapped(RegExp(r'\d'), (m) => _zw7[m[0]]!);
 }
 
 CampusClassroomLocation _tsudanuma7f7Entry(
@@ -121,8 +118,8 @@ CampusClassroomLocation _tsudanuma7f7Entry(
     '$roomCode号室',
     '$roomCode号',
     pinLabelFull,
-  ]
-    ..addAll(extraSearchTerms);
+    ...extraSearchTerms,
+  ];
 
   return CampusClassroomLocation(
     campus: 'tsudanuma',

@@ -92,19 +92,23 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
 // 設定管理クラス
 class SettingsNotifier extends StateNotifier<SettingsState> {
   SettingsNotifier(this._prefs)
-      : super(
-          SettingsState(
-            showSaturday: _prefs.getBool('showSaturday') ?? true,
-            preferredBusCampus: _prefs.getString('preferredBusCampus') ?? 'tsudanuma',
-            scheduleNotificationEnabled: _prefs.getBool('scheduleNotificationEnabled') ?? false,
-            appFontSize: _fontSizeFromStorage(_prefs.getString('appFontSize')),
-            trainPreferredDirectionTsudanuma:
-                _prefs.getString('train_preferred_direction_tsudanuma') ?? '',
-            trainPreferredDirectionNarashino:
-                _prefs.getString('train_preferred_direction_narashino') ?? '',
-            calendarWeekStart: _weekStartFromStorage(_prefs.getString('calendarWeekStart')),
+    : super(
+        SettingsState(
+          showSaturday: _prefs.getBool('showSaturday') ?? true,
+          preferredBusCampus:
+              _prefs.getString('preferredBusCampus') ?? 'tsudanuma',
+          scheduleNotificationEnabled:
+              _prefs.getBool('scheduleNotificationEnabled') ?? false,
+          appFontSize: _fontSizeFromStorage(_prefs.getString('appFontSize')),
+          trainPreferredDirectionTsudanuma:
+              _prefs.getString('train_preferred_direction_tsudanuma') ?? '',
+          trainPreferredDirectionNarashino:
+              _prefs.getString('train_preferred_direction_narashino') ?? '',
+          calendarWeekStart: _weekStartFromStorage(
+            _prefs.getString('calendarWeekStart'),
           ),
-        );
+        ),
+      );
 
   final SharedPreferences _prefs;
 
@@ -123,7 +127,8 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
 
   // 学バス優先キャンパスを設定（'tsudanuma' or 'narashino'）
   Future<void> setPreferredBusCampus(String campus) async {
-    await _prefs.setString('preferredBusCampus', campus);
+    final saved = await _prefs.setString('preferredBusCampus', campus);
+    if (!saved) throw StateError('メインキャンパスを保存できませんでした');
     state = state.copyWith(preferredBusCampus: campus);
   }
 
@@ -140,12 +145,21 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   }
 
   /// 電車スナップショットの優先方面（`directionKey`、空なら先頭方面を使用）
-  Future<void> setTrainPreferredDirection(String campusKey, String directionKey) async {
+  Future<void> setTrainPreferredDirection(
+    String campusKey,
+    String directionKey,
+  ) async {
     if (campusKey == 'narashino') {
-      await _prefs.setString('train_preferred_direction_narashino', directionKey);
+      await _prefs.setString(
+        'train_preferred_direction_narashino',
+        directionKey,
+      );
       state = state.copyWith(trainPreferredDirectionNarashino: directionKey);
     } else {
-      await _prefs.setString('train_preferred_direction_tsudanuma', directionKey);
+      await _prefs.setString(
+        'train_preferred_direction_tsudanuma',
+        directionKey,
+      );
       state = state.copyWith(trainPreferredDirectionTsudanuma: directionKey);
     }
   }
@@ -189,22 +203,27 @@ class SettingsState {
     return SettingsState(
       showSaturday: showSaturday ?? this.showSaturday,
       preferredBusCampus: preferredBusCampus ?? this.preferredBusCampus,
-      scheduleNotificationEnabled: scheduleNotificationEnabled ?? this.scheduleNotificationEnabled,
+      scheduleNotificationEnabled:
+          scheduleNotificationEnabled ?? this.scheduleNotificationEnabled,
       appFontSize: appFontSize ?? this.appFontSize,
       trainPreferredDirectionTsudanuma:
-          trainPreferredDirectionTsudanuma ?? this.trainPreferredDirectionTsudanuma,
+          trainPreferredDirectionTsudanuma ??
+          this.trainPreferredDirectionTsudanuma,
       trainPreferredDirectionNarashino:
-          trainPreferredDirectionNarashino ?? this.trainPreferredDirectionNarashino,
+          trainPreferredDirectionNarashino ??
+          this.trainPreferredDirectionNarashino,
       calendarWeekStart: calendarWeekStart ?? this.calendarWeekStart,
     );
   }
 }
 
 // 設定プロバイダー
-final settingsProvider = StateNotifierProvider<SettingsNotifier, SettingsState>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider);
-  return SettingsNotifier(prefs);
-});
+final settingsProvider = StateNotifierProvider<SettingsNotifier, SettingsState>(
+  (ref) {
+    final prefs = ref.watch(sharedPreferencesProvider);
+    return SettingsNotifier(prefs);
+  },
+);
 
 // 土曜日表示設定の便利なプロバイダー
 final showSaturdayProvider = Provider<bool>((ref) {
@@ -222,8 +241,11 @@ final preferredBusCampusProvider = Provider<String>((ref) {
 });
 
 // 学バス優先キャンパス設定メソッドのプロバイダー
-final setPreferredBusCampusProvider = Provider<Future<void> Function(String)>((ref) {
-  return (campus) => ref.read(settingsProvider.notifier).setPreferredBusCampus(campus);
+final setPreferredBusCampusProvider = Provider<Future<void> Function(String)>((
+  ref,
+) {
+  return (campus) =>
+      ref.read(settingsProvider.notifier).setPreferredBusCampus(campus);
 });
 
 // 講義通知設定のプロバイダー
@@ -232,9 +254,12 @@ final scheduleNotificationEnabledProvider = Provider<bool>((ref) {
 });
 
 // 講義通知設定切り替えメソッドのプロバイダー
-final setScheduleNotificationEnabledProvider = Provider<Future<void> Function(bool)>((ref) {
-  return (enabled) => ref.read(settingsProvider.notifier).setScheduleNotificationEnabled(enabled);
-});
+final setScheduleNotificationEnabledProvider =
+    Provider<Future<void> Function(bool)>((ref) {
+      return (enabled) => ref
+          .read(settingsProvider.notifier)
+          .setScheduleNotificationEnabled(enabled);
+    });
 
 // アプリ文字サイズ設定のプロバイダー
 final appFontSizeProvider = Provider<AppFontSizeOption>((ref) {
@@ -242,9 +267,10 @@ final appFontSizeProvider = Provider<AppFontSizeOption>((ref) {
 });
 
 // アプリ文字サイズ設定更新メソッドのプロバイダー
-final setAppFontSizeProvider = Provider<Future<void> Function(AppFontSizeOption)>((ref) {
-  return (size) => ref.read(settingsProvider.notifier).setAppFontSize(size);
-});
+final setAppFontSizeProvider =
+    Provider<Future<void> Function(AppFontSizeOption)>((ref) {
+      return (size) => ref.read(settingsProvider.notifier).setAppFontSize(size);
+    });
 
 // 学年暦カレンダーの週開始日プロバイダー
 final calendarWeekStartProvider = Provider<CalendarWeekStart>((ref) {
@@ -254,9 +280,9 @@ final calendarWeekStartProvider = Provider<CalendarWeekStart>((ref) {
 // 学年暦カレンダーの週開始日更新メソッドのプロバイダー
 final setCalendarWeekStartProvider =
     Provider<Future<void> Function(CalendarWeekStart)>((ref) {
-  return (value) =>
-      ref.read(settingsProvider.notifier).setCalendarWeekStart(value);
-});
+      return (value) =>
+          ref.read(settingsProvider.notifier).setCalendarWeekStart(value);
+    });
 
 // 各タブチュートリアルの再表示要求シグナル（値をインクリメントして通知）
 final tabTutorialReplaySignalProvider = StateProvider<int>((ref) => 0);

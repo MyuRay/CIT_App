@@ -1,0 +1,6 @@
+# Copy to key.properties (gitignored) and enter the EXISTING Play upload key.
+# Use forward slashes for Windows paths. Never commit passwords or the key.
+storeFile=C:/path/to/existing-upload-key.jks
+storePassword=REPLACE_LOCALLY
+keyAlias=REPLACE_LOCALLY
+keyPassword=REPLACE_LOCALLY

@@ -42,9 +42,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('プライバシーポリシー'),
-      ),
+      appBar: AppBar(title: const Text('プライバシーポリシー')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -61,7 +59,10 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
             ),
             const SizedBox(height: 24),
 
-            const Text('1. 取得する情報', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '1. 取得する情報',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '本アプリは、ユーザー登録およびサービス提供にあたり、以下の情報を取得・保存する場合があります。\n'
@@ -99,13 +100,17 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
               '・端末のOS種別、端末モデル等の技術情報\n'
               '・アプリの動作ログ（エラー情報等）\n'
               '・プッシュ通知のための端末トークン（通知機能を利用する場合）\n'
+              '・利用状況の分析が有効な場合、閲覧した画面、アプリ内広告の表示・タップ、ログイン状態、設定したメインキャンパス、テーマ、文字サイズ、講義通知設定、アプリの開発・本番区分、アカウント登録月\n'
               '\n'
               '（6）お問い合わせ情報\n'
               '・お問い合わせ時にご入力いただくメールアドレス、内容等',
             ),
             const SizedBox(height: 16),
 
-            const Text('2. 情報の利用目的', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '2. 情報の利用目的',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '取得した情報は、以下の目的の範囲内で利用します。\n'
@@ -121,7 +126,10 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
             ),
             const SizedBox(height: 16),
 
-            const Text('3. 利用する外部サービス', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '3. 利用する外部サービス',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '本アプリでは、ユーザー情報の管理および認証のために、以下の外部サービスを利用しています。\n'
@@ -129,13 +137,23 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
               '・Cloud Firestore\n'
               '・Firebase Storage（画像等のアップロード）\n'
               '・Firebase Cloud Messaging（プッシュ通知）\n'
+              '・Google Analytics for Firebase（利用状況の分析）\n'
               '\n'
               'これらは Google LLC が提供するクラウドサービスであり、ユーザー情報はこれらのサービス上に保存される場合があります。'
               '各サービスのデータの取り扱いについては、各提供者のプライバシーポリシーもご確認ください。',
             ),
+            const SizedBox(height: 8),
+            const Text(
+              '利用状況の分析には、Analytics が生成するアプリ・ブラウザの識別子や、OS・アプリのバージョン等の情報を使用します。'
+              '追加の属性や操作イベントに、氏名、メールアドレス、学籍番号、Firebase のユーザーID、投稿本文、検索語は含めません。'
+              '「マイページ」→「設定」→「利用状況の分析」で、この端末の今後の収集を停止できます。設定は再起動後も維持されます。収集の停止によって過去に送信したデータが削除されることはありません。',
+            ),
             const SizedBox(height: 16),
 
-            const Text('4. パスワードの取り扱い', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '4. パスワードの取り扱い',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '本アプリでメールアドレスとパスワードによる登録・ログインを行う場合、そのパスワードは Firebase Authentication によって安全な方式でハッシュ化されて保存されます。\n'
@@ -145,7 +163,10 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
             ),
             const SizedBox(height: 16),
 
-            const Text('5. コミュニティ機能における公開情報', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '5. コミュニティ機能における公開情報',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '1. Cwitter では、ユーザーが設定した Cwitter ID、表示名、プロフィール情報、投稿・返信等が、本アプリを利用する認証済みユーザーに表示される場合があります。\n\n'
@@ -155,7 +176,10 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
             ),
             const SizedBox(height: 16),
 
-            const Text('6. 個人情報の第三者提供', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '6. 個人情報の第三者提供',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '運営者は、以下の場合を除き、取得した個人情報を第三者（個人・団体を問わず）に提供しません。\n'
@@ -166,7 +190,10 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
             ),
             const SizedBox(height: 16),
 
-            const Text('7. 業務委託について', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '7. 業務委託について',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '運営者は、本アプリの運営に必要な範囲で、システム運用等の業務を外部事業者に委託する場合があります。\n'
@@ -174,19 +201,27 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
             ),
             const SizedBox(height: 16),
 
-            const Text('8. データの管理および削除', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '8. データの管理および削除',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '運営者は、取得した情報が漏えい、滅失、毀損等しないよう、合理的な安全管理措置を講じます。\n'
               '\n'
-              'ユーザーがアカウント削除またはデータ削除を希望する場合は、アプリ内の問い合わせフォームまたは下記の問い合わせ窓口までご連絡ください。'
-              '運営者は、Firebase Authentication 上のアカウント情報および Cloud Firestore 上の関連データ（Cwitter・ちばちゃんねるの投稿データを含む）を削除する等、適切な対応を行います。\n'
+              'アカウントと関連データの削除は、「マイページ」→「設定」→「アカウント削除」から申請できます。'
+              '運営者が申請を確認して削除を行い、対応予定と完了結果を登録メールアドレスへご案内します。申請の送信時点では削除は完了しません。\n'
+              '削除対象は、認証アカウント、プロフィール、時間割・出欠、投稿・コメント・レビュー（Cwitter・ちばちゃんねるを含む）、アップロード画像、通知登録などの関連データです。\n'
+              'アプリを利用できない場合やデータのみの削除を希望する場合は、登録メールアドレスから下記窓口へ、件名に「CIT App アカウント削除」または「CIT App データ削除」と記載してご連絡ください。アプリの再インストールは不要です。パスワードは送らないでください。\n'
               '\n'
               'なお、法令順守やトラブル対応のために、必要な範囲で一定期間ログ等を保管する場合がありますが、その場合も目的達成後は適切な方法で削除または匿名化いたします。',
             ),
             const SizedBox(height: 16),
 
-            const Text('9. お問い合わせ', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '9. お問い合わせ',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '本ポリシーおよび個人情報の取り扱いに関するご質問やご相談は、アプリ内のお問い合わせフォーム、'
@@ -199,7 +234,10 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
             ),
             const SizedBox(height: 16),
 
-            const Text('10. プライバシーポリシーの変更', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '10. プライバシーポリシーの変更',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '本ポリシーの内容は、法令の改正や本アプリの機能追加・変更等に応じて、必要に応じて見直し・改定を行うことがあります。\n'
@@ -207,9 +245,9 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
             ),
             const SizedBox(height: 24),
 
-            const Text(
-              '最終更新日：2026年5月31日',
-              style: TextStyle(color: Colors.grey),
+             Text(
+              '最終更新日：2026年9月16日',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ],
         ),

@@ -19,10 +19,12 @@ class ClassroomMapCalibrationScreen extends ConsumerStatefulWidget {
       _ClassroomMapCalibrationScreenState();
 }
 
-class _ClassroomMapCalibrationScreenState extends ConsumerState<ClassroomMapCalibrationScreen> {
+class _ClassroomMapCalibrationScreenState
+    extends ConsumerState<ClassroomMapCalibrationScreen> {
   final MapController _mapController = MapController();
   String _selectedCampusId = 'tsudanuma';
   LatLng? _draftPoint;
+
   /// 一覧チップで選択中の建物（地図上で色を変える）
   String? _focusedBuildingId;
 
@@ -48,11 +50,15 @@ class _ClassroomMapCalibrationScreenState extends ConsumerState<ClassroomMapCali
   Future<void> _copy(String label, String text) async {
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label をコピーしました')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$label をコピーしました')));
   }
 
   Future<void> _openGoogleMaps(double lat, double lng) async {
-    final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    final url = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+    );
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     }
@@ -61,8 +67,7 @@ class _ClassroomMapCalibrationScreenState extends ConsumerState<ClassroomMapCali
   void _showBuildingSheet(BuildingMarker b) {
     final latS = _formatCoord(b.latitude);
     final lngS = _formatCoord(b.longitude);
-    final jsonSnippet =
-        '"latitude": $latS,\n          "longitude": $lngS,';
+    final jsonSnippet = '"latitude": $latS,\n          "longitude": $lngS,';
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -79,13 +84,19 @@ class _ClassroomMapCalibrationScreenState extends ConsumerState<ClassroomMapCali
                 Text(
                   'buildingId: ${b.buildingId}（JSON の buildingId と対応）',
                   style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                      ),
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: 12),
-                Text('現在の座標（kClassroomMapJson）', style: Theme.of(ctx).textTheme.titleSmall),
+                Text(
+                  '現在の座標（kClassroomMapJson）',
+                  style: Theme.of(ctx).textTheme.titleSmall,
+                ),
                 const SizedBox(height: 8),
-                SelectableText('緯度 $latS\n経度 $lngS', style: Theme.of(ctx).textTheme.bodyLarge),
+                SelectableText(
+                  '緯度 $latS\n経度 $lngS',
+                  style: Theme.of(ctx).textTheme.bodyLarge,
+                ),
                 const SizedBox(height: 16),
                 Wrap(
                   spacing: 8,
@@ -125,8 +136,7 @@ class _ClassroomMapCalibrationScreenState extends ConsumerState<ClassroomMapCali
   void _showDraftSheet(LatLng p) {
     final latS = _formatCoord(p.latitude);
     final lngS = _formatCoord(p.longitude);
-    final jsonSnippet =
-        '"latitude": $latS,\n          "longitude": $lngS,';
+    final jsonSnippet = '"latitude": $latS,\n          "longitude": $lngS,';
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -143,11 +153,14 @@ class _ClassroomMapCalibrationScreenState extends ConsumerState<ClassroomMapCali
                 Text(
                   '地図の空白をタップした座標です。該当する号館の JSON エントリに貼り付けてください。',
                   style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                      ),
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: 12),
-                SelectableText('緯度 $latS\n経度 $lngS', style: Theme.of(ctx).textTheme.bodyLarge),
+                SelectableText(
+                  '緯度 $latS\n経度 $lngS',
+                  style: Theme.of(ctx).textTheme.bodyLarge,
+                ),
                 const SizedBox(height: 16),
                 Wrap(
                   spacing: 8,
@@ -187,7 +200,9 @@ class _ClassroomMapCalibrationScreenState extends ConsumerState<ClassroomMapCali
   Widget _labeledPin(BuildingMarker b, ThemeData theme) {
     final focused = _focusedBuildingId == b.buildingId;
     final pinColor =
-        focused ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant;
+        focused
+            ? theme.colorScheme.primary
+            : theme.colorScheme.onSurfaceVariant;
     return SizedBox(
       width: _labeledMarkerWidth,
       child: Column(
@@ -201,9 +216,10 @@ class _ClassroomMapCalibrationScreenState extends ConsumerState<ClassroomMapCali
               color: theme.colorScheme.surface.withValues(alpha: 0.94),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: focused
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.outline.withValues(alpha: 0.45),
+                color:
+                    focused
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.outline.withValues(alpha: 0.45),
                 width: focused ? 2 : 1,
               ),
               boxShadow: const [
@@ -232,7 +248,11 @@ class _ClassroomMapCalibrationScreenState extends ConsumerState<ClassroomMapCali
             size: 36,
             color: pinColor,
             shadows: const [
-              Shadow(blurRadius: 2, offset: Offset(0, 1), color: Color(0x66000000)),
+              Shadow(
+                blurRadius: 2,
+                offset: Offset(0, 1),
+                color: Color(0x66000000),
+              ),
             ],
           ),
         ],
@@ -245,31 +265,30 @@ class _ClassroomMapCalibrationScreenState extends ConsumerState<ClassroomMapCali
     final mapDataAsync = ref.watch(campusMapDataProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ピン座標取得（デバッグ）'),
-      ),
+      appBar: AppBar(title: const Text('ピン座標取得（デバッグ）')),
       body: mapDataAsync.when(
         data: (mapData) {
           final campus = _campus(mapData);
           final theme = Theme.of(context);
 
-          final buildingMarkers = campus.buildings.map((b) {
-            return Marker(
-              key: ValueKey<String>('cal_${campus.id}_${b.buildingId}'),
-              point: LatLng(b.latitude, b.longitude),
-              width: _labeledMarkerWidth,
-              height: _labeledMarkerHeight,
-              alignment: Alignment.bottomCenter,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  setState(() => _focusedBuildingId = b.buildingId);
-                  _showBuildingSheet(b);
-                },
-                child: _labeledPin(b, theme),
-              ),
-            );
-          }).toList();
+          final buildingMarkers =
+              campus.buildings.map((b) {
+                return Marker(
+                  key: ValueKey<String>('cal_${campus.id}_${b.buildingId}'),
+                  point: LatLng(b.latitude, b.longitude),
+                  width: _labeledMarkerWidth,
+                  height: _labeledMarkerHeight,
+                  alignment: Alignment.bottomCenter,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      setState(() => _focusedBuildingId = b.buildingId);
+                      _showBuildingSheet(b);
+                    },
+                    child: _labeledPin(b, theme),
+                  ),
+                );
+              }).toList();
 
           final draftMarkers = <Marker>[];
           if (_draftPoint != null) {
@@ -306,17 +325,19 @@ class _ClassroomMapCalibrationScreenState extends ConsumerState<ClassroomMapCali
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'jp.ac.chibakoudai.citapp',
                     maxNativeZoom: 19,
                   ),
                   MarkerLayer(markers: [...buildingMarkers, ...draftMarkers]),
                   SimpleAttributionWidget(
                     source: const Text('OpenStreetMap'),
-                    onTap: () => launchUrl(
-                      Uri.parse('https://www.openstreetmap.org/copyright'),
-                      mode: LaunchMode.externalApplication,
-                    ),
+                    onTap:
+                        () => launchUrl(
+                          Uri.parse('https://www.openstreetmap.org/copyright'),
+                          mode: LaunchMode.externalApplication,
+                        ),
                   ),
                 ],
               ),
@@ -328,9 +349,15 @@ class _ClassroomMapCalibrationScreenState extends ConsumerState<ClassroomMapCali
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     SegmentedButton<String>(
-                      segments: mapData.campuses
-                          .map((c) => ButtonSegment(value: c.id, label: Text(c.displayName)))
-                          .toList(),
+                      segments:
+                          mapData.campuses
+                              .map(
+                                (c) => ButtonSegment(
+                                  value: c.id,
+                                  label: Text(c.displayName),
+                                ),
+                              )
+                              .toList(),
                       selected: {_selectedCampusId},
                       onSelectionChanged: (s) {
                         setState(() {
@@ -341,7 +368,10 @@ class _ClassroomMapCalibrationScreenState extends ConsumerState<ClassroomMapCali
                         final c = _campus(mapData);
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (mounted) {
-                            _mapController.move(LatLng(c.centerLat, c.centerLng), _mapZoom);
+                            _mapController.move(
+                              LatLng(c.centerLat, c.centerLng),
+                              _mapZoom,
+                            );
                           }
                         });
                       },
@@ -352,7 +382,10 @@ class _ClassroomMapCalibrationScreenState extends ConsumerState<ClassroomMapCali
                           .withValues(alpha: 0.92),
                       borderRadius: BorderRadius.circular(8),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         child: Text(
                           'ピン上のラベルが号館名です。ピンをタップすると現在の座標をコピーできます。'
                           '修正位置は地図の空白をタップして取得し、'
@@ -394,7 +427,8 @@ class _ClassroomMapCalibrationScreenState extends ConsumerState<ClassroomMapCali
                             child: ListView.separated(
                               scrollDirection: Axis.horizontal,
                               itemCount: campus.buildings.length,
-                              separatorBuilder: (_, __) => const SizedBox(width: 6),
+                              separatorBuilder:
+                                  (_, __) => const SizedBox(width: 6),
                               itemBuilder: (context, i) {
                                 final b = campus.buildings[i];
                                 final sel = _focusedBuildingId == b.buildingId;
@@ -409,21 +443,25 @@ class _ClassroomMapCalibrationScreenState extends ConsumerState<ClassroomMapCali
                                   onSelected: (selected) {
                                     if (!selected) {
                                       setState(() {
-                                        if (_focusedBuildingId == b.buildingId) {
+                                        if (_focusedBuildingId ==
+                                            b.buildingId) {
                                           _focusedBuildingId = null;
                                         }
                                       });
                                       return;
                                     }
-                                    setState(() => _focusedBuildingId = b.buildingId);
-                                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                                      if (mounted) {
-                                        _mapController.move(
-                                          LatLng(b.latitude, b.longitude),
-                                          _mapZoom,
-                                        );
-                                      }
-                                    });
+                                    setState(
+                                      () => _focusedBuildingId = b.buildingId,
+                                    );
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                          if (mounted) {
+                                            _mapController.move(
+                                              LatLng(b.latitude, b.longitude),
+                                              _mapZoom,
+                                            );
+                                          }
+                                        });
                                   },
                                 );
                               },

@@ -15,7 +15,16 @@ const String kNarashino2Floors2345789Asset =
     'assets/images/classroom_map/narashino_2_floors_2345789.png';
 
 /// [FloorMapWidget] がアセット画像を使う 2 号館の階（1 階を除く上層）。
-const Set<int> kNarashino2BuildingLocalImageFloorsUpper = {2, 3, 4, 5, 6, 7, 8, 9};
+const Set<int> kNarashino2BuildingLocalImageFloorsUpper = {
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+};
 
 /// 2号館上層フロアの教室マップ用画像パス（6階のみ専用、その他は合成図）。
 String narashino2UpperFloorsCompositeAssetPath(int floor) {

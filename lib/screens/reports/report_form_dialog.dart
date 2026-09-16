@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../models/reports/report_model.dart';
@@ -39,41 +40,42 @@ class _ReportFormDialogState extends ConsumerState<ReportFormDialog> {
     }
 
     if (_selectedReason == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('通報理由を選択してください')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('通報理由を選択してください')));
       return;
     }
 
     // 確認ダイアログ
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('通報の確認'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('以下の内容で通報します。よろしいですか？'),
-            const SizedBox(height: 16),
-            Text('対象: ${widget.targetTitle}'),
-            Text('種別: ${widget.type.displayName}'),
-            Text('理由: ${_selectedReason!.displayName}'),
-            if (_detailController.text.isNotEmpty)
-              Text('詳細: ${_detailController.text}'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('通報の確認'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('以下の内容で通報します。よろしいですか？'),
+                const SizedBox(height: 16),
+                Text('対象: ${widget.targetTitle}'),
+                Text('種別: ${widget.type.displayName}'),
+                Text('理由: ${_selectedReason!.displayName}'),
+                if (_detailController.text.isNotEmpty)
+                  Text('詳細: ${_detailController.text}'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('キャンセル'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('通報する'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('通報する'),
-          ),
-        ],
-      ),
     );
 
     if (confirmed != true) {
@@ -85,22 +87,25 @@ class _ReportFormDialogState extends ConsumerState<ReportFormDialog> {
     });
 
     try {
-      await ref.read(reportSubmitProvider.notifier).submitReport(
+      await ref
+          .read(reportSubmitProvider.notifier)
+          .submitReport(
             type: widget.type,
             targetId: widget.targetId,
             reason: _selectedReason!,
-            detail: _detailController.text.isNotEmpty
-                ? _detailController.text
-                : null,
+            detail:
+                _detailController.text.isNotEmpty
+                    ? _detailController.text
+                    : null,
             moderation: widget.moderation,
           );
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('通報を受け付けました。ご協力ありがとうございます。'),
-          backgroundColor: Colors.green,
+         SnackBar(
+          content: Text('通報を受け付けました。'),
+          backgroundColor: AppColors.snackBarSurface(context, Colors.green),
         ),
       );
 
@@ -111,7 +116,7 @@ class _ReportFormDialogState extends ConsumerState<ReportFormDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('通報の送信に失敗しました: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.snackBarSurface(context, Colors.red),
         ),
       );
     } finally {
@@ -152,7 +157,7 @@ class _ReportFormDialogState extends ConsumerState<ReportFormDialog> {
                     // ヘッダー
                     Row(
                       children: [
-                        const Icon(Icons.flag, color: Colors.red, size: 28),
+                         Icon(Icons.flag, color: AppColors.accent(context, Colors.red), size: 28),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -188,8 +193,9 @@ class _ReportFormDialogState extends ConsumerState<ReportFormDialog> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: colorScheme.secondaryContainer
-                            .withValues(alpha: 0.65),
+                        color: colorScheme.secondaryContainer.withValues(
+                          alpha: 0.65,
+                        ),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: colorScheme.outlineVariant),
                       ),
@@ -231,17 +237,18 @@ class _ReportFormDialogState extends ConsumerState<ReportFormDialog> {
                         ),
                         value: reason,
                         groupValue: _selectedReason,
-                        onChanged: _isLoading
-                            ? null
-                            : (value) {
-                                setState(() {
-                                  _selectedReason = value;
-                                });
-                              },
+                        onChanged:
+                            _isLoading
+                                ? null
+                                : (value) {
+                                  setState(() {
+                                    _selectedReason = value;
+                                  });
+                                },
                         dense: true,
                         contentPadding: EdgeInsets.zero,
                       );
-                    }).toList(),
+                    }),
 
                     const SizedBox(height: 16),
 
@@ -281,18 +288,19 @@ class _ReportFormDialogState extends ConsumerState<ReportFormDialog> {
             onPressed: _isLoading ? null : _submitReport,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+              foregroundColor: AppColors.onColor(Colors.red),
             ),
-            child: _isLoading
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Text('通報する'),
+            child:
+                _isLoading
+                    ?  SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.onColor(Colors.red),
+                      ),
+                    )
+                    : const Text('通報する'),
           ),
         ],
       ),
@@ -311,11 +319,12 @@ Future<bool?> showReportDialog(
   return showDialog<bool>(
     context: context,
     barrierDismissible: true,
-    builder: (context) => ReportFormDialog(
-      type: type,
-      targetId: targetId,
-      targetTitle: targetTitle,
-      moderation: moderation,
-    ),
+    builder:
+        (context) => ReportFormDialog(
+          type: type,
+          targetId: targetId,
+          targetTitle: targetTitle,
+          moderation: moderation,
+        ),
   );
 }

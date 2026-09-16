@@ -28,16 +28,14 @@ class AcademicCalendarService {
   }
 
   static Stream<List<AcademicCalendarEvent>> watchAllEvents() {
-    return _firestore
-        .collection(_collection)
-        .orderBy('date')
-        .snapshots()
-        .map((snapshot) {
-          return snapshot.docs
-              .map(AcademicCalendarEvent.fromDoc)
-              .where((e) => e.title.isNotEmpty)
-              .toList();
-        });
+    return _firestore.collection(_collection).orderBy('date').snapshots().map((
+      snapshot,
+    ) {
+      return snapshot.docs
+          .map(AcademicCalendarEvent.fromDoc)
+          .where((e) => e.title.isNotEmpty)
+          .toList();
+    });
   }
 
   static Future<void> upsertEvent(AcademicCalendarEvent event) async {

@@ -75,10 +75,7 @@ class ProfileImageService {
     }
 
     await UserService.updateUser(
-      existing.copyWith(
-        profileImageUrl: url,
-        updatedAt: DateTime.now(),
-      ),
+      existing.copyWith(profileImageUrl: url, updatedAt: DateTime.now()),
     );
   }
 }

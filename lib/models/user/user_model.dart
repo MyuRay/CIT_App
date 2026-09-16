@@ -103,7 +103,8 @@ class AppUser {
       if (cwitterId != null) 'cwitterId': cwitterId,
       if (cwitterBio != null) 'cwitterBio': cwitterBio,
       if (cwitterTags.isNotEmpty) 'cwitterTags': cwitterTags,
-      if (cwitterSocialLinks.isNotEmpty) 'cwitterSocialLinks': cwitterSocialLinks,
+      if (cwitterSocialLinks.isNotEmpty)
+        'cwitterSocialLinks': cwitterSocialLinks,
     };
   }
 
@@ -111,17 +112,17 @@ class AppUser {
 
   static DateTime? _parseDateTime(dynamic dateTime) {
     if (dateTime == null) return null;
-    
+
     // Firestore Timestamp型の場合
     if (dateTime is Timestamp) {
       return dateTime.toDate();
     }
-    
+
     // DateTime型の場合
     if (dateTime is DateTime) {
       return dateTime;
     }
-    
+
     // String型の場合
     if (dateTime is String) {
       try {
@@ -130,7 +131,7 @@ class AppUser {
         return null;
       }
     }
-    
+
     return null;
   }
 
@@ -170,10 +171,12 @@ class AppUser {
       emailVerified: emailVerified ?? this.emailVerified,
       cwitterId: cwitterId ?? this.cwitterId,
       cwitterBio: clearCwitterBio ? null : (cwitterBio ?? this.cwitterBio),
-      cwitterTags: clearCwitterTags ? const [] : (cwitterTags ?? this.cwitterTags),
-      cwitterSocialLinks: clearCwitterSocialLinks
-          ? const {}
-          : (cwitterSocialLinks ?? this.cwitterSocialLinks),
+      cwitterTags:
+          clearCwitterTags ? const [] : (cwitterTags ?? this.cwitterTags),
+      cwitterSocialLinks:
+          clearCwitterSocialLinks
+              ? const {}
+              : (cwitterSocialLinks ?? this.cwitterSocialLinks),
     );
   }
 }

@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="10dp"
+    android:padding="8dp"
     android:gravity="top"
     android:background="@drawable/widget_surface_bg">
 
@@ -15,7 +15,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="8dp">
+        android:layout_marginBottom="6dp">
         <TextView
             android:id="@+id/today_weekday"
             android:layout_width="wrap_content"
@@ -23,28 +23,28 @@
             android:text="月"
             android:textStyle="bold"
             android:textSize="17sp"
-            android:textColor="#1976D2" />
+            android:textColor="@color/widget_accent" />
         <TextView
             android:id="@+id/today_date"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="1/1"
             android:textSize="14sp"
-            android:textColor="#666666"
+            android:textColor="@color/widget_secondary"
             android:layout_marginStart="8dp" />
-        <!-- RemoteViewsではViewが使えないためFrameLayoutでスペーサー代用 -->
-        <FrameLayout
-            android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:layout_weight="1" />
         <TextView
             android:id="@+id/today_title"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:gravity="end"
+            android:layout_marginStart="8dp"
             android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:ellipsize="end"
             android:text="今日の時間割"
             android:textStyle="bold"
             android:textSize="13sp"
-            android:textColor="#334155" />
+            android:textColor="@color/widget_on_surface" />
     </LinearLayout>
 
     <!-- 授業リスト -->
@@ -52,7 +52,7 @@
         android:id="@+id/classes_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical" />
+        android:orientation="horizontal" />
 
     <!-- 授業がない場合のメッセージ -->
     <TextView
@@ -61,9 +61,16 @@
         android:layout_height="wrap_content"
         android:text="今日は授業がありません"
         android:textSize="13sp"
-        android:textColor="#999999"
+        android:textColor="@color/widget_secondary"
         android:gravity="center"
         android:padding="16dp"
         android:visibility="gone" />
 
+    <TextView
+        android:id="@+id/today_updated"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="4dp"
+        android:textSize="10sp"
+        android:textColor="@color/widget_secondary" />
 </LinearLayout>

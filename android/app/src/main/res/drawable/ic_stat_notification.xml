@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android tints the opaque glyph for the current notification surface. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M12,3L1,9L5,11.18V17L12,21L19,17V11.18L21,10.09V17H23V9L12,3ZM17,15.84L12,18.7L7,15.84V12.27L12,15L17,12.27V15.84Z" />
+</vector>

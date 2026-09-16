@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -6,7 +7,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:http/http.dart' as http;
 import '../../core/providers/firebase_menu_provider.dart';
-import '../../services/firebase/firebase_menu_service.dart';
 import '../../services/firebase/firebase_diagnostics.dart';
 
 class FirebaseDebugScreen extends ConsumerWidget {
@@ -20,10 +20,12 @@ class FirebaseDebugScreen extends ConsumerWidget {
       if (response.statusCode == 200) {
         return originalUrl;
       }
-      
+
       // 失敗した場合、Firebase SDKから新しいURLを取得
-      debugPrint('Original URL failed (${response.statusCode}), getting fresh URL...');
-      
+      debugPrint(
+        'Original URL failed (${response.statusCode}), getting fresh URL...',
+      );
+
       // URLからファイル名を抽出
       final uri = Uri.parse(originalUrl);
       final pathSegments = uri.pathSegments;
@@ -31,19 +33,18 @@ class FirebaseDebugScreen extends ConsumerWidget {
         (segment) => segment.contains('.png'),
         orElse: () => '',
       );
-      
+
       if (fileName.isEmpty) {
         throw Exception('Invalid file name');
       }
-      
+
       // Firebase Storageから新しいURLを取得
       final storage = FirebaseStorage.instance;
       final ref = storage.ref().child('menu_images/$fileName');
       final newUrl = await ref.getDownloadURL();
-      
+
       debugPrint('Got fresh URL: $newUrl');
       return newUrl;
-      
     } catch (e) {
       debugPrint('_getValidImageUrl failed: $e');
       return null;
@@ -63,46 +64,48 @@ class FirebaseDebugScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 詳細診断ボタン
-            _buildDiagnosticsButton(),
-            
+            _buildDiagnosticsButton(context),
+
             const Divider(height: 32),
-            
+
             // Firebase接続テスト
-            _buildConnectionTest(ref),
-            
+            _buildConnectionTest(context, ref),
+
             const Divider(height: 32),
-            
+
             // Storage上の全画像リスト
-            _buildImagesList(ref),
-            
+            _buildImagesList(context, ref),
+
             const Divider(height: 32),
-            
+
             // 個別画像URL取得テスト
-            _buildIndividualImageTest(ref),
-            
+            _buildIndividualImageTest(context, ref),
+
             const Divider(height: 32),
-            
+
             // 統計情報
-            _buildStats(ref),
+            _buildStats(context, ref),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDiagnosticsButton() {
+  Widget _buildDiagnosticsButton(BuildContext context) {
     return Card(
-      color: Colors.orange.shade50,
+      color: AppColors.tintedSurface(context, Colors.orange),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            const Row(
+             Row(
               children: [
-                Icon(Icons.medical_services, color: Colors.orange),
+                Icon(Icons.medical_services, color: AppColors.accent(context, Colors.orange)),
                 SizedBox(width: 8),
-                Text('Firebase詳細診断', 
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                  'Firebase詳細診断',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -117,19 +120,24 @@ class FirebaseDebugScreen extends ConsumerWidget {
                     },
                     icon: const Icon(Icons.psychology),
                     label: const Text('全体診断実行'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                    style: ElevatedButton.styleFrom(foregroundColor: AppColors.onColor(Colors.orange),
+                      backgroundColor: Colors.orange,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () async {
-                      final result = await FirebaseDiagnostics.testStorageRules();
+                      final result =
+                          await FirebaseDiagnostics.testStorageRules();
                       debugPrint('Storage Rules Test: $result');
                     },
                     icon: const Icon(Icons.security),
                     label: const Text('ルールテスト'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange),
+                    style: ElevatedButton.styleFrom(foregroundColor: AppColors.onColor(Colors.deepOrange),
+                      backgroundColor: Colors.deepOrange,
+                    ),
                   ),
                 ),
               ],
@@ -140,9 +148,9 @@ class FirebaseDebugScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildConnectionTest(WidgetRef ref) {
+  Widget _buildConnectionTest(BuildContext context, WidgetRef ref) {
     final connectionTest = ref.watch(firebaseStorageConnectionProvider);
-    
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -151,58 +159,64 @@ class FirebaseDebugScreen extends ConsumerWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.wifi_tethering, color: Colors.blue),
+                 Icon(Icons.wifi_tethering, color: AppColors.accent(context, Colors.blue)),
                 const SizedBox(width: 8),
-                const Text('Firebase Storage 接続テスト', 
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text(
+                  'Firebase Storage 接続テスト',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.refresh),
-                  onPressed: () => ref.refresh(firebaseStorageConnectionProvider),
+                  onPressed:
+                      () => ref.refresh(firebaseStorageConnectionProvider),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             connectionTest.when(
-              data: (isConnected) => Row(
-                children: [
-                  Icon(
-                    isConnected ? Icons.check_circle : Icons.error,
-                    color: isConnected ? Colors.green : Colors.red,
+              data:
+                  (isConnected) => Row(
+                    children: [
+                      Icon(
+                        isConnected ? Icons.check_circle : Icons.error,
+                        color: isConnected ? Colors.green : Colors.red,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        isConnected ? '接続成功' : '接続失敗',
+                        style: TextStyle(
+                          color: isConnected ? Colors.green : Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    isConnected ? '接続成功' : '接続失敗',
-                    style: TextStyle(
-                      color: isConnected ? Colors.green : Colors.red,
-                      fontWeight: FontWeight.bold,
-                    ),
+              loading:
+                  () => const Row(
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: 8),
+                      Text('接続テスト中...'),
+                    ],
                   ),
-                ],
-              ),
-              loading: () => const Row(
-                children: [
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+              error:
+                  (error, _) => Row(
+                    children: [
+                       Icon(Icons.error, color: AppColors.accent(context, Colors.red)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '接続エラー: $error',
+                          style: TextStyle(color: AppColors.accent(context, Colors.red)),
+                        ),
+                      ),
+                    ],
                   ),
-                  SizedBox(width: 8),
-                  Text('接続テスト中...'),
-                ],
-              ),
-              error: (error, _) => Row(
-                children: [
-                  const Icon(Icons.error, color: Colors.red),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '接続エラー: $error',
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
@@ -210,9 +224,9 @@ class FirebaseDebugScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildImagesList(WidgetRef ref) {
+  Widget _buildImagesList(BuildContext context, WidgetRef ref) {
     final imagesList = ref.watch(firebaseMenuListProvider);
-    
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -221,10 +235,12 @@ class FirebaseDebugScreen extends ConsumerWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.image, color: Colors.green),
+                 Icon(Icons.image, color: AppColors.accent(context, Colors.green)),
                 const SizedBox(width: 8),
-                const Text('Storage上の画像一覧', 
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text(
+                  'Storage上の画像一覧',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.refresh),
@@ -236,114 +252,165 @@ class FirebaseDebugScreen extends ConsumerWidget {
             imagesList.when(
               data: (images) {
                 if (images.isEmpty) {
-                  return const Text(
+                  return  Text(
                     'Storage上に画像がありません',
-                    style: TextStyle(color: Colors.orange),
+                    style: TextStyle(color: AppColors.accent(context, Colors.orange)),
                   );
                 }
-                
+
                 return Column(
-                  children: images.map((image) {
-                    final name = image['name'] as String;
-                    final size = image['size'] as int?;
-                    final downloadUrl = image['download_url'] as String;
-                    
-                    return Builder(
-                      builder: (context) => Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          leading: Container(
-                            width: 50,
-                            height: 50,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: kIsWeb
-                                  ? FutureBuilder<String?>(
-                                      future: _getValidImageUrl(downloadUrl),
-                                      builder: (context, snapshot) {
-                                        if (snapshot.connectionState == ConnectionState.waiting) {
-                                          return Container(
-                                            color: Colors.grey.shade200,
-                                            child: const Center(
-                                              child: CircularProgressIndicator(strokeWidth: 2),
-                                            ),
-                                          );
-                                        }
-                                        
-                                        if (snapshot.hasError || !snapshot.hasData) {
-                                          return Container(
-                                            color: Colors.grey.shade200,
-                                            child: const Icon(Icons.image_not_supported, size: 24),
-                                          );
-                                        }
-                                        
-                                        return Image.network(
-                                          snapshot.data!,
-                                          width: 50,
-                                          height: 50,
-                                          fit: BoxFit.cover,
-                                          headers: const {
-                                            'Accept': 'image/*',
-                                            'Cache-Control': 'no-cache',
-                                          },
-                                          errorBuilder: (context, error, stackTrace) => Container(
-                                            color: Colors.grey.shade200,
-                                            child: const Icon(Icons.image_not_supported, size: 24),
-                                          ),
-                                        );
-                                      },
-                                    )
-                                  : CachedNetworkImage(
-                                      imageUrl: downloadUrl,
-                                      width: 50,
-                                      height: 50,
-                                      fit: BoxFit.cover,
-                                      placeholder: (context, url) => Container(
-                                        color: Colors.grey.shade200,
-                                        child: const Center(
-                                          child: CircularProgressIndicator(strokeWidth: 2),
-                                        ),
-                                      ),
-                                      errorWidget: (context, url, error) => Container(
-                                        color: Colors.grey.shade200,
-                                        child: const Icon(Icons.image_not_supported, size: 24),
-                                      ),
+                  children:
+                      images.map((image) {
+                        final name = image['name'] as String;
+                        final size = image['size'] as int?;
+                        final downloadUrl = image['download_url'] as String;
+
+                        return Builder(
+                          builder:
+                              (context) => Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                child: ListTile(
+                                  leading: SizedBox(
+                                    width: 50,
+                                    height: 50,
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child:
+                                          kIsWeb
+                                              ? FutureBuilder<String?>(
+                                                future: _getValidImageUrl(
+                                                  downloadUrl,
+                                                ),
+                                                builder: (context, snapshot) {
+                                                  if (snapshot
+                                                          .connectionState ==
+                                                      ConnectionState.waiting) {
+                                                    return Container(
+                                                      color:
+                                                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                                                      child: const Center(
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                              strokeWidth: 2,
+                                                            ),
+                                                      ),
+                                                    );
+                                                  }
+
+                                                  if (snapshot.hasError ||
+                                                      !snapshot.hasData) {
+                                                    return Container(
+                                                      color:
+                                                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                                                      child: const Icon(
+                                                        Icons
+                                                            .image_not_supported,
+                                                        size: 24,
+                                                      ),
+                                                    );
+                                                  }
+
+                                                  return Image.network(
+                                                    snapshot.data!,
+                                                    width: 50,
+                                                    height: 50,
+                                                    fit: BoxFit.cover,
+                                                    headers: const {
+                                                      'Accept': 'image/*',
+                                                      'Cache-Control':
+                                                          'no-cache',
+                                                    },
+                                                    errorBuilder:
+                                                        (
+                                                          context,
+                                                          error,
+                                                          stackTrace,
+                                                        ) => Container(
+                                                          color:
+                                                              Theme.of(context).colorScheme.surfaceContainerHighest,
+                                                          child: const Icon(
+                                                            Icons
+                                                                .image_not_supported,
+                                                            size: 24,
+                                                          ),
+                                                        ),
+                                                  );
+                                                },
+                                              )
+                                              : CachedNetworkImage(
+                                                imageUrl: downloadUrl,
+                                                width: 50,
+                                                height: 50,
+                                                fit: BoxFit.cover,
+                                                placeholder:
+                                                    (context, url) => Container(
+                                                      color:
+                                                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                                                      child: const Center(
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                              strokeWidth: 2,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                errorWidget:
+                                                    (
+                                                      context,
+                                                      url,
+                                                      error,
+                                                    ) => Container(
+                                                      color:
+                                                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                                                      child: const Icon(
+                                                        Icons
+                                                            .image_not_supported,
+                                                        size: 24,
+                                                      ),
+                                                    ),
+                                              ),
                                     ),
-                            ),
-                          ),
-                          title: Text(name),
-                          subtitle: Text('サイズ: ${(size ?? 0) ~/ 1024}KB'),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.visibility),
-                                onPressed: () => _showImageDialog(context, name, downloadUrl),
-                                tooltip: 'プレビュー',
+                                  ),
+                                  title: Text(name),
+                                  subtitle: Text(
+                                    'サイズ: ${(size ?? 0) ~/ 1024}KB',
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.visibility),
+                                        onPressed:
+                                            () => _showImageDialog(
+                                              context,
+                                              name,
+                                              downloadUrl,
+                                            ),
+                                        tooltip: 'プレビュー',
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.open_in_new),
+                                        onPressed: () async {
+                                          final uri = Uri.parse(downloadUrl);
+                                          if (await canLaunchUrl(uri)) {
+                                            await launchUrl(uri);
+                                          }
+                                        },
+                                        tooltip: '新しいタブで開く',
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.open_in_new),
-                                onPressed: () async {
-                                  final uri = Uri.parse(downloadUrl);
-                                  if (await canLaunchUrl(uri)) {
-                                    await launchUrl(uri);
-                                  }
-                                },
-                                tooltip: '新しいタブで開く',
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                        );
+                      }).toList(),
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Text(
-                'エラー: $error',
-                style: const TextStyle(color: Colors.red),
-              ),
+              error:
+                  (error, _) => Text(
+                    'エラー: $error',
+                    style: TextStyle(color: AppColors.accent(context, Colors.red)),
+                  ),
             ),
           ],
         ),
@@ -351,42 +418,44 @@ class FirebaseDebugScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildIndividualImageTest(WidgetRef ref) {
+  Widget _buildIndividualImageTest(BuildContext context, WidgetRef ref) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+             Row(
               children: [
-                Icon(Icons.crop_original, color: Colors.purple),
+                Icon(Icons.crop_original, color: AppColors.accent(context, Colors.purple)),
                 SizedBox(width: 8),
-                Text('個別画像URL取得テスト', 
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                  '個別画像URL取得テスト',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
               ],
             ),
             const SizedBox(height: 12),
-            
+
             // 津田沼テスト
-            _buildCampusTest(ref, 'td', '津田沼キャンパス'),
+            _buildCampusTest(context, ref, 'td', '津田沼キャンパス'),
             const SizedBox(height: 8),
-            
+
             // 新習志野テスト
-            _buildCampusTest(ref, 'sd1', '新習志野キャンパス'),
+            _buildCampusTest(context, ref, 'sd1', '新習志野キャンパス'),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCampusTest(WidgetRef ref, String campus, String campusName) {
+  Widget _buildCampusTest(BuildContext context, WidgetRef ref, String campus, String campusName) {
     final imageUrl = ref.watch(firebaseTodayMenuProvider(campus));
-    
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -394,7 +463,10 @@ class FirebaseDebugScreen extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Text(campusName, style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                campusName,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.refresh, size: 20),
@@ -404,65 +476,82 @@ class FirebaseDebugScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           imageUrl.when(
-            data: (url) => url != null 
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.check_circle, color: Colors.green, size: 16),
-                          const SizedBox(width: 4),
-                          const Text('URL取得成功', style: TextStyle(color: Colors.green)),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        url,
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  )
-                : const Row(
-                    children: [
-                      Icon(Icons.error, color: Colors.red, size: 16),
-                      SizedBox(width: 4),
-                      Text('URL取得失敗', style: TextStyle(color: Colors.red)),
-                    ],
-                  ),
-            loading: () => const Row(
-              children: [
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+            data:
+                (url) =>
+                    url != null
+                        ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                 Icon(
+                                  Icons.check_circle,
+                                  color: AppColors.accent(context, Colors.green),
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 4),
+                                 Text(
+                                  'URL取得成功',
+                                  style: TextStyle(color: AppColors.accent(context, Colors.green)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              url,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        )
+                        : Row(
+                          children: [
+                            Icon(Icons.error, color: AppColors.accent(context, Colors.red), size: 16),
+                            SizedBox(width: 4),
+                            Text(
+                              'URL取得失敗',
+                              style: TextStyle(color: AppColors.accent(context, Colors.red)),
+                            ),
+                          ],
+                        ),
+            loading:
+                () => const Row(
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 8),
+                    Text('URL取得中...'),
+                  ],
                 ),
-                SizedBox(width: 8),
-                Text('URL取得中...'),
-              ],
-            ),
-            error: (error, _) => Row(
-              children: [
-                const Icon(Icons.error, color: Colors.red, size: 16),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    'エラー: $error',
-                    style: const TextStyle(color: Colors.red, fontSize: 12),
-                  ),
+            error:
+                (error, _) => Row(
+                  children: [
+                     Icon(Icons.error, color: AppColors.accent(context, Colors.red), size: 16),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'エラー: $error',
+                        style: TextStyle(color: AppColors.accent(context, Colors.red), fontSize: 12),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStats(WidgetRef ref) {
+  Widget _buildStats(BuildContext context, WidgetRef ref) {
     final stats = ref.watch(firebaseStorageStatsProvider);
-    
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -471,10 +560,12 @@ class FirebaseDebugScreen extends ConsumerWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.analytics, color: Colors.indigo),
+                 Icon(Icons.analytics, color: AppColors.accent(context, Colors.indigo)),
                 const SizedBox(width: 8),
-                const Text('Storage統計情報', 
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text(
+                  'Storage統計情報',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.refresh),
@@ -488,13 +579,16 @@ class FirebaseDebugScreen extends ConsumerWidget {
                 if (statsData.containsKey('error')) {
                   return const Text('統計情報の取得でエラーが発生しました');
                 }
-                
+
                 return Column(
                   children: [
                     _buildStatRow('総画像数', '${statsData['total_images'] ?? 0}件'),
                     _buildStatRow('津田沼画像', '${statsData['td_images'] ?? 0}件'),
                     _buildStatRow('新習志野画像', '${statsData['sd1_images'] ?? 0}件'),
-                    _buildStatRow('総サイズ', '${statsData['total_size_mb'] ?? 0}MB'),
+                    _buildStatRow(
+                      '総サイズ',
+                      '${statsData['total_size_mb'] ?? 0}MB',
+                    ),
                   ],
                 );
               },
@@ -523,156 +617,200 @@ class FirebaseDebugScreen extends ConsumerWidget {
   void _showImageDialog(BuildContext context, String name, String url) {
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Stack(
-          alignment: Alignment.topRight,
-          children: [
-            Container(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.9,
-                maxHeight: MediaQuery.of(context).size.height * 0.8,
-              ),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
+      builder:
+          (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: Stack(
+              alignment: Alignment.topRight,
+              children: [
+                Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.9,
+                    maxHeight: MediaQuery.of(context).size.height * 0.8,
+                  ),
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.image, color: Theme.of(context).colorScheme.primary),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              name,
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.image,
+                                color: Theme.of(context).colorScheme.primary,
                               ),
-                            ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  name,
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.open_in_new),
+                                onPressed: () async {
+                                  final uri = Uri.parse(url);
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(uri);
+                                  }
+                                },
+                                tooltip: '新しいタブで開く',
+                              ),
+                            ],
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.open_in_new),
-                            onPressed: () async {
-                              final uri = Uri.parse(url);
-                              if (await canLaunchUrl(uri)) {
-                                await launchUrl(uri);
-                              }
-                            },
-                            tooltip: '新しいタブで開く',
+                          const SizedBox(height: 16),
+                          Container(
+                            constraints: BoxConstraints(
+                              maxWidth: 400,
+                              maxHeight: 300,
+                            ),
+                            child:
+                                kIsWeb
+                                    ? FutureBuilder<String?>(
+                                      future: _getValidImageUrl(url),
+                                      builder: (context, snapshot) {
+                                        if (snapshot.connectionState ==
+                                            ConnectionState.waiting) {
+                                          return SizedBox(
+                                            height: 200,
+                                            child: const Center(
+                                              child:
+                                                  CircularProgressIndicator(),
+                                            ),
+                                          );
+                                        }
+
+                                        if (snapshot.hasError ||
+                                            !snapshot.hasData) {
+                                          return SizedBox(
+                                            height: 200,
+                                            child: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.error,
+                                                  size: 48,
+                                                  color: AppColors.accent(context, Colors.red),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  '画像の読み込みに失敗しました',
+                                                  style: TextStyle(
+                                                    color: AppColors.accent(context, Colors.red),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  'Firebase Storage認証エラー',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }
+
+                                        return Image.network(
+                                          snapshot.data!,
+                                          fit: BoxFit.contain,
+                                          headers: const {
+                                            'Accept': 'image/*',
+                                            'Cache-Control': 'no-cache',
+                                          },
+                                          errorBuilder: (
+                                            context,
+                                            error,
+                                            stackTrace,
+                                          ) {
+                                            return SizedBox(
+                                              height: 200,
+                                              child: Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.error,
+                                                    size: 48,
+                                                    color: AppColors.accent(context, Colors.red),
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    '画像の読み込みに失敗しました',
+                                                    style: TextStyle(
+                                                      color: AppColors.accent(context, Colors.red),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                        );
+                                      },
+                                    )
+                                    : CachedNetworkImage(
+                                      imageUrl: url,
+                                      fit: BoxFit.contain,
+                                      placeholder:
+                                          (context, url) => SizedBox(
+                                            height: 200,
+                                            child: const Center(
+                                              child:
+                                                  CircularProgressIndicator(),
+                                            ),
+                                          ),
+                                      errorWidget:
+                                          (context, url, error) => SizedBox(
+                                            height: 200,
+                                            child: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.error,
+                                                  size: 48,
+                                                  color: AppColors.accent(context, Colors.red),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text('画像の読み込みに失敗しました'),
+                                              ],
+                                            ),
+                                          ),
+                                    ),
+                          ),
+                          const SizedBox(height: 16),
+                          SelectableText(
+                            url,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.copyWith(fontSize: 10),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                      Container(
-                        constraints: BoxConstraints(
-                          maxWidth: 400,
-                          maxHeight: 300,
-                        ),
-                        child: kIsWeb
-                            ? FutureBuilder<String?>(
-                                future: _getValidImageUrl(url),
-                                builder: (context, snapshot) {
-                                  if (snapshot.connectionState == ConnectionState.waiting) {
-                                    return Container(
-                                      height: 200,
-                                      child: const Center(
-                                        child: CircularProgressIndicator(),
-                                      ),
-                                    );
-                                  }
-                                  
-                                  if (snapshot.hasError || !snapshot.hasData) {
-                                    return Container(
-                                      height: 200,
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(Icons.error, size: 48, color: Colors.red),
-                                          const SizedBox(height: 8),
-                                          Text('画像の読み込みに失敗しました', 
-                                               style: TextStyle(color: Colors.red)),
-                                          const SizedBox(height: 8),
-                                          Text('Firebase Storage認証エラー', 
-                                               style: TextStyle(fontSize: 12, color: Colors.grey)),
-                                        ],
-                                      ),
-                                    );
-                                  }
-                                  
-                                  return Image.network(
-                                    snapshot.data!,
-                                    fit: BoxFit.contain,
-                                    headers: const {
-                                      'Accept': 'image/*',
-                                      'Cache-Control': 'no-cache',
-                                    },
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
-                                        height: 200,
-                                        child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(Icons.error, size: 48, color: Colors.red),
-                                            const SizedBox(height: 8),
-                                            Text('画像の読み込みに失敗しました', 
-                                                 style: TextStyle(color: Colors.red)),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  );
-                                },
-                              )
-                            : CachedNetworkImage(
-                                imageUrl: url,
-                                fit: BoxFit.contain,
-                                placeholder: (context, url) => Container(
-                                  height: 200,
-                                  child: const Center(child: CircularProgressIndicator()),
-                                ),
-                                errorWidget: (context, url, error) => Container(
-                                  height: 200,
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.error, size: 48, color: Colors.red),
-                                      const SizedBox(height: 8),
-                                      Text('画像の読み込みに失敗しました'),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                      ),
-                      const SizedBox(height: 16),
-                      SelectableText(
-                        url,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
                 ),
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 }

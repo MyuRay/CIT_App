@@ -24,8 +24,10 @@ class SafeCachedNetworkImage extends StatelessWidget {
   final double? width;
   final double? height;
   final Alignment alignment;
+
   /// デコード時の最大ピクセル幅（サムネイル表示の高速化に有効）
   final int? memCacheWidth;
+
   /// デコード時の最大ピクセル高さ
   final int? memCacheHeight;
   final Duration fadeInDuration;
@@ -46,13 +48,14 @@ class SafeCachedNetworkImage extends StatelessWidget {
         alignment: alignment,
         cacheWidth: memCacheWidth,
         cacheHeight: memCacheHeight,
-        filterQuality: memCacheWidth != null ? FilterQuality.medium : FilterQuality.low,
+        filterQuality:
+            memCacheWidth != null ? FilterQuality.medium : FilterQuality.low,
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return placeholder ?? _defaultPlaceholder();
         },
-        errorBuilder: (context, error, stackTrace) =>
-            errorWidget ?? _defaultError(),
+        errorBuilder:
+            (context, error, stackTrace) => errorWidget ?? _defaultError(),
       );
     }
 

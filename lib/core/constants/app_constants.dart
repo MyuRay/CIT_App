@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 class AppConstants {
   static const String appName = 'CIT App';
-  static const String appVersion = '2.2.0';
+  static const String appVersion = '2.3.0';
 
   static const String appDescriptionTitle = '千葉工業大学向け大学生活支援アプリ';
   static const String appDescriptionSubtitle = '時間割・掲示板・学食情報などを提供';
@@ -41,7 +41,7 @@ class AppConstants {
     if (_trainInfoUseMockRaw == 'false') return false;
     return isDebugMode;
   }
-  
+
   // 許可されたドメイン（複数対応）
   static const List<String> allowedDomains = [
     '@s.chibakoudai.jp',
@@ -59,27 +59,23 @@ class AppConstants {
   static const String newEmailDomain = '@chibatech.ac.jp';
 
   /// 新規登録で許可するドメイン（既存ユーザーのログイン等は [allowedDomains] のまま）
-  static const List<String> signupAllowedDomains = [
-    newEmailDomain,
-  ];
-  
+  static const List<String> signupAllowedDomains = [newEmailDomain];
+
   static const String errorInvalidEmail = 'メールアドレスの形式が正しくありません';
-  static const String errorInvalidDomain = 'CITのメールアドレスを使用してください\n（@s.chibakoudai.jp / @p.chibakoudai.jp / @chibatech.ac.jp）';
+  static const String errorInvalidDomain =
+      'CITのメールアドレスを使用してください\n（@s.chibakoudai.jp / @p.chibakoudai.jp / @chibatech.ac.jp）';
   static const String errorSignupInvalidDomain =
       '新規登録は @chibatech.ac.jp のメールアドレスのみ利用できます';
   static const String errorEmailLocalPart =
       'メールアドレス（@より前）は半角英数字（大文字・小文字）および . _ + - のみ使用できます';
   static const String errorWeakPassword = 'パスワードは6文字以上で入力してください';
-  static const String errorLoginInvalidCredentials =
-      'パスワードかメールアドレスが間違っています';
-  static const String errorPasswordChars =
-      'パスワードは半角英数字（大文字・小文字）のみ使用できます';
+  static const String errorLoginInvalidCredentials = 'パスワードかメールアドレスが間違っています';
+  static const String errorPasswordChars = 'パスワードは半角英数字（大文字・小文字）のみ使用できます';
   static const String errorPasswordMismatch = 'パスワードが一致しません';
 
   static const String emailInputHelper =
       '※ @より前は半角英数字（大文字・小文字）・. _ + - が使用できます';
-  static const String passwordInputHelper =
-      '※ 半角英数字（大文字・小文字）6文字以上';
+  static const String passwordInputHelper = '※ 半角英数字（大文字・小文字）6文字以上';
 
   /// メールアドレス（@より前）: 半角英数字と . _ + -
   static final RegExp emailLocalPartPattern = RegExp(r'^[a-zA-Z0-9._+-]+$');
@@ -90,8 +86,7 @@ class AppConstants {
   /// Cwitter ID: 半角英数字と _ 3〜10 文字
   static final RegExp cwitterIdPattern = RegExp(r'^[a-zA-Z0-9_]{3,10}$');
 
-  static const String cwitterIdInputHelper =
-      '※ 半角英数字と _ 3〜10 文字（設定後は変更できません）';
+  static const String cwitterIdInputHelper = '※ 半角英数字と _ 3〜10 文字（設定後は変更できません）';
   static const String errorCwitterIdFormat =
       'Cwitter IDは半角英数字と _ で3〜10文字で入力してください';
   static const String errorCwitterIdTaken = 'このIDは既に使用されています';
@@ -117,10 +112,10 @@ class AppConstants {
   /// Cwitter プロフィールのハッシュタグ（例: 27卒、建築、🔥）
   static const int cwitterTagsMaxCount = 2;
   static const int cwitterTagMaxLength = 5;
+
   /// Firestore rules 用（UTF-8 バイト上限。5文字分の日本語・絵文字を許容）
   static const int cwitterTagMaxUtf8Bytes = 20;
-  static const String cwitterTagsInputHelper =
-      '※ 最大2件、各5文字以内（絵文字可、例: 27卒、🔥）';
+  static const String cwitterTagsInputHelper = '※ 最大2件、各5文字以内（絵文字可、例: 27卒、🔥）';
   static const String errorCwitterTagFormat =
       'ハッシュタグは5文字以内で入力してください（絵文字可、空白・# は不可）';
 
@@ -144,12 +139,14 @@ class AppConstants {
   static final List<TextInputFormatter> passwordInputFormatters = [
     FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
   ];
-  
+
   /// 旧ドメインのメールアドレスか（変更推奨ポップアップ表示対象）
   static bool shouldPromptEmailMigration(String? email) {
     if (email == null || email.trim().isEmpty) return false;
     final normalized = email.trim().toLowerCase();
-    return legacyEmailDomains.any((domain) => normalized.endsWith(domain.toLowerCase()));
+    return legacyEmailDomains.any(
+      (domain) => normalized.endsWith(domain.toLowerCase()),
+    );
   }
 
   /// 新ドメイン（@chibatech.ac.jp）のメールアドレスか
@@ -181,20 +178,27 @@ class AppConstants {
 
   // ドメインチェック用のヘルパーメソッド（大文字・小文字を区別しない）
   static bool isAllowedDomain(String email) {
-    final normalized = email.trim().toLowerCase();
-    return allowedDomains.any((domain) => normalized.endsWith(domain.toLowerCase()));
+    return _hasExactEmailDomain(email, allowedDomains);
   }
 
   static bool isAllowedSignupDomain(String email) {
-    final normalized = email.trim().toLowerCase();
-    return signupAllowedDomains
-        .any((domain) => normalized.endsWith(domain.toLowerCase()));
+    return _hasExactEmailDomain(email, signupAllowedDomains);
+  }
+
+  // Compare the complete domain after exactly one @. A suffix match alone
+  // would also accept malformed addresses such as user@example.org@chibatech.ac.jp.
+  static bool _hasExactEmailDomain(String email, List<String> domains) {
+    final parts = email.trim().toLowerCase().split('@');
+    return parts.length == 2 &&
+        parts.first.isNotEmpty &&
+        domains.contains('@${parts.last}');
   }
 
   static bool isValidEmailLocalPart(String email) {
-    final at = email.indexOf('@');
-    if (at <= 0) return false;
-    return emailLocalPartPattern.hasMatch(email.substring(0, at));
+    final parts = email.split('@');
+    if (parts.length != 2 || parts.first.isEmpty) return false;
+    final match = emailLocalPartPattern.matchAsPrefix(parts.first);
+    return match != null && match.end == parts.first.length;
   }
 
   static bool isValidPasswordFormat(String password) {
@@ -247,15 +251,17 @@ class AppConstants {
     if (!passwordPattern.hasMatch(value)) return errorPasswordChars;
     return null;
   }
-  
+
   // ドメイン表示用のテキスト
   static String get allowedDomainsText => allowedDomains.join(' または ');
 
   /// メール変更フロー用 SharedPreferences キー
   static const String pendingEmailChangeKey = 'pending_email_change';
-  static const String postEmailChangeLoginEmailKey = 'post_email_change_login_email';
+  static const String postEmailChangeLoginEmailKey =
+      'post_email_change_login_email';
 
-  /// 利用規約・プライバシーポリシー同意（更新版）の SharedPreferences キー
+  /// アカウント別の規約同意キャッシュの接頭辞（実際のキーは末尾に :UID）。
+  /// UIDのない旧端末共通キーからは、同意したアカウントを推定しない。
   static const String legalConsentAcceptedVersionKey =
       'legal_consent_accepted_version';
 

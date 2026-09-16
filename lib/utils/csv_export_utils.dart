@@ -14,75 +14,83 @@ class CsvExportUtils {
   /// ユーザー数推移データを日次CSV形式に変換
   static String exportDailyStatsToCsv(UserGrowthStats stats) {
     final rows = <String>[];
-    
+
     // ヘッダー
     rows.add('日付,新規登録数,累積ユーザー数');
-    
+
     // データ行
     for (final daily in stats.daily) {
-      rows.add([
-        csvSafe(daily.date),
-        daily.count.toString(),
-        daily.cumulative.toString(),
-      ].join(','));
+      rows.add(
+        [
+          csvSafe(daily.date),
+          daily.count.toString(),
+          daily.cumulative.toString(),
+        ].join(','),
+      );
     }
-    
+
     return rows.join('\n');
   }
 
   /// ユーザー数推移データを月次CSV形式に変換
   static String exportMonthlyStatsToCsv(UserGrowthStats stats) {
     final rows = <String>[];
-    
+
     // ヘッダー
     rows.add('年月,新規登録数,累積ユーザー数');
-    
+
     // データ行
     for (final monthly in stats.monthly) {
-      rows.add([
-        csvSafe(monthly.month),
-        monthly.count.toString(),
-        monthly.cumulative.toString(),
-      ].join(','));
+      rows.add(
+        [
+          csvSafe(monthly.month),
+          monthly.count.toString(),
+          monthly.cumulative.toString(),
+        ].join(','),
+      );
     }
-    
+
     return rows.join('\n');
   }
 
   /// ユーザー数推移データを統合CSV形式に変換（日次と月次を含む）
   static String exportAllStatsToCsv(UserGrowthStats stats) {
     final rows = <String>[];
-    
+
     // メタ情報
     rows.add('# ユーザー数推移統計データ');
     rows.add('# 生成日時,${stats.generatedAt.toIso8601String()}');
     rows.add('# 総ユーザー数,${stats.totalUsers}');
     rows.add('');
-    
+
     // 月次データ
     rows.add('# 月次データ');
     rows.add('年月,新規登録数,累積ユーザー数');
     for (final monthly in stats.monthly) {
-      rows.add([
-        csvSafe(monthly.month),
-        monthly.count.toString(),
-        monthly.cumulative.toString(),
-      ].join(','));
+      rows.add(
+        [
+          csvSafe(monthly.month),
+          monthly.count.toString(),
+          monthly.cumulative.toString(),
+        ].join(','),
+      );
     }
-    
+
     rows.add('');
-    
+
     // 日次データ
     rows.add('# 日次データ');
     rows.add('日付,新規登録数,累積ユーザー数');
     for (final daily in stats.daily) {
-      rows.add([
-        csvSafe(daily.date),
-        daily.count.toString(),
-        daily.cumulative.toString(),
-      ].join(','));
+      rows.add(
+        [
+          csvSafe(daily.date),
+          daily.count.toString(),
+          daily.cumulative.toString(),
+        ].join(','),
+      );
     }
-    
+
     return rows.join('\n');
   }
 
@@ -91,5 +99,3 @@ class CsvExportUtils {
     await Clipboard.setData(ClipboardData(text: csvData));
   }
 }
-
-

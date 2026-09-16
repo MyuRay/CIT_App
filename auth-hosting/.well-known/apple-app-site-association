@@ -1,0 +1,14 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "7D772NSCDY.com.masatomurai.citapp",
+        "paths": [
+          "/__/auth/links",
+          "/__/auth/links/*"
+        ]
+      }
+    ]
+  }
+}

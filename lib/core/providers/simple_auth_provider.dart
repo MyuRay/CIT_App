@@ -1,13 +1,11 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../models/user/user_model.dart';
-import '../../services/user/user_service.dart';
+import 'auth_provider.dart' show firebaseAuthProvider;
 
 /// シンプルな認証プロバイダー
 /// Firebase Auth の永続セッションをそのまま信頼する（起動時の reload / 強制 signOut は行わない）
 final simpleAuthStateProvider = StreamProvider<User?>((ref) {
-  return FirebaseAuth.instance.authStateChanges();
+  return ref.watch(firebaseAuthProvider).idTokenChanges();
 });
 
 /// ログイン状態の判定（シンプル版）
@@ -32,20 +30,17 @@ final currentUserSimpleProvider = Provider<User?>((ref) {
   );
 });
 
-/// メール認証済みかどうか（Firestoreから取得）
+/// 認証状態は Firebase Auth を正とし、プロフィールの自己申告を使用しない。
 final isEmailVerifiedSimpleProvider = StreamProvider<bool?>((ref) {
   final authState = ref.watch(simpleAuthStateProvider);
-  
+
   return authState.when(
     data: (user) {
       if (user == null) {
         return Stream.value(false);
       }
-      
-      // Firestoreのユーザードキュメントをリアルタイム監視
-      return UserService.watchUser(user.uid).map((appUser) {
-        return appUser?.emailVerified ?? false;
-      });
+
+      return Stream.value(user.emailVerified);
     },
     loading: () => Stream.value(null),
     error: (_, __) => Stream.value(false),
@@ -54,10 +49,10 @@ final isEmailVerifiedSimpleProvider = StreamProvider<bool?>((ref) {
 
 /// メール認証済みかどうか（同期版、ルーター用）
 final isEmailVerifiedSyncProvider = Provider<bool?>((ref) {
-  final emailVerifiedAsync = ref.watch(isEmailVerifiedSimpleProvider);
-  
-  return emailVerifiedAsync.when(
-    data: (verified) => verified,
+  final authState = ref.watch(simpleAuthStateProvider);
+
+  return authState.when(
+    data: (user) => user?.emailVerified ?? false,
     loading: () => null,
     error: (_, __) => false,
   );

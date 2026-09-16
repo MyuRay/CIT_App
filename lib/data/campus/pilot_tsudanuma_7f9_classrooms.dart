@@ -136,10 +136,7 @@ const Map<String, String> _zw9 = {
 };
 
 String _zenRoomCode(String roomCode) {
-  return roomCode.replaceAllMapped(
-    RegExp(r'\d'),
-    (m) => _zw9[m[0]]!,
-  );
+  return roomCode.replaceAllMapped(RegExp(r'\d'), (m) => _zw9[m[0]]!);
 }
 
 CampusClassroomLocation _tsudanuma7f9Entry(

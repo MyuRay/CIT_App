@@ -16,7 +16,8 @@ class StorageUrlValidator {
   static Future<bool> isReachable(String url) async {
     if (url.trim().isEmpty) return false;
 
-    if (isFirebaseStorageUrl(url) && url.contains('firebasestorage.googleapis.com')) {
+    if (isFirebaseStorageUrl(url) &&
+        url.contains('firebasestorage.googleapis.com')) {
       try {
         await FirebaseStorage.instance.refFromURL(url).getMetadata();
         return true;
@@ -28,10 +29,7 @@ class StorageUrlValidator {
 
     try {
       final response = await http
-          .get(
-            Uri.parse(url),
-            headers: const {'Range': 'bytes=0-0'},
-          )
+          .get(Uri.parse(url), headers: const {'Range': 'bytes=0-0'})
           .timeout(_timeout);
       return response.statusCode == 200 || response.statusCode == 206;
     } catch (e) {

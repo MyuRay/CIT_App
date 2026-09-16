@@ -1,9 +1,15 @@
+import '../../core/theme/app_colors.dart';
 import 'package:characters/characters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/schedule/lecture_period_service.dart';
+import '../../core/providers/bus_provider.dart';
+import '../../models/bus/bus_timetable_draft.dart';
+import '../../services/bus/bus_timetable_admin_service.dart';
+import '../../widgets/bus/bus_departure_dialog.dart';
+import 'bus_timetable_editor_screen.dart';
 
 class BusAdminScreen extends ConsumerStatefulWidget {
   const BusAdminScreen({super.key});
@@ -12,7 +18,8 @@ class BusAdminScreen extends ConsumerStatefulWidget {
   ConsumerState<BusAdminScreen> createState() => _BusAdminScreenState();
 }
 
-class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTickerProviderStateMixin {
+class _BusAdminScreenState extends ConsumerState<BusAdminScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _routeSearchCtrl = TextEditingController();
   String _routeSearch = '';
@@ -22,6 +29,7 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
   String _scheduleSearch = '';
   String _scheduleDayType = 'weekday'; // weekday, saturday, sunday
   bool _scheduleHideInactive = true;
+  bool _openingTimetable = false;
   DateTime? _springStartDate;
   DateTime? _springEndDate;
   DateTime? _fallStartDate;
@@ -91,12 +99,13 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
 
   Widget _buildRouteManagement() {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('bus_information')
-          .doc('main')
-          .collection('bus_routes')
-          .orderBy('sortOrder')
-          .snapshots(),
+      stream:
+          FirebaseFirestore.instance
+              .collection('bus_information')
+              .doc('main')
+              .collection('bus_routes')
+              .orderBy('sortOrder')
+              .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -113,7 +122,9 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
-            border: Border(bottom: BorderSide(color: Colors.grey.withOpacity(0.2))),
+            border: Border(
+              bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+            ),
           ),
           child: Row(
             children: [
@@ -124,12 +135,26 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
                     isDense: true,
                     prefixIcon: const Icon(Icons.search),
                     hintText: '路線名・区間で検索',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    suffixIcon: _routeSearch.isNotEmpty
-                        ? IconButton(icon: const Icon(Icons.clear), onPressed: () { setState((){ _routeSearchCtrl.clear(); _routeSearch = ''; }); })
-                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    suffixIcon:
+                        _routeSearch.isNotEmpty
+                            ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                setState(() {
+                                  _routeSearchCtrl.clear();
+                                  _routeSearch = '';
+                                });
+                              },
+                            )
+                            : null,
                   ),
-                  onChanged: (v) => setState(() { _routeSearch = v.trim(); }),
+                  onChanged:
+                      (v) => setState(() {
+                        _routeSearch = v.trim();
+                      }),
                 ),
               ),
               const SizedBox(width: 8),
@@ -140,305 +165,435 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
                   DropdownMenuItem(value: 'active', child: Text('運行中')),
                   DropdownMenuItem(value: 'suspended', child: Text('停止')),
                 ],
-                onChanged: (v) => setState((){ _routeStatusFilter = v ?? 'all'; }),
+                onChanged:
+                    (v) => setState(() {
+                      _routeStatusFilter = v ?? 'all';
+                    }),
               ),
               const SizedBox(width: 8),
               OutlinedButton.icon(
-                onPressed: _showBulkAddRoutesDialog,
-                icon: const Icon(Icons.playlist_add),
-                label: const Text('一括追加'),
+                onPressed: () => _tabController.animateTo(1),
+                icon: const Icon(Icons.schedule),
+                label: const Text('ダイヤへ'),
               ),
             ],
           ),
         );
 
         if (routes.isEmpty) {
-          return Column(children: [
-            header,
-            Expanded(child: _buildEmptyWidget(Icons.route, '路線が登録されていません', '「＋」または「一括追加」から登録してください'))
-          ]);
+          return Column(
+            children: [
+              header,
+              Expanded(
+                child: _buildEmptyWidget(
+                  Icons.route,
+                  '路線が登録されていません',
+                  '右上の＋から路線を登録してください',
+                ),
+              ),
+            ],
+          );
         }
 
         // フィルタリング
         if (_routeSearch.isNotEmpty) {
           final q = _routeSearch.toLowerCase();
-          routes = routes.where((d){
-            final m = d.data() as Map<String, dynamic>;
-            final name = (m['name'] as String? ?? '').toLowerCase();
-            final from = (m['fromStation'] as String? ?? '').toLowerCase();
-            final to = (m['toStation'] as String? ?? '').toLowerCase();
-            return name.contains(q) || from.contains(q) || to.contains(q);
-          }).toList();
+          routes =
+              routes.where((d) {
+                final m = d.data() as Map<String, dynamic>;
+                final name = (m['name'] as String? ?? '').toLowerCase();
+                final from = (m['fromStation'] as String? ?? '').toLowerCase();
+                final to = (m['toStation'] as String? ?? '').toLowerCase();
+                return name.contains(q) || from.contains(q) || to.contains(q);
+              }).toList();
         }
         if (_routeStatusFilter != 'all') {
-          routes = routes.where((d){
-            final m = d.data() as Map<String, dynamic>;
-            final status = (m['status'] as String?) ?? (m['isActive'] == true ? 'active' : 'suspended');
-            return status == _routeStatusFilter;
-          }).toList();
+          routes =
+              routes.where((d) {
+                final m = d.data() as Map<String, dynamic>;
+                final status =
+                    (m['status'] as String?) ??
+                    (m['isActive'] == true ? 'active' : 'suspended');
+                return status == _routeStatusFilter;
+              }).toList();
         }
-        return Column(children: [
-          header,
-          Expanded(
-            child: ReorderableListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: routes.length,
-              onReorder: _reorderRoutes,
-              itemBuilder: (context, index) {
-                final routeDoc = routes[index];
-                final routeData = routeDoc.data() as Map<String, dynamic>;
+        return Column(
+          children: [
+            header,
+            Expanded(
+              child: ReorderableListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: routes.length,
+                onReorder: _reorderRoutes,
+                itemBuilder: (context, index) {
+                  final routeDoc = routes[index];
+                  final routeData = routeDoc.data() as Map<String, dynamic>;
 
-                return Card(
-                  key: ValueKey(routeDoc.id),
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ExpansionTile(
-                    leading: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ReorderableDragStartListener(
-                          index: index,
-                          child: const Padding(
-                            padding: EdgeInsets.only(right: 8.0),
-                            child: Icon(Icons.drag_handle),
+                  return Card(
+                    key: ValueKey(routeDoc.id),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ExpansionTile(
+                      leading: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ReorderableDragStartListener(
+                            index: index,
+                            child: const Padding(
+                              padding: EdgeInsets.only(right: 8.0),
+                              child: Icon(Icons.drag_handle),
+                            ),
                           ),
-                        ),
-                        CircleAvatar(
-                          backgroundColor: _parseColor(routeData['color'] ?? '#2196F3'),
-                          child: Text(
-                            routeData['shortName'] ??
-                                _firstCharacterOrFallback(routeData['name'], 'B'),
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          CircleAvatar(
+                            backgroundColor: _parseColor(
+                              routeData['color'] ?? '#2196F3',
+                            ),
+                            child: Text(
+                              routeData['shortName'] ??
+                                  _firstCharacterOrFallback(
+                                    routeData['name'],
+                                    'B',
+                                  ),
+                              style: TextStyle(
+                                color: AppColors.onColor(_parseColor(routeData['color'] ?? '#2196F3')),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    title: Text(
-                      routeData['name'] ?? '無名路線',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('${routeData['fromStation']} → ${routeData['toStation']}'),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            _buildStatusChip(routeData['status'] ?? 'active'),
-                            const SizedBox(width: 8),
-                            Icon(Icons.schedule, size: 14, color: Colors.grey[600]),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${routeData['operatingDays']?.length ?? 0}日間運行',
-                              style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Switch(
-                          value: (routeData['isActive'] as bool?) ?? (routeData['status'] != 'suspended'),
-                          onChanged: (v) {
-                            if (routeData.containsKey('isActive')) {
-                              routeDoc.reference.update({'isActive': v, 'updatedAt': FieldValue.serverTimestamp()});
-                            }
-                            final next = v ? 'active' : 'suspended';
-                            routeDoc.reference.update({'status': next, 'updatedAt': FieldValue.serverTimestamp()});
-                          },
-                        ),
-                        PopupMenuButton<String>(
-                          onSelected: (action) => _handleRouteAction(action, routeDoc),
-                          itemBuilder: (context) => const [
-                            PopupMenuItem(value: 'edit', child: Text('編集')),
-                            PopupMenuItem(value: 'duplicate', child: Text('複製')),
-                          ],
-                        ),
-                        PopupMenuButton<String>(
-                          onSelected: (action) => _handleRouteAction(action, routeDoc),
-                          itemBuilder: (context) => [
-                            PopupMenuItem(
-                              value: (routeData['status'] == 'active') ? 'suspend' : 'activate',
-                              child: Text(routeData['status'] == 'active' ? '運行停止' : '運行開始'),
-                            ),
-                            const PopupMenuItem(value: 'delete', child: Text('削除')),
-                          ],
-                        ),
-                      ],
-                    ),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildRouteDetailRow('運行区間', '${routeData['fromStation']} → ${routeData['toStation']}'),
-                            _buildRouteDetailRow('運行日', _formatOperatingDays(routeData['operatingDays'])),
-                            _buildRouteDetailRow('運行期間', _formatDateRange(routeData['startDate'], routeData['endDate'])),
-                            _buildRouteDetailRow('所要時間', '約${routeData['duration'] ?? '?'}分'),
-                            _buildRouteDetailRow('運賃', routeData['fare'] != null ? '￥${routeData['fare']}' : '無料'),
-                            if (routeData['note'] != null && (routeData['note'] as String).isNotEmpty)
-                              _buildRouteDetailRow('備考', routeData['note']),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                const Icon(Icons.schedule, size: 18),
-                                const SizedBox(width: 6),
-                                const Text('時刻一覧', style: TextStyle(fontWeight: FontWeight.bold)),
-                                const Spacer(),
-                                TextButton.icon(
-                                  onPressed: () => _showTimeEntryDialog(routeDoc: routeDoc),
-                                  icon: const Icon(Icons.add),
-                                  label: const Text('時刻追加'),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            ..._buildTimeEntries(routeDoc),
-                          ],
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
-                );
-              },
+                      title: Text(
+                        routeData['name'] ?? '無名路線',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${routeData['fromStation']} → ${routeData['toStation']}',
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              _buildStatusChip(routeData['status'] ?? 'active'),
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.schedule,
+                                size: 14,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${routeData['operatingDays']?.length ?? 0}日間運行',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Switch(
+                            value:
+                                (routeData['isActive'] as bool?) ??
+                                (routeData['status'] != 'suspended'),
+                            onChanged: (v) {
+                              if (routeData.containsKey('isActive')) {
+                                routeDoc.reference.update({
+                                  'isActive': v,
+                                  'updatedAt': FieldValue.serverTimestamp(),
+                                });
+                              }
+                              final next = v ? 'active' : 'suspended';
+                              routeDoc.reference.update({
+                                'status': next,
+                                'updatedAt': FieldValue.serverTimestamp(),
+                              });
+                            },
+                          ),
+                          PopupMenuButton<String>(
+                            onSelected:
+                                (action) =>
+                                    _handleRouteAction(action, routeDoc),
+                            itemBuilder:
+                                (context) => const [
+                                  PopupMenuItem(
+                                    value: 'edit',
+                                    child: Text('編集'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'duplicate',
+                                    child: Text('複製'),
+                                  ),
+                                ],
+                          ),
+                          PopupMenuButton<String>(
+                            onSelected:
+                                (action) =>
+                                    _handleRouteAction(action, routeDoc),
+                            itemBuilder:
+                                (context) => [
+                                  PopupMenuItem(
+                                    value:
+                                        (routeData['status'] == 'active')
+                                            ? 'suspend'
+                                            : 'activate',
+                                    child: Text(
+                                      routeData['status'] == 'active'
+                                          ? '運行停止'
+                                          : '運行開始',
+                                    ),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('削除'),
+                                  ),
+                                ],
+                          ),
+                        ],
+                      ),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildRouteDetailRow(
+                                '運行区間',
+                                '${routeData['fromStation']} → ${routeData['toStation']}',
+                              ),
+                              _buildRouteDetailRow(
+                                '運行日',
+                                _formatOperatingDays(
+                                  routeData['operatingDays'],
+                                ),
+                              ),
+                              _buildRouteDetailRow(
+                                '運行期間',
+                                _formatDateRange(
+                                  routeData['startDate'],
+                                  routeData['endDate'],
+                                ),
+                              ),
+                              _buildRouteDetailRow(
+                                '所要時間',
+                                '約${routeData['duration'] ?? '?'}分',
+                              ),
+                              _buildRouteDetailRow(
+                                '運賃',
+                                routeData['fare'] != null
+                                    ? '￥${routeData['fare']}'
+                                    : '無料',
+                              ),
+                              if (routeData['note'] != null &&
+                                  (routeData['note'] as String).isNotEmpty)
+                                _buildRouteDetailRow('備考', routeData['note']),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  const Icon(Icons.schedule, size: 18),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    '時刻一覧',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  TextButton.icon(
+                                    onPressed:
+                                        () => _showTimeEntryDialog(
+                                          routeDoc: routeDoc,
+                                        ),
+                                    icon: const Icon(Icons.add),
+                                    label: const Text('時刻追加'),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              OutlinedButton.icon(
+                                onPressed: _openingTimetable ? null : () => _openTimetableEditor(routeDoc),
+                                icon: const Icon(Icons.edit_calendar_outlined),
+                                label: const Text('ダイヤをまとめて編集'),
+                              ),
+                              ..._buildTimeEntries(routeDoc),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-        ]);
+          ],
+        );
       },
     );
   }
 
-  Widget _buildScheduleManagement() {
-    // ヘッダー（検索・フィルタ）
-    final header = Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(bottom: BorderSide(color: Colors.grey.withOpacity(0.2))),
-      ),
-      child: Row(
-        children: [
-          // 検索
-          Expanded(
-            child: TextField(
-              controller: _scheduleSearchCtrl,
-              decoration: InputDecoration(
-                isDense: true,
-                prefixIcon: const Icon(Icons.search),
-                hintText: '路線名・区間で検索',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                suffixIcon: _scheduleSearch.isNotEmpty
-                    ? IconButton(
+  Widget _buildScheduleManagement() => StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('bus_information').doc('main')
+        .collection('bus_routes').orderBy('sortOrder').snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (snapshot.hasError) return _buildErrorWidget('時刻表を読み込めませんでした');
+      final routes = (snapshot.data?.docs ?? []).where((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        final query = _scheduleSearch.toLowerCase();
+        return query.isEmpty || ['name', 'fromStation', 'toStation'].any(
+          (key) => (data[key] as String? ?? '').toLowerCase().contains(query),
+        );
+      }).toList();
+      return CustomScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('路線の「ダイヤを編集」から、貼り付け・等間隔作成・コピーでまとめて登録できます。'),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _scheduleSearchCtrl,
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search),
+                      hintText: '路線名・区間で検索',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: _scheduleSearch.isEmpty ? null : IconButton(
+                        tooltip: '検索をクリア',
                         icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          setState(() {
-                            _scheduleSearchCtrl.clear();
-                            _scheduleSearch = '';
-                          });
-                        },
-                      )
-                    : null,
+                        onPressed: () => setState(() {
+                          _scheduleSearchCtrl.clear();
+                          _scheduleSearch = '';
+                        }),
+                      ),
+                    ),
+                    onChanged: (value) => setState(() => _scheduleSearch = value.trim()),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      for (final day in busDayLabels.entries)
+                        ChoiceChip(
+                          label: Text(day.value),
+                          selected: _scheduleDayType == day.key,
+                          onSelected: (_) => setState(() => _scheduleDayType = day.key),
+                        ),
+                      FilterChip(
+                        selected: _scheduleHideInactive,
+                        label: const Text('運休を隠す'),
+                        onSelected: (value) => setState(() => _scheduleHideInactive = value),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              onChanged: (v) => setState(() => _scheduleSearch = v.trim()),
             ),
           ),
-          const SizedBox(width: 8),
-          // ダイヤ種別
-          DropdownButton<String>(
-            value: _scheduleDayType,
-            items: const [
-              DropdownMenuItem(value: 'weekday', child: Text('平日')),
-              DropdownMenuItem(value: 'saturday', child: Text('土曜')),
-              DropdownMenuItem(value: 'sunday', child: Text('日曜')),
-            ],
-            onChanged: (v) => setState(() => _scheduleDayType = v ?? 'weekday'),
-          ),
-          const SizedBox(width: 8),
-          // 無効時刻を隠す
-          FilterChip(
-            selected: _scheduleHideInactive,
-            onSelected: (v) => setState(() => _scheduleHideInactive = v),
-            avatar: Icon(
-              _scheduleHideInactive ? Icons.visibility_off : Icons.visibility,
-              size: 18,
+          if (routes.isEmpty)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('該当する路線がありません。新規路線は「路線管理」の＋から追加できます。'),
+              ),
             ),
-            label: const Text('無効を非表示'),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildTimetableCard(routes[index]),
+                childCount: routes.length,
+              ),
+            ),
           ),
         ],
-      ),
-    );
+      );
+    },
+  );
 
-    return Column(
-      children: [
-        header,
-        Expanded(
-          child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('bus_information')
-                .doc('main')
-                .collection('bus_routes')
-                .orderBy('sortOrder')
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return _buildErrorWidget('時刻表データの読み込みに失敗しました: ${snapshot.error}');
-              }
-              var routes = snapshot.data?.docs ?? [];
-              // 検索フィルタ
-              if (_scheduleSearch.isNotEmpty) {
-                final q = _scheduleSearch.toLowerCase();
-                routes = routes.where((d) {
-                  final m = d.data() as Map<String, dynamic>;
-                  final name = (m['name'] as String? ?? '').toLowerCase();
-                  final from = (m['fromStation'] as String? ?? '').toLowerCase();
-                  final to = (m['toStation'] as String? ?? '').toLowerCase();
-                  return name.contains(q) || from.contains(q) || to.contains(q);
-                }).toList();
-              }
-
-              if (routes.isEmpty) {
-                return _buildEmptyWidget(
-                  Icons.schedule,
-                  '時刻表を表示できる路線がありません',
-                  '路線を追加し、路線詳細から時刻を登録してください',
-                );
-              }
-
-              return ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: routes.length,
-                itemBuilder: (context, index) {
-                  final routeDoc = routes[index];
-                  return _buildTimetableCard(routeDoc);
-                },
-              );
-            },
-          ),
+  Future<void> _openTimetableEditor(QueryDocumentSnapshot routeDoc, {String? dayType}) async {
+    if (_openingTimetable) return;
+    setState(() => _openingTimetable = true);
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('bus_information').doc('main').collection('bus_routes')
+          .orderBy('sortOrder').get();
+      final sources = snapshot.docs.map((doc) => BusTimetableRoute(
+        id: doc.id,
+        name: doc.data()['name'] as String? ?? '名称未設定',
+        entries: copyBusDepartures(
+          List<BusDepartureData>.from(doc.data()['timeEntries'] as List? ?? []),
         ),
-      ],
+      )).toList();
+      final route = sources.firstWhere((item) => item.id == routeDoc.id);
+      validateBusDepartures(route.entries);
+      if (!mounted) return;
+      final saved = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => BusTimetableEditorScreen(
+          route: route,
+          sources: sources,
+          initialDayType: dayType ?? _scheduleDayType,
+          onSave: (updated) => _saveTimetable(route.id, route.entries, updated),
+        )),
+      );
+      if (saved == true && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ダイヤを保存しました')),
+        );
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error is FormatException
+            ? error.message
+            : 'ダイヤを読み込めませんでした。再読み込みしてお試しください。')),
+      );
+    } finally {
+      if (mounted) setState(() => _openingTimetable = false);
+    }
+  }
+
+  Future<void> _saveTimetable(
+    String routeId, List<BusDepartureData> original, List<BusDepartureData> updated,
+  ) async {
+    await BusTimetableAdminService(FirebaseFirestore.instance).save(
+      routeId: routeId,
+      original: original,
+      updated: updated,
+      updatedBy: FirebaseAuth.instance.currentUser?.uid ?? '',
     );
+    if (mounted) {
+      ref.invalidate(busInformationProvider);
+      ref.invalidate(busInformationStreamProvider);
+    }
   }
 
   Future<void> _openHomeRemarkEditorFromAppBar() async {
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('bus_information')
-          .doc('main')
-          .get();
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('bus_information')
+              .doc('main')
+              .get();
       final data = doc.data() ?? <String, dynamic>{};
       final remark = (data['description'] as String?)?.trim() ?? '';
       if (!mounted) return;
       _showEditHomeRemarkDialog(remark);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('備考の読み込みに失敗しました: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('備考の読み込みに失敗しました: $e')));
     }
   }
 
@@ -467,8 +622,8 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
                       Text(
                         '講義期間設定',
                         style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -485,135 +640,83 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
 
   Widget _buildTimetableCard(QueryDocumentSnapshot routeDoc) {
     final route = routeDoc.data() as Map<String, dynamic>;
-    // 対象ダイヤの時刻を抽出
-    final entries = (route['timeEntries'] as List<dynamic>? ?? [])
-        .whereType<Map<String, dynamic>>()
-        .where((e) => (e['dayType'] ?? 'weekday') == _scheduleDayType)
-        .where((e) => _scheduleHideInactive ? (e['isActive'] ?? true) == true : true)
-        .toList()
-      ..sort((a, b) {
-        final ah = (a['hour'] as int?) ?? 0;
-        final am = (a['minute'] as int?) ?? 0;
-        final bh = (b['hour'] as int?) ?? 0;
-        final bm = (b['minute'] as int?) ?? 0;
-        return (ah * 60 + am).compareTo(bh * 60 + bm);
-      });
-
-    // 時毎にグルーピング
-    final Map<int, List<Map<String, dynamic>>> byHour = {};
-    for (final e in entries) {
-      final h = (e['hour'] as int?) ?? 0;
-      (byHour[h] ??= []).add(e);
+    final raw = List<BusDepartureData>.from(route['timeEntries'] as List? ?? []);
+    final entries = raw.asMap().entries.where((item) =>
+        busDepartureDay(item.value) == _scheduleDayType &&
+        (!_scheduleHideInactive || item.value['isActive'] != false)).toList()
+      ..sort((a, b) => busDepartureMinute(a.value).compareTo(busDepartureMinute(b.value)));
+    final byHour = <int, List<MapEntry<int, BusDepartureData>>>{};
+    for (final item in entries) {
+      (byHour[item.value['hour'] as int] ??= []).add(item);
     }
-    final hours = byHour.keys.toList()..sort();
-
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ヘッダー行
-            Row(
+            Text(route['name'] as String? ?? '名称未設定',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text('${busDayLabels[_scheduleDayType]}・${entries.length}便'),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
               children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: _parseColor(route['color'] ?? '#2196F3'),
-                  child: Text(
-                    (route['shortName'] ??
-                            _firstCharacterOrFallback(route['name'], 'B'))
-                        .toString(),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
+                FilledButton.icon(
+                  onPressed: _openingTimetable ? null : () => _openTimetableEditor(routeDoc),
+                  icon: const Icon(Icons.edit_calendar_outlined),
+                  label: const Text('ダイヤを編集'),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        route['name'] ?? '無名路線',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${route['fromStation']} → ${route['toStation']} · ${_labelForDayType(_scheduleDayType)}',
-                        style: TextStyle(color: Colors.grey[700], fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-                TextButton.icon(
+                OutlinedButton.icon(
                   onPressed: () => _showTimeEntryDialog(
                     routeDoc: routeDoc,
-                    initial: {
-                      'hour': (hours.isNotEmpty ? hours.first : 8),
-                      'minute': 0,
-                      'dayType': _scheduleDayType,
-                      'isActive': true,
-                    },
+                    initial: {'dayType': _scheduleDayType, 'isActive': true},
                   ),
                   icon: const Icon(Icons.add),
-                  label: const Text('時刻追加'),
+                  label: const Text('1便追加'),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            // 時刻表グリッド
-            if (hours.isEmpty)
+            const SizedBox(height: 12),
+            if (entries.isEmpty) const Text('この曜日には表示できる便がありません'),
+            for (final group in byHour.entries)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: Text(
-                  'このダイヤの登録時刻はありません',
-                  style: TextStyle(color: Colors.grey[700]),
-                ),
-              )
-            else
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 560),
-                  child: DataTable(
-                    headingTextStyle: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface,
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10, right: 12),
+                      child: Text('${group.key}時',
+                          style: Theme.of(context).textTheme.titleSmall),
                     ),
-                    columns: const [
-                      DataColumn(label: Text('時')),
-                      DataColumn(label: Text('分')),
-                      DataColumn(label: Text('本数')),
-                    ],
-                    rows: hours.map((h) {
-                      final list = byHour[h]!..sort((a, b) => ((a['minute'] ?? 0) as int).compareTo((b['minute'] ?? 0) as int));
-                      return DataRow(
-                        cells: [
-                          DataCell(Text(h.toString().padLeft(2, '0'))),
-                          DataCell(Wrap(
-                            spacing: 6,
-                            runSpacing: -6,
-                            children: list.map((m) {
-                              final mm = (m['minute'] as int?) ?? 0;
-                              final isActive = m['isActive'] as bool? ?? true;
-                              final label = mm.toString().padLeft(2, '0');
-                              final idx = _findTimeEntryIndex(route, h, mm, _scheduleDayType);
-                              return InputChip(
-                                label: Text(label),
-                                selected: isActive,
-                                onPressed: idx != null
-                                    ? () => _showTimeEntryDialog(routeDoc: routeDoc, index: idx, initial: m)
-                                    : null,
-                                onDeleted: idx != null ? () => _deleteTimeEntry(routeDoc, idx) : null,
-                                deleteIcon: const Icon(Icons.close, size: 16),
-                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              );
-                            }).toList(),
-                          )),
-                          DataCell(Text('${list.length}')),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final item in group.value)
+                            Tooltip(
+                              message: item.value['note'] as String? ?? 'タップして編集',
+                              child: ActionChip(
+                                label: Text(
+                                  '${(item.value['minute'] as int).toString().padLeft(2, '0')}'
+                                  '${item.value['isActive'] == false ? ' 運休' : ''}',
+                                ),
+                                onPressed: () => _showTimeEntryDialog(
+                                  routeDoc: routeDoc,
+                                  index: item.key,
+                                  initial: item.value,
+                                ),
+                              ),
+                            ),
                         ],
-                      );
-                    }).toList(),
-                  ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
           ],
@@ -622,18 +725,6 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
     );
   }
 
-  int? _findTimeEntryIndex(Map<String, dynamic> routeData, int hour, int minute, String dayType) {
-    final entries = (routeData['timeEntries'] as List<dynamic>? ?? [])
-        .whereType<Map<String, dynamic>>()
-        .toList();
-    for (int i = 0; i < entries.length; i++) {
-      final e = entries[i];
-      if ((e['hour'] ?? -1) == hour && (e['minute'] ?? -1) == minute && (e['dayType'] ?? 'weekday') == dayType) {
-        return i;
-      }
-    }
-    return null;
-  }
 
   Widget _buildOperationStatus() {
     return Column(
@@ -648,9 +739,15 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.info, color: Colors.orange),
+                       Icon(Icons.info, color: AppColors.accent(context, Colors.orange)),
                       const SizedBox(width: 8),
-                      const Text('運行状況管理', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Text(
+                        '運行状況管理',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const Spacer(),
                       IconButton(
                         icon: const Icon(Icons.add_alert),
@@ -672,19 +769,22 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
         ),
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('bus_information')
-                .doc('main')
-                .collection('operation_status')
-                .orderBy('createdAt', descending: true)
-                .limit(50)
-                .snapshots(),
+            stream:
+                FirebaseFirestore.instance
+                    .collection('bus_information')
+                    .doc('main')
+                    .collection('operation_status')
+                    .orderBy('createdAt', descending: true)
+                    .limit(50)
+                    .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError) {
-                return _buildErrorWidget('運行状況データの読み込みに失敗しました: ${snapshot.error}');
+                return _buildErrorWidget(
+                  '運行状況データの読み込みに失敗しました: ${snapshot.error}',
+                );
               }
               final statuses = snapshot.data?.docs ?? [];
               if (statuses.isEmpty) {
@@ -719,15 +819,23 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              Icon(Icons.schedule, size: 14, color: Colors.grey[600]),
+                              Icon(
+                                Icons.schedule,
+                                size: 14,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 _formatDateTime(
                                   (statusData['createdAt'] is Timestamp)
-                                      ? (statusData['createdAt'] as Timestamp).toDate()
+                                      ? (statusData['createdAt'] as Timestamp)
+                                          .toDate()
                                       : DateTime.now(),
                                 ),
-                                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  fontSize: 12,
+                                ),
                               ),
                               const Spacer(),
                               _buildStatusTypeChip(type),
@@ -736,15 +844,29 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
                         ],
                       ),
                       trailing: PopupMenuButton<String>(
-                        onSelected: (action) => _handleOperationStatusAction(action, statusDoc),
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(value: 'edit', child: Text('編集')),
-                          PopupMenuItem(
-                            value: statusData['isActive'] == true ? 'deactivate' : 'activate',
-                            child: Text(statusData['isActive'] == true ? '非表示' : '表示'),
-                          ),
-                          const PopupMenuItem(value: 'delete', child: Text('削除')),
-                        ],
+                        onSelected:
+                            (action) =>
+                                _handleOperationStatusAction(action, statusDoc),
+                        itemBuilder:
+                            (context) => [
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Text('編集'),
+                              ),
+                              PopupMenuItem(
+                                value:
+                                    statusData['isActive'] == true
+                                        ? 'deactivate'
+                                        : 'activate',
+                                child: Text(
+                                  statusData['isActive'] == true ? '非表示' : '表示',
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Text('削除'),
+                              ),
+                            ],
                       ),
                     ),
                   );
@@ -778,10 +900,11 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
 
   Widget _buildHomeRemarkEditor() {
     return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('bus_information')
-          .doc('main')
-          .snapshots(),
+      stream:
+          FirebaseFirestore.instance
+              .collection('bus_information')
+              .doc('main')
+              .snapshots(),
       builder: (context, snapshot) {
         final data = snapshot.data?.data() as Map<String, dynamic>? ?? {};
         final remark = (data['description'] as String?)?.trim() ?? '';
@@ -792,7 +915,7 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerLowest,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+            border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -816,7 +939,7 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
               Text(
                 remark.isEmpty ? '未設定（ホームには表示されません）' : remark,
                 style: TextStyle(
-                  color: remark.isEmpty ? Colors.grey[600] : null,
+                  color: remark.isEmpty ? Theme.of(context).colorScheme.onSurfaceVariant : null,
                 ),
               ),
             ],
@@ -828,7 +951,10 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
 
   Widget _buildLecturePeriodEditor() {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.doc('app_settings/lecture_period').snapshots(),
+      stream:
+          FirebaseFirestore.instance
+              .doc('app_settings/lecture_period')
+              .snapshots(),
       builder: (context, snapshot) {
         final data = snapshot.data?.data();
         if (data != null &&
@@ -836,9 +962,11 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
             _springEndDate == null &&
             _fallStartDate == null &&
             _fallEndDate == null) {
-          _springStartDate = (data['springStartDate'] as Timestamp?)?.toDate() ??
+          _springStartDate =
+              (data['springStartDate'] as Timestamp?)?.toDate() ??
               (data['lectureStartDate'] as Timestamp?)?.toDate();
-          _springEndDate = (data['springEndDate'] as Timestamp?)?.toDate() ??
+          _springEndDate =
+              (data['springEndDate'] as Timestamp?)?.toDate() ??
               (data['lectureEndDate'] as Timestamp?)?.toDate();
           _fallStartDate = (data['fallStartDate'] as Timestamp?)?.toDate();
           _fallEndDate = (data['fallEndDate'] as Timestamp?)?.toDate();
@@ -850,7 +978,7 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerLowest,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+            border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -886,13 +1014,14 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
                 width: double.infinity,
                 child: FilledButton.icon(
                   onPressed: _isSavingLecturePeriod ? null : _saveLecturePeriod,
-                  icon: _isSavingLecturePeriod
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.save),
+                  icon:
+                      _isSavingLecturePeriod
+                          ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : const Icon(Icons.save),
                   label: Text(_isSavingLecturePeriod ? '保存中...' : '講義期間を保存'),
                 ),
               ),
@@ -914,7 +1043,7 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
         Expanded(
           child: Text(
             '$label: ${_formatDateRange(start, end)}',
-            style: TextStyle(color: Colors.grey[800], fontSize: 13),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
           ),
         ),
         TextButton(onPressed: onEdit, child: const Text('編集')),
@@ -929,102 +1058,110 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
 
     await showDialog<void>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: Text('${isSpring ? '前期' : '後期'}の講義期間を編集'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              OutlinedButton.icon(
-                icon: const Icon(Icons.play_arrow),
-                label: Text('開始日: ${localStart != null ? _formatDate(localStart!) : '未設定'}'),
-                onPressed: () async {
-                  final picked = await showDatePicker(
-                    context: ctx,
-                    initialDate: localStart ?? now,
-                    firstDate: DateTime(now.year - 2, 1, 1),
-                    lastDate: DateTime(now.year + 3, 12, 31),
-                  );
-                  if (picked == null) return;
-                  setDialogState(() {
-                    localStart = picked;
-                    if (localEnd != null && localEnd!.isBefore(localStart!)) {
-                      localEnd = localStart;
-                    }
-                  });
-                },
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.stop),
-                label: Text('終了日: ${localEnd != null ? _formatDate(localEnd!) : '未設定'}'),
-                onPressed: () async {
-                  final picked = await showDatePicker(
-                    context: ctx,
-                    initialDate: localEnd ?? (localStart ?? now),
-                    firstDate: DateTime(now.year - 2, 1, 1),
-                    lastDate: DateTime(now.year + 3, 12, 31),
-                  );
-                  if (picked == null) return;
-                  setDialogState(() => localEnd = picked);
-                },
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _formatDateRange(localStart, localEnd),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+      builder:
+          (ctx) => StatefulBuilder(
+            builder:
+                (ctx, setDialogState) => AlertDialog(
+                  title: Text('${isSpring ? '前期' : '後期'}の講義期間を編集'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.play_arrow),
+                        label: Text(
+                          '開始日: ${localStart != null ? _formatDate(localStart!) : '未設定'}',
+                        ),
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: ctx,
+                            initialDate: localStart ?? now,
+                            firstDate: DateTime(now.year - 2, 1, 1),
+                            lastDate: DateTime(now.year + 3, 12, 31),
+                          );
+                          if (picked == null) return;
+                          setDialogState(() {
+                            localStart = picked;
+                            if (localEnd != null &&
+                                localEnd!.isBefore(localStart!)) {
+                              localEnd = localStart;
+                            }
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.stop),
+                        label: Text(
+                          '終了日: ${localEnd != null ? _formatDate(localEnd!) : '未設定'}',
+                        ),
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: ctx,
+                            initialDate: localEnd ?? (localStart ?? now),
+                            firstDate: DateTime(now.year - 2, 1, 1),
+                            lastDate: DateTime(now.year + 3, 12, 31),
+                          );
+                          if (picked == null) return;
+                          setDialogState(() => localEnd = picked);
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _formatDateRange(localStart, localEnd),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('キャンセル'),
+                    ),
+                    FilledButton(
+                      onPressed: () {
+                        setState(() {
+                          if (isSpring) {
+                            _springStartDate = localStart;
+                            _springEndDate = localEnd;
+                          } else {
+                            _fallStartDate = localStart;
+                            _fallEndDate = localEnd;
+                          }
+                        });
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text('反映'),
+                    ),
+                  ],
+                ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('キャンセル'),
-            ),
-            FilledButton(
-              onPressed: () {
-                setState(() {
-                  if (isSpring) {
-                    _springStartDate = localStart;
-                    _springEndDate = localEnd;
-                  } else {
-                    _fallStartDate = localStart;
-                    _fallEndDate = localEnd;
-                  }
-                });
-                Navigator.pop(ctx);
-              },
-              child: const Text('反映'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
   Future<void> _saveLecturePeriod() async {
-    final hasOnlySpringOne = (_springStartDate == null) != (_springEndDate == null);
+    final hasOnlySpringOne =
+        (_springStartDate == null) != (_springEndDate == null);
     final hasOnlyFallOne = (_fallStartDate == null) != (_fallEndDate == null);
     if (hasOnlySpringOne || hasOnlyFallOne) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('各学期は開始日と終了日をセットで設定してください')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('各学期は開始日と終了日をセットで設定してください')));
       return;
     }
     if (_springStartDate != null &&
         _springEndDate != null &&
         _springStartDate!.isAfter(_springEndDate!)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('前期の終了日は開始日以降にしてください')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('前期の終了日は開始日以降にしてください')));
       return;
     }
     if (_fallStartDate != null &&
         _fallEndDate != null &&
         _fallStartDate!.isAfter(_fallEndDate!)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('後期の終了日は開始日以降にしてください')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('後期の終了日は開始日以降にしてください')));
       return;
     }
 
@@ -1038,14 +1175,14 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
         updatedBy: FirebaseAuth.instance.currentUser?.uid,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('講義期間を保存しました')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('講義期間を保存しました')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('講義期間の保存に失敗しました: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('講義期間の保存に失敗しました: $e')));
     } finally {
       if (mounted) setState(() => _isSavingLecturePeriod = false);
     }
@@ -1055,50 +1192,51 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
     final controller = TextEditingController(text: currentRemark);
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('ホーム表示の備考を編集'),
-        content: TextField(
-          controller: controller,
-          maxLines: 4,
-          decoration: const InputDecoration(
-            labelText: '備考（ホーム表示）',
-            border: OutlineInputBorder(),
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('ホーム表示の備考を編集'),
+            content: TextField(
+              controller: controller,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: '備考（ホーム表示）',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('キャンセル'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final user = FirebaseAuth.instance.currentUser;
+                  await FirebaseFirestore.instance
+                      .collection('bus_information')
+                      .doc('main')
+                      .set({
+                        'description': controller.text.trim(),
+                        'updatedAt': FieldValue.serverTimestamp(),
+                        'updatedBy': user?.displayName ?? user?.email ?? '管理者',
+                      }, SetOptions(merge: true));
+                  if (context.mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(const SnackBar(content: Text('備考を保存しました')));
+                  }
+                },
+                child: const Text('保存'),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('キャンセル'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final user = FirebaseAuth.instance.currentUser;
-              await FirebaseFirestore.instance
-                  .collection('bus_information')
-                  .doc('main')
-                  .set({
-                'description': controller.text.trim(),
-                'updatedAt': FieldValue.serverTimestamp(),
-                'updatedBy': user?.displayName ?? user?.email ?? '管理者',
-              }, SetOptions(merge: true));
-              if (context.mounted) {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('備考を保存しました')),
-                );
-              }
-            },
-            child: const Text('保存'),
-          ),
-        ],
-      ),
     );
   }
 
   Widget _buildStatusChip(String status) {
     Color color;
     String label;
-    
+
     switch (status) {
       case 'active':
         color = Colors.green;
@@ -1116,13 +1254,13 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
         color = Colors.grey;
         label = '不明';
     }
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         label,
@@ -1138,7 +1276,7 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
   Widget _buildStatusTypeChip(String type) {
     Color color;
     String label;
-    
+
     switch (type) {
       case 'delay':
         color = Colors.orange;
@@ -1157,13 +1295,13 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
         color = Colors.green;
         label = 'お知らせ';
     }
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         label,
@@ -1181,14 +1319,11 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, size: 64, color: Colors.red),
+           Icon(Icons.error_outline, size: 64, color: AppColors.accent(context, Colors.red)),
           const SizedBox(height: 16),
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: _refreshData,
-            child: const Text('再試行'),
-          ),
+          ElevatedButton(onPressed: _refreshData, child: const Text('再試行')),
         ],
       ),
     );
@@ -1199,20 +1334,20 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 64, color: Colors.grey[400]),
+          Icon(icon, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
           const SizedBox(height: 16),
           Text(
             title,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Colors.grey[600],
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 8),
           Text(
             subtitle,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.grey[500],
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -1268,7 +1403,9 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
     if (operatingDays is List) {
       if (operatingDays.length == 7) {
         return '毎日';
-      } else if (operatingDays.length == 5 && !operatingDays.contains(0) && !operatingDays.contains(6)) {
+      } else if (operatingDays.length == 5 &&
+          !operatingDays.contains(0) &&
+          !operatingDays.contains(6)) {
         return '平日のみ';
       } else {
         final dayNames = ['日', '月', '火', '水', '木', '金', '土'];
@@ -1314,35 +1451,27 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
         .orderBy('sortOrder')
         .get()
         .then((snapshot) async {
-      final docs = snapshot.docs;
-      if (oldIndex < 0 || oldIndex >= docs.length || newIndex < 0 || newIndex >= docs.length) return;
-      final moved = docs.removeAt(oldIndex);
-      docs.insert(newIndex, moved);
-      final batch = FirebaseFirestore.instance.batch();
-      for (int i = 0; i < docs.length; i++) {
-        batch.update(docs[i].reference, {'sortOrder': i, 'updatedAt': FieldValue.serverTimestamp()});
-      }
-      await batch.commit();
-    });
+          final docs = snapshot.docs;
+          if (oldIndex < 0 ||
+              oldIndex >= docs.length ||
+              newIndex < 0 ||
+              newIndex >= docs.length)
+            return;
+          final moved = docs.removeAt(oldIndex);
+          docs.insert(newIndex, moved);
+          final batch = FirebaseFirestore.instance.batch();
+          for (int i = 0; i < docs.length; i++) {
+            batch.update(docs[i].reference, {
+              'sortOrder': i,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+          }
+          await batch.commit();
+        });
   }
 
   void _addBusRoute() {
     _showRouteDialog();
-  }
-
-  void _addSchedule() {}
-
-  void _showBulkAddRoutesDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('路線の一括追加'),
-        content: const Text('一括追加機能は未実装です。今後の更新で対応予定です。'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('閉じる')),
-        ],
-      ),
-    );
   }
 
   void _addOperationNotice() {
@@ -1369,18 +1498,10 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
     }
   }
 
-  void _handleScheduleAction(String action, QueryDocumentSnapshot scheduleDoc) {
-    switch (action) {
-      case 'edit':
-        _showScheduleDialog(scheduleDoc: scheduleDoc);
-        break;
-      case 'delete':
-        _deleteSchedule(scheduleDoc);
-        break;
-    }
-  }
-
-  void _handleOperationStatusAction(String action, QueryDocumentSnapshot statusDoc) {
+  void _handleOperationStatusAction(
+    String action,
+    QueryDocumentSnapshot statusDoc,
+  ) {
     switch (action) {
       case 'edit':
         _showOperationStatusDialog(statusDoc: statusDoc);
@@ -1417,182 +1538,218 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
       text: _normalizeHexColor(data['color'] as String?),
     );
     bool isActive = data['isActive'] ?? true;
-    DateTime? startDate = (data['startDate'] is Timestamp)
-        ? (data['startDate'] as Timestamp).toDate()
-        : null;
-    DateTime? endDate = (data['endDate'] is Timestamp)
-        ? (data['endDate'] as Timestamp).toDate()
-        : null;
+    DateTime? startDate =
+        (data['startDate'] is Timestamp)
+            ? (data['startDate'] as Timestamp).toDate()
+            : null;
+    DateTime? endDate =
+        (data['endDate'] is Timestamp)
+            ? (data['endDate'] as Timestamp).toDate()
+            : null;
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setStateDialog) => AlertDialog(
-          title: Text(isEdit ? '路線を編集' : '路線を追加'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: '路線名')),
-                TextField(controller: fromCtrl, decoration: const InputDecoration(labelText: '出発')),
-                TextField(controller: toCtrl, decoration: const InputDecoration(labelText: '到着')),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: colorCtrl,
-                  textCapitalization: TextCapitalization.characters,
-                  decoration: InputDecoration(
-                    labelText: 'カード色 (HEX)',
-                    hintText: '#2196F3',
-                    prefixIcon: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: CircleAvatar(
-                        radius: 10,
-                        backgroundColor: _parseColor(
-                          _normalizeHexColor(colorCtrl.text),
+      builder:
+          (ctx) => StatefulBuilder(
+            builder:
+                (ctx, setStateDialog) => AlertDialog(
+                  title: Text(isEdit ? '路線を編集' : '路線を追加'),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(
+                          controller: nameCtrl,
+                          decoration: const InputDecoration(labelText: '路線名'),
                         ),
-                      ),
+                        TextField(
+                          controller: fromCtrl,
+                          decoration: const InputDecoration(labelText: '出発'),
+                        ),
+                        TextField(
+                          controller: toCtrl,
+                          decoration: const InputDecoration(labelText: '到着'),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: colorCtrl,
+                          textCapitalization: TextCapitalization.characters,
+                          decoration: InputDecoration(
+                            labelText: 'カード色 (HEX)',
+                            hintText: '#2196F3',
+                            prefixIcon: Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: CircleAvatar(
+                                radius: 10,
+                                backgroundColor: _parseColor(
+                                  _normalizeHexColor(colorCtrl.text),
+                                ),
+                              ),
+                            ),
+                            suffixIcon: IconButton(
+                              tooltip: 'デフォルト色に戻す',
+                              onPressed: () {
+                                setStateDialog(() {
+                                  colorCtrl.text = '#2196F3';
+                                });
+                              },
+                              icon: const Icon(Icons.refresh),
+                            ),
+                            helperText: '#RRGGBB 形式で入力',
+                            border: const OutlineInputBorder(),
+                          ),
+                          onChanged: (_) => setStateDialog(() {}),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children:
+                              presetColors.map((hex) {
+                                final selected =
+                                    _normalizeHexColor(colorCtrl.text) == hex;
+                                return ChoiceChip(
+                                  label: Text(
+                                    hex,
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                  selected: selected,
+                                  avatar: CircleAvatar(
+                                    radius: 8,
+                                    backgroundColor: _parseColor(hex),
+                                  ),
+                                  onSelected: (_) {
+                                    setStateDialog(() {
+                                      colorCtrl.text = hex;
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                icon: const Icon(Icons.event),
+                                label: Text(
+                                  startDate != null
+                                      ? _formatDate(startDate!)
+                                      : '開始日 未設定',
+                                ),
+                                onPressed: () async {
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: startDate ?? DateTime.now(),
+                                    firstDate: DateTime(2020),
+                                    lastDate: DateTime(2100),
+                                  );
+                                  if (picked != null) {
+                                    setStateDialog(() {
+                                      startDate = picked;
+                                      if (endDate != null &&
+                                          endDate!.isBefore(startDate!)) {
+                                        endDate = startDate;
+                                      }
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                icon: const Icon(Icons.event),
+                                label: Text(
+                                  endDate != null
+                                      ? _formatDate(endDate!)
+                                      : '終了日 未設定',
+                                ),
+                                onPressed: () async {
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate:
+                                        endDate ??
+                                        (startDate ?? DateTime.now()),
+                                    firstDate: DateTime(2020),
+                                    lastDate: DateTime(2100),
+                                  );
+                                  if (picked != null) {
+                                    setStateDialog(() {
+                                      endDate = picked;
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            _formatDateRange(startDate, endDate),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                        SwitchListTile(
+                          value: isActive,
+                          onChanged: (v) => setStateDialog(() => isActive = v),
+                          title: const Text('有効'),
+                        ),
+                      ],
                     ),
-                    suffixIcon: IconButton(
-                      tooltip: 'デフォルト色に戻す',
-                      onPressed: () {
-                        setStateDialog(() {
-                          colorCtrl.text = '#2196F3';
-                        });
-                      },
-                      icon: const Icon(Icons.refresh),
-                    ),
-                    helperText: '#RRGGBB 形式で入力',
-                    border: const OutlineInputBorder(),
                   ),
-                  onChanged: (_) => setStateDialog(() {}),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children:
-                      presetColors.map((hex) {
-                        final selected =
-                            _normalizeHexColor(colorCtrl.text) == hex;
-                        return ChoiceChip(
-                          label: Text(
-                            hex,
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                          selected: selected,
-                          avatar: CircleAvatar(
-                            radius: 8,
-                            backgroundColor: _parseColor(hex),
-                          ),
-                          onSelected: (_) {
-                            setStateDialog(() {
-                              colorCtrl.text = hex;
-                            });
-                          },
-                        );
-                      }).toList(),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.event)
-                        , label: Text(startDate != null ? _formatDate(startDate!) : '開始日 未設定'),
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: startDate ?? DateTime.now(),
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime(2100),
-                          );
-                          if (picked != null) {
-                            setStateDialog(() {
-                              startDate = picked;
-                              if (endDate != null && endDate!.isBefore(startDate!)) {
-                                endDate = startDate;
-                              }
-                            });
-                          }
-                        },
-                      ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('キャンセル'),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.event)
-                        , label: Text(endDate != null ? _formatDate(endDate!) : '終了日 未設定'),
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: endDate ?? (startDate ?? DateTime.now()),
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime(2100),
-                          );
-                          if (picked != null) {
-                            setStateDialog(() {
-                              endDate = picked;
-                            });
-                          }
-                        },
-                      ),
+                    FilledButton(
+                      onPressed: () async {
+                        final col = FirebaseFirestore.instance
+                            .collection('bus_information')
+                            .doc('main')
+                            .collection('bus_routes');
+                        final payload = {
+                          'name': nameCtrl.text.trim(),
+                          'fromStation': fromCtrl.text.trim(),
+                          'toStation': toCtrl.text.trim(),
+                          'color': _normalizeHexColor(colorCtrl.text),
+                          'isActive': isActive,
+                          'startDate':
+                              startDate != null
+                                  ? Timestamp.fromDate(startDate!)
+                                  : null,
+                          'endDate':
+                              endDate != null
+                                  ? Timestamp.fromDate(endDate!)
+                                  : null,
+                          'updatedAt': FieldValue.serverTimestamp(),
+                        }..removeWhere(
+                          (k, v) =>
+                              v == null && (k == 'startDate' || k == 'endDate'),
+                        );
+
+                        if (isEdit) {
+                          await routeDoc.reference.update(payload);
+                        } else {
+                          final current = await col.orderBy('sortOrder').get();
+                          final sortOrder = current.docs.length;
+                          await col.add({
+                            ...payload,
+                            'sortOrder': sortOrder,
+                            'timeEntries': [],
+                            'createdAt': FieldValue.serverTimestamp(),
+                          });
+                        }
+                        if (context.mounted) Navigator.pop(ctx);
+                      },
+                      child: Text(isEdit ? '更新' : '追加'),
                     ),
                   ],
                 ),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    _formatDateRange(startDate, endDate),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-                SwitchListTile(
-                  value: isActive,
-                  onChanged: (v) => setStateDialog(() => isActive = v),
-                  title: const Text('有効'),
-                ),
-              ],
-            ),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
-            FilledButton(
-              onPressed: () async {
-                final col = FirebaseFirestore.instance
-                    .collection('bus_information').doc('main').collection('bus_routes');
-                final payload = {
-                  'name': nameCtrl.text.trim(),
-                  'fromStation': fromCtrl.text.trim(),
-                  'toStation': toCtrl.text.trim(),
-                  'color': _normalizeHexColor(colorCtrl.text),
-                  'isActive': isActive,
-                  'startDate': startDate != null ? Timestamp.fromDate(startDate!) : null,
-                  'endDate': endDate != null ? Timestamp.fromDate(endDate!) : null,
-                  'updatedAt': FieldValue.serverTimestamp(),
-                }..removeWhere((k, v) => v == null && (k == 'startDate' || k == 'endDate'));
-
-                if (isEdit) {
-                  await routeDoc!.reference.update(payload);
-                } else {
-                  final current = await col.orderBy('sortOrder').get();
-                  final sortOrder = current.docs.length;
-                  await col.add({
-                    ...payload,
-                    'sortOrder': sortOrder,
-                    'timeEntries': [],
-                    'createdAt': FieldValue.serverTimestamp(),
-                  });
-                }
-                if (context.mounted) Navigator.pop(ctx);
-              },
-              child: Text(isEdit ? '更新' : '追加'),
-            ),
-          ],
-        ),
-      ),
     );
   }
-
-  void _showScheduleDialog({QueryDocumentSnapshot? scheduleDoc}) {}
 
   void _showOperationStatusDialog({QueryDocumentSnapshot? statusDoc}) {
     final isEdit = statusDoc != null;
@@ -1603,56 +1760,73 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
     bool isActive = data['isActive'] ?? true;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(isEdit ? '運行情報を編集' : '運行情報を追加'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'タイトル')),
-              TextField(controller: msgCtrl, decoration: const InputDecoration(labelText: 'メッセージ'), maxLines: 3),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: type,
-                items: const [
-                  DropdownMenuItem(value: 'info', child: Text('通常')),
-                  DropdownMenuItem(value: 'delay', child: Text('遅延')),
-                  DropdownMenuItem(value: 'suspend', child: Text('運休')),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(isEdit ? '運行情報を編集' : '運行情報を追加'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: titleCtrl,
+                    decoration: const InputDecoration(labelText: 'タイトル'),
+                  ),
+                  TextField(
+                    controller: msgCtrl,
+                    decoration: const InputDecoration(labelText: 'メッセージ'),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    initialValue: type,
+                    items: const [
+                      DropdownMenuItem(value: 'info', child: Text('通常')),
+                      DropdownMenuItem(value: 'delay', child: Text('遅延')),
+                      DropdownMenuItem(value: 'suspend', child: Text('運休')),
+                    ],
+                    onChanged: (v) => type = v ?? 'info',
+                    decoration: const InputDecoration(labelText: '種別'),
+                  ),
+                  SwitchListTile(
+                    value: isActive,
+                    onChanged: (v) => isActive = v,
+                    title: const Text('表示する'),
+                  ),
                 ],
-                onChanged: (v) => type = v ?? 'info',
-                decoration: const InputDecoration(labelText: '種別'),
               ),
-              SwitchListTile(value: isActive, onChanged: (v) => isActive = v, title: const Text('表示する')),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('キャンセル'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final col = FirebaseFirestore.instance
+                      .collection('bus_information')
+                      .doc('main')
+                      .collection('operation_status');
+                  final payload = {
+                    'title': titleCtrl.text.trim(),
+                    'message': msgCtrl.text.trim(),
+                    'type': type,
+                    'isActive': isActive,
+                    'updatedAt': FieldValue.serverTimestamp(),
+                  };
+                  if (isEdit) {
+                    await statusDoc.reference.update(payload);
+                  } else {
+                    await col.add({
+                      ...payload,
+                      'createdAt': FieldValue.serverTimestamp(),
+                    });
+                  }
+                  if (context.mounted) Navigator.pop(ctx);
+                },
+                child: Text(isEdit ? '更新' : '追加'),
+              ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
-          FilledButton(
-            onPressed: () async {
-              final col = FirebaseFirestore.instance
-                  .collection('bus_information').doc('main').collection('operation_status');
-              final payload = {
-                'title': titleCtrl.text.trim(),
-                'message': msgCtrl.text.trim(),
-                'type': type,
-                'isActive': isActive,
-                'updatedAt': FieldValue.serverTimestamp(),
-              };
-              if (isEdit) {
-                await statusDoc!.reference.update(payload);
-              } else {
-                await col.add({
-                  ...payload,
-                  'createdAt': FieldValue.serverTimestamp(),
-                });
-              }
-              if (context.mounted) Navigator.pop(ctx);
-            },
-            child: Text(isEdit ? '更新' : '追加'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1660,7 +1834,9 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
     try {
       final data = routeDoc.data() as Map<String, dynamic>;
       final col = FirebaseFirestore.instance
-          .collection('bus_information').doc('main').collection('bus_routes');
+          .collection('bus_information')
+          .doc('main')
+          .collection('bus_routes');
       final current = await col.orderBy('sortOrder').get();
       final sortOrder = current.docs.length;
       await col.add({
@@ -1670,107 +1846,103 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('路線を複製しました')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('路線を複製しました')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('複製に失敗しました: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('複製に失敗しました: $e')));
     }
   }
 
-  Future<void> _updateRouteStatus(QueryDocumentSnapshot routeDoc, String status) async {
+  Future<void> _updateRouteStatus(
+    QueryDocumentSnapshot routeDoc,
+    String status,
+  ) async {
     try {
       await routeDoc.reference.update({
         'status': status,
         'updatedAt': FieldValue.serverTimestamp(),
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('路線を${status == 'active' ? '運行開始' : '運行停止'}しました')),
+        SnackBar(
+          content: Text('路線を${status == 'active' ? '運行開始' : '運行停止'}しました'),
+        ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('更新に失敗しました: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('更新に失敗しました: $e')));
     }
   }
 
   Future<void> _deleteRoute(QueryDocumentSnapshot routeDoc) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('路線削除'),
-        content: const Text('この路線を削除しますか？関連する時刻表も削除されます。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('キャンセル'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('路線削除'),
+            content: const Text('この路線を削除しますか？関連する時刻表も削除されます。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('キャンセル'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: FilledButton.styleFrom(foregroundColor: AppColors.onColor(Colors.red), backgroundColor: Colors.red),
+                child: const Text('削除'),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('削除'),
-          ),
-        ],
-      ),
     );
 
     if (confirmed == true) {
       try {
         await routeDoc.reference.delete();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('路線を削除しました')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('路線を削除しました')));
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('削除に失敗しました: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
       }
     }
   }
 
-  Future<void> _deleteSchedule(QueryDocumentSnapshot scheduleDoc) async {
-    try {
-      await scheduleDoc.reference.delete();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('時刻を削除しました')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('削除に失敗しました: $e')),
-      );
-    }
-  }
-
-  Future<void> _updateOperationStatusVisibility(QueryDocumentSnapshot statusDoc, bool isActive) async {
+  Future<void> _updateOperationStatusVisibility(
+    QueryDocumentSnapshot statusDoc,
+    bool isActive,
+  ) async {
     try {
       await statusDoc.reference.update({
         'isActive': isActive,
         'updatedAt': FieldValue.serverTimestamp(),
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('運行状況を${isActive ? '表示' : '非表示'}にしました')),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('更新に失敗しました: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('更新に失敗しました: $e')));
     }
   }
 
   Future<void> _deleteOperationStatus(QueryDocumentSnapshot statusDoc) async {
     try {
       await statusDoc.reference.delete();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('運行状況を削除しました')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('運行状況を削除しました')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('削除に失敗しました: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
     }
   }
 
@@ -1786,13 +1958,6 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
     }
   }
 
-  String _suggestTodayDayType() {
-    final wd = DateTime.now().weekday;
-    if (wd == DateTime.saturday) return 'saturday';
-    if (wd == DateTime.sunday) return 'sunday';
-    return 'weekday';
-  }
-
   Color _getDarkerShade(Color color) {
     // Create a darker shade of the color (similar to shade700)
     final hsl = HSLColor.fromColor(color);
@@ -1801,24 +1966,24 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
 
   List<Widget> _buildTimeEntries(QueryDocumentSnapshot routeDoc) {
     final routeData = routeDoc.data() as Map<String, dynamic>;
-    final entries = (routeData['timeEntries'] as List<dynamic>? ?? [])
-        .whereType<Map<String, dynamic>>()
-        .toList()
-      ..sort((a, b) {
-        final ah = (a['hour'] as int?) ?? 0;
-        final am = (a['minute'] as int?) ?? 0;
-        final bh = (b['hour'] as int?) ?? 0;
-        final bm = (b['minute'] as int?) ?? 0;
-        return (ah * 60 + am).compareTo(bh * 60 + bm);
-      });
+    final entries =
+        (routeData['timeEntries'] as List<dynamic>? ?? [])
+            .whereType<Map<String, dynamic>>()
+            .toList()
+            .asMap().entries.toList()
+          ..sort((a, b) {
+            final ah = (a.value['hour'] as int?) ?? 0;
+            final am = (a.value['minute'] as int?) ?? 0;
+            final bh = (b.value['hour'] as int?) ?? 0;
+            final bm = (b.value['minute'] as int?) ?? 0;
+            return (ah * 60 + am).compareTo(bh * 60 + bm);
+          });
 
     if (entries.isEmpty) {
-      return [
-        const Text('時刻が登録されていません'),
-      ];
+      return [const Text('時刻が登録されていません')];
     }
 
-    return entries.asMap().entries.map((e) {
+    return entries.map((e) {
       final idx = e.key;
       final m = e.value;
       final hh = (m['hour'] as int?) ?? 0;
@@ -1826,28 +1991,44 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
       final note = m['note'] as String?;
       final isActive = m['isActive'] as bool? ?? true;
       final dayType = (m['dayType'] as String?) ?? 'weekday';
-      final timeStr = '${hh.toString().padLeft(2, '0')}:${mm.toString().padLeft(2, '0')}';
+      final timeStr =
+          '${hh.toString().padLeft(2, '0')}:${mm.toString().padLeft(2, '0')}';
       return ListTile(
         dense: true,
-        leading: Icon(isActive ? Icons.schedule : Icons.schedule_outlined, color: isActive ? Colors.blue : Colors.grey),
+        leading: Icon(
+          isActive ? Icons.schedule : Icons.schedule_outlined,
+          color: isActive ? Colors.blue : Colors.grey,
+        ),
         title: Text(timeStr),
-        subtitle: Text([
-          _labelForDayType(dayType),
-          if (note != null && note.isNotEmpty) note,
-        ].join(' | ')),
+        subtitle: Text(
+          [
+            _labelForDayType(dayType),
+            if (note != null && note.isNotEmpty) note,
+          ].join(' | '),
+        ),
         trailing: PopupMenuButton<String>(
-          onSelected: (action) => _handleTimeEntryAction(action, routeDoc, idx, m),
-          itemBuilder: (context) => [
-            const PopupMenuItem(value: 'edit', child: Text('編集')),
-            PopupMenuItem(value: isActive ? 'deactivate' : 'activate', child: Text(isActive ? '無効化' : '有効化')),
-            const PopupMenuItem(value: 'delete', child: Text('削除')),
-          ],
+          onSelected:
+              (action) => _handleTimeEntryAction(action, routeDoc, idx, m),
+          itemBuilder:
+              (context) => [
+                const PopupMenuItem(value: 'edit', child: Text('編集')),
+                PopupMenuItem(
+                  value: isActive ? 'deactivate' : 'activate',
+                  child: Text(isActive ? '無効化' : '有効化'),
+                ),
+                const PopupMenuItem(value: 'delete', child: Text('削除')),
+              ],
         ),
       );
     }).toList();
   }
 
-  void _handleTimeEntryAction(String action, QueryDocumentSnapshot routeDoc, int index, Map<String, dynamic> entry) async {
+  void _handleTimeEntryAction(
+    String action,
+    QueryDocumentSnapshot routeDoc,
+    int index,
+    Map<String, dynamic> entry,
+  ) async {
     switch (action) {
       case 'edit':
         _showTimeEntryDialog(routeDoc: routeDoc, index: index, initial: entry);
@@ -1864,111 +2045,89 @@ class _BusAdminScreenState extends ConsumerState<BusAdminScreen> with SingleTick
     }
   }
 
-  Future<void> _updateTimeEntryActive(QueryDocumentSnapshot routeDoc, int index, bool isActive) async {
+  Future<void> _updateTimeEntryActive(
+    QueryDocumentSnapshot routeDoc, int index, bool isActive,
+  ) async {
     try {
       final data = routeDoc.data() as Map<String, dynamic>;
-      final entries = List<Map<String, dynamic>>.from((data['timeEntries'] as List?)?.whereType<Map<String, dynamic>>() ?? []);
-      if (index < 0 || index >= entries.length) return;
-      entries[index]['isActive'] = isActive;
-      await routeDoc.reference.update({'timeEntries': entries, 'updatedAt': FieldValue.serverTimestamp()});
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('更新に失敗しました: $e')));
+      final original = List<BusDepartureData>.from(data['timeEntries'] as List? ?? []);
+      if (index < 0 || index >= original.length) return;
+      final updated = copyBusDepartures(original);
+      updated[index]['isActive'] = isActive;
+      await _saveTimetable(routeDoc.id, original, updated);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(busTimetableSaveError(error))),
+      );
     }
   }
 
   Future<void> _deleteTimeEntry(QueryDocumentSnapshot routeDoc, int index) async {
+    final data = routeDoc.data() as Map<String, dynamic>;
+    final original = List<BusDepartureData>.from(data['timeEntries'] as List? ?? []);
+    if (index < 0 || index >= original.length) return;
+    final entry = original[index];
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('この便を削除しますか？'),
+        content: Text('${busDayLabels[busDepartureDay(entry)]} ${formatBusMinute(busDepartureMinute(entry))} 発'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('削除')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     try {
-      final data = routeDoc.data() as Map<String, dynamic>;
-      final entries = List<Map<String, dynamic>>.from((data['timeEntries'] as List?)?.whereType<Map<String, dynamic>>() ?? []);
-      if (index < 0 || index >= entries.length) return;
-      entries.removeAt(index);
-      await routeDoc.reference.update({'timeEntries': entries, 'updatedAt': FieldValue.serverTimestamp()});
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('時刻を削除しました')));
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
+      final updated = copyBusDepartures(original)..removeAt(index);
+      await _saveTimetable(routeDoc.id, original, updated);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('時刻を削除しました')),
+      );
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(busTimetableSaveError(error))),
+      );
     }
   }
 
-  void _showTimeEntryDialog({required QueryDocumentSnapshot routeDoc, int? index, Map<String, dynamic>? initial}) {
-    final isEdit = index != null && initial != null;
-    final hourCtrl = TextEditingController(text: ((initial?['hour'] as int?) ?? 8).toString());
-    final minuteCtrl = TextEditingController(text: ((initial?['minute'] as int?) ?? 0).toString());
-    final noteCtrl = TextEditingController(text: initial?['note'] as String? ?? '');
-    bool isActive = initial?['isActive'] as bool? ?? true;
-    String dayType = (initial?['dayType'] as String?) ?? _suggestTodayDayType();
-    showDialog(
+  void _showTimeEntryDialog({
+    required QueryDocumentSnapshot routeDoc,
+    int? index,
+    Map<String, dynamic>? initial,
+  }) {
+    final data = routeDoc.data() as Map<String, dynamic>;
+    final original = List<BusDepartureData>.from(data['timeEntries'] as List? ?? []);
+    showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(isEdit ? '時刻を編集' : '時刻を追加'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: hourCtrl,
-              decoration: const InputDecoration(labelText: '時 (0-23)'),
-              keyboardType: TextInputType.number,
-            ),
-            TextField(
-              controller: minuteCtrl,
-              decoration: const InputDecoration(labelText: '分 (0-59)'),
-              keyboardType: TextInputType.number,
-            ),
-            TextField(
-              controller: noteCtrl,
-              decoration: const InputDecoration(labelText: '備考 (任意)'),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              value: dayType,
-              items: const [
-                DropdownMenuItem(value: 'weekday', child: Text('平日')),
-                DropdownMenuItem(value: 'saturday', child: Text('土曜日')),
-                DropdownMenuItem(value: 'sunday', child: Text('日曜日')),
-              ],
-              onChanged: (v) => dayType = v ?? 'weekday',
-              decoration: const InputDecoration(labelText: 'ダイヤ種別'),
-            ),
-            SwitchListTile(value: isActive, onChanged: (v) => isActive = v, title: const Text('有効')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
-          FilledButton(
-            onPressed: () async {
-              final h = int.tryParse(hourCtrl.text.trim()) ?? 0;
-              final m = int.tryParse(minuteCtrl.text.trim()) ?? 0;
-              if (h < 0 || h > 23 || m < 0 || m > 59) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('時刻が不正です')));
-                return;
-              }
-              final data = routeDoc.data() as Map<String, dynamic>;
-              final entries = List<Map<String, dynamic>>.from((data['timeEntries'] as List?)?.whereType<Map<String, dynamic>>() ?? []);
-              final newEntry = {
-                'hour': h,
-                'minute': m,
-                'note': noteCtrl.text.trim().isEmpty ? null : noteCtrl.text.trim(),
-                'isActive': isActive,
-                'dayType': dayType,
-              };
-              if (isEdit) {
-                if (index! < 0 || index >= entries.length) return;
-                entries[index] = newEntry;
-              } else {
-                entries.add(newEntry);
-              }
-              // sort by time
-              entries.sort((a, b) => (((a['hour'] ?? 0) as int) * 60 + ((a['minute'] ?? 0) as int))
-                  .compareTo(((b['hour'] ?? 0) as int) * 60 + ((b['minute'] ?? 0) as int)));
-              await routeDoc.reference.update({'timeEntries': entries, 'updatedAt': FieldValue.serverTimestamp()});
-              if (context.mounted) Navigator.pop(ctx);
-            },
-            child: Text(isEdit ? '更新' : '追加'),
-          ),
-        ],
+      barrierDismissible: false,
+      builder: (_) => BusDepartureDialog(
+        entry: index == null ? null : initial,
+        dayType: initial?['dayType'] as String? ?? _scheduleDayType,
+        onSave: (entry) async {
+          if (original.asMap().entries.any((item) =>
+              item.key != index &&
+              busDepartureDay(item.value) == busDepartureDay(entry) &&
+              busDepartureMinute(item.value) == busDepartureMinute(entry))) {
+            throw const FormatException('同じ曜日・時刻の便が既にあります。');
+          }
+          final updated = copyBusDepartures(original);
+          if (index == null) {
+            updated.add(entry);
+          } else {
+            if (index < 0 || index >= updated.length) {
+              throw const FormatException('対象の便がありません。画面を開き直してください。');
+            }
+            updated[index] = entry;
+          }
+          await _saveTimetable(routeDoc.id, original, updated);
+        },
       ),
     );
   }
 }
+
 
 /// 文字列の先頭1文字を絵文字/合字に対応した安全な方法で取り出す。
 /// 不正な lone surrogate を返さないよう characters パッケージを使用する。

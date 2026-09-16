@@ -1,6 +1,7 @@
+import 'package:cit_app/core/utils/logger.dart';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/admin/user_growth_stats_model.dart';
 
 /// ユーザー数推移を取得するサービス
@@ -16,41 +17,36 @@ class UserGrowthStatsService {
   /// ユーザー数推移を取得
   static Future<UserGrowthStats?> getUserGrowthStats() async {
     try {
-      debugPrint('📊 ユーザー数推移の取得を開始...');
+      SecureLogger.debug('📊 ユーザー数推移の取得を開始...');
 
       final url = Uri.parse('$_baseUrl/$_functionName');
-      debugPrint('URL: $url');
+      SecureLogger.debug('URL: $url');
 
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (token == null) return null;
       final response = await http
-          .get(
-            url,
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          )
+          .get(url, headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'})
           .timeout(_timeout);
 
-      debugPrint('Response status: ${response.statusCode}');
+      SecureLogger.debug('Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body) as Map<String, dynamic>;
         final stats = UserGrowthStats.fromJson(jsonData);
-        debugPrint('✅ ユーザー数推移の取得が完了しました');
-        debugPrint('総ユーザー数: ${stats.totalUsers}');
-        debugPrint('日次データ数: ${stats.daily.length}');
-        debugPrint('月次データ数: ${stats.monthly.length}');
+        SecureLogger.debug('✅ ユーザー数推移の取得が完了しました');
+        SecureLogger.debug('総ユーザー数: ${stats.totalUsers}');
+        SecureLogger.debug('日次データ数: ${stats.daily.length}');
+        SecureLogger.debug('月次データ数: ${stats.monthly.length}');
         return stats;
       } else {
-        debugPrint('❌ ユーザー数推移の取得に失敗: ${response.statusCode}');
-        debugPrint('Response body: ${response.body}');
+        SecureLogger.debug('❌ ユーザー数推移の取得に失敗: ${response.statusCode}');
+        SecureLogger.debug('Response body: ${response.body}');
         return null;
       }
     } catch (e, stackTrace) {
-      debugPrint('❌ ユーザー数推移の取得エラー: $e');
-      debugPrint('StackTrace: $stackTrace');
+      SecureLogger.debug('❌ ユーザー数推移の取得エラー: $e');
+      SecureLogger.debug('StackTrace: $stackTrace');
       return null;
     }
   }
 }
-
-

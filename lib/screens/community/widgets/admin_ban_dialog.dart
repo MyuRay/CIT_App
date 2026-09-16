@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 import '../../../models/community/user_ban.dart';
@@ -15,11 +16,12 @@ Future<bool> showAdminBanDialog(
 }) async {
   final result = await showDialog<bool>(
     context: context,
-    builder: (context) => _AdminBanDialog(
-      targetUserId: targetUserId,
-      targetLabel: targetLabel,
-      adminId: adminId,
-    ),
+    builder:
+        (context) => _AdminBanDialog(
+          targetUserId: targetUserId,
+          targetLabel: targetLabel,
+          adminId: adminId,
+        ),
   );
   return result ?? false;
 }
@@ -29,17 +31,18 @@ Future<void> showBanNoticeDialog(BuildContext context, UserBan ban) {
   final exception = UserBannedException(ban);
   return showDialog<void>(
     context: context,
-    builder: (context) => AlertDialog(
-      icon: const Icon(Icons.block, color: Colors.red, size: 36),
-      title: const Text('投稿できません'),
-      content: Text(exception.message),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('OK'),
+    builder:
+        (context) => AlertDialog(
+          icon: Icon(Icons.block, color: AppColors.accent(context, Colors.red), size: 36),
+          title: const Text('投稿できません'),
+          content: Text(exception.message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
         ),
-      ],
-    ),
   );
 }
 
@@ -91,9 +94,9 @@ class _AdminBanDialogState extends State<_AdminBanDialog> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('BANに失敗しました: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('BANに失敗しました: $e')));
     }
   }
 
@@ -102,7 +105,7 @@ class _AdminBanDialogState extends State<_AdminBanDialog> {
     final theme = Theme.of(context);
 
     return AlertDialog(
-      icon: const Icon(Icons.gavel, color: Colors.red, size: 32),
+      icon: Icon(Icons.gavel, color: AppColors.accent(context, Colors.red), size: 32),
       title: const Text('アカウントをBAN'),
       content: SingleChildScrollView(
         child: Column(
@@ -116,40 +119,34 @@ class _AdminBanDialogState extends State<_AdminBanDialog> {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              'BANの理由',
-              style: theme.textTheme.labelLarge,
-            ),
+            Text('BANの理由', style: theme.textTheme.labelLarge),
             const SizedBox(height: 4),
             DropdownButtonFormField<BanReason>(
-              value: _reason,
+              initialValue: _reason,
               isExpanded: true,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
               ),
               items: [
                 for (final reason in BanReason.values)
                   DropdownMenuItem(
                     value: reason,
-                    child: Text(
-                      reason.label,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    child: Text(reason.label, overflow: TextOverflow.ellipsis),
                   ),
               ],
-              onChanged: _isSubmitting
-                  ? null
-                  : (value) {
-                      if (value != null) setState(() => _reason = value);
-                    },
+              onChanged:
+                  _isSubmitting
+                      ? null
+                      : (value) {
+                        if (value != null) setState(() => _reason = value);
+                      },
             ),
             const SizedBox(height: 16),
-            Text(
-              'BAN期間',
-              style: theme.textTheme.labelLarge,
-            ),
+            Text('BAN期間', style: theme.textTheme.labelLarge),
             const SizedBox(height: 4),
             for (final duration in BanDuration.values)
               RadioListTile<BanDuration>(
@@ -158,11 +155,12 @@ class _AdminBanDialogState extends State<_AdminBanDialog> {
                 contentPadding: EdgeInsets.zero,
                 dense: true,
                 title: Text(duration.label),
-                onChanged: _isSubmitting
-                    ? null
-                    : (value) {
-                        if (value != null) setState(() => _duration = value);
-                      },
+                onChanged:
+                    _isSubmitting
+                        ? null
+                        : (value) {
+                          if (value != null) setState(() => _duration = value);
+                        },
               ),
           ],
         ),
@@ -175,17 +173,18 @@ class _AdminBanDialogState extends State<_AdminBanDialog> {
         ),
         FilledButton(
           onPressed: _isSubmitting ? null : _submit,
-          style: FilledButton.styleFrom(backgroundColor: Colors.red),
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Text('BANする'),
+          style: FilledButton.styleFrom(foregroundColor: AppColors.onColor(Colors.red), backgroundColor: Colors.red),
+          child:
+              _isSubmitting
+                  ?  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.onColor(Colors.red),
+                    ),
+                  )
+                  : const Text('BANする'),
         ),
       ],
     );

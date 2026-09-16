@@ -86,6 +86,8 @@ class InAppAd {
     this.startAt,
     this.endAt,
     this.weight = 1,
+    this.isSponsored = false,
+    this.sponsorName = '',
   });
 
   factory InAppAd.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -105,6 +107,8 @@ class InAppAd {
       startAt: _timestampToDate(data['startAt']),
       endAt: _timestampToDate(data['endAt']),
       weight: (data['weight'] as num?)?.toInt() ?? 1,
+      isSponsored: data['isSponsored'] == true,
+      sponsorName: (data['sponsorName'] as String?)?.trim() ?? '',
     );
   }
 
@@ -120,6 +124,8 @@ class InAppAd {
   final DateTime? startAt;
   final DateTime? endAt;
   final int weight;
+  final bool isSponsored;
+  final String sponsorName;
 
   bool isEligible(DateTime now) {
     if (!isActive) return false;
@@ -141,6 +147,8 @@ class InAppAd {
     DateTime? startAt,
     DateTime? endAt,
     int? weight,
+    bool? isSponsored,
+    String? sponsorName,
   }) {
     return InAppAd(
       id: id ?? this.id,
@@ -155,6 +163,8 @@ class InAppAd {
       startAt: startAt ?? this.startAt,
       endAt: endAt ?? this.endAt,
       weight: weight ?? this.weight,
+      isSponsored: isSponsored ?? this.isSponsored,
+      sponsorName: sponsorName ?? this.sponsorName,
     );
   }
 
@@ -162,15 +172,17 @@ class InAppAd {
     return {
       'title': title,
       'body': body,
-      if (imageUrl != null && imageUrl!.isNotEmpty) 'imageUrl': imageUrl,
-      if (ctaText != null && ctaText!.isNotEmpty) 'ctaText': ctaText,
+      'imageUrl': imageUrl,
+      'ctaText': ctaText,
       'targetType': adPlacementToString(placement),
       'actionType': adActionTypeToString(actionType),
       'actionPayload': actionPayload,
       'isActive': isActive,
-      if (startAt != null) 'startAt': Timestamp.fromDate(startAt!),
-      if (endAt != null) 'endAt': Timestamp.fromDate(endAt!),
+      'startAt': startAt != null ? Timestamp.fromDate(startAt!) : null,
+      'endAt': endAt != null ? Timestamp.fromDate(endAt!) : null,
       'weight': weight,
+      'isSponsored': isSponsored,
+      'sponsorName': sponsorName,
       'updatedAt': FieldValue.serverTimestamp(),
     };
   }

@@ -1,18 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="wrap_content"
+    android:id="@+id/item_root"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="2dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
     android:layout_marginBottom="2dp"
     android:minHeight="24dp">
 
     <TextView
         android:id="@+id/text_period"
-        android:layout_width="wrap_content"
+        android:layout_width="14dp"
         android:layout_height="wrap_content"
-        android:text="1限"
+        android:text="1"
+        android:gravity="center_vertical"
+        android:includeFontPadding="false"
         android:textSize="9sp"
         android:textStyle="bold"
-        android:textColor="#64748B" />
+        android:textColor="@color/widget_secondary" />
+    <TextView
+        android:id="@+id/text_time"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:fontFamily="monospace"
+        android:textSize="9sp"
+        android:includeFontPadding="false"
+        android:maxLines="2"
+        android:autoSizeTextType="uniform"
+        android:autoSizeMinTextSize="8sp"
+        android:autoSizeMaxTextSize="10sp"
+        android:autoSizeStepGranularity="1dp"
+        android:textColor="@color/widget_secondary" />
 </LinearLayout>

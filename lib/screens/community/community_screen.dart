@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -139,12 +140,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           unselectedLabelColor: colorScheme.onSurface.withValues(alpha: 0.6),
           onTap: (_) => UiFeedbackService.tabSwitch(),
           tabs: [
-            Tab(
-              child: _TabLabel(
-                label: 'Cwitter',
-                showNew: showCwitterTabNew,
-              ),
-            ),
+            Tab(child: _TabLabel(label: 'Cwitter', showNew: showCwitterTabNew)),
             const Tab(text: 'ちばちゃんねる'),
           ],
         ),
@@ -164,10 +160,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
 }
 
 class _TabLabel extends StatelessWidget {
-  const _TabLabel({
-    required this.label,
-    required this.showNew,
-  });
+  const _TabLabel({required this.label, required this.showNew});
 
   final String label;
   final bool showNew;
@@ -186,10 +179,10 @@ class _TabLabel extends StatelessWidget {
               color: Colors.redAccent,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Text(
+            child: Text(
               'New Cweet',
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.onColor(Colors.redAccent),
                 fontSize: 7,
                 fontWeight: FontWeight.bold,
               ),

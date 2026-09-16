@@ -1,0 +1,21 @@
+[
+  {"email":"student@chibatech.ac.jp","allowed":true},
+  {"email":"STUDENT@CHIBATECH.AC.JP","allowed":true},
+  {"email":"student.name_1-test+alias@chibatech.ac.jp","allowed":true},
+  {"email":"student@s.chibakoudai.jp","allowed":false},
+  {"email":"student@p.chibakoudai.jp","allowed":false},
+  {"email":"student@gmail.com","allowed":false},
+  {"email":"student@company.example","allowed":false},
+  {"email":"student@sub.chibatech.ac.jp","allowed":false},
+  {"email":"student@chibatech.ac.jp.example.com","allowed":false},
+  {"email":"student@notchibatech.ac.jp","allowed":false},
+  {"email":"student@example.com@chibatech.ac.jp","allowed":false},
+  {"email":"student@@chibatech.ac.jp","allowed":false},
+  {"email":"@chibatech.ac.jp","allowed":false},
+  {"email":"studentchibatech.ac.jp","allowed":false},
+  {"email":"student name@chibatech.ac.jp","allowed":false},
+  {"email":"student\n@chibatech.ac.jp","allowed":false},
+  {"email":"学生@chibatech.ac.jp","allowed":false},
+  {"email":"student＠chibatech.ac.jp","allowed":false},
+  {"email":"","allowed":false}
+]

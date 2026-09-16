@@ -78,7 +78,9 @@ class ContactService {
 
     return query.snapshots().map((snapshot) {
       return snapshot.docs.map((doc) {
-        final data = Map<String, dynamic>.from(doc.data() as Map<String, dynamic>);
+        final data = Map<String, dynamic>.from(
+          doc.data() as Map<String, dynamic>,
+        );
         // ドキュメントIDを確実に設定
         data['id'] = doc.id;
         return ContactForm.fromJson(data);
@@ -93,14 +95,12 @@ class ContactService {
         print('❌ お問い合わせID取得エラー: IDが空文字列です');
         throw ArgumentError('お問い合わせIDが空文字列です');
       }
-      
-      final doc = await _firestore
-          .collection(_collectionName)
-          .doc(contactId)
-          .get();
-      
+
+      final doc =
+          await _firestore.collection(_collectionName).doc(contactId).get();
+
       if (doc.exists) {
-        final data = Map<String, dynamic>.from(doc.data()! as Map<String, dynamic>);
+        final data = Map<String, dynamic>.from(doc.data()!);
         // ドキュメントIDを確実に設定
         data['id'] = doc.id;
         return ContactForm.fromJson(data);
@@ -120,31 +120,31 @@ class ContactService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = Map<String, dynamic>.from(doc.data() as Map<String, dynamic>);
-        // ドキュメントIDを確実に設定
-        data['id'] = doc.id;
-        return ContactForm.fromJson(data);
-      }).toList();
-    });
+          return snapshot.docs.map((doc) {
+            final data = Map<String, dynamic>.from(doc.data());
+            // ドキュメントIDを確実に設定
+            data['id'] = doc.id;
+            return ContactForm.fromJson(data);
+          }).toList();
+        });
   }
 
   // お問い合わせのステータスを更新
-  static Future<void> updateContactStatus(String contactId, String newStatus) async {
+  static Future<void> updateContactStatus(
+    String contactId,
+    String newStatus,
+  ) async {
     try {
       if (contactId.isEmpty) {
         print('❌ ステータス更新エラー: IDが空文字列です');
         throw ArgumentError('お問い合わせIDが空文字列です');
       }
-      
-      await _firestore
-          .collection(_collectionName)
-          .doc(contactId)
-          .update({
+
+      await _firestore.collection(_collectionName).doc(contactId).update({
         'status': newStatus,
         'updatedAt': Timestamp.now(),
       });
-      
+
       print('✅ ステータスを更新しました: $contactId -> $newStatus');
     } catch (e) {
       print('❌ ステータス更新エラー: $e');
@@ -162,18 +162,16 @@ class ContactService {
         print('❌ 返信送信エラー: IDが空文字列です');
         throw ArgumentError('お問い合わせIDが空文字列です');
       }
-      
+
       final user = _auth.currentUser;
       if (user == null) {
         throw Exception('ログインが必要です');
       }
 
       // お問い合わせ情報を取得（通知送信用）
-      final contactDoc = await _firestore
-          .collection(_collectionName)
-          .doc(contactId)
-          .get();
-      
+      final contactDoc =
+          await _firestore.collection(_collectionName).doc(contactId).get();
+
       if (!contactDoc.exists) {
         throw Exception('お問い合わせが見つかりません');
       }
@@ -183,17 +181,14 @@ class ContactService {
       final contactSubject = contactData['subject'] as String? ?? 'お問い合わせ';
 
       // 返信を更新
-      await _firestore
-          .collection(_collectionName)
-          .doc(contactId)
-          .update({
+      await _firestore.collection(_collectionName).doc(contactId).update({
         'response': response.trim(),
         'respondedAt': Timestamp.now(),
         'respondedBy': user.uid,
         'status': 'resolved',
         'updatedAt': Timestamp.now(),
       });
-      
+
       print('✅ 返信を送信しました: $contactId');
 
       // お問い合わせしたユーザーに通知を送信
@@ -202,29 +197,29 @@ class ContactService {
           // 管理者の名前を取得（ユーザー情報から）
           String? responderName;
           try {
-            final responderDoc = await _firestore
-                .collection('users')
-                .doc(user.uid)
-                .get();
+            final responderDoc =
+                await _firestore.collection('users').doc(user.uid).get();
             if (responderDoc.exists) {
               final responderData = responderDoc.data();
-              responderName = responderData?['displayName'] as String? ?? 
-                             responderData?['name'] as String? ?? 
-                             user.displayName ?? 
-                             '管理者';
+              responderName =
+                  responderData?['displayName'] as String? ??
+                  responderData?['name'] as String? ??
+                  user.displayName ??
+                  '管理者';
             }
           } catch (e) {
             print('⚠️ 管理者名取得エラー（通知は送信します）: $e');
             responderName = user.displayName ?? '管理者';
           }
 
-          final notification = NotificationFactory.createContactResponseNotification(
-            contactUserId: contactUserId,
-            contactSubject: contactSubject,
-            contactId: contactId,
-            response: response.trim(),
-            responderName: responderName,
-          );
+          final notification =
+              NotificationFactory.createContactResponseNotification(
+                contactUserId: contactUserId,
+                contactSubject: contactSubject,
+                contactId: contactId,
+                response: response.trim(),
+                responderName: responderName,
+              );
 
           await NotificationService.sendNotification(
             notification,
@@ -251,12 +246,9 @@ class ContactService {
         print('❌ お問い合わせ削除エラー: IDが空文字列です');
         throw ArgumentError('お問い合わせIDが空文字列です');
       }
-      
-      await _firestore
-          .collection(_collectionName)
-          .doc(contactId)
-          .delete();
-      
+
+      await _firestore.collection(_collectionName).doc(contactId).delete();
+
       print('✅ お問い合わせを削除しました: $contactId');
     } catch (e) {
       print('❌ お問い合わせ削除エラー: $e');
@@ -277,45 +269,60 @@ class ContactService {
       final totalCount = allSnapshot.size;
 
       // 未対応件数
-      final pendingSnapshot = await _firestore
-          .collection(_collectionName)
-          .where('status', isEqualTo: 'pending')
-          .get();
+      final pendingSnapshot =
+          await _firestore
+              .collection(_collectionName)
+              .where('status', isEqualTo: 'pending')
+              .get();
       final pendingCount = pendingSnapshot.size;
 
       // 対応中件数
-      final inProgressSnapshot = await _firestore
-          .collection(_collectionName)
-          .where('status', isEqualTo: 'in_progress')
-          .get();
+      final inProgressSnapshot =
+          await _firestore
+              .collection(_collectionName)
+              .where('status', isEqualTo: 'in_progress')
+              .get();
       final inProgressCount = inProgressSnapshot.size;
 
       // 解決済み件数
-      final resolvedSnapshot = await _firestore
-          .collection(_collectionName)
-          .where('status', isEqualTo: 'resolved')
-          .get();
+      final resolvedSnapshot =
+          await _firestore
+              .collection(_collectionName)
+              .where('status', isEqualTo: 'resolved')
+              .get();
       final resolvedCount = resolvedSnapshot.size;
 
       // 今日の新規件数
-      final todaySnapshot = await _firestore
-          .collection(_collectionName)
-          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(today))
-          .get();
+      final todaySnapshot =
+          await _firestore
+              .collection(_collectionName)
+              .where(
+                'createdAt',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(today),
+              )
+              .get();
       final todayCount = todaySnapshot.size;
 
       // 今週の新規件数
-      final weekSnapshot = await _firestore
-          .collection(_collectionName)
-          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(weekStart))
-          .get();
+      final weekSnapshot =
+          await _firestore
+              .collection(_collectionName)
+              .where(
+                'createdAt',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(weekStart),
+              )
+              .get();
       final weekCount = weekSnapshot.size;
 
       // 今月の新規件数
-      final monthSnapshot = await _firestore
-          .collection(_collectionName)
-          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart))
-          .get();
+      final monthSnapshot =
+          await _firestore
+              .collection(_collectionName)
+              .where(
+                'createdAt',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart),
+              )
+              .get();
       final monthCount = monthSnapshot.size;
 
       return ContactStats(

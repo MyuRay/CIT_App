@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -49,8 +50,7 @@ List<InlineSpan> buildCwitterLinkSpans({
   Color? linkColor,
 }) {
   final spans = <InlineSpan>[];
-  final effectiveLinkColor =
-      linkColor ?? Theme.of(context).colorScheme.primary;
+  final effectiveLinkColor = linkColor ?? Theme.of(context).colorScheme.primary;
   var start = 0;
 
   for (final match in _urlRegex.allMatches(text)) {
@@ -65,8 +65,9 @@ List<InlineSpan> buildCwitterLinkSpans({
           color: effectiveLinkColor,
           decoration: TextDecoration.underline,
         ),
-        recognizer: TapGestureRecognizer()
-          ..onTap = () => launchExternalUrlWithConfirmation(context, url),
+        recognizer:
+            TapGestureRecognizer()
+              ..onTap = () => launchExternalUrlWithConfirmation(context, url),
       ),
     );
     start = match.end;
@@ -116,7 +117,7 @@ Future<void> launchExternalUrlWithConfirmation(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF4CAF50),
-              foregroundColor: Colors.white,
+              foregroundColor: AppColors.onColor(const Color(0xFF4CAF50)),
             ),
             child: const Text('開く'),
           ),
@@ -129,23 +130,23 @@ Future<void> launchExternalUrlWithConfirmation(
 
   final uri = Uri.tryParse(url);
   if (uri == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('リンクが無効です: $url')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('リンクが無効です: $url')));
     return;
   }
 
   try {
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!opened && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('リンクを開けませんでした: $url')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('リンクを開けませんでした: $url')));
     }
   } catch (e) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('リンクを開けませんでした: $e')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('リンクを開けませんでした: $e')));
   }
 }

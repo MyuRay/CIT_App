@@ -17,14 +17,10 @@ class ChibaChannelArchiveScreen extends ConsumerWidget {
     final feedAsync = ref.watch(chibaChannelFeedProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('格納庫'),
-      ),
+      appBar: AppBar(title: const Text('格納庫')),
       body: feedAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Text('読み込みに失敗しました: $error'),
-        ),
+        error: (error, _) => Center(child: Text('読み込みに失敗しました: $error')),
         data: (feed) {
           final archived = feed.archivedThreads;
           if (archived.isEmpty) {
@@ -35,7 +31,7 @@ class ChibaChannelArchiveScreen extends ConsumerWidget {
                   '格納庫に入っているスレッドはありません。\n'
                   '1ヶ月間レスがないスレッドがここに表示されます。',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.65),
+                    color: colorScheme.onSurfaceVariant,
                     height: 1.5,
                   ),
                   textAlign: TextAlign.center,
@@ -49,7 +45,9 @@ class ChibaChannelArchiveScreen extends ConsumerWidget {
             children: [
               Card(
                 elevation: 0,
-                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                color: colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.5,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

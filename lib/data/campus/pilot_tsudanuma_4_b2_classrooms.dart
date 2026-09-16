@@ -238,7 +238,6 @@ List<CampusClassroomLocation> get pilotTsudanumaBuilding4FloorB2 => [
 List<CampusClassroomLocation> searchPilotTsudanuma4B2(String query) {
   final q = query.trim().toLowerCase();
   if (q.isEmpty) return const [];
-  bool matches(CampusClassroomLocation r) =>
-      pilotLocationMatchesQuery(r, q);
+  bool matches(CampusClassroomLocation r) => pilotLocationMatchesQuery(r, q);
   return pilotTsudanumaBuilding4FloorB2.where(matches).toList();
 }

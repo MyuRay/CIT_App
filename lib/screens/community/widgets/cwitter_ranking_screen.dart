@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -55,29 +56,31 @@ class _CwitterRankingScreenState extends ConsumerState<CwitterRankingScreen>
           indicatorColor: const Color(0xFF4CAF50),
           labelColor: const Color(0xFF2E7D32),
           unselectedLabelColor: colorScheme.onSurface.withValues(alpha: 0.6),
-          tabs: CwitterRankingKind.values
-              .map((kind) => Tab(text: kind.label))
-              .toList(),
+          tabs:
+              CwitterRankingKind.values
+                  .map((kind) => Tab(text: kind.label))
+                  .toList(),
         ),
       ),
       body: boardAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('読み込みに失敗しました: $error'),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: _refresh,
-                  child: const Text('再読み込み'),
+        error:
+            (error, _) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('読み込みに失敗しました: $error'),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: _refresh,
+                      child: const Text('再読み込み'),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
         data: (board) {
           final rankings = board.forPeriod(_period);
 
@@ -87,18 +90,19 @@ class _CwitterRankingScreenState extends ConsumerState<CwitterRankingScreen>
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: SegmentedButton<CwitterRankingPeriod>(
-                  segments: CwitterRankingPeriod.values
-                      .map(
-                        (period) => ButtonSegment(
-                          value: period,
-                          label: Text(
-                            period == CwitterRankingPeriod.monthly
-                                ? '${board.monthLabel}${period.label}'
-                                : period.label,
-                          ),
-                        ),
-                      )
-                      .toList(),
+                  segments:
+                      CwitterRankingPeriod.values
+                          .map(
+                            (period) => ButtonSegment(
+                              value: period,
+                              label: Text(
+                                period == CwitterRankingPeriod.monthly
+                                    ? '${board.monthLabel}${period.label}'
+                                    : period.label,
+                              ),
+                            ),
+                          )
+                          .toList(),
                   selected: {_period},
                   onSelectionChanged: (selection) {
                     setState(() => _period = selection.first);
@@ -112,16 +116,17 @@ class _CwitterRankingScreenState extends ConsumerState<CwitterRankingScreen>
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
-                  children: CwitterRankingKind.values
-                      .map(
-                        (kind) => _RankingListView(
-                          period: _period,
-                          kind: kind,
-                          entries: rankings.entriesFor(kind),
-                          onRefresh: _refresh,
-                        ),
-                      )
-                      .toList(),
+                  children:
+                      CwitterRankingKind.values
+                          .map(
+                            (kind) => _RankingListView(
+                              period: _period,
+                              kind: kind,
+                              entries: rankings.entriesFor(kind),
+                              onRefresh: _refresh,
+                            ),
+                          )
+                          .toList(),
                 ),
               ),
             ],
@@ -163,7 +168,7 @@ class _RankingListView extends ConsumerWidget {
                 child: Text(
                   'まだランキングデータがありません',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
@@ -179,24 +184,23 @@ class _RankingListView extends ConsumerWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         itemCount: entries.length + 1,
-        separatorBuilder: (_, index) =>
-            index == 0 ? const SizedBox(height: 10) : const SizedBox(height: 8),
+        separatorBuilder:
+            (_, index) =>
+                index == 0
+                    ? const SizedBox(height: 10)
+                    : const SizedBox(height: 8),
         itemBuilder: (context, index) {
           if (index == 0) {
             return Text(
               kind.noteFor(period),
               style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurface.withValues(alpha: 0.55),
+                color: colorScheme.onSurfaceVariant,
               ),
             );
           }
 
           final entry = entries[index - 1];
-          return _RankingTile(
-            entry: entry,
-            kind: kind,
-            currentUid: currentUid,
-          );
+          return _RankingTile(entry: entry, kind: kind, currentUid: currentUid);
         },
       ),
     );
@@ -277,7 +281,7 @@ class _RankingTile extends StatelessWidget {
                     CwitterHandleText(
                       cwitterId: user.cwitterId,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF2E7D32),
+                        color: AppColors.accent(context, const Color(0xFF2E7D32)),
                       ),
                     ),
                   ],
@@ -287,7 +291,7 @@ class _RankingTile extends StatelessWidget {
               Text(
                 kind.formatValue(entry.value),
                 style: theme.textTheme.labelLarge?.copyWith(
-                  color: const Color(0xFF2E7D32),
+                  color: AppColors.accent(context, const Color(0xFF2E7D32)),
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -328,10 +332,7 @@ class _RankBadge extends StatelessWidget {
       width: 32,
       height: 32,
       alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: background,
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: background, shape: BoxShape.circle),
       child: Text(
         '$rank',
         style: theme.textTheme.labelLarge?.copyWith(

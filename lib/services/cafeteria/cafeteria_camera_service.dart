@@ -1,7 +1,7 @@
 class CafeteriaCameraService {
   // カメラ画像のベースURL
   static const String baseUrl = 'https://www.cit-s.com/i_catch/dining';
-  
+
   // 各食堂のカメラ画像URL
   // タイムスタンプを追加してキャッシュを無効化（5分毎に更新）
   static String getTsudanumaCameraUrl() {
@@ -82,4 +82,3 @@ class CafeteriaCameraService {
     }
   }
 }
-

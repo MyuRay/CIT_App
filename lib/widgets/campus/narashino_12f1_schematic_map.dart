@@ -42,7 +42,9 @@ class Narashino12F1SchematicMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NarashinoAssetFloorPlanImage(assetPath: kNarashino12F1FloorPlanAsset);
+    return NarashinoAssetFloorPlanImage(
+      assetPath: kNarashino12F1FloorPlanAsset,
+    );
   }
 }
 
@@ -76,7 +78,9 @@ class Narashino12F2SchematicMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NarashinoAssetFloorPlanImage(assetPath: kNarashino12F2FloorPlanAsset);
+    return NarashinoAssetFloorPlanImage(
+      assetPath: kNarashino12F2FloorPlanAsset,
+    );
   }
 }
 
@@ -110,7 +114,9 @@ class Narashino12F3SchematicMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NarashinoAssetFloorPlanImage(assetPath: kNarashino12F3FloorPlanAsset);
+    return NarashinoAssetFloorPlanImage(
+      assetPath: kNarashino12F3FloorPlanAsset,
+    );
   }
 }
 
@@ -144,7 +150,9 @@ class Narashino12F4SchematicMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NarashinoAssetFloorPlanImage(assetPath: kNarashino12F4FloorPlanAsset);
+    return NarashinoAssetFloorPlanImage(
+      assetPath: kNarashino12F4FloorPlanAsset,
+    );
   }
 }
 
@@ -178,7 +186,9 @@ class Narashino12F5SchematicMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NarashinoAssetFloorPlanImage(assetPath: kNarashino12F5FloorPlanAsset);
+    return NarashinoAssetFloorPlanImage(
+      assetPath: kNarashino12F5FloorPlanAsset,
+    );
   }
 }
 
@@ -212,7 +222,9 @@ class Narashino12F6SchematicMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NarashinoAssetFloorPlanImage(assetPath: kNarashino12F6FloorPlanAsset);
+    return NarashinoAssetFloorPlanImage(
+      assetPath: kNarashino12F6FloorPlanAsset,
+    );
   }
 }
 
@@ -246,7 +258,9 @@ class Narashino12F7SchematicMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NarashinoAssetFloorPlanImage(assetPath: kNarashino12F7FloorPlanAsset);
+    return NarashinoAssetFloorPlanImage(
+      assetPath: kNarashino12F7FloorPlanAsset,
+    );
   }
 }
 
@@ -280,7 +294,9 @@ class Narashino12F8SchematicMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NarashinoAssetFloorPlanImage(assetPath: kNarashino12F8FloorPlanAsset);
+    return NarashinoAssetFloorPlanImage(
+      assetPath: kNarashino12F8FloorPlanAsset,
+    );
   }
 }
 

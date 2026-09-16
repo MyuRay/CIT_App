@@ -7,7 +7,9 @@ class LecturePeriodService {
   static const String _docId = 'lecture_period';
 
   static Stream<LecturePeriodSettings?> watchLecturePeriod() {
-    return _firestore.collection(_collection).doc(_docId).snapshots().map((doc) {
+    return _firestore.collection(_collection).doc(_docId).snapshots().map((
+      doc,
+    ) {
       final data = doc.data();
       if (!doc.exists || data == null) return null;
       return LecturePeriodSettings.fromMap(data);

@@ -20,13 +20,14 @@ service cloud.firestore {
     function isCITUser() {
       return request.auth != null
         && request.auth.token.email != null
+        && request.auth.token.get('email_verified', false) == true
         && isAllowedCitEmailDomain();
     }
 
     // 管理者判定（admin_permissions に isAdmin: true が必要）
     // ドメインは isCITUser() 側で別途チェックするコレクションもある
     function isAdmin() {
-      return request.auth != null
+      return isCITUser()
         && exists(/databases/$(database)/documents/admin_permissions/$(request.auth.uid))
         && get(/databases/$(database)/documents/admin_permissions/$(request.auth.uid)).data.get('isAdmin', false) == true;
     }
@@ -135,6 +136,42 @@ service cloud.firestore {
         && request.resource.data.authorEmail == authEmailLower();
     }
 
+    function bulletinContentFields() {
+      return ['title', 'description', 'imageUrl', 'imageUrls', 'thumbAlignX', 'thumbAlignY', 'thumbScale',
+        'externalUrl', 'category', 'expiresAt', 'authorName', 'isActive',
+        'allowComments', 'pinRequested', 'pinRequestedAt', 'isCoupon',
+        'couponMaxUses', 'submittedAt', 'updatedAt'];
+    }
+
+    function bulletinOwnerUpdate() {
+      let changes = request.resource.data.diff(resource.data).affectedKeys();
+      return resource.data.authorId == request.auth.uid
+        && changes.hasOnly(bulletinContentFields().concat(
+          ['approvalStatus', 'approvedAt', 'approvedBy']))
+        && (!changes.hasAny(['approvalStatus', 'approvedAt', 'approvedBy'])
+          || (request.resource.data.approvalStatus == 'pending'
+            && request.resource.data.get('approvedAt', null) == null
+            && request.resource.data.get('approvedBy', null) == null));
+    }
+
+    function validSponsorship() {
+      return request.resource.data.get('isSponsored', false) is bool
+        && request.resource.data.get('sponsorName', '') is string
+        && request.resource.data.get('sponsorName', '').size() <= 80
+        && (!request.resource.data.get('isSponsored', false)
+          || request.resource.data.get('sponsorName', '').size() > 0);
+    }
+
+    function bulletinAdminUpdate() {
+      return isAdmin()
+        && validSponsorship()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+          bulletinContentFields().concat(['isPinned', 'approvalStatus',
+            'approvedAt', 'approvedBy', 'rejectionReason', 'pinRejectedReason',
+            'isSponsored', 'sponsorName']))
+        && request.resource.data.approvalStatus in ['pending', 'approved', 'rejected'];
+    }
+
     // 掲示板投稿のルール
     match /bulletin_posts/{postId} {
       // 認証済みCITユーザーのみ読み取り可能
@@ -143,11 +180,22 @@ service cloud.firestore {
       // 認証済みCITユーザーのみ作成可能
       allow create: if isCITUser()
         && request.auth != null
-        && request.resource.data.authorId == request.auth.uid;
+        && request.resource.data.authorId == request.auth.uid
+        && validSponsorship()
+        && (isAdmin() || (request.resource.data.approvalStatus == 'pending'
+          && request.resource.data.get('isSponsored', false) == false
+          && request.resource.data.get('sponsorName', '') == ''
+          && request.resource.data.get('isPinned', false) == false
+          && request.resource.data.get('approvedAt', null) == null
+          && request.resource.data.get('approvedBy', null) == null))
+        && request.resource.data.get('viewCount', 0) == 0
+        && request.resource.data.get('couponUsedCount', 0) == 0
+        && (request.resource.data.get('couponUsedBy', null) == null
+          || request.resource.data.couponUsedBy == {});
 
-      // 更新は認証済みユーザーなら無条件で許可（画面到達には認証が必須のため）
-      // NOTE: セキュリティを緩和しています。必要になったらフィールド制限を戻してください。
-      allow update: if request.auth != null;
+      allow update: if isCITUser()
+        && (bulletinOwnerUpdate() || bulletinAdminUpdate()
+          || isViewCountOnlyUpdate() || isCouponUseUpdate());
 
       // 作成者または管理者のみ削除可能
       allow delete: if isCITUser()
@@ -293,6 +341,18 @@ service cloud.firestore {
       allow read, write: if isCITUser()
         && request.auth != null
         && userId == request.auth.uid;
+      allow read: if request.auth != null && userId == request.auth.uid;
+      allow update: if request.auth != null && userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmToken'])
+        && !('fcmToken' in request.resource.data);
+
+      match /devices/{installationId} {
+        allow read, delete: if request.auth != null && request.auth.uid == userId;
+        allow create, update: if isCITUser() && request.auth.uid == userId
+          && request.resource.data.keys().hasOnly(['fcmToken', 'platform', 'updatedAt'])
+          && request.resource.data.fcmToken is string
+          && request.resource.data.fcmToken.size() > 0;
+      }
     }
 
     // バス情報のルール
@@ -322,12 +382,28 @@ service cloud.firestore {
       allow delete: if isCITUser() && request.auth.uid == userId;
     }
 
+    function isOwnCitProfile(userId) {
+      return request.auth != null && request.auth.uid == userId
+        && isAllowedCitEmailDomain();
+    }
+
+    // 認証前の本人プロフィール作成は許可するが、認証情報の自己申告は不可。
+    function profileAuthFieldsValid() {
+      let data = request.resource.data;
+      let verified = request.auth.token.get('email_verified', false);
+      return (!('uid' in data) || data.uid == request.auth.uid)
+        && (!('email' in data) || data.email.lower() == authEmailLower())
+        && (!('emailVerified' in data) || data.emailVerified == verified)
+        && (!('isEmailVerified' in data) || data.isEmailVerified == verified);
+    }
+
     // ユーザー管理のルール
     match /users/{userId} {
-      allow read: if isCITUser();
-      allow create: if isCITUser() && request.auth.uid == userId;
-      allow update: if isCITUser()
-        && request.auth.uid == userId
+      allow read: if isCITUser() || isOwnCitProfile(userId);
+      allow create: if isOwnCitProfile(userId) && profileAuthFieldsValid();
+      allow update: if isOwnCitProfile(userId)
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(
+          ['uid', 'email', 'emailVerified', 'isEmailVerified']) || profileAuthFieldsValid())
         && cwitterIdFieldValidOnUpdate()
         && cwitterBioFieldValidOnUpdate()
         && cwitterTagsFieldValidOnUpdate()
@@ -889,6 +965,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // 人数だけを共有する。個人のお気に入り一覧は引き続き本人専用。
+    match /cafeteria_favorite_stats/{targetId} {
+      allow read: if isCITUser();
+      allow write: if false;
+    }
+
     // 学食お気に入りのルール（サブコレクション）
     match /users/{userId}/cafeteria_favorites/{favoriteId} {
       // 読み取り: 自分のお気に入りのみ
@@ -906,13 +988,13 @@ service cloud.firestore {
       allow update: if isCITUser()
         && request.auth != null
         && request.auth.uid == userId
-        && resource.data.userId == request.auth.uid;
+        && resource.data.userId == request.auth.uid
+        && hasRequiredCafeteriaFavoriteFields();
 
       // 削除: 自分のお気に入りのみ
       allow delete: if isCITUser()
         && request.auth != null
-        && request.auth.uid == userId
-        && resource.data.userId == request.auth.uid;
+        && request.auth.uid == userId;
     }
 
     // 管理者のルール
@@ -1115,8 +1197,9 @@ service cloud.firestore {
     }
 
     function isViewCountOnlyUpdate() {
-      return request.resource.data.keys().hasAll(resource.data.keys())
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['viewCount']);
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount'])
+        && request.resource.data.viewCount is int
+        && request.resource.data.viewCount == resource.data.get('viewCount', 0) + 1;
     }
 
     function isLikeOnlyUpdate() {
@@ -1128,40 +1211,21 @@ service cloud.firestore {
     // 変更できるのは couponUsedCount と couponUsedBy のみ。
     // 自分の使用回数を +1 し、合計も +1 であること、上限超過しないことを検証。
     function isCouponUseUpdate() {
-      return resource.data.isCoupon == true
-        // 変更キーは2つのみ
-        && request.resource.data.keys().hasAll(resource.data.keys())
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['couponUsedCount', 'couponUsedBy'])
-        // couponUsedCount は旧値があれば +1、無ければ 1
-        && (
-          (resource.data.couponUsedCount is int && request.resource.data.couponUsedCount == resource.data.couponUsedCount + 1)
-          || (!(resource.data.couponUsedCount is int) && request.resource.data.couponUsedCount == 1)
-        )
-        // 自分の使用回数が +1 になっていること
-        && (
-          // 旧データに couponUsedBy が無い/Mapでない → 自分のキーのみ 1
-          (((resource.data.couponUsedBy is map) == false)
-            && (request.resource.data.couponUsedBy is map)
-            && request.resource.data.couponUsedBy.keys().hasOnly([request.auth.uid])
-            && request.resource.data.couponUsedBy[request.auth.uid] == 1)
-          ||
-          // 旧データが Map → 変更キーは自分のみ かつ new == old+1（old が未定義なら 1）
-          ((resource.data.couponUsedBy is map) && (request.resource.data.couponUsedBy is map)
-            && request.resource.data.couponUsedBy.diff(resource.data.couponUsedBy).changedKeys().hasOnly([request.auth.uid])
-            && (
-              (resource.data.couponUsedBy[request.auth.uid] is int
-                && request.resource.data.couponUsedBy[request.auth.uid] == resource.data.couponUsedBy[request.auth.uid] + 1)
-              || (!(resource.data.couponUsedBy[request.auth.uid] is int)
-                && request.resource.data.couponUsedBy[request.auth.uid] == 1)
-            )
-          )
-        )
-        // 上限が設定されている場合は超えない（null 等の非 int は無制限扱い）
-        && (
-          !('couponMaxUses' in resource.data)
-          || !(resource.data.couponMaxUses is int)
-          || request.resource.data.couponUsedBy[request.auth.uid] <= resource.data.couponMaxUses
-        );
+      let before = resource.data.get('couponUsedBy', null) is map
+        ? resource.data.couponUsedBy : {};
+      let after = request.resource.data.get('couponUsedBy', {});
+      let used = before.get(request.auth.uid, 0);
+      let maximum = resource.data.get('couponMaxUses', null);
+      return resource.data.get('isCoupon', false) == true
+        && resource.data.get('isActive', true) == true
+        && resource.data.get('approvalStatus', '') == 'approved'
+        && (resource.data.get('expiresAt', null) == null || resource.data.expiresAt > request.time)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['couponUsedCount', 'couponUsedBy'])
+        && after is map
+        && after.diff(before).affectedKeys().hasOnly([request.auth.uid])
+        && after.get(request.auth.uid, 0) == used + 1
+        && request.resource.data.couponUsedCount == resource.data.get('couponUsedCount', 0) + 1
+        && (!(maximum is int) || after[request.auth.uid] <= maximum);
     }
 
     function hasRequiredCommentFields() {
@@ -1381,7 +1445,7 @@ service cloud.firestore {
     }
 
     function hasRequiredInAppAdFields() {
-      return request.resource.data.keys().hasAll([
+      return validSponsorship() && request.resource.data.keys().hasAll([
           'title','body','targetType','actionType','actionPayload','isActive','weight'
         ])
         && request.resource.data.title is string

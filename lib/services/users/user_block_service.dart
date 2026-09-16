@@ -83,9 +83,7 @@ class UserBlockService {
   }
 
   /// ユーザーのブロックを解除
-  static Future<void> unblockUser({
-    required String blockedUserId,
-  }) async {
+  static Future<void> unblockUser({required String blockedUserId}) async {
     try {
       // 認証チェック
       final User? currentUser = _auth.currentUser;
@@ -94,12 +92,13 @@ class UserBlockService {
       }
 
       // ブロックレコードを取得
-      final QuerySnapshot snapshot = await _firestore
-          .collection('blocked_users')
-          .where('userId', isEqualTo: currentUser.uid)
-          .where('blockedUserId', isEqualTo: blockedUserId)
-          .limit(1)
-          .get();
+      final QuerySnapshot snapshot =
+          await _firestore
+              .collection('blocked_users')
+              .where('userId', isEqualTo: currentUser.uid)
+              .where('blockedUserId', isEqualTo: blockedUserId)
+              .limit(1)
+              .get();
 
       if (snapshot.docs.isEmpty) {
         throw Exception('ブロック情報が見つかりません。');
@@ -132,13 +131,10 @@ class UserBlockService {
           .orderBy('blockedAt', descending: true)
           .snapshots()
           .map((snapshot) {
-        return snapshot.docs.map((doc) {
-          return BlockedUser.fromJson({
-            'id': doc.id,
-            ...doc.data(),
+            return snapshot.docs.map((doc) {
+              return BlockedUser.fromJson({'id': doc.id, ...doc.data()});
+            }).toList();
           });
-        }).toList();
-      });
     } catch (e) {
       print('ブロックユーザー取得時のエラー: $e');
       return Stream.value([]);
@@ -153,11 +149,12 @@ class UserBlockService {
         return [];
       }
 
-      final QuerySnapshot snapshot = await _firestore
-          .collection('blocked_users')
-          .where('userId', isEqualTo: currentUser.uid)
-          .orderBy('blockedAt', descending: true)
-          .get();
+      final QuerySnapshot snapshot =
+          await _firestore
+              .collection('blocked_users')
+              .where('userId', isEqualTo: currentUser.uid)
+              .orderBy('blockedAt', descending: true)
+              .get();
 
       return snapshot.docs.map((doc) {
         return BlockedUser.fromJson({
@@ -190,10 +187,11 @@ class UserBlockService {
         return {};
       }
 
-      final QuerySnapshot snapshot = await _firestore
-          .collection('blocked_users')
-          .where('blockedUserId', isEqualTo: currentUser.uid)
-          .get();
+      final QuerySnapshot snapshot =
+          await _firestore
+              .collection('blocked_users')
+              .where('blockedUserId', isEqualTo: currentUser.uid)
+              .get();
 
       return snapshot.docs
           .map((doc) => doc.data() as Map<String, dynamic>)
@@ -225,13 +223,11 @@ class UserBlockService {
         .where('userId', isEqualTo: uid)
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map(
-                (doc) =>
-                    (doc.data()['blockedUserId'] as String?) ?? '',
-              )
-              .where((id) => id.isNotEmpty)
-              .toSet(),
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => (doc.data()['blockedUserId'] as String?) ?? '')
+                  .where((id) => id.isNotEmpty)
+                  .toSet(),
         );
 
     final blockedByStream = _firestore
@@ -239,10 +235,11 @@ class UserBlockService {
         .where('blockedUserId', isEqualTo: uid)
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => (doc.data()['userId'] as String?) ?? '')
-              .where((id) => id.isNotEmpty)
-              .toSet(),
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => (doc.data()['userId'] as String?) ?? '')
+                  .where((id) => id.isNotEmpty)
+                  .toSet(),
         );
 
     return _mergeHiddenUserIdStreams(blockedStream, blockedByStream);
@@ -258,20 +255,14 @@ class UserBlockService {
 
       void emit() => controller.add({...blocked, ...blockedBy});
 
-      final blockedSub = blockedStream.listen(
-        (value) {
-          blocked = value;
-          emit();
-        },
-        onError: controller.addError,
-      );
-      final blockedBySub = blockedByStream.listen(
-        (value) {
-          blockedBy = value;
-          emit();
-        },
-        onError: controller.addError,
-      );
+      final blockedSub = blockedStream.listen((value) {
+        blocked = value;
+        emit();
+      }, onError: controller.addError);
+      final blockedBySub = blockedByStream.listen((value) {
+        blockedBy = value;
+        emit();
+      }, onError: controller.addError);
 
       controller.onCancel = () {
         blockedSub.cancel();
@@ -291,12 +282,13 @@ class UserBlockService {
         return false;
       }
 
-      final QuerySnapshot snapshot = await _firestore
-          .collection('blocked_users')
-          .where('userId', isEqualTo: checkUserId)
-          .where('blockedUserId', isEqualTo: blockedUserId)
-          .limit(1)
-          .get();
+      final QuerySnapshot snapshot =
+          await _firestore
+              .collection('blocked_users')
+              .where('userId', isEqualTo: checkUserId)
+              .where('blockedUserId', isEqualTo: blockedUserId)
+              .limit(1)
+              .get();
 
       return snapshot.docs.isNotEmpty;
     } catch (e) {
@@ -313,10 +305,11 @@ class UserBlockService {
         return 0;
       }
 
-      final QuerySnapshot snapshot = await _firestore
-          .collection('blocked_users')
-          .where('userId', isEqualTo: currentUser.uid)
-          .get();
+      final QuerySnapshot snapshot =
+          await _firestore
+              .collection('blocked_users')
+              .where('userId', isEqualTo: currentUser.uid)
+              .get();
 
       return snapshot.docs.length;
     } catch (e) {

@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -42,9 +43,8 @@ class _CwitterIdSetupViewState extends ConsumerState<CwitterIdSetupView> {
       if (!mounted) return;
       setState(() {
         _isAvailable = available;
-        _availabilityMessage = available
-            ? 'このIDは利用できます'
-            : AppConstants.errorCwitterIdTaken;
+        _availabilityMessage =
+            available ? 'このIDは利用できます' : AppConstants.errorCwitterIdTaken;
       });
     } catch (e) {
       if (!mounted) return;
@@ -68,14 +68,15 @@ class _CwitterIdSetupViewState extends ConsumerState<CwitterIdSetupView> {
 
       await Navigator.of(context).push<void>(
         MaterialPageRoute(
-          builder: (_) => const CwitterProfileScreen(showInitialProfileSetup: true),
+          builder:
+              (_) => const CwitterProfileScreen(showInitialProfileSetup: true),
         ),
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Cwitter ID @$id を設定しました')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Cwitter ID @$id を設定しました')));
     } on CwitterIdAlreadyTakenException {
       if (!mounted) return;
       setState(() {
@@ -87,14 +88,14 @@ class _CwitterIdSetupViewState extends ConsumerState<CwitterIdSetupView> {
       );
     } on CwitterIdAlreadySetException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('設定に失敗しました: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('設定に失敗しました: $e')));
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -113,9 +114,10 @@ class _CwitterIdSetupViewState extends ConsumerState<CwitterIdSetupView> {
         Icon(
           Icons.alternate_email,
           size: 56,
-          color: colorScheme.brightness == Brightness.dark
-              ? const Color(0xFF81C784)
-              : const Color(0xFF2E7D32),
+          color:
+              colorScheme.brightness == Brightness.dark
+                  ? const Color(0xFF81C784)
+                  : const Color(0xFF2E7D32),
         ),
         const SizedBox(height: 16),
         Text(
@@ -158,10 +160,14 @@ class _CwitterIdSetupViewState extends ConsumerState<CwitterIdSetupView> {
                       hintText: '例: cit2024',
                       prefixText: '@',
                       helperText: AppConstants.cwitterIdInputHelper,
-                      suffixIcon: _isAvailable == true
-                          ? const Icon(Icons.check_circle, color: Colors.green)
-                          : _isAvailable == false
-                              ? const Icon(Icons.cancel, color: Colors.red)
+                      suffixIcon:
+                          _isAvailable == true
+                              ?  Icon(
+                                Icons.check_circle,
+                                color: AppColors.accent(context, Colors.green),
+                              )
+                              : _isAvailable == false
+                              ?  Icon(Icons.cancel, color: AppColors.accent(context, Colors.red))
                               : null,
                     ),
                     inputFormatters: [
@@ -195,9 +201,7 @@ class _CwitterIdSetupViewState extends ConsumerState<CwitterIdSetupView> {
                       _availabilityMessage!,
                       style: TextStyle(
                         fontSize: 13,
-                        color: _isAvailable == true
-                            ? Colors.green
-                            : Colors.red,
+                        color: _isAvailable == true ? Colors.green : Colors.red,
                       ),
                     ),
                   ],
@@ -208,35 +212,35 @@ class _CwitterIdSetupViewState extends ConsumerState<CwitterIdSetupView> {
                   ),
                   const SizedBox(height: 12),
                   FilledButton(
-                    onPressed: _isSubmitting
-                        ? null
-                        : () async {
-                            final uid = ref.read(currentUserIdProvider);
-                            if (uid == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('ログインが必要です'),
-                                ),
-                              );
-                              return;
-                            }
-                            await _submit(uid);
-                          },
+                    onPressed:
+                        _isSubmitting
+                            ? null
+                            : () async {
+                              final uid = ref.read(currentUserIdProvider);
+                              if (uid == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('ログインが必要です')),
+                                );
+                                return;
+                              }
+                              await _submit(uid);
+                            },
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF4CAF50),
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.onColor(const Color(0xFF4CAF50)),
                       minimumSize: const Size(double.infinity, 48),
                     ),
-                    child: _isSubmitting
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('IDを設定してはじめる'),
+                    child:
+                        _isSubmitting
+                            ?  SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.onColor(const Color(0xFF4CAF50)),
+                              ),
+                            )
+                            : const Text('IDを設定してはじめる'),
                   ),
                 ],
               ),

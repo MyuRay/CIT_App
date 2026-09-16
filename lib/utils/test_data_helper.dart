@@ -10,7 +10,8 @@ class TestDataHelper {
       final testPost = BulletinPost(
         id: '',
         title: 'テスト投稿 - 学園祭のお知らせ',
-        description: 'これはテスト用の投稿です。来月開催される学園祭の詳細情報をお知らせします。多数の企画をご用意しておりますので、ぜひご参加ください。',
+        description:
+            'これはテスト用の投稿です。来月開催される学園祭の詳細情報をお知らせします。多数の企画をご用意しておりますので、ぜひご参加ください。',
         imageUrl: 'https://picsum.photos/800/600?random=1',
         category: BulletinCategories.all.firstWhere((c) => c.id == 'event'),
         createdAt: DateTime.now(),
@@ -34,7 +35,8 @@ class TestDataHelper {
     final testPosts = [
       {
         'title': '千葉工業大学 学園祭開催のお知らせ',
-        'description': '来月開催される学園祭の詳細情報です。各学部・サークルの出展や模擬店、ステージイベントなど多数の企画をご用意しております。',
+        'description':
+            '来月開催される学園祭の詳細情報です。各学部・サークルの出展や模擬店、ステージイベントなど多数の企画をご用意しております。',
         'category': 'event',
         'isPinned': true,
       },
@@ -60,8 +62,10 @@ class TestDataHelper {
 
     for (int i = 0; i < testPosts.length; i++) {
       final postData = testPosts[i];
-      final category = BulletinCategories.all.firstWhere((c) => c.id == postData['category']);
-      
+      final category = BulletinCategories.all.firstWhere(
+        (c) => c.id == postData['category'],
+      );
+
       final post = BulletinPost(
         id: '',
         title: postData['title'] as String,
@@ -89,10 +93,11 @@ class TestDataHelper {
   /// テスト投稿を全て削除
   static Future<void> deleteAllTestPosts() async {
     try {
-      final QuerySnapshot snapshot = await _firestore
-          .collection('bulletin_posts')
-          .where('authorId', arrayContains: 'test_user')
-          .get();
+      final QuerySnapshot snapshot =
+          await _firestore
+              .collection('bulletin_posts')
+              .where('authorId', arrayContains: 'test_user')
+              .get();
 
       final WriteBatch batch = _firestore.batch();
       for (final doc in snapshot.docs) {

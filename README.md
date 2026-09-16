@@ -2,6 +2,8 @@
 
 千葉工業大学の学生向けに開発された包括的な学生支援アプリケーションです。時間割管理、掲示板機能、食堂メニュー表示、シラバス検索など、学生生活に必要な機能を一つのアプリで提供します。
 
+開発・運用を引き継ぐメンバーは[引き継ぎ資料](docs/handoff/README.md)から確認してください。[Discord RAGの初期実装と導入手順](tools/discord-rag/README.md)も用意しています。本番反映状況とローカル実装・検証結果は分けて記録します。
+
 ## 📱 主な機能
 
 ### 🗓️ 時間割管理
@@ -45,6 +47,8 @@
 - **プラットフォーム**: Android, iOS, Web
 
 ## 🚀 セットアップと起動
+
+WindowsでOneDrive配下の `cleanMergeDebugAssets` が失敗する場合は、[生成物をローカル保存へ切り替える手順](docs/handoff/development.md#onedrive内でビルドが止まる)を参照してください。
 
 ### 前提条件
 - Flutter SDK 3.38.3 (stable)

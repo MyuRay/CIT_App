@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -21,108 +22,90 @@ class NotificationSettingsScreen extends ConsumerWidget {
     final scheduleEnabled = ref.watch(scheduleNotificationEnabledProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('プッシュ通知設定'),
-      ),
-      body: uid == null
-          ? const Center(child: Text('ログインが必要です'))
-          : prefsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('読み込みに失敗しました: $e')),
-              data: (prefs) => ListView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                children: [
-                  _SectionHeader(
-                    title: '掲示板',
-                    subtitle: '掲示板でのやり取り',
-                  ),
-                  ..._keysForSection(_Section.bulletin).map(
-                    (key) => _PreferenceTile(
-                      preferenceKey: key,
-                      enabled: key == NotificationPreferenceKey.scheduleClass
-                          ? scheduleEnabled
-                          : prefs.isEnabled(key),
-                      onChanged: (value) => _onChanged(
-                        context,
-                        ref,
-                        uid,
-                        key,
-                        value,
-                      ),
-                    ),
-                  ),
-                  const Divider(height: 24),
-                  _SectionHeader(
-                    title: '交流（Cwitter）',
-                    subtitle: 'Cwitterでのやり取り',
-                  ),
-                  ..._keysForSection(_Section.cwitter).map(
-                    (key) => _PreferenceTile(
-                      preferenceKey: key,
-                      enabled: prefs.isEnabled(key),
-                      onChanged: (value) => _onChanged(
-                        context,
-                        ref,
-                        uid,
-                        key,
-                        value,
-                      ),
-                    ),
-                  ),
-                  const Divider(height: 24),
-                  _SectionHeader(
-                    title: '交流（ちばちゃんねる）',
-                    subtitle: '匿名掲示板でのやり取り',
-                  ),
-                  ..._keysForSection(_Section.chibaChannel).map(
-                    (key) => _PreferenceTile(
-                      preferenceKey: key,
-                      enabled: prefs.isEnabled(key),
-                      onChanged: (value) => _onChanged(
-                        context,
-                        ref,
-                        uid,
-                        key,
-                        value,
-                      ),
-                    ),
-                  ),
-                  const Divider(height: 24),
-                  _SectionHeader(
-                    title: 'その他',
-                    subtitle: '審査・お問い合わせ・運営からの連絡',
-                  ),
-                  ..._keysForSection(_Section.other).map(
-                    (key) => _PreferenceTile(
-                      preferenceKey: key,
-                      enabled: key == NotificationPreferenceKey.scheduleClass
-                          ? scheduleEnabled
-                          : prefs.isEnabled(key),
-                      onChanged: (value) => _onChanged(
-                        context,
-                        ref,
-                        uid,
-                        key,
-                        value,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'オフにした種類はプッシュ通知（端末への通知）のみ停止します。アプリ内の通知一覧には引き続き表示されます。講義開始前は端末のローカル通知です。',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.6),
+      appBar: AppBar(title: const Text('プッシュ通知設定')),
+      body:
+          uid == null
+              ? const Center(child: Text('ログインが必要です'))
+              : prefsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('読み込みに失敗しました: $e')),
+                data:
+                    (prefs) => ListView(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      children: [
+                        _SectionHeader(title: '掲示板', subtitle: '掲示板でのやり取り'),
+                        ..._keysForSection(_Section.bulletin).map(
+                          (key) => _PreferenceTile(
+                            preferenceKey: key,
+                            enabled:
+                                key == NotificationPreferenceKey.scheduleClass
+                                    ? scheduleEnabled
+                                    : prefs.isEnabled(key),
+                            onChanged:
+                                (value) =>
+                                    _onChanged(context, ref, uid, key, value),
                           ),
+                        ),
+                        const Divider(height: 24),
+                        _SectionHeader(
+                          title: '交流（Cwitter）',
+                          subtitle: 'Cwitterでのやり取り',
+                        ),
+                        ..._keysForSection(_Section.cwitter).map(
+                          (key) => _PreferenceTile(
+                            preferenceKey: key,
+                            enabled: prefs.isEnabled(key),
+                            onChanged:
+                                (value) =>
+                                    _onChanged(context, ref, uid, key, value),
+                          ),
+                        ),
+                        const Divider(height: 24),
+                        _SectionHeader(
+                          title: '交流（ちばちゃんねる）',
+                          subtitle: '匿名掲示板でのやり取り',
+                        ),
+                        ..._keysForSection(_Section.chibaChannel).map(
+                          (key) => _PreferenceTile(
+                            preferenceKey: key,
+                            enabled: prefs.isEnabled(key),
+                            onChanged:
+                                (value) =>
+                                    _onChanged(context, ref, uid, key, value),
+                          ),
+                        ),
+                        const Divider(height: 24),
+                        _SectionHeader(
+                          title: 'その他',
+                          subtitle: '審査・お問い合わせ・運営からの連絡',
+                        ),
+                        ..._keysForSection(_Section.other).map(
+                          (key) => _PreferenceTile(
+                            preferenceKey: key,
+                            enabled:
+                                key == NotificationPreferenceKey.scheduleClass
+                                    ? scheduleEnabled
+                                    : prefs.isEnabled(key),
+                            onChanged:
+                                (value) =>
+                                    _onChanged(context, ref, uid, key, value),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'オフにした種類はプッシュ通知（端末への通知）のみ停止します。アプリ内の通知一覧には引き続き表示されます。講義開始前は端末のローカル通知です。',
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
               ),
-            ),
     );
   }
 
@@ -158,7 +141,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('設定の保存に失敗しました: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.snackBarSurface(context, Colors.red),
         ),
       );
     }
@@ -235,20 +218,17 @@ class _SectionHeader extends StatelessWidget {
         children: [
           Text(
             title,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
             Text(
               subtitle!,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.6),
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ],

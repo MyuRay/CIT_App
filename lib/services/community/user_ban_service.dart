@@ -132,31 +132,34 @@ class UserBanService {
   /// 現在BAN中（期限内）のユーザーIDをリアルタイム監視する。
   /// 投稿一覧から該当ユーザーの投稿を非表示にするために利用する。
   static Stream<Set<String>> watchActiveBannedUserIds() {
-    return _indexRef().snapshots().map((snap) {
-      if (!snap.exists) return <String>{};
-      final data = snap.data();
-      final users = data?['users'];
-      if (users is! Map) return <String>{};
+    return _indexRef()
+        .snapshots()
+        .map((snap) {
+          if (!snap.exists) return <String>{};
+          final data = snap.data();
+          final users = data?['users'];
+          if (users is! Map) return <String>{};
 
-      final now = DateTime.now();
-      final ids = <String>{};
-      users.forEach((key, value) {
-        if (key is! String || value is! Map) return;
-        final permanent = value['permanent'] == true;
-        final expiresRaw = value['expiresAt'];
-        final expiresAt =
-            expiresRaw is Timestamp ? expiresRaw.toDate() : null;
-        final isActive =
-            permanent || (expiresAt != null && now.isBefore(expiresAt));
-        if (isActive) {
-          ids.add(key);
-        }
-      });
-      return ids;
-    }).handleError(
-      // 索引の読み取りに失敗（ルール未デプロイ等）してもフィードを壊さない
-      (_) {},
-      test: (_) => true,
-    );
+          final now = DateTime.now();
+          final ids = <String>{};
+          users.forEach((key, value) {
+            if (key is! String || value is! Map) return;
+            final permanent = value['permanent'] == true;
+            final expiresRaw = value['expiresAt'];
+            final expiresAt =
+                expiresRaw is Timestamp ? expiresRaw.toDate() : null;
+            final isActive =
+                permanent || (expiresAt != null && now.isBefore(expiresAt));
+            if (isActive) {
+              ids.add(key);
+            }
+          });
+          return ids;
+        })
+        .handleError(
+          // 索引の読み取りに失敗（ルール未デプロイ等）してもフィードを壊さない
+          (_) {},
+          test: (_) => true,
+        );
   }
 }

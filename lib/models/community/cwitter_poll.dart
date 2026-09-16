@@ -18,11 +18,7 @@ class CwitterPollOption {
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'text': text,
-      'voteCount': voteCount,
-    };
+    return {'id': id, 'text': text, 'voteCount': voteCount};
   }
 
   CwitterPollOption copyWith({int? voteCount}) {
@@ -35,10 +31,7 @@ class CwitterPollOption {
 }
 
 class CwitterPoll {
-  const CwitterPoll({
-    required this.options,
-    this.votedBy = const {},
-  });
+  const CwitterPoll({required this.options, this.votedBy = const {}});
 
   static const int minOptions = 2;
   static const int maxOptions = 4;
@@ -52,11 +45,9 @@ class CwitterPoll {
   int get totalVotes =>
       options.fold<int>(0, (sum, option) => sum + option.voteCount);
 
-  bool hasVoted(String? uid) =>
-      uid != null && votedBy.containsKey(uid);
+  bool hasVoted(String? uid) => uid != null && votedBy.containsKey(uid);
 
-  String? votedOptionId(String? uid) =>
-      uid != null ? votedBy[uid] : null;
+  String? votedOptionId(String? uid) => uid != null ? votedBy[uid] : null;
 
   double voteRatioFor(String optionId) {
     if (totalVotes <= 0) return 0;
@@ -70,28 +61,34 @@ class CwitterPoll {
 
   factory CwitterPoll.fromMap(Map<String, dynamic> map) {
     final rawOptions = map['options'];
-    final options = rawOptions is List
-        ? rawOptions
-            .whereType<Map>()
-            .map((item) => CwitterPollOption.fromMap(
-                  Map<String, dynamic>.from(item),
-                ))
-            .where((option) => option.id.isNotEmpty && option.text.isNotEmpty)
-            .take(maxOptions)
-            .toList()
-        : <CwitterPollOption>[];
+    final options =
+        rawOptions is List
+            ? rawOptions
+                .whereType<Map>()
+                .map(
+                  (item) => CwitterPollOption.fromMap(
+                    Map<String, dynamic>.from(item),
+                  ),
+                )
+                .where(
+                  (option) => option.id.isNotEmpty && option.text.isNotEmpty,
+                )
+                .take(maxOptions)
+                .toList()
+            : <CwitterPollOption>[];
 
     final rawVotedBy = map['votedBy'];
-    final votedBy = rawVotedBy is Map
-        ? Map<String, String>.fromEntries(
-            rawVotedBy.entries.map(
-              (entry) => MapEntry(
-                entry.key.toString(),
-                entry.value?.toString() ?? '',
+    final votedBy =
+        rawVotedBy is Map
+            ? Map<String, String>.fromEntries(
+              rawVotedBy.entries.map(
+                (entry) => MapEntry(
+                  entry.key.toString(),
+                  entry.value?.toString() ?? '',
+                ),
               ),
-            ),
-          )
-        : const <String, String>{};
+            )
+            : const <String, String>{};
 
     return CwitterPoll(options: options, votedBy: votedBy);
   }

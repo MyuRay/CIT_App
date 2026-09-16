@@ -71,8 +71,10 @@ class LecturePeriodSettings {
     return {
       if (springStartDate != null)
         'springStartDate': Timestamp.fromDate(springStartDate!),
-      if (springEndDate != null) 'springEndDate': Timestamp.fromDate(springEndDate!),
-      if (fallStartDate != null) 'fallStartDate': Timestamp.fromDate(fallStartDate!),
+      if (springEndDate != null)
+        'springEndDate': Timestamp.fromDate(springEndDate!),
+      if (fallStartDate != null)
+        'fallStartDate': Timestamp.fromDate(fallStartDate!),
       if (fallEndDate != null) 'fallEndDate': Timestamp.fromDate(fallEndDate!),
       if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
       if (updatedBy != null) 'updatedBy': updatedBy,

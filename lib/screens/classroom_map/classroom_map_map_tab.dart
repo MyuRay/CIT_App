@@ -68,61 +68,63 @@ class _ClassroomMapMapTabState extends State<ClassroomMapMapTab> {
     final campus = _campusForSelection();
     final theme = Theme.of(context);
 
-    final markers = campus.buildings.map((b) {
-      final selected = _selectedBuilding?.buildingId == b.buildingId;
-      return Marker(
-        key: ValueKey<String>('${campus.id}_${b.buildingId}'),
-        point: LatLng(b.latitude, b.longitude),
-        width: 44,
-        height: 44,
-        alignment: Alignment.bottomCenter,
-        child: GestureDetector(
-          onTap: () {
-            final narashinoSheet =
-                campus.id == 'narashino' &&
-                narashinoBuildingHasFloorMapsSheet(b.buildingId);
-            final tsudanumaSheet =
-                campus.id == 'tsudanuma' &&
-                tsudanumaBuildingHasFloorMapsSheet(b.buildingId);
-            if (narashinoSheet) {
-              setState(() => _selectedBuilding = b);
-              showNarashinoBuildingFloorMapsBottomSheet(
-                context,
-                buildingId: b.buildingId,
-                buildingName: b.buildingName,
-                latitude: b.latitude,
-                longitude: b.longitude,
-              ).then((_) => _clearFloorSheetBuildingSelectionIfNeeded());
-            } else if (tsudanumaSheet) {
-              setState(() => _selectedBuilding = b);
-              showTsudanumaBuildingFloorMapsBottomSheet(
-                context,
-                buildingId: b.buildingId,
-                buildingName: b.buildingName,
-                latitude: b.latitude,
-                longitude: b.longitude,
-              ).then((_) => _clearFloorSheetBuildingSelectionIfNeeded());
-            } else {
-              setState(() => _selectedBuilding = b);
-            }
-          },
-          child: Icon(
-            Icons.location_on,
-            size: 40,
-            color: selected
-                ? theme.colorScheme.primary
-                : theme.colorScheme.onSurfaceVariant,
-            shadows: const [
-              Shadow(
-                blurRadius: 2,
-                offset: Offset(0, 1),
-                color: Color(0x66000000),
+    final markers =
+        campus.buildings.map((b) {
+          final selected = _selectedBuilding?.buildingId == b.buildingId;
+          return Marker(
+            key: ValueKey<String>('${campus.id}_${b.buildingId}'),
+            point: LatLng(b.latitude, b.longitude),
+            width: 44,
+            height: 44,
+            alignment: Alignment.bottomCenter,
+            child: GestureDetector(
+              onTap: () {
+                final narashinoSheet =
+                    campus.id == 'narashino' &&
+                    narashinoBuildingHasFloorMapsSheet(b.buildingId);
+                final tsudanumaSheet =
+                    campus.id == 'tsudanuma' &&
+                    tsudanumaBuildingHasFloorMapsSheet(b.buildingId);
+                if (narashinoSheet) {
+                  setState(() => _selectedBuilding = b);
+                  showNarashinoBuildingFloorMapsBottomSheet(
+                    context,
+                    buildingId: b.buildingId,
+                    buildingName: b.buildingName,
+                    latitude: b.latitude,
+                    longitude: b.longitude,
+                  ).then((_) => _clearFloorSheetBuildingSelectionIfNeeded());
+                } else if (tsudanumaSheet) {
+                  setState(() => _selectedBuilding = b);
+                  showTsudanumaBuildingFloorMapsBottomSheet(
+                    context,
+                    buildingId: b.buildingId,
+                    buildingName: b.buildingName,
+                    latitude: b.latitude,
+                    longitude: b.longitude,
+                  ).then((_) => _clearFloorSheetBuildingSelectionIfNeeded());
+                } else {
+                  setState(() => _selectedBuilding = b);
+                }
+              },
+              child: Icon(
+                Icons.location_on,
+                size: 40,
+                color:
+                    selected
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant,
+                shadows: const [
+                  Shadow(
+                    blurRadius: 2,
+                    offset: Offset(0, 1),
+                    color: Color(0x66000000),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-      );
-    }).toList();
+            ),
+          );
+        }).toList();
 
     return Stack(
       children: [
@@ -143,10 +145,11 @@ class _ClassroomMapMapTabState extends State<ClassroomMapMapTab> {
             MarkerLayer(markers: markers),
             SimpleAttributionWidget(
               source: const Text('OpenStreetMap'),
-              onTap: () => launchUrl(
-                Uri.parse('https://www.openstreetmap.org/copyright'),
-                mode: LaunchMode.externalApplication,
-              ),
+              onTap:
+                  () => launchUrl(
+                    Uri.parse('https://www.openstreetmap.org/copyright'),
+                    mode: LaunchMode.externalApplication,
+                  ),
             ),
           ],
         ),
@@ -158,9 +161,13 @@ class _ClassroomMapMapTabState extends State<ClassroomMapMapTab> {
         ),
         if (_selectedBuilding != null &&
             !(_campusForSelection().id == 'narashino' &&
-                narashinoBuildingHasFloorMapsSheet(_selectedBuilding!.buildingId)) &&
+                narashinoBuildingHasFloorMapsSheet(
+                  _selectedBuilding!.buildingId,
+                )) &&
             !(_campusForSelection().id == 'tsudanuma' &&
-                tsudanumaBuildingHasFloorMapsSheet(_selectedBuilding!.buildingId)))
+                tsudanumaBuildingHasFloorMapsSheet(
+                  _selectedBuilding!.buildingId,
+                )))
           _buildBuildingInfo(context),
       ],
     );
@@ -246,9 +253,11 @@ class _ClassroomMapMapTabState extends State<ClassroomMapMapTab> {
       final sel = _selectedBuilding;
       if (sel == null) return;
       final narashino =
-          c.id == 'narashino' && narashinoBuildingHasFloorMapsSheet(sel.buildingId);
+          c.id == 'narashino' &&
+          narashinoBuildingHasFloorMapsSheet(sel.buildingId);
       final tsudanuma =
-          c.id == 'tsudanuma' && tsudanumaBuildingHasFloorMapsSheet(sel.buildingId);
+          c.id == 'tsudanuma' &&
+          tsudanumaBuildingHasFloorMapsSheet(sel.buildingId);
       if (narashino || tsudanuma) {
         _selectedBuilding = null;
       }
@@ -272,7 +281,10 @@ class _ClassroomMapMapTabState extends State<ClassroomMapMapTab> {
             children: [
               Row(
                 children: [
-                  Text(b.buildingName, style: Theme.of(context).textTheme.titleLarge),
+                  Text(
+                    b.buildingName,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -282,7 +294,10 @@ class _ClassroomMapMapTabState extends State<ClassroomMapMapTab> {
               ),
               if (b.facilities.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                Text(b.facilities.join('・'), style: Theme.of(context).textTheme.bodyMedium),
+                Text(
+                  b.facilities.join('・'),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
               ],
               const SizedBox(height: 12),
               SizedBox(
@@ -301,7 +316,9 @@ class _ClassroomMapMapTabState extends State<ClassroomMapMapTab> {
   }
 
   Future<void> _openInGoogleMaps(double lat, double lng) async {
-    final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    final url = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+    );
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     }

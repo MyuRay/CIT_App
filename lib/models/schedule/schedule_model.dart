@@ -1,15 +1,16 @@
+import 'package:cit_app/core/utils/logger.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 // 時間割のクラス（科目）を表すモデル
 class ScheduleClass {
   final String id;
-  final String subjectName;  // 科目名
-  final String classroom;    // 教室
-  final String instructor;   // 担当教員
-  final String color;        // 表示色（HEX形式）
-  final String? notes;       // メモ
-  final int duration;        // 連続時間（1=単体、以上は連続）
-  final bool isStartCell;    // 連続講義の開始セルかどうか
+  final String subjectName; // 科目名
+  final String classroom; // 教室
+  final String instructor; // 担当教員
+  final String color; // 表示色（HEX形式）
+  final String? notes; // メモ
+  final int duration; // 連続時間（1=単体、以上は連続）
+  final bool isStartCell; // 連続講義の開始セルかどうか
 
   const ScheduleClass({
     required this.id,
@@ -51,9 +52,9 @@ class ScheduleClass {
 
 // 時間割の時間枠を表すモデル
 class TimeSlot {
-  final int period;        // 時限（1-10）
-  final String startTime;  // 開始時刻（例: "9:00"）
-  final String endTime;    // 終了時刻（例: "10:00"）
+  final int period; // 時限（1-10）
+  final String startTime; // 開始時刻（例: "9:00"）
+  final String endTime; // 終了時刻（例: "10:00"）
 
   const TimeSlot({
     required this.period,
@@ -70,11 +71,7 @@ class TimeSlot {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'period': period,
-      'startTime': startTime,
-      'endTime': endTime,
-    };
+    return {'period': period, 'startTime': startTime, 'endTime': endTime};
   }
 }
 
@@ -88,9 +85,9 @@ enum Weekday {
   saturday('土', 'Saturday');
 
   const Weekday(this.shortName, this.fullName);
-  
-  final String shortName;  // 日本語短縮形
-  final String fullName;   // 英語フルネーム
+
+  final String shortName; // 日本語短縮形
+  final String fullName; // 英語フルネーム
 }
 
 // 時間割のメインモデル
@@ -98,9 +95,9 @@ class Schedule {
   final String id;
   final String userId;
   final String? name; // 時間割名（任意）
-  final String semester;  // 学期（例: "2024年度前期"）
+  final String semester; // 学期（例: "2024年度前期"）
   final Map<String, Map<int, ScheduleClass?>> timetable; // [曜日][時限] = クラス
-  final List<TimeSlot> timeSlots;  // 時間枠の定義
+  final List<TimeSlot> timeSlots; // 時間枠の定義
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -118,39 +115,43 @@ class Schedule {
   factory Schedule.fromJson(Map<String, dynamic> json) {
     try {
       // Firestoreから取得したtimetableデータを解析
-      final timetableData = json['timetable'] as Map<String, dynamic>? ?? {};
+      final timetableData = Map<String, dynamic>.from(json['timetable'] as Map? ?? {});
       final Map<String, Map<int, ScheduleClass?>> parsedTimetable = {};
-      
+
       for (final weekdayEntry in timetableData.entries) {
         final weekdayKey = weekdayEntry.key;
-        final periodsData = weekdayEntry.value as Map<String, dynamic>? ?? {};
-        
+        final periodsData = Map<String, dynamic>.from(weekdayEntry.value as Map? ?? {});
+
         parsedTimetable[weekdayKey] = {};
-        
+
         for (int period = 1; period <= 10; period++) {
           final periodData = periodsData[period.toString()];
-          if (periodData != null && periodData is Map<String, dynamic>) {
-            parsedTimetable[weekdayKey]![period] = ScheduleClass.fromJson(periodData);
+          if (periodData is Map) {
+            parsedTimetable[weekdayKey]![period] = ScheduleClass.fromJson(
+              Map<String, dynamic>.from(periodData),
+            );
           } else {
             parsedTimetable[weekdayKey]![period] = null;
           }
         }
       }
-      
+
       // timeSlotsの解析（List/Map両対応）
       final dynamic timeSlotsField = json['timeSlots'];
       final List<TimeSlot> parsedTimeSlots;
       if (timeSlotsField is List) {
-        parsedTimeSlots = timeSlotsField
-            .where((item) => item is Map<String, dynamic>)
-            .map((item) => TimeSlot.fromJson(item as Map<String, dynamic>))
-            .toList();
-      } else if (timeSlotsField is Map<String, dynamic>) {
-        parsedTimeSlots = timeSlotsField.entries
-            .where((e) => e.value is Map<String, dynamic>)
-            .map((e) => TimeSlot.fromJson(e.value as Map<String, dynamic>))
-            .toList()
-          ..sort((a, b) => a.period.compareTo(b.period));
+        parsedTimeSlots =
+            timeSlotsField
+                .whereType<Map>()
+                .map((item) => TimeSlot.fromJson(Map<String, dynamic>.from(item)))
+                .toList();
+      } else if (timeSlotsField is Map) {
+        parsedTimeSlots =
+            timeSlotsField.entries
+                .where((e) => e.value is Map)
+                .map((e) => TimeSlot.fromJson(Map<String, dynamic>.from(e.value as Map)))
+                .toList()
+              ..sort((a, b) => a.period.compareTo(b.period));
       } else {
         parsedTimeSlots = [];
       }
@@ -166,8 +167,8 @@ class Schedule {
         updatedAt: _parseDateTime(json['updatedAt']),
       );
     } catch (e) {
-      print('Schedule.fromJson エラー: $e');
-      print('問題のあるJSON: $json');
+      SecureLogger.debug('Schedule.fromJson エラー: $e');
+      SecureLogger.debug('問題のあるJSON: $json');
       rethrow;
     }
   }
@@ -186,17 +187,17 @@ class Schedule {
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> timetableJson = {};
-    
+
     for (final weekdayEntry in timetable.entries) {
       final weekdayKey = weekdayEntry.key;
       final periodsMap = weekdayEntry.value;
-      
+
       timetableJson[weekdayKey] = {};
-      
+
       for (final periodEntry in periodsMap.entries) {
         final period = periodEntry.key;
         final scheduleClass = periodEntry.value;
-        
+
         timetableJson[weekdayKey][period.toString()] = scheduleClass?.toJson();
       }
     }
@@ -221,34 +222,35 @@ class Schedule {
   // 互換用: timeSlotsをListで保存する形式
   Map<String, dynamic> toJsonWithListTimeSlots() {
     final base = toJson();
-    final List<Map<String, dynamic>> timeSlotsList = timeSlots.map((e) => e.toJson()).toList();
+    final List<Map<String, dynamic>> timeSlotsList =
+        timeSlots.map((e) => e.toJson()).toList();
     base['timeSlots'] = timeSlotsList;
     return base;
   }
 
   static DateTime? _parseDateTime(dynamic dateTime) {
     if (dateTime == null) return null;
-    
+
     // Firestore Timestamp型の場合
     if (dateTime is Timestamp) {
       return dateTime.toDate();
     }
-    
+
     // DateTime型の場合
     if (dateTime is DateTime) {
       return dateTime;
     }
-    
+
     // String型の場合
     if (dateTime is String) {
       try {
         return DateTime.parse(dateTime);
       } catch (e) {
-        print('日付の解析に失敗: $dateTime, エラー: $e');
+        SecureLogger.debug('日付の解析に失敗: $dateTime, エラー: $e');
         return null;
       }
     }
-    
+
     return null;
   }
 }
@@ -271,14 +273,14 @@ class DefaultTimeSlots {
   // 空の時間割を作成するヘルパー
   static Map<String, Map<int, ScheduleClass?>> createEmptyTimetable() {
     final timetable = <String, Map<int, ScheduleClass?>>{};
-    
+
     for (final weekday in Weekday.values) {
       timetable[weekday.name] = <int, ScheduleClass?>{};
       for (int period = 1; period <= 10; period++) {
         timetable[weekday.name]![period] = null;
       }
     }
-    
+
     return timetable;
   }
 
@@ -306,8 +308,9 @@ class ScheduleUtils {
   // 現在の時間からアクティブな時限を取得
   static int? getCurrentPeriod(List<TimeSlot> timeSlots) {
     final now = DateTime.now();
-    final currentTime = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-    
+    final currentTime =
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
     for (final slot in timeSlots) {
       if (_isTimeInRange(currentTime, slot.startTime, slot.endTime)) {
         return slot.period;
@@ -320,13 +323,20 @@ class ScheduleUtils {
   static String? getCurrentWeekdayKey() {
     final now = DateTime.now();
     switch (now.weekday) {
-      case 1: return 'monday';
-      case 2: return 'tuesday';
-      case 3: return 'wednesday';
-      case 4: return 'thursday';
-      case 5: return 'friday';
-      case 6: return 'saturday';
-      default: return null; // 日曜日は授業なし
+      case 1:
+        return 'monday';
+      case 2:
+        return 'tuesday';
+      case 3:
+        return 'wednesday';
+      case 4:
+        return 'thursday';
+      case 5:
+        return 'friday';
+      case 6:
+        return 'saturday';
+      default:
+        return null; // 日曜日は授業なし
     }
   }
 
@@ -334,10 +344,10 @@ class ScheduleUtils {
   static List<ScheduleClass?> getTodayClasses(Schedule schedule) {
     final todayKey = getCurrentWeekdayKey();
     if (todayKey == null) return [];
-    
+
     final todaySchedule = schedule.timetable[todayKey];
     if (todaySchedule == null) return [];
-    
+
     return List.generate(10, (index) => todaySchedule[index + 1]);
   }
 
@@ -345,26 +355,30 @@ class ScheduleUtils {
   static ScheduleClass? getNextClass(Schedule schedule) {
     final todayKey = getCurrentWeekdayKey();
     final currentPeriod = getCurrentPeriod(schedule.timeSlots);
-    
+
     if (todayKey == null || currentPeriod == null) return null;
-    
+
     final todaySchedule = schedule.timetable[todayKey];
     if (todaySchedule == null) return null;
-    
+
     // 現在の時限以降の最初の授業を探す
     for (int period = currentPeriod + 1; period <= 10; period++) {
       final nextClass = todaySchedule[period];
       if (nextClass != null) return nextClass;
     }
-    
+
     return null;
   }
 
-  static bool _isTimeInRange(String currentTime, String startTime, String endTime) {
+  static bool _isTimeInRange(
+    String currentTime,
+    String startTime,
+    String endTime,
+  ) {
     final current = _timeToMinutes(currentTime);
     final start = _timeToMinutes(startTime);
     final end = _timeToMinutes(endTime);
-    
+
     return current >= start && current < end;
   }
 
@@ -374,32 +388,42 @@ class ScheduleUtils {
   }
 
   // 連続講義の終了時間を取得
-  static String getClassEndTime(Schedule schedule, int startPeriod, int duration) {
+  static String getClassEndTime(
+    Schedule schedule,
+    int startPeriod,
+    int duration,
+  ) {
     final endPeriod = startPeriod + duration - 1;
     final endTimeSlot = schedule.timeSlots.firstWhere(
       (slot) => slot.period == endPeriod,
-      orElse: () => TimeSlot(
-        period: endPeriod,
-        startTime: '${endPeriod + 8}:00',
-        endTime: '${endPeriod + 9}:00',
-      ),
+      orElse:
+          () => TimeSlot(
+            period: endPeriod,
+            startTime: '${endPeriod + 8}:00',
+            endTime: '${endPeriod + 9}:00',
+          ),
     );
     return endTimeSlot.endTime;
   }
 
   // 連続講義の時間範囲文字列を取得
-  static String getClassTimeRange(Schedule schedule, int startPeriod, int duration) {
+  static String getClassTimeRange(
+    Schedule schedule,
+    int startPeriod,
+    int duration,
+  ) {
     final startTimeSlot = schedule.timeSlots.firstWhere(
       (slot) => slot.period == startPeriod,
-      orElse: () => TimeSlot(
-        period: startPeriod,
-        startTime: '${startPeriod + 8}:00',
-        endTime: '${startPeriod + 9}:00',
-      ),
+      orElse:
+          () => TimeSlot(
+            period: startPeriod,
+            startTime: '${startPeriod + 8}:00',
+            endTime: '${startPeriod + 9}:00',
+          ),
     );
-    
+
     final endTime = getClassEndTime(schedule, startPeriod, duration);
-    
+
     if (duration == 1) {
       return '${startTimeSlot.startTime} - ${startTimeSlot.endTime}';
     } else {
@@ -410,10 +434,10 @@ class ScheduleUtils {
   // 連続講義の時限範囲文字列を取得
   static String getClassPeriodRange(int startPeriod, int duration) {
     if (duration == 1) {
-      return '${startPeriod}限';
+      return '$startPeriod限';
     } else {
       final endPeriod = startPeriod + duration - 1;
-      return '${startPeriod}-${endPeriod}限';
+      return '$startPeriod-$endPeriod限';
     }
   }
 
@@ -422,7 +446,7 @@ class ScheduleUtils {
     int totalClasses = 0;
     int occupiedSlots = 0;
     final subjects = <String>{};
-    
+
     for (final daySchedule in schedule.timetable.values) {
       for (final scheduleClass in daySchedule.values) {
         totalClasses++;
@@ -432,7 +456,7 @@ class ScheduleUtils {
         }
       }
     }
-    
+
     return {
       'totalSlots': totalClasses,
       'occupiedSlots': occupiedSlots,

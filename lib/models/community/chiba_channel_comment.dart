@@ -54,8 +54,7 @@ class ChibaChannelComment {
       authorId: data['authorId'] as String? ?? '',
       anonymousId: data['anonymousId'] as String? ?? '--------',
       authorEmail: data['authorEmail'] as String?,
-      inReplyToCommentNumber:
-          (data['inReplyToCommentNumber'] as num?)?.toInt(),
+      inReplyToCommentNumber: (data['inReplyToCommentNumber'] as num?)?.toInt(),
       inReplyToCommentId: data['inReplyToCommentId'] as String?,
       imageUrls: _parseImageUrls(data['imageUrls']),
       isDeleted: data['isDeleted'] as bool? ?? false,

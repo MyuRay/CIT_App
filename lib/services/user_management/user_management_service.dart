@@ -1,3 +1,4 @@
+import 'package:cit_app/core/utils/logger.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/user_management/user_management_model.dart';
@@ -6,7 +7,7 @@ import '../../models/admin/admin_model.dart';
 class UserManagementService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
-  
+
   static const String _usersCollection = 'users';
   static const String _adminPermissionsCollection = 'admin_permissions';
   static const String _userActivityCollection = 'user_activities';
@@ -17,7 +18,8 @@ class UserManagementService {
     bool? isActiveFilter,
     String? searchQuery,
   }) {
-    Query query = _firestore.collection(_usersCollection)
+    Query query = _firestore
+        .collection(_usersCollection)
         .orderBy('createdAt', descending: true);
 
     if (isActiveFilter != null) {
@@ -29,20 +31,22 @@ class UserManagementService {
     }
 
     return query.snapshots().map((snapshot) {
-      var users = snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        data['uid'] = doc.id; // ドキュメントIDをuidとして使用
-        return AppUser.fromJson(data);
-      }).toList();
+      var users =
+          snapshot.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            data['uid'] = doc.id; // ドキュメントIDをuidとして使用
+            return AppUser.fromJson(data);
+          }).toList();
 
       // 検索フィルタリング（クライアントサイド）
       if (searchQuery?.isNotEmpty == true) {
         final query = searchQuery!.toLowerCase();
-        users = users.where((user) {
-          return user.email.toLowerCase().contains(query) ||
-                 user.displayDisplayName.toLowerCase().contains(query) ||
-                 user.uid.toLowerCase().contains(query);
-        }).toList();
+        users =
+            users.where((user) {
+              return user.email.toLowerCase().contains(query) ||
+                  user.displayDisplayName.toLowerCase().contains(query) ||
+                  user.uid.toLowerCase().contains(query);
+            }).toList();
       }
 
       return users;
@@ -60,17 +64,20 @@ class UserManagementService {
       }
       return null;
     } catch (e) {
-      print('❌ ユーザー詳細取得エラー: $e');
+      SecureLogger.debug('❌ ユーザー詳細取得エラー: $e');
       rethrow;
     }
   }
 
   // ユーザー情報を更新
-  static Future<void> updateUser(String uid, Map<String, dynamic> updates) async {
+  static Future<void> updateUser(
+    String uid,
+    Map<String, dynamic> updates,
+  ) async {
     try {
       await _firestore.collection(_usersCollection).doc(uid).update(updates);
-      print('✅ ユーザー情報を更新しました: $uid');
-      
+      SecureLogger.debug('✅ ユーザー情報を更新しました: $uid');
+
       // アクティビティログを記録
       await _logUserActivity(
         uid: _auth.currentUser?.uid ?? 'system',
@@ -78,7 +85,7 @@ class UserManagementService {
         details: 'Updated user: $uid',
       );
     } catch (e) {
-      print('❌ ユーザー更新エラー: $e');
+      SecureLogger.debug('❌ ユーザー更新エラー: $e');
       rethrow;
     }
   }
@@ -91,16 +98,16 @@ class UserManagementService {
         'deactivatedAt': Timestamp.now(),
         'deactivatedBy': _auth.currentUser?.uid,
       });
-      
-      print('✅ ユーザーを無効化しました: $uid');
-      
+
+      SecureLogger.debug('✅ ユーザーを無効化しました: $uid');
+
       await _logUserActivity(
         uid: _auth.currentUser?.uid ?? 'system',
         action: 'user_deactivated',
         details: 'Deactivated user: $uid',
       );
     } catch (e) {
-      print('❌ ユーザー無効化エラー: $e');
+      SecureLogger.debug('❌ ユーザー無効化エラー: $e');
       rethrow;
     }
   }
@@ -113,22 +120,23 @@ class UserManagementService {
         'reactivatedAt': Timestamp.now(),
         'reactivatedBy': _auth.currentUser?.uid,
       });
-      
-      print('✅ ユーザーを有効化しました: $uid');
-      
+
+      SecureLogger.debug('✅ ユーザーを有効化しました: $uid');
+
       await _logUserActivity(
         uid: _auth.currentUser?.uid ?? 'system',
         action: 'user_activated',
         details: 'Activated user: $uid',
       );
     } catch (e) {
-      print('❌ ユーザー有効化エラー: $e');
+      SecureLogger.debug('❌ ユーザー有効化エラー: $e');
       rethrow;
     }
   }
 
   // 管理者権限を付与
-  static Future<void> grantAdminPermission(String uid, {
+  static Future<void> grantAdminPermission(
+    String uid, {
     bool canManagePosts = false,
     bool canViewContacts = false,
     bool canManageUsers = false,
@@ -150,16 +158,16 @@ class UserManagementService {
           .collection(_adminPermissionsCollection)
           .doc(uid)
           .set(adminPermission.toJson());
-      
-      print('✅ 管理者権限を付与しました: $uid');
-      
+
+      SecureLogger.debug('✅ 管理者権限を付与しました: $uid');
+
       await _logUserActivity(
         uid: _auth.currentUser?.uid ?? 'system',
         action: 'admin_granted',
         details: 'Granted admin to: $uid',
       );
     } catch (e) {
-      print('❌ 管理者権限付与エラー: $e');
+      SecureLogger.debug('❌ 管理者権限付与エラー: $e');
       rethrow;
     }
   }
@@ -171,37 +179,40 @@ class UserManagementService {
           .collection(_adminPermissionsCollection)
           .doc(uid)
           .delete();
-      
-      print('✅ 管理者権限を取り消しました: $uid');
-      
+
+      SecureLogger.debug('✅ 管理者権限を取り消しました: $uid');
+
       await _logUserActivity(
         uid: _auth.currentUser?.uid ?? 'system',
         action: 'admin_revoked',
         details: 'Revoked admin from: $uid',
       );
     } catch (e) {
-      print('❌ 管理者権限取り消しエラー: $e');
+      SecureLogger.debug('❌ 管理者権限取り消しエラー: $e');
       rethrow;
     }
   }
 
   // 管理者権限を更新
-  static Future<void> updateAdminPermissions(String uid, AdminPermissions permissions) async {
+  static Future<void> updateAdminPermissions(
+    String uid,
+    AdminPermissions permissions,
+  ) async {
     try {
       await _firestore
           .collection(_adminPermissionsCollection)
           .doc(uid)
           .update(permissions.toJson());
-      
-      print('✅ 管理者権限を更新しました: $uid');
-      
+
+      SecureLogger.debug('✅ 管理者権限を更新しました: $uid');
+
       await _logUserActivity(
         uid: _auth.currentUser?.uid ?? 'system',
         action: 'admin_updated',
         details: 'Updated admin permissions for: $uid',
       );
     } catch (e) {
-      print('❌ 管理者権限更新エラー: $e');
+      SecureLogger.debug('❌ 管理者権限更新エラー: $e');
       rethrow;
     }
   }
@@ -209,17 +220,18 @@ class UserManagementService {
   // ユーザーの管理者権限を取得
   static Future<AdminPermissions?> getUserAdminPermissions(String uid) async {
     try {
-      final doc = await _firestore
-          .collection(_adminPermissionsCollection)
-          .doc(uid)
-          .get();
-      
+      final doc =
+          await _firestore
+              .collection(_adminPermissionsCollection)
+              .doc(uid)
+              .get();
+
       if (doc.exists) {
         return AdminPermissions.fromJson(doc.data()!);
       }
       return null;
     } catch (e) {
-      print('❌ 管理者権限取得エラー: $e');
+      SecureLogger.debug('❌ 管理者権限取得エラー: $e');
       rethrow;
     }
   }
@@ -232,31 +244,41 @@ class UserManagementService {
       final monthStart = DateTime(now.year, now.month, 1);
 
       // 全ユーザー数
-      final totalUsersSnapshot = await _firestore.collection(_usersCollection).get();
+      final totalUsersSnapshot =
+          await _firestore.collection(_usersCollection).get();
       final totalUsers = totalUsersSnapshot.size;
 
       // アクティブユーザー数
-      final activeUsersSnapshot = await _firestore
-          .collection(_usersCollection)
-          .where('isActive', isEqualTo: true)
-          .get();
+      final activeUsersSnapshot =
+          await _firestore
+              .collection(_usersCollection)
+              .where('isActive', isEqualTo: true)
+              .get();
       final activeUsers = activeUsersSnapshot.size;
 
       // 非アクティブユーザー数
       final inactiveUsers = totalUsers - activeUsers;
 
       // 今日の新規登録数
-      final todayRegistrationsSnapshot = await _firestore
-          .collection(_usersCollection)
-          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(today))
-          .get();
+      final todayRegistrationsSnapshot =
+          await _firestore
+              .collection(_usersCollection)
+              .where(
+                'createdAt',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(today),
+              )
+              .get();
       final todayRegistrations = todayRegistrationsSnapshot.size;
 
       // 今月の新規登録数
-      final monthlyRegistrationsSnapshot = await _firestore
-          .collection(_usersCollection)
-          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart))
-          .get();
+      final monthlyRegistrationsSnapshot =
+          await _firestore
+              .collection(_usersCollection)
+              .where(
+                'createdAt',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(monthStart),
+              )
+              .get();
       final monthlyRegistrations = monthlyRegistrationsSnapshot.size;
 
       return UserStats(
@@ -267,7 +289,7 @@ class UserManagementService {
         monthlyRegistrations: monthlyRegistrations,
       );
     } catch (e) {
-      print('❌ ユーザー統計取得エラー: $e');
+      SecureLogger.debug('❌ ユーザー統計取得エラー: $e');
       rethrow;
     }
   }
@@ -290,7 +312,7 @@ class UserManagementService {
           .collection(_userActivityCollection)
           .add(activity.toJson());
     } catch (e) {
-      print('❌ アクティビティログ記録エラー: $e');
+      SecureLogger.debug('❌ アクティビティログ記録エラー: $e');
       // ログ記録の失敗は主処理には影響させない
     }
   }
@@ -324,28 +346,30 @@ class UserManagementService {
     try {
       // Firestoreは複雑な文字列検索をサポートしていないため、
       // 全ユーザーを取得してクライアントサイドで検索
-      final snapshot = await _firestore
-          .collection(_usersCollection)
-          .limit(1000) // 制限を設ける
-          .get();
+      final snapshot =
+          await _firestore
+              .collection(_usersCollection)
+              .limit(1000) // 制限を設ける
+              .get();
 
       final query = searchQuery.toLowerCase();
-      final users = snapshot.docs
-          .map((doc) {
-            final data = doc.data();
-            data['uid'] = doc.id;
-            return AppUser.fromJson(data);
-          })
-          .where((user) {
-            return user.email.toLowerCase().contains(query) ||
-                   user.displayDisplayName.toLowerCase().contains(query) ||
-                   user.uid.toLowerCase().contains(query);
-          })
-          .toList();
+      final users =
+          snapshot.docs
+              .map((doc) {
+                final data = doc.data();
+                data['uid'] = doc.id;
+                return AppUser.fromJson(data);
+              })
+              .where((user) {
+                return user.email.toLowerCase().contains(query) ||
+                    user.displayDisplayName.toLowerCase().contains(query) ||
+                    user.uid.toLowerCase().contains(query);
+              })
+              .toList();
 
       return users;
     } catch (e) {
-      print('❌ ユーザー検索エラー: $e');
+      SecureLogger.debug('❌ ユーザー検索エラー: $e');
       rethrow;
     }
   }

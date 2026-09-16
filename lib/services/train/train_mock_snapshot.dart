@@ -61,18 +61,10 @@ class TrainMockSnapshot {
           directionKey: d.directionKey,
           lineLabel: d.lineLabel,
           directionLabel: d.directionLabel,
-          nextDepartureAt: nextDepartures(
-            now,
-            d.slotOffsetMin,
-            d.intervalMin,
-            1,
-          ).first,
-          secondDepartureAt: nextDepartures(
-            now,
-            d.slotOffsetMin,
-            d.intervalMin,
-            2,
-          )[1],
+          nextDepartureAt:
+              nextDepartures(now, d.slotOffsetMin, d.intervalMin, 1).first,
+          secondDepartureAt:
+              nextDepartures(now, d.slotOffsetMin, d.intervalMin, 2)[1],
           timetableType: timetableType,
           boardingPlatform: d.boardingPlatform,
         ),

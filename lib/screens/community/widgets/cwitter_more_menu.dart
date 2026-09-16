@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -42,8 +43,9 @@ class CwitterMoreMenu extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    final iconColor =
-        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55);
+    final iconColor = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: 0.55);
 
     return SizedBox(
       width: constraints.minWidth,
@@ -71,25 +73,26 @@ class CwitterMoreMenu extends ConsumerWidget {
 
           final confirmed = await showDialog<bool>(
             context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('削除の確認'),
-              content: Text(
-                onDeleteReply != null
-                    ? 'この返信を削除しますか？'
-                    : 'このCweetを削除しますか？\n返信もすべて削除されます。',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
-                  child: const Text('キャンセル'),
+            builder:
+                (ctx) => AlertDialog(
+                  title: const Text('削除の確認'),
+                  content: Text(
+                    onDeleteReply != null
+                        ? 'この返信を削除しますか？'
+                        : 'このCweetを削除しますか？\n返信もすべて削除されます。',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      child: const Text('キャンセル'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      child: const Text('削除'),
+                    ),
+                  ],
                 ),
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(true),
-                  style: TextButton.styleFrom(foregroundColor: Colors.red),
-                  child: const Text('削除'),
-                ),
-              ],
-            ),
           );
           if (confirmed != true || !context.mounted) return;
 
@@ -100,14 +103,14 @@ class CwitterMoreMenu extends ConsumerWidget {
               await onDeletePost!();
             }
             if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('削除しました')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('削除しました')));
           } catch (e) {
             if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('削除に失敗しました: $e')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
           }
         },
         itemBuilder: (context) {
@@ -142,13 +145,13 @@ class CwitterMoreMenu extends ConsumerWidget {
           }
           if (_hasDelete) {
             items.add(
-              const PopupMenuItem(
+               PopupMenuItem(
                 value: 'delete',
                 child: Row(
                   children: [
-                    Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                    Icon(Icons.delete_outline, color: AppColors.accent(context, Colors.red), size: 20),
                     SizedBox(width: 8),
-                    Text('削除', style: TextStyle(color: Colors.red)),
+                    Text('削除', style: TextStyle(color: AppColors.accent(context, Colors.red))),
                   ],
                 ),
               ),
@@ -156,13 +159,13 @@ class CwitterMoreMenu extends ConsumerWidget {
           }
           if (hasBan) {
             items.add(
-              const PopupMenuItem(
+               PopupMenuItem(
                 value: 'ban',
                 child: Row(
                   children: [
-                    Icon(Icons.gavel, color: Colors.red, size: 20),
+                    Icon(Icons.gavel, color: AppColors.accent(context, Colors.red), size: 20),
                     SizedBox(width: 8),
-                    Text('BANする', style: TextStyle(color: Colors.red)),
+                    Text('BANする', style: TextStyle(color: AppColors.accent(context, Colors.red))),
                   ],
                 ),
               ),

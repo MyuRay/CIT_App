@@ -52,7 +52,6 @@ const List<CampusClassroomLocation> pilotNarashinoBuilding12Floor4 = [
 List<CampusClassroomLocation> searchPilotNarashino12f4(String query) {
   final q = query.trim().toLowerCase();
   if (q.isEmpty) return const [];
-  bool matches(CampusClassroomLocation r) =>
-      pilotLocationMatchesQuery(r, q);
+  bool matches(CampusClassroomLocation r) => pilotLocationMatchesQuery(r, q);
   return pilotNarashinoBuilding12Floor4.where(matches).toList();
 }

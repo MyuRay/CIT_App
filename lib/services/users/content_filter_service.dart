@@ -172,9 +172,10 @@ class ContentFilterService {
     return threads
         .where((thread) => !hiddenUserIds.contains(thread.comment.authorId))
         .map((thread) {
-          final filteredReplies = thread.replies
-              .where((reply) => !hiddenUserIds.contains(reply.authorId))
-              .toList();
+          final filteredReplies =
+              thread.replies
+                  .where((reply) => !hiddenUserIds.contains(reply.authorId))
+                  .toList();
           return CommentThread(
             comment: thread.comment,
             replies: filteredReplies,

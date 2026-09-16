@@ -7,21 +7,31 @@ final allCampusMapsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
 });
 
 // 特定キャンパスのキャンパスマップを取得
-final campusMapProvider = FutureProvider.family<String?, String>((ref, campus) async {
+final campusMapProvider = FutureProvider.family<String?, String>((
+  ref,
+  campus,
+) async {
   return await FirebaseCampusService.getCampusMapUrl(campus);
 });
 
 // 特定キャンパスのフロアマップ一覧を取得
-final floorMapsProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, campus) async {
-  return await FirebaseCampusService.getAvailableFloorMaps(campus);
-});
+final floorMapsProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String>((
+      ref,
+      campus,
+    ) async {
+      return await FirebaseCampusService.getAvailableFloorMaps(campus);
+    });
 
 // 特定のフロアマップを取得
-final floorMapProvider = FutureProvider.family<String?, Map<String, dynamic>>((ref, params) async {
+final floorMapProvider = FutureProvider.family<String?, Map<String, dynamic>>((
+  ref,
+  params,
+) async {
   final campus = params['campus'] as String;
   final building = params['building'] as String;
   final floor = params['floor'] as int;
-  
+
   return await FirebaseCampusService.getFloorMapUrl(campus, building, floor);
 });
 

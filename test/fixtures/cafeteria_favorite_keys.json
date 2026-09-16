@@ -1,0 +1,14 @@
+[
+  {
+    "target": {"type": "menu", "cafeteriaId": "tsudanuma", "menuItemId": "curry", "menuName": "カレー"},
+    "key": "menu_dda97d16ff3af65004284da09667257600b5b47499905fb6dca3f666bacd1d25"
+  },
+  {
+    "target": {"type": "menu", "cafeteriaId": "tsudanuma", "menuName": " カレー "},
+    "key": "menu_e8982a6d16f9f648e762ac7e7af5b0b6eb3ae085abd8004e010eb60288168987"
+  },
+  {
+    "target": {"type": "cafeteria", "cafeteriaId": "narashino_1f"},
+    "key": "cafeteria_f0fc48ae6cbc3fd0c3f7c76fd28d32ec124f7223063b318706fdb5ee8686914a"
+  }
+]

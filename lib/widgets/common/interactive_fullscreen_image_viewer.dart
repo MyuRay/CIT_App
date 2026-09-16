@@ -19,13 +19,14 @@ Future<void> showInteractiveFullscreenNetworkImage(
   return showDialog<void>(
     context: context,
     barrierColor: Colors.black,
-    builder: (context) => interactiveFullscreenNetworkImageDialog(
-      imageUrl: imageUrl,
-      title: title,
-      maxScale: maxScale,
-      fallbackAssetPath: fallbackAssetPath,
-      errorMessage: errorMessage,
-    ),
+    builder:
+        (context) => interactiveFullscreenNetworkImageDialog(
+          imageUrl: imageUrl,
+          title: title,
+          maxScale: maxScale,
+          fallbackAssetPath: fallbackAssetPath,
+          errorMessage: errorMessage,
+        ),
   );
 }
 
@@ -59,12 +60,13 @@ Future<void> showInteractiveFullscreenAssetImage(
   return showDialog<void>(
     context: context,
     barrierColor: Colors.black,
-    builder: (context) => interactiveFullscreenAssetImageDialog(
-      assetPath: assetPath,
-      title: title,
-      maxScale: maxScale,
-      errorMessage: errorMessage,
-    ),
+    builder:
+        (context) => interactiveFullscreenAssetImageDialog(
+          assetPath: assetPath,
+          title: title,
+          maxScale: maxScale,
+          errorMessage: errorMessage,
+        ),
   );
 }
 
@@ -97,11 +99,12 @@ Future<void> showInteractiveFullscreenNetworkImageGallery(
   return showDialog<void>(
     context: context,
     barrierColor: Colors.black,
-    builder: (context) => _InteractiveFullscreenImageGalleryDialog(
-      imageUrls: imageUrls,
-      initialIndex: index,
-      maxScale: maxScale,
-    ),
+    builder:
+        (context) => _InteractiveFullscreenImageGalleryDialog(
+          imageUrls: imageUrls,
+          initialIndex: index,
+          maxScale: maxScale,
+        ),
   );
 }
 
@@ -133,8 +136,8 @@ class _InteractiveFullscreenImageDialogState
   @override
   void initState() {
     super.initState();
-    _transformationController = TransformationController()
-      ..addListener(_onTransformationChanged);
+    _transformationController =
+        TransformationController()..addListener(_onTransformationChanged);
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) setState(() => _showHint = false);
     });
@@ -169,9 +172,10 @@ class _InteractiveFullscreenImageDialogState
     final translateX = viewportCenter.dx - (tapPosition.dx * _kZoomedScale);
     final translateY = viewportCenter.dy - (tapPosition.dy * _kZoomedScale);
 
-    _transformationController.value = Matrix4.identity()
-      ..translate(translateX, translateY)
-      ..scale(_kZoomedScale);
+    _transformationController.value =
+        Matrix4.identity()
+          ..translate(translateX, translateY)
+          ..scale(_kZoomedScale);
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
@@ -216,11 +220,13 @@ class _InteractiveFullscreenImageDialogState
                         color: Colors.transparent,
                         child: GestureDetector(
                           behavior: HitTestBehavior.translucent,
-                          onTap: () => setState(() => _showChrome = !_showChrome),
-                          onDoubleTapDown: (details) => _handleDoubleTap(
-                            details,
-                            constraints.biggest,
-                          ),
+                          onTap:
+                              () => setState(() => _showChrome = !_showChrome),
+                          onDoubleTapDown:
+                              (details) => _handleDoubleTap(
+                                details,
+                                constraints.biggest,
+                              ),
                           child: InteractiveViewer(
                             transformationController: _transformationController,
                             minScale: 0.5,
@@ -310,11 +316,7 @@ class _InteractiveFullscreenImageGalleryDialogState
     }
   }
 
-  void _handleDoubleTap(
-    int index,
-    TapDownDetails details,
-    Size viewportSize,
-  ) {
+  void _handleDoubleTap(int index, TapDownDetails details, Size viewportSize) {
     final controller = _controllers[index];
     if (controller == null) return;
 
@@ -332,9 +334,10 @@ class _InteractiveFullscreenImageGalleryDialogState
     final translateX = viewportCenter.dx - (tapPosition.dx * _kZoomedScale);
     final translateY = viewportCenter.dy - (tapPosition.dy * _kZoomedScale);
 
-    controller.value = Matrix4.identity()
-      ..translate(translateX, translateY)
-      ..scale(_kZoomedScale);
+    controller.value =
+        Matrix4.identity()
+          ..translate(translateX, translateY)
+          ..scale(_kZoomedScale);
   }
 
   void _onPageChanged(int index) {
@@ -384,9 +387,10 @@ class _InteractiveFullscreenImageGalleryDialogState
                 Positioned.fill(
                   child: PageView.builder(
                     controller: _pageController,
-                    physics: (_isImageZoomed || _isInteractingWithImage)
-                        ? const NeverScrollableScrollPhysics()
-                        : const PageScrollPhysics(),
+                    physics:
+                        (_isImageZoomed || _isInteractingWithImage)
+                            ? const NeverScrollableScrollPhysics()
+                            : const PageScrollPhysics(),
                     itemCount: widget.imageUrls.length,
                     onPageChanged: _onPageChanged,
                     itemBuilder: (context, index) {
@@ -415,11 +419,9 @@ class _InteractiveFullscreenImageGalleryDialogState
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTap: () => setState(() => _showChrome = !_showChrome),
-            onDoubleTapDown: (details) => _handleDoubleTap(
-              index,
-              details,
-              constraints.biggest,
-            ),
+            onDoubleTapDown:
+                (details) =>
+                    _handleDoubleTap(index, details, constraints.biggest),
             child: InteractiveViewer(
               transformationController: _controllers[index],
               minScale: 0.5,
@@ -436,7 +438,9 @@ class _InteractiveFullscreenImageGalleryDialogState
                 }
               },
               child: SizedBox.expand(
-                child: _NetworkFullscreenImage(imageUrl: widget.imageUrls[index]),
+                child: _NetworkFullscreenImage(
+                  imageUrl: widget.imageUrls[index],
+                ),
               ),
             ),
           ),
@@ -558,8 +562,8 @@ class _NetworkFullscreenImage extends StatelessWidget {
             borderColor: Colors.white24,
           );
         },
-        errorBuilder: (context, error, stackTrace) =>
-            _buildErrorWidget(context),
+        errorBuilder:
+            (context, error, stackTrace) => _buildErrorWidget(context),
       );
     }
 
@@ -604,10 +608,7 @@ class _NetworkFullscreenImage extends StatelessWidget {
 }
 
 class _AssetFullscreenImage extends StatelessWidget {
-  const _AssetFullscreenImage({
-    required this.assetPath,
-    this.errorMessage,
-  });
+  const _AssetFullscreenImage({required this.assetPath, this.errorMessage});
 
   final String assetPath;
   final String? errorMessage;

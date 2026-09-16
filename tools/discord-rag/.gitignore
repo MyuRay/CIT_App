@@ -1,0 +1,7 @@
+node_modules/
+.env*
+!.env.example
+.secret.local
+data/index.json
+data/*.tmp
+*-debug.log

@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 import '../../../models/community/cwitter_post.dart';
@@ -12,9 +13,7 @@ Future<bool> showCwitterRecweetConfirmationDialog(
     builder: (dialogContext) {
       return AlertDialog(
         title: const Text('recweetしますか？'),
-        content: Text(
-          '「${post.displayName}」さんのCweetをフォロー中のタイムラインに共有します。',
-        ),
+        content: Text('「${post.displayName}」さんのCweetをフォロー中のタイムラインに共有します。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -22,7 +21,7 @@ Future<bool> showCwitterRecweetConfirmationDialog(
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: FilledButton.styleFrom(
+            style: FilledButton.styleFrom(foregroundColor: AppColors.onColor(const Color(0xFF4CAF50)),
               backgroundColor: const Color(0xFF4CAF50),
             ),
             child: const Text('recweet'),

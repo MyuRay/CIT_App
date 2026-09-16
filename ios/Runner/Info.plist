@@ -26,6 +26,15 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.masatomurai.citapp.widgets</string>
+			<key>CFBundleURLSchemes</key>
+			<array><string>citapp</string></array>
+		</dict>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>この機能では、掲示板に投稿する画像を撮影するためにカメラへのアクセスが必要です。</string>
 	<key>NSPhotoLibraryUsageDescription</key>

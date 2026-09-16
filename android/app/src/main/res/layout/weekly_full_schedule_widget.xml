@@ -21,10 +21,23 @@
         android:text="週間時間割"
         android:textStyle="bold"
         android:textSize="13sp"
-        android:textColor="#334155"
+        android:textColor="@color/widget_on_surface"
+        android:maxLines="1"
+        android:ellipsize="end"
         android:paddingBottom="4dp" />
 
+    <TextView
+        android:id="@+id/weekly_resize_hint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="8dp"
+        android:text="各時限の時刻を表示するには、ウィジェットを縦に広げてください"
+        android:textSize="12sp"
+        android:textColor="@color/widget_secondary"
+        android:visibility="gone" />
+
     <LinearLayout
+        android:id="@+id/weekly_grid"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -32,14 +45,15 @@
 
         <LinearLayout
             android:id="@+id/periods_container"
-            android:layout_width="wrap_content"
+            android:layout_width="56dp"
             android:layout_height="wrap_content"
             android:orientation="vertical"
+            android:paddingTop="2dp"
             android:paddingEnd="4dp">
 
             <TextView
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="20dp"
                 android:text=""
                 android:textSize="11sp"
                 android:paddingTop="2dp"
@@ -72,10 +86,10 @@
             <TextView
                 android:id="@+id/monday_label"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="20dp"
                 android:text="月"
                 android:textStyle="bold"
-                android:textColor="#475569"
+                android:textColor="@color/widget_secondary"
                 android:gravity="center" />
 
             <LinearLayout
@@ -97,10 +111,10 @@
             <TextView
                 android:id="@+id/tuesday_label"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="20dp"
                 android:text="火"
                 android:textStyle="bold"
-                android:textColor="#475569"
+                android:textColor="@color/widget_secondary"
                 android:gravity="center" />
 
             <LinearLayout
@@ -122,10 +136,10 @@
             <TextView
                 android:id="@+id/wednesday_label"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="20dp"
                 android:text="水"
                 android:textStyle="bold"
-                android:textColor="#475569"
+                android:textColor="@color/widget_secondary"
                 android:gravity="center" />
 
             <LinearLayout
@@ -147,10 +161,10 @@
             <TextView
                 android:id="@+id/thursday_label"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="20dp"
                 android:text="木"
                 android:textStyle="bold"
-                android:textColor="#475569"
+                android:textColor="@color/widget_secondary"
                 android:gravity="center" />
 
             <LinearLayout
@@ -172,10 +186,10 @@
             <TextView
                 android:id="@+id/friday_label"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="20dp"
                 android:text="金"
                 android:textStyle="bold"
-                android:textColor="#475569"
+                android:textColor="@color/widget_secondary"
                 android:gravity="center" />
 
             <LinearLayout
@@ -197,10 +211,10 @@
             <TextView
                 android:id="@+id/saturday_label"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="20dp"
                 android:text="土"
                 android:textStyle="bold"
-                android:textColor="#475569"
+                android:textColor="@color/widget_secondary"
                 android:gravity="center" />
 
             <LinearLayout

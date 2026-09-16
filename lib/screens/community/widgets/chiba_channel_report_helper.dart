@@ -19,19 +19,21 @@ Future<void> showChibaChannelCommentReportDialog(
     type: ReportType.chibaChannelComment,
   )) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('このレスはすでに通報済みです')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('このレスはすでに通報済みです')));
     return;
   }
 
-  final targetEmail =
-      await _resolveAuthorEmail(comment.authorId, comment.authorEmail);
+  final targetEmail = await _resolveAuthorEmail(
+    comment.authorId,
+    comment.authorEmail,
+  );
   if (targetEmail.isEmpty) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('投稿者のメール情報を取得できず通報できませんでした')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('投稿者のメール情報を取得できず通報できませんでした')));
     return;
   }
 
@@ -52,10 +54,7 @@ Future<void> showChibaChannelCommentReportDialog(
   );
 }
 
-Future<String> _resolveAuthorEmail(
-  String authorId,
-  String? storedEmail,
-) async {
+Future<String> _resolveAuthorEmail(String authorId, String? storedEmail) async {
   final fromDoc = storedEmail?.trim().toLowerCase() ?? '';
   if (fromDoc.isNotEmpty) return fromDoc;
 

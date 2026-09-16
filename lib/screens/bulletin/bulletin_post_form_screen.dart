@@ -1,13 +1,13 @@
-import 'dart:io';
+import '../../models/bulletin/bulletin_image_draft.dart';
+import '../../services/bulletin/bulletin_image_save_session.dart';
+import '../../widgets/bulletin/bulletin_image_picker.dart';
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/bulletin/bulletin_model.dart';
 import '../../core/providers/admin_provider.dart';
-import '../../services/firebase/storage_upload_helper.dart';
 
 class BulletinPostFormScreen extends ConsumerStatefulWidget {
   const BulletinPostFormScreen({super.key});
@@ -19,11 +19,8 @@ class BulletinPostFormScreen extends ConsumerStatefulWidget {
 
 class BulletinPostEditScreen extends ConsumerStatefulWidget {
   final BulletinPost post;
-  
-  const BulletinPostEditScreen({
-    super.key,
-    required this.post,
-  });
+
+  const BulletinPostEditScreen({super.key, required this.post});
 
   @override
   ConsumerState<BulletinPostEditScreen> createState() =>
@@ -33,6 +30,8 @@ class BulletinPostEditScreen extends ConsumerStatefulWidget {
 class _BulletinPostFormScreenState
     extends ConsumerState<BulletinPostFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  final DateTime _createdAt = DateTime.now();
+  late final String _postId = FirebaseFirestore.instance.collection('bulletin_posts').doc().id;
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _authorNameController = TextEditingController();
@@ -40,104 +39,24 @@ class _BulletinPostFormScreenState
 
   BulletinCategory _selectedCategory = BulletinCategories.event;
   DateTime? _expiresAt;
-  File? _selectedImage;
+  late final BulletinImageDraft _images;
+  final _imageSave = BulletinImageSaveSession.firebase();
   bool _isPinned = false;
   bool _allowComments = true; // デフォルトでコメント許可
   bool _isCoupon = false; // クーポン投稿かどうか
   int? _couponMaxUses; // クーポン最大使用回数
   final _couponMaxUsesController = TextEditingController();
   bool _isLoading = false;
+  bool _isPickingImages = false;
   double _uploadProgress = 0.0;
   String _uploadStatus = '';
-  // サムネイル位置（-1.0〜1.0）
-  double _thumbAlignX = 0.0;
-  double _thumbAlignY = 0.0;
-  // 16:9サムネイルの表示位置（-1.0〜1.0）
-  // double _thumbAlignX = 0.0; // duplicate removed
-  // double _thumbAlignY = 0.0; // duplicate removed
 
   @override
   void initState() {
     super.initState();
+    _images = BulletinImageDraft();
     // クーポンカテゴリが初期選択されている場合の処理
     _isCoupon = _selectedCategory.id == 'coupon';
-  }
-
-  void _openThumbnailEditor(ImageProvider imageProvider) {
-    double x = _thumbAlignX;
-    double y = _thumbAlignY;
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setLocal) {
-            return AlertDialog(
-              title: const Text('サムネイル位置（16:9）'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image(
-                        image: imageProvider,
-                        fit: BoxFit.cover,
-                        alignment: Alignment(x, y),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Text('水平'),
-                      Expanded(
-                        child: Slider(
-                          min: -1.0,
-                          max: 1.0,
-                          value: x,
-                          onChanged: (v) => setLocal(() => x = v),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      const Text('垂直'),
-                      Expanded(
-                        child: Slider(
-                          min: -1.0,
-                          max: 1.0,
-                          value: y,
-                          onChanged: (v) => setLocal(() => y = v),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('キャンセル'),
-                ),
-                TextButton(
-                  onPressed: () => setLocal(() { x = 0; y = 0; }),
-                  child: const Text('リセット'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() { _thumbAlignX = x; _thumbAlignY = y; });
-                    Navigator.pop(context);
-                  },
-                  child: const Text('保存'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
   }
 
   @override
@@ -147,53 +66,25 @@ class _BulletinPostFormScreenState
     _authorNameController.dispose();
     _externalUrlController.dispose();
     _couponMaxUsesController.dispose();
+    _images.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('新しい投稿'),
-      ),
+    return PopScope(canPop: !_isLoading || _uploadProgress >= 1, child: Scaffold(
+      appBar: AppBar(title: const Text('新しい投稿')),
       body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // 画像選択
-            _buildImagePicker(),
-            const SizedBox(height: 12),
-            if (_selectedImage != null) ...[
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('サムネイル（16:9）'),
-                      const SizedBox(height: 8),
-                      AspectRatio(
-                        aspectRatio: 16 / 9,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: _InteractiveThumb(
-                            image: Image.file(_selectedImage!).image,
-                            alignX: _thumbAlignX,
-                            alignY: _thumbAlignY,
-                            onAlignChanged: (ax, ay) {
-                              setState(() { _thumbAlignX = ax; _thumbAlignY = ay; });
-                            },
-                            showGuides: true,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 12),
+            BulletinImagePicker(
+              draft: _images,
+              enabled: !_isLoading,
+              onPickingChanged: (picking) => setState(() => _isPickingImages = picking),
+            ),
+            const SizedBox(height: 16),
 
             // タイトル
             TextFormField(
@@ -285,7 +176,7 @@ class _BulletinPostFormScreenState
                 if (value == null || value.trim().isEmpty) {
                   return null; // 任意なのでnullでOK
                 }
-                
+
                 // URL形式のチェック
                 final urlPattern = RegExp(
                   r'^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)',
@@ -339,7 +230,6 @@ class _BulletinPostFormScreenState
             ),
             const SizedBox(height: 32),
 
-
             // 投稿ガイドライン
             Card(
               color: Theme.of(context).colorScheme.primaryContainer,
@@ -389,128 +279,58 @@ class _BulletinPostFormScreenState
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: _isLoading ? null : _submitPost,
+                onPressed: _isLoading || _isPickingImages ? null : _submitPost,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppColors.onColor(Theme.of(context).primaryColor),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: _isLoading
-                    ? Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              value: _uploadProgress > 0 ? _uploadProgress : null,
-                              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          ),
-                          if (_uploadStatus.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              _uploadStatus,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.white70,
+                child:
+                    _isLoading
+                        ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                value:
+                                    _uploadProgress > 0
+                                        ? _uploadProgress
+                                        : null,
+                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
                               ),
                             ),
-                          ]
-                        ],
-                      )
-                    : const Text(
-                        '投稿申請',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                            if (_uploadStatus.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                _uploadStatus,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ],
+                          ],
+                        )
+                        : const Text(
+                          '投稿申請',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildImagePicker() {
-    return Card(
-      child: InkWell(
-        onTap: _pickImage,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          height: 200,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: _selectedImage != null
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Stack(
-                    children: [
-                      Image.file(
-                        _selectedImage!,
-                        width: double.infinity,
-                        height: double.infinity,
-                        fit: BoxFit.cover,
-                        alignment: Alignment(_thumbAlignX, _thumbAlignY),
-                      ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white),
-                            onPressed: () {
-                              setState(() {
-                                _selectedImage = null;
-                              });
-                            },
-                          ),
-                        ),
-                       ),
-                      // 位置調整ボタンは廃止（ドラッグ操作に統一）
-                    ],
-                  ),
-                )
-              : Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.add_photo_alternate,
-                      size: 48,
-                      color: Colors.grey.shade400,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '画像を選択（任意）',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'タップして画像を追加してください（省略可能）',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-      ),
-    );
+    ));
   }
 
   Widget _buildCategorySelector() {
@@ -522,77 +342,88 @@ class _BulletinPostFormScreenState
           children: [
             const Text(
               'カテゴリ',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            Consumer(builder: (context, ref, child) {
-              final isAdmin = ref.watch(isAdminProvider);
-              
-              // カテゴリをフィルタリング
-              List<BulletinCategory> availableCategories;
-              
-              if (isAdmin) {
-                // 管理者: すべてのカテゴリを表示（job と coupon を含む）
-                availableCategories = BulletinCategories.all;
-              } else {
-                // 一般ユーザー: job と coupon を除外
-                availableCategories = BulletinCategories.all
-                    .where((category) => category.id != 'job' && category.id != 'coupon')
-                    .toList();
-              }
-              
-              // 現在選択されているカテゴリが利用不可能な場合、デフォルトに変更
-              if (!availableCategories.any((cat) => cat.id == _selectedCategory.id)) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  setState(() {
-                    _selectedCategory = BulletinCategories.event;
-                    _isCoupon = false;
-                    _couponMaxUses = null;
-                    _couponMaxUsesController.clear();
-                  });
-                });
-              }
-              
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: availableCategories.map((category) {
-                  final isSelected = _selectedCategory.id == category.id;
-                  final color = Color(int.parse('0xff${category.color.substring(1)}'));
+            Consumer(
+              builder: (context, ref, child) {
+                final isAdmin = ref.watch(isAdminProvider);
 
-                  return FilterChip(
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      if (selected) {
-                        setState(() {
-                          _selectedCategory = category;
-                          _isCoupon = category.id == 'coupon';
-                          if (!_isCoupon) {
-                            _couponMaxUses = null;
-                            _couponMaxUsesController.clear();
-                          }
-                        });
-                      }
-                    },
-                    avatar: Icon(
-                      _getCategoryIcon(category.icon),
-                      size: 18,
-                      color: isSelected ? Colors.white : color,
-                    ),
-                    label: Text(category.name),
-                    selectedColor: color,
-                    checkmarkColor: Colors.white,
-                    labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : Colors.grey[700],
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  );
-                }).toList(),
-              );
-            }),
+                // カテゴリをフィルタリング
+                List<BulletinCategory> availableCategories;
+
+                if (isAdmin) {
+                  // 管理者: すべてのカテゴリを表示（job と coupon を含む）
+                  availableCategories = BulletinCategories.all;
+                } else {
+                  // 一般ユーザー: job と coupon を除外
+                  availableCategories =
+                      BulletinCategories.all
+                          .where(
+                            (category) =>
+                                category.id != 'job' && category.id != 'coupon',
+                          )
+                          .toList();
+                }
+
+                // 現在選択されているカテゴリが利用不可能な場合、デフォルトに変更
+                if (!availableCategories.any(
+                  (cat) => cat.id == _selectedCategory.id,
+                )) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    setState(() {
+                      _selectedCategory = BulletinCategories.event;
+                      _isCoupon = false;
+                      _couponMaxUses = null;
+                      _couponMaxUsesController.clear();
+                    });
+                  });
+                }
+
+                return Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children:
+                      availableCategories.map((category) {
+                        final isSelected = _selectedCategory.id == category.id;
+                        final color = Color(
+                          int.parse('0xff${category.color.substring(1)}'),
+                        );
+
+                        return FilterChip(
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _selectedCategory = category;
+                                _isCoupon = category.id == 'coupon';
+                                if (!_isCoupon) {
+                                  _couponMaxUses = null;
+                                  _couponMaxUsesController.clear();
+                                }
+                              });
+                            }
+                          },
+                          avatar: Icon(
+                            _getCategoryIcon(category.icon),
+                            size: 18,
+                            color: isSelected ? AppColors.onColor(color) : AppColors.accent(context, color),
+                          ),
+                          label: Text(category.name),
+                          selectedColor: color,
+                          checkmarkColor: AppColors.onColor(color),
+                          labelStyle: TextStyle(
+                            color: isSelected ? AppColors.onColor(color) : Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontWeight:
+                                isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                          ),
+                        );
+                      }).toList(),
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -609,16 +440,17 @@ class _BulletinPostFormScreenState
               ? '${_expiresAt!.year.toString().padLeft(4, '0')}/${_expiresAt!.month.toString().padLeft(2, '0')}/${_expiresAt!.day.toString().padLeft(2, '0')}まで'
               : '期限を設定（任意）',
         ),
-        trailing: _expiresAt != null
-            ? IconButton(
-                icon: const Icon(Icons.clear),
-                onPressed: () {
-                  setState(() {
-                    _expiresAt = null;
-                  });
-                },
-              )
-            : const Icon(Icons.chevron_right),
+        trailing:
+            _expiresAt != null
+                ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    setState(() {
+                      _expiresAt = null;
+                    });
+                  },
+                )
+                : const Icon(Icons.chevron_right),
         onTap: _pickExpirationDate,
       ),
     );
@@ -648,7 +480,7 @@ class _BulletinPostFormScreenState
   // クーポン設定ウィジェット
   Widget _buildCouponSettings() {
     return Card(
-      color: Colors.pink.shade50,
+      color: AppColors.tintedSurface(context, Colors.pink),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -656,17 +488,14 @@ class _BulletinPostFormScreenState
           children: [
             Row(
               children: [
-                Icon(
-                  Icons.local_offer,
-                  color: Colors.pink.shade700,
-                ),
+                Icon(Icons.local_offer, color: AppColors.accent(context, Colors.pink.shade700)),
                 const SizedBox(width: 8),
                 Text(
                   'クーポン設定',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Colors.pink.shade700,
+                    color: AppColors.accent(context, Colors.pink.shade700),
                   ),
                 ),
               ],
@@ -684,7 +513,10 @@ class _BulletinPostFormScreenState
               keyboardType: TextInputType.number,
               onChanged: (value) {
                 setState(() {
-                  _couponMaxUses = value.trim().isNotEmpty ? int.tryParse(value.trim()) : null;
+                  _couponMaxUses =
+                      value.trim().isNotEmpty
+                          ? int.tryParse(value.trim())
+                          : null;
                 });
               },
               validator: (value) {
@@ -698,91 +530,6 @@ class _BulletinPostFormScreenState
                   }
                 }
                 return null;
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_camera),
-              title: const Text('カメラで撮影'),
-              onTap: () async {
-                Navigator.pop(context);
-                try {
-                  print('📷 カメラで画像を撮影中...');
-                  final XFile? image = await picker.pickImage(
-                    source: ImageSource.camera,
-                    // 制限を緩和: より高解像度・高品質で取得
-                    maxWidth: 2048,
-                    maxHeight: 2048,
-                    imageQuality: 90,
-                  );
-                  if (image != null) {
-                    print('✅ カメラ撮影成功: ${image.path}');
-                    setState(() {
-                      _selectedImage = File(image.path);
-                    });
-                  } else {
-                    print('カメラ撮影がキャンセルされました');
-                  }
-                } catch (e) {
-                  print('❌ カメラアクセスエラー: $e');
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('カメラにアクセスできません: $e'),
-                        backgroundColor: Colors.orange,
-                      ),
-                    );
-                  }
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('ギャラリーから選択'),
-              onTap: () async {
-                Navigator.pop(context);
-                try {
-                  print('📁 ギャラリーから画像を選択中...');
-                  final XFile? image = await picker.pickImage(
-                    source: ImageSource.gallery,
-                    // 制限を緩和: より高解像度・高品質で取得
-                    maxWidth: 2048,
-                    maxHeight: 2048,
-                    imageQuality: 90,
-                  );
-                  if (image != null) {
-                    print('✅ ギャラリー選択成功: ${image.path}');
-                    setState(() {
-                      _selectedImage = File(image.path);
-                    });
-                  } else {
-                    print('ギャラリー選択がキャンセルされました');
-                  }
-                } catch (e) {
-                  print('❌ ギャラリーアクセスエラー: $e');
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('ギャラリーにアクセスできません: $e'),
-                        backgroundColor: Colors.orange,
-                      ),
-                    );
-                  }
-                }
               },
             ),
           ],
@@ -810,6 +557,7 @@ class _BulletinPostFormScreenState
   }
 
   Future<void> _submitPost() async {
+    if (_isLoading || _isPickingImages) return;
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -822,28 +570,21 @@ class _BulletinPostFormScreenState
 
     try {
       print('🚀 投稿処理開始...');
-      
-      // 画像をFirebase Storageにアップロード（画像がある場合のみ）
-      String? imageUrl;
-      if (_selectedImage != null) {
-        setState(() {
-          _uploadStatus = '画像をアップロード中...';
-        });
-        print('画像ファイルが選択されています。アップロード開始...');
-        imageUrl = await _uploadImage();
-        print('画像アップロード完了: $imageUrl');
-      } else {
-        print('画像なしの投稿です');
-      }
 
-      // 投稿をFirestoreに保存
-      setState(() {
-        _uploadProgress = 0.9;
-        _uploadStatus = '投稿を保存中...';
-      });
-      print('Firestoreに投稿を保存中...');
-      await _saveBulletinPost(imageUrl);
-      
+      await _imageSave.save(
+        draft: _images,
+        persist: _saveBulletinPost,
+        onProgress: (done, total) {
+          if (mounted) {
+            setState(() {
+              _uploadProgress = done / total * 0.85;
+              _uploadStatus = '画像をアップロード中 $done/$total枚';
+            });
+          }
+        },
+      );
+      if (!mounted) return;
+
       setState(() {
         _uploadProgress = 1.0;
         _uploadStatus = '完了!';
@@ -856,16 +597,16 @@ class _BulletinPostFormScreenState
       if (mounted) {
         Navigator.of(context).pop(true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('投稿申請が完了しました！管理者の承認をお待ちください。'),
-            backgroundColor: Colors.blue,
+           SnackBar(
+            content: Text('投稿を申請しました。管理者の承認後に公開されます。'),
+            backgroundColor: AppColors.snackBarSurface(context, Colors.blue),
           ),
         );
       }
     } catch (e, stackTrace) {
       print('❌ 投稿処理エラー: $e');
       print('スタックトレース: $stackTrace');
-      
+
       String errorMessage = '投稿に失敗しました';
       final errorText = e.toString();
       if (errorText.contains('permission-denied')) {
@@ -879,31 +620,32 @@ class _BulletinPostFormScreenState
           errorText.contains('An unknown error')) {
         errorMessage = 'サーバーとの通信に失敗しました。接続を確認して再試行してください';
       }
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$errorMessage: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
             duration: const Duration(seconds: 5),
             action: SnackBarAction(
               label: '詳細',
-              textColor: Colors.white,
+              textColor: Theme.of(context).colorScheme.onInverseSurface,
               onPressed: () {
                 showDialog(
                   context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('エラー詳細'),
-                    content: SingleChildScrollView(
-                      child: Text('$e\n\n$stackTrace'),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('閉じる'),
+                  builder:
+                      (context) => AlertDialog(
+                        title: const Text('エラー詳細'),
+                        content: SingleChildScrollView(
+                          child: Text('$e\n\n$stackTrace'),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('閉じる'),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
                 );
               },
             ),
@@ -921,54 +663,7 @@ class _BulletinPostFormScreenState
     }
   }
 
-  Future<String> _uploadImage() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      throw Exception('ユーザーが認証されていません');
-    }
-
-    print('📤 画像アップロード開始...');
-    final String fileName =
-        'bulletin_${DateTime.now().millisecondsSinceEpoch}.jpg';
-    final Reference ref =
-        FirebaseStorage.instance.ref().child('bulletin_images/$fileName');
-
-    final fileSize = await _selectedImage!.length();
-    print('アップロード先: ${ref.fullPath}');
-    print('画像ファイル: ${_selectedImage!.path}');
-    print('ファイルサイズ: ${(fileSize / 1024).toStringAsFixed(1)} KB');
-
-    if (mounted) {
-      setState(() {
-        _uploadProgress = 0.4;
-        _uploadStatus = 'アップロード中...';
-      });
-    }
-
-    try {
-      final downloadUrl = await StorageUploadHelper.uploadFile(
-        ref: ref,
-        file: _selectedImage!,
-        userId: user.uid,
-        contentType: 'image/jpeg',
-      );
-
-      if (mounted) {
-        setState(() {
-          _uploadProgress = 0.8;
-          _uploadStatus = 'アップロード完了!';
-        });
-      }
-
-      print('✅ 画像アップロード成功');
-      print('ダウンロードURL: $downloadUrl');
-      return downloadUrl;
-    } on FirebaseException catch (e) {
-      throw StorageUploadHelper.wrapStorageUploadError(e);
-    }
-  }
-
-  Future<void> _saveBulletinPost(String? imageUrl) async {
+  Future<void> _saveBulletinPost(SavedBulletinImages images) async {
     try {
       // 現在のユーザーIDを取得
       final user = FirebaseAuth.instance.currentUser;
@@ -977,23 +672,23 @@ class _BulletinPostFormScreenState
       }
       await user.getIdToken(true);
 
-      final String postId = FirebaseFirestore.instance
-          .collection('bulletin_posts')
-          .doc()
-          .id;
+      final String postId = _postId;
 
       final BulletinPost post = BulletinPost(
         id: postId,
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
-        imageUrl: imageUrl ?? '', // 画像がない場合は空文字
-        thumbAlignX: _thumbAlignX,
-        thumbAlignY: _thumbAlignY,
-        externalUrl: _externalUrlController.text.trim().isNotEmpty 
-            ? _externalUrlController.text.trim() 
-            : null, // 外部リンク
+        imageUrl: images.coverUrl,
+        imageUrls: images.urls,
+        thumbScale: images.crop.scale,
+        thumbAlignX: images.crop.x,
+        thumbAlignY: images.crop.y,
+        externalUrl:
+            _externalUrlController.text.trim().isNotEmpty
+                ? _externalUrlController.text.trim()
+                : null, // 外部リンク
         category: _selectedCategory,
-        createdAt: DateTime.now(),
+        createdAt: _createdAt,
         expiresAt: _expiresAt,
         authorId: user.uid, // 実際のFirebase Auth ユーザーIDを使用
         authorName: _authorNameController.text.trim(),
@@ -1014,12 +709,12 @@ class _BulletinPostFormScreenState
       print('掲示板投稿を保存中...');
       print('投稿ID: $postId');
       print('タイトル: ${post.title}');
-      
+
       await FirebaseFirestore.instance
           .collection('bulletin_posts')
           .doc(postId)
           .set(post.toJson());
-          
+
       print('掲示板投稿が正常に保存されました');
     } catch (e) {
       print('Firestore保存エラー: $e');
@@ -1057,15 +752,15 @@ class _BulletinPostFormScreenState
                   _isPinned = true; // 申請フラグを設定
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
+                   SnackBar(
                     content: Text('ピン留め申請が設定されました'),
-                    backgroundColor: Colors.blue,
+                    backgroundColor: AppColors.snackBarSurface(context, Colors.blue),
                   ),
                 );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.onColor(Colors.blue),
               ),
               child: const Text('申請する'),
             ),
@@ -1076,116 +771,8 @@ class _BulletinPostFormScreenState
   }
 }
 
-class _InteractiveThumb extends StatefulWidget {
-  final ImageProvider image;
-  final double alignX;
-  final double alignY;
-  final bool showGuides;
-  final void Function(double ax, double ay) onAlignChanged;
-
-  const _InteractiveThumb({
-    required this.image,
-    required this.alignX,
-    required this.alignY,
-    required this.onAlignChanged,
-    this.showGuides = true,
-  });
-
-  @override
-  State<_InteractiveThumb> createState() => _InteractiveThumbState();
-}
-
-class _InteractiveThumbState extends State<_InteractiveThumb> {
-  late double ax;
-  late double ay;
-
-  @override
-  void initState() {
-    super.initState();
-    ax = widget.alignX;
-    ay = widget.alignY;
-  }
-
-  @override
-  void didUpdateWidget(covariant _InteractiveThumb oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    ax = widget.alignX;
-    ay = widget.alignY;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final w = constraints.maxWidth;
-        final h = constraints.maxHeight;
-        return GestureDetector(
-          onPanUpdate: (details) {
-            // ドラッグ量をアライメントに変換（[-1,1]に正規化）
-            final dx = details.delta.dx;
-            final dy = details.delta.dy;
-            double nextX = (ax - (dx / (w / 2))).clamp(-1.0, 1.0);
-            double nextY = (ay - (dy / (h / 2))).clamp(-1.0, 1.0);
-            setState(() { ax = nextX; ay = nextY; });
-            widget.onAlignChanged(nextX, nextY);
-          },
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image(
-                image: widget.image,
-                fit: BoxFit.cover,
-                alignment: Alignment(ax, ay),
-              ),
-              if (widget.showGuides)
-                CustomPaint(
-                  painter: _ThumbGuidesPainter(),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _ThumbGuidesPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final border = Paint()
-      ..color = const Color(0x66FFFFFF)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    // 外枠
-    canvas.drawRect(Offset.zero & size, border);
-
-    // 三分割ガイド線（rule of thirds）
-    final guide = Paint()
-      ..color = const Color(0x33FFFFFF)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    final dx = size.width / 3;
-    final dy = size.height / 3;
-    for (int i = 1; i < 3; i++) {
-      canvas.drawLine(Offset(dx * i, 0), Offset(dx * i, size.height), guide);
-      canvas.drawLine(Offset(0, dy * i), Offset(size.width, dy * i), guide);
-    }
-
-    // セーフマージン（5%）
-    final margin = Paint()
-      ..color = const Color(0x22FFFFFF)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    final m = 0.05;
-    final rect = Rect.fromLTWH(size.width * m, size.height * m, size.width * (1 - 2 * m), size.height * (1 - 2 * m));
-    canvas.drawRect(rect, margin);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen> {
+class _BulletinPostEditScreenState
+    extends ConsumerState<BulletinPostEditScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -1194,19 +781,17 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
 
   BulletinCategory _selectedCategory = BulletinCategories.event;
   DateTime? _expiresAt;
-  File? _selectedImage;
-  String? _existingImageUrl;
+  late final BulletinImageDraft _images;
+  final _imageSave = BulletinImageSaveSession.firebase();
   bool _isPinned = false;
   bool _allowComments = true; // デフォルトでコメント許可
   bool _isCoupon = false; // クーポン投稿かどうか
   int? _couponMaxUses; // クーポン最大使用回数
   final _couponMaxUsesController = TextEditingController();
   bool _isLoading = false;
+  bool _isPickingImages = false;
   double _uploadProgress = 0.0;
   String _uploadStatus = '';
-  // 16:9サムネイルの表示位置（-1.0〜1.0）
-  double _thumbAlignX = 0.0;
-  double _thumbAlignY = 0.0;
 
   @override
   void initState() {
@@ -1224,13 +809,11 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
     _expiresAt = post.expiresAt;
     _isPinned = false; // 編集時は常にfalseにして再申請可能にする
     _allowComments = post.allowComments; // コメント許可設定を初期化
-    _existingImageUrl = post.imageUrl.isNotEmpty ? post.imageUrl : null;
-    // サムネ初期位置（編集）
-    _thumbAlignX = post.thumbAlignX;
-    _thumbAlignY = post.thumbAlignY;
+    _images = BulletinImageDraft(post: post);
     _isCoupon = post.isCoupon; // クーポン設定を初期化
     _couponMaxUses = post.couponMaxUses; // クーポン最大使用回数を初期化
-    _couponMaxUsesController.text = post.couponMaxUses?.toString() ?? ''; // クーポン使用回数フィールドを初期化
+    _couponMaxUsesController.text =
+        post.couponMaxUses?.toString() ?? ''; // クーポン使用回数フィールドを初期化
   }
 
   @override
@@ -1240,24 +823,29 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
     _authorNameController.dispose();
     _externalUrlController.dispose();
     _couponMaxUsesController.dispose();
+    _images.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(canPop: !_isLoading || _uploadProgress >= 1, child: Scaffold(
       appBar: AppBar(
         title: const Text('投稿を編集'),
         actions: [
           TextButton(
-            onPressed: _isLoading ? null : _updatePost,
-            child: _isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('再申請', style: TextStyle(fontWeight: FontWeight.bold)),
+            onPressed: _isLoading || _isPickingImages ? null : _updatePost,
+            child:
+                _isLoading
+                    ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : const Text(
+                      '再申請',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
           ),
         ],
       ),
@@ -1266,41 +854,17 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // 画像選択
-            _buildImagePicker(),
-            const SizedBox(height: 12),
-            if (_selectedImage != null || _existingImageUrl != null) ...[
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('サムネイル（16:9）'),
-                      const SizedBox(height: 8),
-                      AspectRatio(
-                        aspectRatio: 16 / 9,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: _InteractiveThumb(
-                            image: (_selectedImage != null)
-                                ? Image.file(_selectedImage!).image
-                                : Image.network(_existingImageUrl!).image,
-                            alignX: _thumbAlignX,
-                            alignY: _thumbAlignY,
-                            onAlignChanged: (ax, ay) {
-                              setState(() { _thumbAlignX = ax; _thumbAlignY = ay; });
-                            },
-                            showGuides: true,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            BulletinImagePicker(
+              draft: _images,
+              enabled: !_isLoading,
+              onPickingChanged: (picking) => setState(() => _isPickingImages = picking),
+            ),
+            if (_isLoading) ...[
+              const SizedBox(height: 8),
+              LinearProgressIndicator(value: _uploadProgress),
+              Text(_uploadStatus),
             ],
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
             // タイトル
             TextFormField(
@@ -1392,7 +956,7 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
                 if (value == null || value.trim().isEmpty) {
                   return null; // 任意なのでnullでOK
                 }
-                
+
                 // URL形式のチェック
                 final urlPattern = RegExp(
                   r'^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)',
@@ -1489,158 +1053,7 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildImagePicker() {
-    return Card(
-      child: InkWell(
-        onTap: _pickImage,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          height: 200,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: _selectedImage != null
-              ? _buildSelectedImageWidget()
-              : _existingImageUrl != null 
-                ? _buildExistingImageWidget()
-                : _buildPlaceholderWidget(),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSelectedImageWidget() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Stack(
-        children: [
-          Image.file(
-            _selectedImage!,
-            width: double.infinity,
-            height: double.infinity,
-            fit: BoxFit.cover,
-            alignment: Alignment(_thumbAlignX, _thumbAlignY),
-          ),
-          Positioned(
-            top: 8,
-            right: 8,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: () {
-                  setState(() {
-                    _selectedImage = null;
-                  });
-                },
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 8,
-            left: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Text(
-                '新しい画像',
-                style: TextStyle(color: Colors.white, fontSize: 12),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExistingImageWidget() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Stack(
-        children: [
-          Image.network(
-            _existingImageUrl!,
-            width: double.infinity,
-            height: double.infinity,
-            fit: BoxFit.cover,
-            alignment: Alignment(_thumbAlignX, _thumbAlignY),
-            errorBuilder: (context, error, stackTrace) => _buildPlaceholderWidget(),
-          ),
-          Positioned(
-            top: 8,
-            right: 8,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: () {
-                  setState(() {
-                    _existingImageUrl = null;
-                  });
-                },
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 8,
-            left: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Text(
-                '現在の画像',
-                style: TextStyle(color: Colors.white, fontSize: 12),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlaceholderWidget() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(
-          Icons.add_photo_alternate,
-          size: 48,
-          color: Colors.grey.shade400,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '画像を選択（任意）',
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.grey.shade600,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'タップして画像を変更してください',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade500,
-          ),
-        ),
-      ],
-    );
+    ));
   }
 
   Widget _buildCategorySelector() {
@@ -1652,77 +1065,88 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
           children: [
             const Text(
               'カテゴリ',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            Consumer(builder: (context, ref, child) {
-              final isAdmin = ref.watch(isAdminProvider);
-              
-              // カテゴリをフィルタリング
-              List<BulletinCategory> availableCategories;
-              
-              if (isAdmin) {
-                // 管理者: すべてのカテゴリを表示（job と coupon を含む）
-                availableCategories = BulletinCategories.all;
-              } else {
-                // 一般ユーザー: job と coupon を除外
-                availableCategories = BulletinCategories.all
-                    .where((category) => category.id != 'job' && category.id != 'coupon')
-                    .toList();
-              }
-              
-              // 現在選択されているカテゴリが利用不可能な場合、デフォルトに変更
-              if (!availableCategories.any((cat) => cat.id == _selectedCategory.id)) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  setState(() {
-                    _selectedCategory = BulletinCategories.event;
-                    _isCoupon = false;
-                    _couponMaxUses = null;
-                    _couponMaxUsesController.clear();
-                  });
-                });
-              }
-              
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: availableCategories.map((category) {
-                  final isSelected = _selectedCategory.id == category.id;
-                  final color = Color(int.parse('0xff${category.color.substring(1)}'));
+            Consumer(
+              builder: (context, ref, child) {
+                final isAdmin = ref.watch(isAdminProvider);
 
-                  return FilterChip(
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      if (selected) {
-                        setState(() {
-                          _selectedCategory = category;
-                          _isCoupon = category.id == 'coupon';
-                          if (!_isCoupon) {
-                            _couponMaxUses = null;
-                            _couponMaxUsesController.clear();
-                          }
-                        });
-                      }
-                    },
-                    avatar: Icon(
-                      _getCategoryIcon(category.icon),
-                      size: 18,
-                      color: isSelected ? Colors.white : color,
-                    ),
-                    label: Text(category.name),
-                    selectedColor: color,
-                    checkmarkColor: Colors.white,
-                    labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : Colors.grey[700],
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  );
-                }).toList(),
-              );
-            }),
+                // カテゴリをフィルタリング
+                List<BulletinCategory> availableCategories;
+
+                if (isAdmin) {
+                  // 管理者: すべてのカテゴリを表示（job と coupon を含む）
+                  availableCategories = BulletinCategories.all;
+                } else {
+                  // 一般ユーザー: job と coupon を除外
+                  availableCategories =
+                      BulletinCategories.all
+                          .where(
+                            (category) =>
+                                category.id != 'job' && category.id != 'coupon',
+                          )
+                          .toList();
+                }
+
+                // 現在選択されているカテゴリが利用不可能な場合、デフォルトに変更
+                if (!availableCategories.any(
+                  (cat) => cat.id == _selectedCategory.id,
+                )) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    setState(() {
+                      _selectedCategory = BulletinCategories.event;
+                      _isCoupon = false;
+                      _couponMaxUses = null;
+                      _couponMaxUsesController.clear();
+                    });
+                  });
+                }
+
+                return Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children:
+                      availableCategories.map((category) {
+                        final isSelected = _selectedCategory.id == category.id;
+                        final color = Color(
+                          int.parse('0xff${category.color.substring(1)}'),
+                        );
+
+                        return FilterChip(
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _selectedCategory = category;
+                                _isCoupon = category.id == 'coupon';
+                                if (!_isCoupon) {
+                                  _couponMaxUses = null;
+                                  _couponMaxUsesController.clear();
+                                }
+                              });
+                            }
+                          },
+                          avatar: Icon(
+                            _getCategoryIcon(category.icon),
+                            size: 18,
+                            color: isSelected ? AppColors.onColor(color) : AppColors.accent(context, color),
+                          ),
+                          label: Text(category.name),
+                          selectedColor: color,
+                          checkmarkColor: AppColors.onColor(color),
+                          labelStyle: TextStyle(
+                            color: isSelected ? AppColors.onColor(color) : Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontWeight:
+                                isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                          ),
+                        );
+                      }).toList(),
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -1739,16 +1163,17 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
               ? '${_expiresAt!.year.toString().padLeft(4, '0')}/${_expiresAt!.month.toString().padLeft(2, '0')}/${_expiresAt!.day.toString().padLeft(2, '0')}まで'
               : '期限を設定（任意）',
         ),
-        trailing: _expiresAt != null
-            ? IconButton(
-                icon: const Icon(Icons.clear),
-                onPressed: () {
-                  setState(() {
-                    _expiresAt = null;
-                  });
-                },
-              )
-            : const Icon(Icons.chevron_right),
+        trailing:
+            _expiresAt != null
+                ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    setState(() {
+                      _expiresAt = null;
+                    });
+                  },
+                )
+                : const Icon(Icons.chevron_right),
         onTap: _pickExpirationDate,
       ),
     );
@@ -1778,7 +1203,7 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
   // クーポン設定ウィジェット
   Widget _buildCouponSettings() {
     return Card(
-      color: Colors.pink.shade50,
+      color: AppColors.tintedSurface(context, Colors.pink),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -1786,17 +1211,14 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
           children: [
             Row(
               children: [
-                Icon(
-                  Icons.local_offer,
-                  color: Colors.pink.shade700,
-                ),
+                Icon(Icons.local_offer, color: AppColors.accent(context, Colors.pink.shade700)),
                 const SizedBox(width: 8),
                 Text(
                   'クーポン設定',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Colors.pink.shade700,
+                    color: AppColors.accent(context, Colors.pink.shade700),
                   ),
                 ),
               ],
@@ -1814,7 +1236,10 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
               keyboardType: TextInputType.number,
               onChanged: (value) {
                 setState(() {
-                  _couponMaxUses = value.trim().isNotEmpty ? int.tryParse(value.trim()) : null;
+                  _couponMaxUses =
+                      value.trim().isNotEmpty
+                          ? int.tryParse(value.trim())
+                          : null;
                 });
               },
               validator: (value) {
@@ -1828,89 +1253,6 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
                   }
                 }
                 return null;
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_camera),
-              title: const Text('カメラで撮影'),
-              onTap: () async {
-                Navigator.pop(context);
-                try {
-                  print('📷 カメラで画像を撮影中...');
-                  final XFile? image = await picker.pickImage(
-                    source: ImageSource.camera,
-                    // 制限を緩和: より高解像度・高品質で取得
-                    maxWidth: 2048,
-                    maxHeight: 2048,
-                    imageQuality: 90,
-                  );
-                  if (image != null) {
-                    print('✅ カメラ撮影成功: ${image.path}');
-                    setState(() {
-                      _selectedImage = File(image.path);
-                      _existingImageUrl = null; // 新しい画像が選択されたら既存画像をクリア
-                    });
-                  }
-                } catch (e) {
-                  print('❌ カメラアクセスエラー: $e');
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('カメラにアクセスできません: $e'),
-                        backgroundColor: Colors.orange,
-                      ),
-                    );
-                  }
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('ギャラリーから選択'),
-              onTap: () async {
-                Navigator.pop(context);
-                try {
-                  print('📁 ギャラリーから画像を選択中...');
-                  final XFile? image = await picker.pickImage(
-                    source: ImageSource.gallery,
-                    // 制限を緩和: より高解像度・高品質で取得
-                    maxWidth: 2048,
-                    maxHeight: 2048,
-                    imageQuality: 90,
-                  );
-                  if (image != null) {
-                    print('✅ ギャラリー選択成功: ${image.path}');
-                    setState(() {
-                      _selectedImage = File(image.path);
-                      _existingImageUrl = null; // 新しい画像が選択されたら既存画像をクリア
-                    });
-                  }
-                } catch (e) {
-                  print('❌ ギャラリーアクセスエラー: $e');
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('ギャラリーにアクセスできません: $e'),
-                        backgroundColor: Colors.orange,
-                      ),
-                    );
-                  }
-                }
               },
             ),
           ],
@@ -1938,6 +1280,7 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
   }
 
   Future<void> _updatePost() async {
+    if (_isLoading || _isPickingImages) return;
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -1950,62 +1293,37 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
 
     try {
       print('🔄 投稿更新処理開始...');
-      
-      // 画像処理
-      String? imageUrl = _existingImageUrl;
-      
-      if (_selectedImage != null) {
-        print('📤 新しい画像をアップロード中...');
-        // 既存の画像を削除
-        if (_existingImageUrl != null && _existingImageUrl!.isNotEmpty) {
-          try {
-            final oldRef = FirebaseStorage.instance.refFromURL(_existingImageUrl!);
-            await oldRef.delete();
-            print('🗑️ 既存画像を削除: ${oldRef.fullPath}');
-          } catch (e) {
-            print('⚠️ 既存画像削除エラー (続行): $e');
-          }
-        }
-        
-        // 新しい画像をアップロード
-        imageUrl = await _uploadImage();
-        print('✅ 新しい画像アップロード完了: $imageUrl');
-      } else if (_existingImageUrl == null && widget.post.imageUrl.isNotEmpty) {
-        // 画像が削除された場合
-        print('🗑️ 画像を削除...');
-        try {
-          final oldRef = FirebaseStorage.instance.refFromURL(widget.post.imageUrl);
-          await oldRef.delete();
-          print('✅ 既存画像を削除: ${oldRef.fullPath}');
-        } catch (e) {
-          print('⚠️ 既存画像削除エラー (続行): $e');
-        }
-        imageUrl = '';
-      }
 
-      // 投稿をFirestoreで更新
-      setState(() {
-        _uploadProgress = 0.9;
-        _uploadStatus = '投稿を保存中...';
-      });
-      print('📝 Firestoreで投稿を更新中...');
-      await _updateBulletinPost(imageUrl ?? '');
-      
+      await _imageSave.save(
+        draft: _images,
+        previousUrls: widget.post.galleryImageUrls,
+        persist: _updateBulletinPost,
+        onProgress: (done, total) {
+          if (mounted) {
+            setState(() {
+              _uploadProgress = done / total * 0.85;
+              _uploadStatus = '画像をアップロード中 $done/$total枚';
+            });
+          }
+        },
+      );
+      if (!mounted) return;
+
       setState(() {
         _uploadProgress = 1.0;
         _uploadStatus = '更新完了!';
       });
       print('✅ 投稿更新完了');
-      
+
       // 少し待ってから閉じる
       await Future.delayed(const Duration(milliseconds: 500));
 
       if (mounted) {
         Navigator.of(context).pop(true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('投稿を更新しました！再度管理者の承認をお待ちください。'),
-            backgroundColor: Colors.blue,
+           SnackBar(
+            content: Text('投稿を更新しました。管理者の再承認後に公開されます。'),
+            backgroundColor: AppColors.snackBarSurface(context, Colors.blue),
             duration: Duration(seconds: 4),
           ),
         );
@@ -2013,12 +1331,12 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
     } catch (e, stackTrace) {
       print('❌ 投稿更新エラー: $e');
       print('スタックトレース: $stackTrace');
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('更新に失敗しました: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
             duration: const Duration(seconds: 5),
           ),
         );
@@ -2034,64 +1352,21 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
     }
   }
 
-  Future<String> _uploadImage() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      throw Exception('ユーザーが認証されていません');
-    }
-
-    print('📤 画像アップロード開始(編集)...');
-    final String fileName =
-        'bulletin_edit_${DateTime.now().millisecondsSinceEpoch}.jpg';
-    final Reference ref =
-        FirebaseStorage.instance.ref().child('bulletin_images/$fileName');
-
-    final fileSize = await _selectedImage!.length();
-    print('アップロード先: ${ref.fullPath}');
-    print('画像ファイル: ${_selectedImage!.path}');
-    print('ファイルサイズ: ${(fileSize / 1024).toStringAsFixed(1)} KB');
-
-    if (mounted) {
-      setState(() {
-        _uploadProgress = 0.4;
-        _uploadStatus = 'アップロード中...';
-      });
-    }
-
-    try {
-      final downloadUrl = await StorageUploadHelper.uploadFile(
-        ref: ref,
-        file: _selectedImage!,
-        userId: user.uid,
-        contentType: 'image/jpeg',
-      );
-
-      if (mounted) {
-        setState(() {
-          _uploadProgress = 0.8;
-          _uploadStatus = 'アップロード完了!';
-        });
-      }
-
-      print('✅ 画像アップロード成功: $downloadUrl');
-      return downloadUrl;
-    } on FirebaseException catch (e) {
-      throw StorageUploadHelper.wrapStorageUploadError(e);
-    }
-  }
-
-  Future<void> _updateBulletinPost(String imageUrl) async {
+  Future<void> _updateBulletinPost(SavedBulletinImages images) async {
     try {
       final updatedPost = BulletinPost(
         id: widget.post.id,
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
-        imageUrl: imageUrl,
-        thumbAlignX: _thumbAlignX,
-        thumbAlignY: _thumbAlignY,
-        externalUrl: _externalUrlController.text.trim().isNotEmpty 
-            ? _externalUrlController.text.trim() 
-            : null, // 外部リンク
+        imageUrl: images.coverUrl,
+        imageUrls: images.urls,
+        thumbScale: images.crop.scale,
+        thumbAlignX: images.crop.x,
+        thumbAlignY: images.crop.y,
+        externalUrl:
+            _externalUrlController.text.trim().isNotEmpty
+                ? _externalUrlController.text.trim()
+                : null, // 外部リンク
         category: _selectedCategory,
         createdAt: widget.post.createdAt, // 作成日は変更しない
         expiresAt: _expiresAt,
@@ -2114,12 +1389,15 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
       print('投稿を更新中...');
       print('投稿ID: ${widget.post.id}');
       print('タイトル: ${updatedPost.title}');
-      
+
       await FirebaseFirestore.instance
           .collection('bulletin_posts')
           .doc(widget.post.id)
-          .set(updatedPost.toJson());
-          
+          .update(updatedPost.toJson()..removeWhere((key, _) => const {
+            'id', 'authorId', 'createdAt', 'viewCount', 'isPinned',
+            'isSponsored', 'sponsorName', 'couponUsedCount', 'couponUsedBy',
+          }.contains(key)));
+
       print('投稿が正常に更新されました');
     } catch (e) {
       print('Firestore更新エラー: $e');
@@ -2157,15 +1435,15 @@ class _BulletinPostEditScreenState extends ConsumerState<BulletinPostEditScreen>
                   _isPinned = true; // 申請フラグを設定
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
+                   SnackBar(
                     content: Text('ピン留め申請が設定されました'),
-                    backgroundColor: Colors.blue,
+                    backgroundColor: AppColors.snackBarSurface(context, Colors.blue),
                   ),
                 );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.onColor(Colors.blue),
               ),
               child: const Text('申請する'),
             ),

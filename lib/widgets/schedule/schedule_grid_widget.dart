@@ -1,20 +1,51 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
-import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'schedule_class_detail_dialog_styles.dart';
-import '../../models/schedule/schedule_model.dart';
-import '../../services/schedule/attendance_service.dart';
+import 'package:flutter/semantics.dart';
+import 'dart:async';
 
-class ScheduleGridWidget extends StatelessWidget {
+import 'package:go_router/go_router.dart';
+
+import 'schedule_class_detail_dialog.dart';
+import '../../models/schedule/schedule_model.dart';
+import '../../models/schedule/attendance_session.dart';
+import '../../services/schedule/attendance_service.dart';
+import '../../services/schedule/schedule_class_edit.dart';
+
+class _DraggedScheduleClass {
+  const _DraggedScheduleClass(
+    this.scheduleId,
+    this.day,
+    this.period,
+    this.lesson,
+  );
+  final String scheduleId;
+  final String day;
+  final int period;
+  final ScheduleClass lesson;
+}
+
+class ScheduleGridWidget extends StatefulWidget {
   final Schedule schedule;
   final Function(String, int, ScheduleClass?) onClassTap;
   final Function(String, int) onEmptySlotTap;
+  final void Function(String, int, ScheduleClass)? onClassLongPress;
+  final Future<void> Function(String, int, ScheduleClass, String, int)?
+  onClassMove;
   final Future<bool> Function(String, int, ScheduleClass, String?)?
   onClassNotesSave;
   final Future<void> Function(String, int, ScheduleClass)? onClassAttendanceTap;
   final Future<AttendanceClassSummary> Function(String, int, ScheduleClass)?
   onLoadAttendanceSummary;
+  final Future<List<AttendanceSession>> Function(String, int, ScheduleClass)?
+  onLoadAttendanceSessions;
+  final Future<void> Function(
+    String,
+    int,
+    ScheduleClass,
+    AttendanceSession,
+    String?,
+  )?
+  onSaveAttendanceStatus;
 
   /// false のとき QR 出席ボタンを出さない（講義期間外など）
   final bool showAttendanceActions;
@@ -28,15 +59,251 @@ class ScheduleGridWidget extends StatelessWidget {
     required this.schedule,
     required this.onClassTap,
     required this.onEmptySlotTap,
+    this.onClassLongPress,
+    this.onClassMove,
     this.onClassNotesSave,
     this.onClassAttendanceTap,
     this.onLoadAttendanceSummary,
+    this.onLoadAttendanceSessions,
+    this.onSaveAttendanceStatus,
     this.showAttendanceActions = true,
     this.isEditMode = false,
     this.showSaturday = true,
     this.forceFullHeight = false,
     this.enableScroll = true,
   });
+
+  @override
+  State<ScheduleGridWidget> createState() => _ScheduleGridWidgetState();
+}
+
+class _ScheduleGridWidgetState extends State<ScheduleGridWidget> {
+  Schedule get schedule => widget.schedule;
+  bool get isEditMode => widget.isEditMode;
+  bool get showSaturday => widget.showSaturday;
+  bool get forceFullHeight => widget.forceFullHeight;
+  bool get enableScroll => widget.enableScroll;
+  bool get showAttendanceActions => widget.showAttendanceActions;
+  Function(String, int, ScheduleClass?) get onClassTap => widget.onClassTap;
+  Function(String, int) get onEmptySlotTap => widget.onEmptySlotTap;
+  void Function(String, int, ScheduleClass)? get onClassLongPress =>
+      widget.onClassLongPress;
+  Future<bool> Function(String, int, ScheduleClass, String?)?
+  get onClassNotesSave => widget.onClassNotesSave;
+  Future<void> Function(String, int, ScheduleClass)? get onClassAttendanceTap =>
+      widget.onClassAttendanceTap;
+  Future<AttendanceClassSummary> Function(String, int, ScheduleClass)?
+  get onLoadAttendanceSummary => widget.onLoadAttendanceSummary;
+  Future<List<AttendanceSession>> Function(String, int, ScheduleClass)?
+  get onLoadAttendanceSessions => widget.onLoadAttendanceSessions;
+  Future<void> Function(String, int, ScheduleClass, AttendanceSession, String?)?
+  get onSaveAttendanceStatus => widget.onSaveAttendanceStatus;
+
+  final _bodyKey = GlobalKey();
+  _DraggedScheduleClass? _drag;
+  ({String day, int period})? _hover;
+  Offset? _pointer;
+  Offset _feedbackAnchor = Offset.zero;
+  Timer? _scrollTimer;
+  bool _moved = false;
+  bool _saving = false;
+  double _cellWidth = 0;
+  List<double> _rowEdges = const [];
+
+  @override
+  void dispose() {
+    _scrollTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant ScheduleGridWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!isEditMode || schedule.id != oldWidget.schedule.id) {
+      _scrollTimer?.cancel();
+      _drag = null;
+      _hover = null;
+    }
+  }
+
+  ({String day, int period})? _targetAtPointer() {
+    final box = _bodyKey.currentContext?.findRenderObject();
+    if (box is! RenderBox ||
+        _pointer == null ||
+        _cellWidth <= 0 ||
+        _rowEdges.isEmpty) {
+      return null;
+    }
+    final point = box.globalToLocal(_pointer!);
+    if (point.dx < 35 ||
+        point.dx >= box.size.width ||
+        point.dy < 0 ||
+        point.dy >= _rowEdges.last) {
+      return null;
+    }
+    final dayIndex = ((point.dx - 35) / _cellWidth).floor();
+    if (dayIndex >= displayWeekdays.length) return null;
+    final period = _rowEdges.indexWhere((edge) => edge > point.dy);
+    return (day: displayWeekdays[dayIndex].name, period: period);
+  }
+
+  void _updateHover() {
+    if (!mounted || _drag == null) return;
+    final next = _targetAtPointer();
+    if (next != _hover) setState(() => _hover = next);
+  }
+
+  StateError? _dropError(
+    _DraggedScheduleClass drag,
+    ({String day, int period}) target,
+  ) {
+    try {
+      applyScheduleClassMove(
+        schedule: schedule,
+        fromWeekdayKey: drag.day,
+        fromPeriod: drag.period,
+        toWeekdayKey: target.day,
+        toPeriod: target.period,
+        expectedClass: drag.lesson,
+      );
+      return null;
+    } on StateError catch (error) {
+      return error;
+    }
+  }
+
+  void _autoScroll() {
+    if (!mounted || _drag == null || !_moved || _pointer == null) return;
+    final bodyContext = _bodyKey.currentContext;
+    if (bodyContext == null) return;
+    final scrollable = Scrollable.maybeOf(bodyContext);
+    final box = scrollable?.context.findRenderObject();
+    if (scrollable == null ||
+        box is! RenderBox ||
+        !scrollable.position.hasContentDimensions) {
+      return;
+    }
+    final origin = box.localToGlobal(Offset.zero);
+    final viewport = origin & box.size;
+    if (_pointer!.dx < viewport.left || _pointer!.dx >= viewport.right) return;
+    final y = _pointer!.dy;
+    if (y < viewport.top || y > viewport.bottom) return;
+    const edge = 56.0;
+    final delta =
+        y < viewport.top + edge
+            ? -12.0
+            : y > viewport.bottom - edge
+            ? 12.0
+            : 0.0;
+    final position = scrollable.position;
+    final next = (position.pixels + delta).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if (next != position.pixels) {
+      position.jumpTo(next);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _updateHover());
+    }
+  }
+
+  void _endDrag() {
+    _scrollTimer?.cancel();
+    if (mounted) {
+      setState(() {
+        _drag = null;
+        _hover = null;
+        _pointer = null;
+      });
+    }
+  }
+
+  void _showMoveError(Object error) {
+    final message =
+        error is ScheduleClassOverlap
+            ? '重複：${error.message}。元の位置に戻しました'
+            : error is StateError
+            ? '${error.message}。元の位置に戻しました'
+            : '移動を保存できませんでした。元の位置に戻しました。通信状況を確認して再度お試しください';
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _drop(_DraggedScheduleClass drag) async {
+    if (!_moved || _saving || !isEditMode || drag.scheduleId != schedule.id) {
+      return;
+    }
+    final target = _targetAtPointer();
+    if (target == null ||
+        (target.day == drag.day && target.period == drag.period)) {
+      return;
+    }
+    final error = _dropError(drag, target);
+    if (error != null) {
+      _showMoveError(error);
+      return;
+    }
+    final save = widget.onClassMove;
+    if (save == null) return;
+    setState(() => _saving = true);
+    try {
+      await save(drag.day, drag.period, drag.lesson, target.day, target.period);
+    } catch (error) {
+      if (mounted) _showMoveError(error);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Widget _buildDropPreview(BuildContext context) {
+    final target = _hover!;
+    final error = _dropError(_drag!, target);
+    final scheme = Theme.of(context).colorScheme;
+    final color = error == null ? scheme.primary : scheme.error;
+    final end = (target.period - 1 + _drag!.lesson.duration).clamp(0, 10);
+    return Positioned(
+      left:
+          35 +
+          displayWeekdays.indexWhere((day) => day.name == target.day) *
+              _cellWidth,
+      top: _rowEdges[target.period - 1],
+      width: _cellWidth,
+      height: _rowEdges[end] - _rowEdges[target.period - 1],
+      child: IgnorePointer(
+        child: Container(
+          key: ValueKey(
+            error is ScheduleClassOverlap
+                ? 'schedule-drop-overlap'
+                : 'schedule-drop-preview',
+          ),
+          margin: const EdgeInsets.all(1),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: .2),
+            border: Border.all(color: color, width: 3),
+            borderRadius: BorderRadius.circular(5),
+          ),
+          alignment: Alignment.center,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+            color: error == null ? scheme.primary : scheme.error,
+            child: FittedBox(
+              child: Text(
+                error is ScheduleClassOverlap
+                    ? '重複'
+                    : error != null
+                    ? '移動不可'
+                    : '${target.period}限へ',
+                style: TextStyle(
+                  color: error == null ? scheme.onPrimary : scheme.onError,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   List<Weekday> get displayWeekdays =>
       showSaturday
@@ -84,6 +351,8 @@ class ScheduleGridWidget extends StatelessWidget {
           cumulativeHeights[i + 1] = cumulativeHeights[i] + rowHeights[i];
         }
         final totalHeight = cumulativeHeights.last;
+        _cellWidth = cellWidth;
+        _rowEdges = cumulativeHeights;
 
         final Widget content = Column(
           children: [
@@ -92,29 +361,65 @@ class ScheduleGridWidget extends StatelessWidget {
 
             // グリッドボディ（スタック方式で連続講義を表現）
             SizedBox(
+              key: _bodyKey,
               height: totalHeight,
-              child: Stack(
-                children: [
-                  // 背景グリッド
-                  _buildBackgroundGrid(
-                    context,
-                    timeColumnWidth,
-                    cellWidth,
-                    rowHeights,
-                  ),
+              child: DragTarget<_DraggedScheduleClass>(
+                onWillAcceptWithDetails:
+                    (details) =>
+                        isEditMode &&
+                        !_saving &&
+                        details.data.scheduleId == schedule.id &&
+                        widget.onClassMove != null,
+                onMove: (details) {
+                  _pointer = details.offset + _feedbackAnchor;
+                  if (_moved) _updateHover();
+                },
+                onLeave: (_) {
+                  if (mounted && _hover != null) setState(() => _hover = null);
+                },
+                onAcceptWithDetails: (details) => _drop(details.data),
+                builder:
+                    (context, candidates, rejected) => IgnorePointer(
+                      ignoring: _saving,
+                      child: Stack(
+                        children: [
+                          // 背景グリッド
+                          _buildBackgroundGrid(
+                            context,
+                            timeColumnWidth,
+                            cellWidth,
+                            rowHeights,
+                          ),
 
-                  // 時限列
-                  _buildTimeColumn(context, timeColumnWidth, rowHeights),
+                          // 時限列
+                          _buildTimeColumn(
+                            context,
+                            timeColumnWidth,
+                            rowHeights,
+                          ),
 
-                  // 講義セル（連続講義対応）
-                  ..._buildClassCells(
-                    context,
-                    timeColumnWidth,
-                    cellWidth,
-                    rowHeights,
-                    cumulativeHeights,
-                  ),
-                ],
+                          // 講義セル（連続講義対応）
+                          ..._buildClassCells(
+                            context,
+                            timeColumnWidth,
+                            cellWidth,
+                            rowHeights,
+                            cumulativeHeights,
+                          ),
+                          if (_drag != null && _hover != null)
+                            _buildDropPreview(context),
+                          if (_saving)
+                            const Positioned(
+                              left: 0,
+                              right: 0,
+                              top: 0,
+                              child: LinearProgressIndicator(
+                                semanticsLabel: '講義の移動を保存中',
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
               ),
             ),
           ],
@@ -138,7 +443,10 @@ class ScheduleGridWidget extends StatelessWidget {
       height: 40,
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        border: Border.all(color: Colors.grey.shade300),
+      ),
+      // Paint the border without subtracting it from the column layout width.
+      foregroundDecoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Row(
         children: [
@@ -160,7 +468,11 @@ class ScheduleGridWidget extends StatelessWidget {
               width: cellWidth,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                border: Border(left: BorderSide(color: Colors.grey.shade300)),
+                border: Border(
+                  left: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                ),
               ),
               child: Text(
                 weekday.shortName,
@@ -189,10 +501,14 @@ class ScheduleGridWidget extends StatelessWidget {
             height: rowHeights[periodIndex],
             decoration: BoxDecoration(
               border: Border(
-                top: BorderSide(color: Colors.grey.shade300),
+                top: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
                 bottom:
                     periodIndex == 9
-                        ? BorderSide(color: Colors.grey.shade300)
+                        ? BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                        )
                         : BorderSide.none,
               ),
             ),
@@ -202,7 +518,9 @@ class ScheduleGridWidget extends StatelessWidget {
                   width: timeColumnWidth,
                   decoration: BoxDecoration(
                     border: Border(
-                      right: BorderSide(color: Colors.grey.shade300),
+                      right: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
                     ),
                   ),
                 ),
@@ -211,10 +529,17 @@ class ScheduleGridWidget extends StatelessWidget {
                     width: cellWidth,
                     decoration: BoxDecoration(
                       border: Border(
-                        left: BorderSide(color: Colors.grey.shade300),
+                        left: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                        ),
                         right:
                             weekday == displayWeekdays.last
-                                ? BorderSide(color: Colors.grey.shade300)
+                                ? BorderSide(
+                                  color:
+                                      Theme.of(
+                                        context,
+                                      ).colorScheme.outlineVariant,
+                                )
                                 : BorderSide.none,
                       ),
                     ),
@@ -264,14 +589,19 @@ class ScheduleGridWidget extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  '${timeSlot.startTime}\n${timeSlot.endTime}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    height: 1.1,
-                    fontSize: 8,
-                    color: Colors.grey[600],
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      '${timeSlot.startTime}\n${timeSlot.endTime}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        height: 1.1,
+                        fontSize: 8,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
                 ),
               ],
             ),
@@ -367,6 +697,7 @@ class ScheduleGridWidget extends StatelessWidget {
       width: width,
       height: height,
       child: GestureDetector(
+        key: ValueKey('schedule-empty-$weekdayKey-$period'),
         onTap: () {
           if (isEditMode) {
             onEmptySlotTap(weekdayKey, period);
@@ -379,7 +710,7 @@ class ScheduleGridWidget extends StatelessWidget {
                   ? Center(
                     child: Icon(
                       Icons.add,
-                      color: Colors.grey.shade400,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       size: 24,
                     ),
                   )
@@ -400,40 +731,137 @@ class ScheduleGridWidget extends StatelessWidget {
     double height,
   ) {
     final color = Color(int.parse('0xff${scheduleClass.color.substring(1)}'));
-
+    final canDrag = isEditMode && widget.onClassMove != null && !_saving;
+    final cell = GestureDetector(
+      key: ValueKey('schedule-class-$weekdayKey-$period'),
+      onLongPress:
+          !canDrag && isEditMode && onClassLongPress != null
+              ? () => onClassLongPress!(weekdayKey, period, scheduleClass)
+              : null,
+      onTap: () {
+        if (isEditMode) {
+          onClassTap(weekdayKey, period, scheduleClass);
+        } else {
+          _showClassDetails(context, scheduleClass, weekdayKey, period);
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.all(0.5),
+        decoration: BoxDecoration(
+          // Preserve the selected color; adapt the text instead of fading it.
+          color: color,
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 2,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: _buildClassContent(
+          context,
+          scheduleClass,
+          scheduleClass.duration > 1,
+          AppColors.onColor(color),
+        ),
+      ),
+    );
+    final drag = _DraggedScheduleClass(
+      schedule.id,
+      weekdayKey,
+      period,
+      scheduleClass,
+    );
+    final feedbackHeight = 40 + MediaQuery.textScalerOf(context).scale(24);
     return Positioned(
       left: left,
       top: top,
       width: width,
       height: height,
-      child: GestureDetector(
-        onTap: () {
-          if (isEditMode) {
-            onClassTap(weekdayKey, period, scheduleClass);
-          } else {
-            _showClassDetails(context, scheduleClass, weekdayKey, period);
-          }
-        },
-        child: Container(
-          margin: const EdgeInsets.all(0.5),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.8),
-            borderRadius: BorderRadius.circular(4),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 2,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
-          child: _buildClassContent(
-            context,
-            scheduleClass,
-            scheduleClass.duration > 1,
-          ),
-        ),
-      ),
+      child:
+          canDrag
+              ? LongPressDraggable<_DraggedScheduleClass>(
+                data: drag,
+                maxSimultaneousDrags: _drag == null ? 1 : 0,
+                rootOverlay: true,
+                dragAnchorStrategy: (_, _, pointer) {
+                  _pointer = pointer;
+                  _feedbackAnchor = Offset(72, feedbackHeight + 12);
+                  return _feedbackAnchor;
+                },
+                onDragStarted: () {
+                  setState(() {
+                    _drag = drag;
+                    _moved = false;
+                    _hover = null;
+                  });
+                  _scrollTimer = Timer.periodic(
+                    const Duration(milliseconds: 32),
+                    (_) => _autoScroll(),
+                  );
+                },
+                onDragUpdate: (details) {
+                  _moved = true;
+                  _pointer = details.globalPosition;
+                  _updateHover();
+                },
+                onDragEnd: (_) => _endDrag(),
+                feedback: Material(
+                  elevation: 8,
+                  color: color,
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox(
+                    width: 144,
+                    height: feedbackHeight,
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              scheduleClass.subjectName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppColors.onColor(color),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${scheduleClass.duration}コマを移動',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppColors.onColor(color),
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                childWhenDragging: Opacity(opacity: .3, child: cell),
+                child: Semantics(
+                  customSemanticsActions:
+                      onClassLongPress == null
+                          ? null
+                          : {
+                            const CustomSemanticsAction(label: '曜日と時限を選んで移動'):
+                                () => onClassLongPress!(
+                                  weekdayKey,
+                                  period,
+                                  scheduleClass,
+                                ),
+                          },
+                  child: cell,
+                ),
+              )
+              : cell,
     );
   }
 
@@ -441,6 +869,7 @@ class ScheduleGridWidget extends StatelessWidget {
     BuildContext context,
     ScheduleClass scheduleClass,
     bool isMultiPeriod,
+    Color foregroundColor,
   ) {
     // 4限連続かどうかで更に表示を調整
     final is4PeriodClass = scheduleClass.duration >= 4;
@@ -471,7 +900,7 @@ class ScheduleGridWidget extends StatelessWidget {
               scheduleClass.subjectName,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.black,
+                color: foregroundColor,
                 fontSize: isMultiPeriod ? (is4PeriodClass ? 14 : 12) : 9.5,
                 height: 1.15,
               ),
@@ -495,7 +924,7 @@ class ScheduleGridWidget extends StatelessWidget {
                 margin: const EdgeInsets.symmetric(horizontal: 1),
                 padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(3),
                 ),
                 child: Text(
@@ -503,7 +932,7 @@ class ScheduleGridWidget extends StatelessWidget {
                   softWrap: true,
                   overflow: TextOverflow.visible,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.black,
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 8.6,
                     height: 1.05,
                   ),
@@ -520,14 +949,14 @@ class ScheduleGridWidget extends StatelessWidget {
               margin: const EdgeInsets.symmetric(horizontal: 2),
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 scheduleClass.classroom.trim(),
                 softWrap: true,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.black,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: is4PeriodClass ? 10.2 : 9.4,
                   fontWeight: FontWeight.w600,
                   height: 1.1,
@@ -643,377 +1072,75 @@ class ScheduleGridWidget extends StatelessWidget {
           weekdayKey: weekdayKey,
           startPeriod: startPeriod,
         );
-    final summaryFuture = onLoadAttendanceSummary?.call(
-      weekdayKey,
-      startPeriod,
-      scheduleClass,
-    );
-
     showDialog<void>(
       context: hostContext,
-      builder: (dialogCtx) {
-        final notesController = TextEditingController(
-          text: scheduleClass.notes ?? '',
-        );
-        bool isEditingMemo = false;
-        bool isSaving = false;
-        return StatefulBuilder(
-          builder:
-              (_, setDialogState) => AlertDialog(
-                title: Row(
-                  children: [
-                    Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: Color(
-                          int.parse('0xff${scheduleClass.color.substring(1)}'),
-                        ),
-                        shape: BoxShape.circle,
-                      ),
+      barrierDismissible: false,
+      builder:
+          (dialogContext) => ScheduleClassDetailDialog(
+            lesson: scheduleClass,
+            dayLabel: weekdayNames[weekdayKey] ?? weekdayKey,
+            periodRange: periodRange,
+            timeRange: timeRange,
+            onSaveNotes:
+                onClassNotesSave == null
+                    ? null
+                    : (notes) => onClassNotesSave!(
+                      weekdayKey,
+                      startPeriod,
+                      scheduleClass,
+                      notes,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        scheduleClass.subjectName,
-                        style: const TextStyle(fontSize: 18),
-                      ),
+            loadAttendance:
+                onLoadAttendanceSummary == null
+                    ? null
+                    : () => onLoadAttendanceSummary!(
+                      weekdayKey,
+                      startPeriod,
+                      scheduleClass,
                     ),
-                  ],
-                ),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildDetailRow(
-                      dialogCtx,
-                      Icons.schedule,
-                      '時間',
-                      '${weekdayNames[weekdayKey] ?? weekdayKey} $periodRange\n$timeRange',
+            loadAttendanceSessions:
+                onLoadAttendanceSessions == null
+                    ? null
+                    : () => onLoadAttendanceSessions!(
+                      weekdayKey,
+                      startPeriod,
+                      scheduleClass,
                     ),
-                    const SizedBox(height: 12),
-                    _buildDetailRow(
-                      dialogCtx,
-                      Icons.location_on,
-                      '教室',
-                      scheduleClass.classroom,
+            onSaveAttendance:
+                onSaveAttendanceStatus == null
+                    ? null
+                    : (session, status) => onSaveAttendanceStatus!(
+                      weekdayKey,
+                      startPeriod,
+                      scheduleClass,
+                      session,
+                      status,
                     ),
-                    const SizedBox(height: 12),
-                    _buildDetailRow(
-                      dialogCtx,
-                      Icons.person,
-                      '担当教員',
-                      scheduleClass.instructor,
+            onAttendance:
+                !canTapAttendance
+                    ? null
+                    : () => onClassAttendanceTap!(
+                      weekdayKey,
+                      startPeriod,
+                      scheduleClass,
                     ),
-                    if (scheduleClass.duration > 1) ...[
-                      const SizedBox(height: 12),
-                      _buildDetailRow(
-                        dialogCtx,
-                        Icons.timer,
-                        '講義時間',
-                        '${scheduleClass.duration}時間連続',
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    if (!isEditingMemo) ...[
-                      if (scheduleClass.notes != null &&
-                          scheduleClass.notes!.isNotEmpty)
-                        _buildDetailRowLinkified(
-                          dialogCtx,
-                          Icons.note,
-                          'メモ',
-                          scheduleClass.notes!,
-                        )
-                      else
-                        _buildDetailRow(dialogCtx, Icons.note, 'メモ', '未設定'),
-                    ] else ...[
-                      const Text(
-                        'メモ',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: notesController,
-                        maxLines: 4,
-                        decoration: const InputDecoration(
-                          hintText: 'メモを入力',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                      ),
-                    ],
-                    if (canTapAttendance) ...[
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: () async {
-                            Navigator.of(dialogCtx).pop();
-                            await onClassAttendanceTap!(
-                              weekdayKey,
-                              startPeriod,
-                              scheduleClass,
-                            );
-                          },
-                          icon: const Icon(Icons.qr_code_scanner, size: 18),
-                          label: const Text('QRを読み取って出席'),
-                        ),
-                      ),
-                    ],
-                    if (summaryFuture != null) ...[
-                      const SizedBox(height: 12),
-                      FutureBuilder<AttendanceClassSummary>(
-                        future: summaryFuture,
-                        builder: (_, snapshot) {
-                          final summary = snapshot.data;
-                          if (summary == null) {
-                            return const SizedBox.shrink();
-                          }
-                          return _buildDetailRow(
-                            dialogCtx,
-                            Icons.analytics_outlined,
-                            '出欠集計',
-                            '出席 ${summary.presentCount}回 / 遅刻 ${summary.lateCount}回 / 欠席 ${summary.absentCount}回',
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 4),
-                      RichText(
-                        text: TextSpan(
-                          style: Theme.of(
-                            dialogCtx,
-                          ).textTheme.bodySmall?.copyWith(
-                            color:
-                                Theme.of(
-                                  dialogCtx,
-                                ).colorScheme.onSurfaceVariant,
-                          ),
-                          children: [
-                            const TextSpan(text: '※ 出欠集計を編集するには、画面右上の'),
-                            WidgetSpan(
-                              alignment: PlaceholderAlignment.middle,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 2,
-                                ),
-                                child: Icon(
-                                  Icons.fact_check_outlined,
-                                  size: 14,
-                                  color:
-                                      Theme.of(
-                                        dialogCtx,
-                                      ).colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                            const TextSpan(text: 'より編集してください。'),
-                          ],
-                        ),
-                      ),
-                    ],
-                    scheduleClassDetailDialogActionsWrap(
-                      children: [
-                        if (isEditingMemo) ...[
-                          TextButton(
-                            style: scheduleClassDetailDialogSecondaryActionStyle(
-                              dialogCtx,
-                            ),
-                            onPressed: () => Navigator.of(dialogCtx).pop(),
-                            child: scheduleClassDetailDialogActionLabel(dialogCtx,'閉じる'),
-                          ),
-                          if (onClassNotesSave != null) ...[
-                            TextButton(
-                              style:
-                                  scheduleClassDetailDialogSecondaryActionStyle(
-                                    dialogCtx,
-                                  ),
-                              onPressed:
-                                  isSaving
-                                      ? null
-                                      : () {
-                                        setDialogState(() {
-                                          isEditingMemo = false;
-                                        });
-                                      },
-                              child: scheduleClassDetailDialogActionLabel(dialogCtx,'キャンセル'),
-                            ),
-                            FilledButton(
-                              style: scheduleClassDetailDialogSaveButtonStyle(
-                                dialogCtx,
-                              ),
-                              onPressed:
-                                  isSaving
-                                      ? null
-                                      : () async {
-                                        setDialogState(() {
-                                          isSaving = true;
-                                        });
-                                        final ok = await onClassNotesSave!(
-                                          weekdayKey,
-                                          startPeriod,
-                                          scheduleClass,
-                                          notesController.text.trim().isEmpty
-                                              ? null
-                                              : notesController.text.trim(),
-                                        );
-                                        if (!dialogCtx.mounted) return;
-                                        setDialogState(() {
-                                          isSaving = false;
-                                        });
-                                        if (ok) {
-                                          Navigator.of(dialogCtx).pop();
-                                        }
-                                      },
-                              child:
-                                  isSaving
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : scheduleClassDetailDialogActionLabel(dialogCtx,'保存'),
-                            ),
-                          ],
-                        ] else ...[
-                          if (scheduleClass.classroom.trim().isNotEmpty)
-                            FilledButton(
-                              style: scheduleClassLookupRoomButtonStyle(dialogCtx),
-                              onPressed: () {
-                                final q = scheduleClass.classroom.trim();
-                                final uri = Uri(
-                                  path: '/classroom-map',
-                                  queryParameters: {'q': q},
-                                );
-                                Navigator.of(dialogCtx).pop();
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
-                                  if (!hostContext.mounted) return;
-                                  GoRouter.of(hostContext).push(uri.toString());
-                                });
-                              },
-                              child: scheduleClassDetailDialogActionLabel(dialogCtx,
-                                '教室の場所を調べる',
-                              ),
-                            ),
-                          if (onClassNotesSave != null)
-                            TextButton(
-                              style:
-                                  scheduleClassDetailDialogSecondaryActionStyle(
-                                    dialogCtx,
-                                  ),
-                              onPressed: () {
-                                setDialogState(() {
-                                  isEditingMemo = true;
-                                });
-                              },
-                              child: scheduleClassDetailDialogActionLabel(dialogCtx,'メモを編集'),
-                            ),
-                          TextButton(
-                            style: scheduleClassDetailDialogSecondaryActionStyle(
-                              dialogCtx,
-                            ),
-                            onPressed: () => Navigator.of(dialogCtx).pop(),
-                            child: scheduleClassDetailDialogActionLabel(dialogCtx,'閉じる'),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-        );
-      },
-    );
-  }
-
-  Widget _buildDetailRow(
-    BuildContext context,
-    IconData icon,
-    String label,
-    String value,
-  ) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 16, color: Colors.grey[600]),
-        const SizedBox(width: 8),
-        Text(
-          '$label: ',
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-        ),
-        Expanded(
-          child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
-        ),
-      ],
-    );
-  }
-
-  // メモ用: URLをクリック可能にしたRow
-  Widget _buildDetailRowLinkified(
-    BuildContext context,
-    IconData icon,
-    String label,
-    String value,
-  ) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 16, color: Colors.grey[600]),
-        const SizedBox(width: 8),
-        Text(
-          '$label: ',
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-        ),
-        Expanded(
-          child: RichText(
-            text: TextSpan(
-              style: Theme.of(context).textTheme.bodyMedium,
-              children: _linkifyText(context, value),
-            ),
+            onOpenRoom:
+                scheduleClass.classroom.trim().isEmpty
+                    ? null
+                    : () {
+                      final uri = Uri(
+                        path: '/classroom-map',
+                        queryParameters: {'q': scheduleClass.classroom.trim()},
+                      );
+                      Navigator.of(dialogContext).pop();
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (hostContext.mounted) {
+                          GoRouter.of(hostContext).push(uri.toString());
+                        }
+                      });
+                    },
           ),
-        ),
-      ],
     );
-  }
-
-  // 共通: URLをクリック可能にしたTextSpanリストを返却
-  List<TextSpan> _linkifyText(BuildContext context, String text) {
-    final spans = <TextSpan>[];
-    final urlRegex = RegExp(r'(https?:\/\/[^\s)]+)');
-    int start = 0;
-    for (final m in urlRegex.allMatches(text)) {
-      if (m.start > start) {
-        spans.add(TextSpan(text: text.substring(start, m.start)));
-      }
-      final url = text.substring(m.start, m.end);
-      spans.add(
-        TextSpan(
-          text: url,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.primary,
-            decoration: TextDecoration.underline,
-          ),
-          recognizer:
-              (TapGestureRecognizer()
-                ..onTap = () async {
-                  final uri = Uri.tryParse(url);
-                  if (uri != null) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                }),
-        ),
-      );
-      start = m.end;
-    }
-    if (start < text.length) {
-      spans.add(TextSpan(text: text.substring(start)));
-    }
-    return spans;
   }
 
   Color _getCellColor(BuildContext context, ScheduleClass? scheduleClass) {
@@ -1021,7 +1148,7 @@ class ScheduleGridWidget extends StatelessWidget {
       final baseColor = Color(
         int.parse('0xff${scheduleClass.color.substring(1)}'),
       );
-      return baseColor.withOpacity(0.8);
+      return baseColor.withValues(alpha: 0.8);
     }
 
     return Colors.transparent;

@@ -1,8 +1,10 @@
+import 'package:cit_app/core/utils/logger.dart';
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/user/user_model.dart';
+import '../auth/verified_profile.dart';
 
 /// メール変更完了チェックの結果
 enum EmailChangeCheckResult {
@@ -23,16 +25,16 @@ class UserService {
   /// ユーザー情報を作成
   static Future<void> createUser(AppUser user) async {
     try {
-      print('👤 ユーザー情報作成開始: ${user.email}');
-      
-      await _firestore
-          .collection(_collection)
-          .doc(user.uid)
-          .set(user.toJson());
-      
-      print('✅ ユーザー情報を作成しました: ${user.uid}');
+      SecureLogger.debug('👤 ユーザー情報作成開始: ${user.email}');
+
+      await _firestore.collection(_collection).doc(user.uid).set(
+        user.toJson(),
+        SetOptions(merge: true),
+      );
+
+      SecureLogger.debug('✅ ユーザー情報を作成しました: ${user.uid}');
     } catch (e) {
-      print('❌ ユーザー情報作成エラー: $e');
+      SecureLogger.debug('❌ ユーザー情報作成エラー: $e');
       rethrow;
     }
   }
@@ -40,18 +42,15 @@ class UserService {
   /// ユーザー情報を取得
   static Future<AppUser?> getUser(String uid) async {
     try {
-      final doc = await _firestore
-          .collection(_collection)
-          .doc(uid)
-          .get();
+      final doc = await _firestore.collection(_collection).doc(uid).get();
 
       if (doc.exists && doc.data() != null) {
         return AppUser.fromJson(doc.data()!);
       }
-      
+
       return null;
     } catch (e) {
-      print('❌ ユーザー情報取得エラー: $e');
+      SecureLogger.debug('❌ ユーザー情報取得エラー: $e');
       return null;
     }
   }
@@ -60,15 +59,15 @@ class UserService {
   static Future<void> updateUser(AppUser user) async {
     try {
       final updatedUser = user.copyWith(updatedAt: DateTime.now());
-      
+
       await _firestore
           .collection(_collection)
           .doc(user.uid)
-          .set(updatedUser.toJson());
-      
-      print('✅ ユーザー情報を更新しました: ${user.uid}');
+          .set(updatedUser.toJson(), SetOptions(merge: true));
+
+      SecureLogger.debug('✅ ユーザー情報を更新しました: ${user.uid}');
     } catch (e) {
-      print('❌ ユーザー情報更新エラー: $e');
+      SecureLogger.debug('❌ ユーザー情報更新エラー: $e');
       rethrow;
     }
   }
@@ -76,9 +75,10 @@ class UserService {
   /// Firebase Authユーザーからアプリユーザーを作成
   static AppUser createAppUserFromFirebaseUser(User firebaseUser) {
     // メールアドレスから表示名を生成（メールの@より前の部分）
-    String displayName = firebaseUser.displayName ?? 
-                        firebaseUser.email?.split('@').first ?? 
-                        '匿名ユーザー';
+    String displayName =
+        firebaseUser.displayName ??
+        firebaseUser.email?.split('@').first ??
+        '匿名ユーザー';
 
     return AppUser(
       uid: firebaseUser.uid,
@@ -95,20 +95,9 @@ class UserService {
   /// 現在のユーザー情報を取得（存在しない場合は作成）
   static Future<AppUser?> getCurrentUserOrCreate() async {
     final firebaseUser = FirebaseAuth.instance.currentUser;
-    if (firebaseUser == null) return null;
+    if (firebaseUser == null || !firebaseUser.emailVerified) return null;
 
-    // 既存ユーザー情報を取得
-    AppUser? existingUser = await getUser(firebaseUser.uid);
-    
-    if (existingUser != null) {
-      await syncEmailFromFirebaseAuth(firebaseUser);
-      return existingUser;
-    }
-
-    // 存在しない場合は新規作成
-    final newUser = createAppUserFromFirebaseUser(firebaseUser);
-    await createUser(newUser);
-    return newUser;
+    return ensureVerifiedProfile(_firestore, firebaseUser);
   }
 
   /// ユーザープロフィールを更新
@@ -135,9 +124,10 @@ class UserService {
 
       final updatedUser = existingUser.copyWith(
         displayName: displayName ?? existingUser.displayName,
-        profileImageUrl: clearProfileImageUrl
-            ? null
-            : (profileImageUrl ?? existingUser.profileImageUrl),
+        profileImageUrl:
+            clearProfileImageUrl
+                ? null
+                : (profileImageUrl ?? existingUser.profileImageUrl),
         department: department,
         studentId: studentId,
         graduationYear: graduationYear,
@@ -157,7 +147,7 @@ class UserService {
         );
       }
     } catch (e) {
-      print('❌ プロフィール更新エラー: $e');
+      SecureLogger.debug('❌ プロフィール更新エラー: $e');
       rethrow;
     }
   }
@@ -169,10 +159,11 @@ class UserService {
   }) async {
     try {
       const batchLimit = 400;
-      final snapshot = await _firestore
-          .collection('bulletin_comments')
-          .where('authorId', isEqualTo: uid)
-          .get();
+      final snapshot =
+          await _firestore
+              .collection('bulletin_comments')
+              .where('authorId', isEqualTo: uid)
+              .get();
 
       for (var i = 0; i < snapshot.docs.length; i += batchLimit) {
         final batch = _firestore.batch();
@@ -183,24 +174,21 @@ class UserService {
         await batch.commit();
       }
     } catch (e) {
-      print('⚠️ 掲示板コメントの表示名同期エラー: $e');
+      SecureLogger.debug('⚠️ 掲示板コメントの表示名同期エラー: $e');
     }
   }
 
   /// アカウントを無効化（論理削除）
   static Future<void> deactivateUser(String uid) async {
     try {
-      await _firestore
-          .collection(_collection)
-          .doc(uid)
-          .update({
+      await _firestore.collection(_collection).doc(uid).update({
         'isActive': false,
         'updatedAt': Timestamp.now(),
       });
-      
-      print('✅ ユーザーを無効化しました: $uid');
+
+      SecureLogger.debug('✅ ユーザーを無効化しました: $uid');
     } catch (e) {
-      print('❌ ユーザー無効化エラー: $e');
+      SecureLogger.debug('❌ ユーザー無効化エラー: $e');
       rethrow;
     }
   }
@@ -212,7 +200,7 @@ class UserService {
         'updatedAt': Timestamp.now(),
       });
     } catch (e) {
-      print('❌ レビュー数更新エラー: $e');
+      SecureLogger.debug('❌ レビュー数更新エラー: $e');
       // ドキュメントが存在しない場合などは呼び出し側での処理を継続
     }
   }
@@ -224,31 +212,33 @@ class UserService {
         'lastLoginAt': Timestamp.now(),
         'updatedAt': Timestamp.now(),
       });
-      print('✅ 最終ログイン時刻を更新しました: $uid');
+      SecureLogger.debug('✅ 最終ログイン時刻を更新しました: $uid');
     } catch (e) {
-      print('⚠️ 最終ログイン時刻更新エラー: $e');
+      SecureLogger.debug('⚠️ 最終ログイン時刻更新エラー: $e');
       // エラーが発生してもログインは継続
     }
   }
 
   /// メール認証状態をFirestoreに同期
-  static Future<void> syncEmailVerificationStatus(String uid, bool emailVerified) async {
+  static Future<void> syncEmailVerificationStatus(
+    String uid,
+    bool emailVerified,
+  ) async {
     try {
       final docRef = _firestore.collection(_collection).doc(uid);
-      final snapshot = await docRef.get();
-      final data = snapshot.data() ?? <String, dynamic>{};
-      final alreadyVerified =
-          (data['emailVerified'] == true) || (data['isEmailVerified'] == true);
-      final effectiveVerified = alreadyVerified || emailVerified;
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null || user.uid != uid) return;
+      await user.getIdToken(true);
+      final effectiveVerified = user.emailVerified;
 
       await docRef.update({
         'emailVerified': effectiveVerified,
         'isEmailVerified': effectiveVerified,
         'updatedAt': Timestamp.now(),
       });
-      print('✅ メール認証状態を同期しました: $uid -> $effectiveVerified');
+      SecureLogger.debug('✅ メール認証状態を同期しました: $uid -> $effectiveVerified');
     } catch (e) {
-      print('⚠️ メール認証状態同期エラー: $e');
+      SecureLogger.debug('⚠️ メール認証状態同期エラー: $e');
       // エラーが発生しても処理は継続
     }
   }
@@ -264,21 +254,16 @@ class UserService {
       final refreshedUser = FirebaseAuth.instance.currentUser;
       if (refreshedUser == null) return false;
 
-      final authVerified = refreshedUser.emailVerified;
-      final doc = await _firestore.collection(_collection).doc(refreshedUser.uid).get();
-      final existingData = doc.data() ?? <String, dynamic>{};
-      final storedVerified =
-          (existingData['emailVerified'] == true) ||
-          (existingData['isEmailVerified'] == true);
-      final effectiveVerified = authVerified || storedVerified;
-      
+      await refreshedUser.getIdToken(true);
+      final effectiveVerified = refreshedUser.emailVerified;
+
       // Firestoreに同期
       await syncEmailVerificationStatus(refreshedUser.uid, effectiveVerified);
       await syncEmailFromFirebaseAuth(refreshedUser);
-      
+
       return effectiveVerified;
     } catch (e) {
-      print('⚠️ メール認証状態確認エラー: $e');
+      SecureLogger.debug('⚠️ メール認証状態確認エラー: $e');
       return false;
     }
   }
@@ -302,10 +287,10 @@ class UserService {
         updatedAt: DateTime.now(),
       );
       await updateUser(updatedUser);
-      print('✅ Firestoreのメールアドレスを同期しました: $authEmail');
+      SecureLogger.debug('✅ Firestoreのメールアドレスを同期しました: $authEmail');
       return true;
     } catch (e) {
-      print('⚠️ メールアドレス同期エラー: $e');
+      SecureLogger.debug('⚠️ メールアドレス同期エラー: $e');
       return false;
     }
   }
@@ -329,7 +314,7 @@ class UserService {
         firebaseUser.emailVerified,
       );
     } catch (e) {
-      print('⚠️ メール変更後の Firestore 同期エラー（再ログイン後に再試行）: $e');
+      SecureLogger.debug('⚠️ メール変更後の Firestore 同期エラー（再ログイン後に再試行）: $e');
     }
   }
 
@@ -372,16 +357,12 @@ class UserService {
 
   /// ユーザードキュメントをリアルタイム監視するストリーム
   static Stream<AppUser?> watchUser(String uid) {
-    return _firestore
-        .collection(_collection)
-        .doc(uid)
-        .snapshots()
-        .map((doc) {
+    return _firestore.collection(_collection).doc(uid).snapshots().map((doc) {
       if (doc.exists && doc.data() != null) {
         try {
           return AppUser.fromJson(doc.data()!);
         } catch (e) {
-          print('❌ ユーザー情報パースエラー: $e');
+          SecureLogger.debug('❌ ユーザー情報パースエラー: $e');
           return null;
         }
       }

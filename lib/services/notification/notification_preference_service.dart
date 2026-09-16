@@ -42,12 +42,9 @@ class NotificationPreferenceService {
   }) async {
     final current = await getPreferences(userId);
     final updated = current.copyWithKey(key, enabled);
-    await _doc(userId).set(
-      {
-        'notificationPreferences': updated.toMap(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
+    await _doc(userId).set({
+      'notificationPreferences': updated.toMap(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 }

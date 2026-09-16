@@ -85,9 +85,9 @@ class _ClubOrganizationsScreenState
 
     final grouped = <String, List<ClubOrganization>>{};
     for (final club in filtered) {
-      grouped.putIfAbsent(club.categoryLabel, () => <ClubOrganization>[]).add(
-        club,
-      );
+      grouped
+          .putIfAbsent(club.categoryLabel, () => <ClubOrganization>[])
+          .add(club);
     }
 
     final categoryOrder = ['部', '同好会', '愛好会', 'その他'];
@@ -132,11 +132,7 @@ class _ClubOrganizationsScreenState
       title: Text(club.name),
       subtitle:
           hasDescription
-              ? Text(
-                description,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              )
+              ? Text(description, maxLines: 2, overflow: TextOverflow.ellipsis)
               : Text(
                 '説明情報は未取得です',
                 style: TextStyle(

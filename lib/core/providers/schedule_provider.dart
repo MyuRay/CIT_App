@@ -25,27 +25,40 @@ final currentUserIdProvider = Provider<String?>((ref) {
 });
 
 // 時間割プロバイダー
-final scheduleProvider = FutureProvider.family<Schedule?, String>((ref, userId) async {
+final scheduleProvider = FutureProvider.family<Schedule?, String>((
+  ref,
+  userId,
+) async {
   return await ScheduleService.getScheduleByUserId(userId);
 });
 
 // 今日の時間割プロバイダー
-final todayScheduleProvider = FutureProvider.family<List<ScheduleClass?>, String>((ref, userId) async {
-  return await ScheduleService.getTodaySchedule(userId);
-});
+final todayScheduleProvider =
+    FutureProvider.family<List<ScheduleClass?>, String>((ref, userId) async {
+      return await ScheduleService.getTodaySchedule(userId);
+    });
 
 // 次の授業プロバイダー
-final nextClassProvider = FutureProvider.family<ScheduleClass?, String>((ref, userId) async {
+final nextClassProvider = FutureProvider.family<ScheduleClass?, String>((
+  ref,
+  userId,
+) async {
   return await ScheduleService.getNextClass(userId);
 });
 
 // 現在の時限プロバイダー
-final currentPeriodProvider = FutureProvider.family<int?, String>((ref, userId) async {
+final currentPeriodProvider = FutureProvider.family<int?, String>((
+  ref,
+  userId,
+) async {
   return await ScheduleService.getCurrentPeriod(userId);
 });
 
 // ユーザーの全時間割リストプロバイダー
-final scheduleListProvider = FutureProvider.family<List<Schedule>, String>((ref, userId) async {
+final scheduleListProvider = FutureProvider.family<List<Schedule>, String>((
+  ref,
+  userId,
+) async {
   return await ScheduleService.getAllSchedulesByUserId(userId);
 });
 
@@ -55,8 +68,7 @@ final scheduleListProvider = FutureProvider.family<List<Schedule>, String>((ref,
 // 既存コードとの互換のため `state` への直接代入も許容する
 // (ただし永続化したい場合は `notifier.set(...)` を使うこと)。
 class SelectedScheduleIdNotifier extends StateNotifier<String?> {
-  SelectedScheduleIdNotifier(this._prefs)
-    : super(_prefs.getString(_key));
+  SelectedScheduleIdNotifier(this._prefs) : super(_prefs.getString(_key));
 
   static const String _key = 'selected_schedule_id';
 
@@ -83,15 +95,18 @@ class SelectedScheduleIdNotifier extends StateNotifier<String?> {
 
 final selectedScheduleIdProvider =
     StateNotifierProvider<SelectedScheduleIdNotifier, String?>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider);
-  return SelectedScheduleIdNotifier(prefs);
-});
+      final prefs = ref.watch(sharedPreferencesProvider);
+      return SelectedScheduleIdNotifier(prefs);
+    });
 
 // 指定した時間割IDの今日の時間割
 final todayScheduleByIdProvider =
-    FutureProvider.family<List<ScheduleClass?>, String>((ref, scheduleId) async {
-  return await ScheduleService.getTodayScheduleByScheduleId(scheduleId);
-});
+    FutureProvider.family<List<ScheduleClass?>, String>((
+      ref,
+      scheduleId,
+    ) async {
+      return await ScheduleService.getTodayScheduleByScheduleId(scheduleId);
+    });
 
 // 講義期間設定（春学期・秋学期）
 final lecturePeriodSettingsProvider = StreamProvider<LecturePeriodSettings?>((
@@ -110,21 +125,19 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> {
 
   Future<void> _loadSchedule() async {
     try {
-      state = const AsyncValue.loading();
+      state = const AsyncValue<Schedule?>.loading().copyWithPrevious(state);
       final schedule = await ScheduleService.getScheduleByUserId(_userId);
       state = AsyncValue.data(schedule);
-      
+
       // ウィジェット更新（週間フル時間割）
       // エラーが発生してもウィジェットは更新する
       await _updateWidgets();
     } catch (e, stackTrace) {
-      state = AsyncValue.error(e, stackTrace);
-      // エラー時もウィジェットを更新（空データで）
-      try {
-        await _updateWidgets();
-      } catch (widgetError) {
-        debugPrint('❌ エラー時のウィジェット更新も失敗: $widgetError');
-      }
+      state = AsyncValue<Schedule?>.error(
+        e,
+        stackTrace,
+      ).copyWithPrevious(state);
+      // Keep the last successful widget data on a failed refresh.
     }
   }
 
@@ -136,12 +149,15 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> {
   // 初期時間割を作成（存在しない場合の明示作成ボタン用）
   Future<void> createInitialSchedule() async {
     try {
-      state = const AsyncValue.loading();
+      state = const AsyncValue<Schedule?>.loading().copyWithPrevious(state);
       final schedule = await ScheduleService.createInitialSchedule(_userId);
       state = AsyncValue.data(schedule);
       await _updateWidgets();
     } catch (e, stackTrace) {
-      state = AsyncValue.error(e, stackTrace);
+      state = AsyncValue<Schedule?>.error(
+        e,
+        stackTrace,
+      ).copyWithPrevious(state);
     }
   }
 
@@ -158,59 +174,22 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> {
         throw Exception('時間割が読み込まれていません');
       }
 
-      // 既存の科目が編集中の場合、先に削除する
       final existingClass = currentSchedule.timetable[weekdayKey]?[period];
-      if (existingClass != null && existingClass.id == scheduleClass.id) {
-        await _removeClassSilently(weekdayKey: weekdayKey, period: period);
-        // 削除後、最新の状態を取得
-        await refresh();
-        final updatedSchedule = state.value;
-        if (updatedSchedule == null) {
-          throw Exception('時間割の更新に失敗しました');
-        }
-      }
-
-      // 連続講義の場合は複数の時限に登録
-      for (int i = 0; i < scheduleClass.duration; i++) {
-        final currentPeriod = period + i;
-        
-        // 10時限を超える場合はエラー
-        if (currentPeriod > 10) {
-          throw Exception('${scheduleClass.duration}時間連続講義は${period}限から開始できません（10限を超えます）');
-        }
-
-        // 既に授業がある場合はエラー
-        final latestSchedule = state.value!;
-        final existingClass = latestSchedule.timetable[weekdayKey]?[currentPeriod];
-        if (existingClass != null) {
-          throw Exception('${currentPeriod}限には既に「${existingClass.subjectName}」が登録されています');
-        }
-
-        final classToAdd = ScheduleClass(
-          id: scheduleClass.id,
-          subjectName: scheduleClass.subjectName,
-          classroom: scheduleClass.classroom,
-          instructor: scheduleClass.instructor,
-          color: scheduleClass.color,
-          notes: scheduleClass.notes,
-          duration: scheduleClass.duration,
-          isStartCell: i == 0, // 最初の時限のみtrue
-        );
-
-        await ScheduleService.addOrUpdateClass(
-          scheduleId: latestSchedule.id,
-          weekdayKey: weekdayKey,
-          period: currentPeriod,
-          scheduleClass: classToAdd,
-        );
-      }
+      await ScheduleService.saveClass(
+        scheduleId: currentSchedule.id,
+        weekdayKey: weekdayKey,
+        period: period,
+        scheduleClass: scheduleClass,
+        expectedClass:
+            existingClass?.id == scheduleClass.id ? existingClass : null,
+      );
 
       // 更新後のデータを取得
       await refresh();
-      
+
       // ウィジェットを更新
       await _updateWidgets();
-      
+
       // ホーム画面で表示される関連プロバイダーを無効化（ホーム画面の表示を更新）
       if (ref != null) {
         ref.invalidate(todayScheduleProvider(_userId));
@@ -219,61 +198,15 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> {
         ref.invalidate(scheduleProvider(_userId));
       }
     } catch (e, stackTrace) {
-      state = AsyncValue.error(e, stackTrace);
+      state = AsyncValue<Schedule?>.error(
+        e,
+        stackTrace,
+      ).copyWithPrevious(state);
+      rethrow;
     }
   }
 
-  // 内部用の削除メソッド（エラーハンドリングなし）
-  Future<void> _removeClassSilently({
-    required String weekdayKey,
-    required int period,
-  }) async {
-    try {
-      final currentSchedule = state.value;
-      if (currentSchedule == null) return;
-
-      final targetClass = currentSchedule.timetable[weekdayKey]?[period];
-      if (targetClass == null) return;
-
-      // 連続講義の場合、IDで一括削除されるので、開始セルのperiodでのみ削除を実行
-      if (targetClass.duration > 1) {
-        // 開始セルかどうかをチェック
-        if (targetClass.isStartCell) {
-          // 開始セルの場合のみ削除実行（サービス側で全時限削除される）
-          await ScheduleService.removeClass(
-            scheduleId: currentSchedule.id,
-            weekdayKey: weekdayKey,
-            period: period,
-          );
-        } else {
-          // 開始セルでない場合は開始セルを探して削除
-          for (int p = period - 1; p >= 1; p--) {
-            final previousClass = currentSchedule.timetable[weekdayKey]?[p];
-            if (previousClass?.id == targetClass.id && previousClass?.isStartCell == true) {
-              await ScheduleService.removeClass(
-                scheduleId: currentSchedule.id,
-                weekdayKey: weekdayKey,
-                period: p, // 開始セルのperiodで削除
-              );
-              break;
-            }
-          }
-        }
-      } else {
-        // 単体講義の場合
-        await ScheduleService.removeClass(
-          scheduleId: currentSchedule.id,
-          weekdayKey: weekdayKey,
-          period: period,
-        );
-      }
-    } catch (e) {
-      // サイレント削除なのでエラーは無視
-      print('削除処理中のエラー（無視されます）: $e');
-    }
-  }
-
-  // 科目を削除
+  // 連続講義を一度のトランザクションで削除する。
   Future<void> removeClass({
     required String weekdayKey,
     required int period,
@@ -291,47 +224,19 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> {
         return; // 削除する科目がない場合は何もしない
       }
 
-      // 連続講義の場合は関連する全ての時限を削除
-      if (targetClass.duration > 1) {
-        // 開始セルを見つける
-        int startPeriod = period;
-        if (!targetClass.isStartCell) {
-          // 現在のセルが開始セルでない場合、開始セルを探す
-          for (int p = period - 1; p >= 1; p--) {
-            final previousClass = currentSchedule.timetable[weekdayKey]?[p];
-            if (previousClass?.id == targetClass.id && previousClass?.isStartCell == true) {
-              startPeriod = p;
-              break;
-            }
-          }
-        }
-
-        // 関連する全ての時限を削除
-        for (int i = 0; i < targetClass.duration; i++) {
-          final periodToDelete = startPeriod + i;
-          if (periodToDelete <= 10) {
-            await ScheduleService.removeClass(
-              scheduleId: currentSchedule.id,
-              weekdayKey: weekdayKey,
-              period: periodToDelete,
-            );
-          }
-        }
-      } else {
-        // 単体講義の場合は指定された時限のみ削除
-        await ScheduleService.removeClass(
-          scheduleId: currentSchedule.id,
-          weekdayKey: weekdayKey,
-          period: period,
-        );
-      }
+      await ScheduleService.removeClass(
+        scheduleId: currentSchedule.id,
+        weekdayKey: weekdayKey,
+        period: period,
+        expectedClass: targetClass,
+      );
 
       // 更新後のデータを取得
       await refresh();
-      
+
       // ウィジェットを更新
       await _updateWidgets();
-      
+
       // ホーム画面で表示される関連プロバイダーを無効化（ホーム画面の表示を更新）
       if (ref != null) {
         ref.invalidate(todayScheduleProvider(_userId));
@@ -340,7 +245,11 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> {
         ref.invalidate(scheduleProvider(_userId));
       }
     } catch (e, stackTrace) {
-      state = AsyncValue.error(e, stackTrace);
+      state = AsyncValue<Schedule?>.error(
+        e,
+        stackTrace,
+      ).copyWithPrevious(state);
+      rethrow;
     }
   }
 
@@ -356,11 +265,14 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> {
 
       // 更新後のデータを取得
       await refresh();
-      
+
       // ウィジェットを更新
       await _updateWidgets();
     } catch (e, stackTrace) {
-      state = AsyncValue.error(e, stackTrace);
+      state = AsyncValue<Schedule?>.error(
+        e,
+        stackTrace,
+      ).copyWithPrevious(state);
     }
   }
 
@@ -368,29 +280,13 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> {
   Future<void> _updateWidgets() async {
     try {
       final schedule = await ScheduleService.getScheduleByUserId(_userId);
-      // scheduleがnullの場合でも空データを送信してウィジェットを更新
-      await HomeWidgetsService.updateWeeklyFullSchedule(schedule);
-      
-      // 今日の時間割ウィジェットも更新
-      try {
-        final todayClasses = await ScheduleService.getTodaySchedule(_userId);
-        final currentPeriod = await ScheduleService.getCurrentPeriod(_userId);
-        await HomeWidgetsService.updateTodaySchedule(todayClasses, currentPeriod: currentPeriod);
-      } catch (todayError) {
-        debugPrint('⚠️ 今日の時間割ウィジェット更新エラー: $todayError');
-        // エラー時は空データを送信
-        await HomeWidgetsService.updateTodaySchedule(null);
-      }
-    } catch (e, stackTrace) {
-      debugPrint('❌ ウィジェット更新エラー: $e');
-      debugPrint('❌ StackTrace: $stackTrace');
-      // エラー時も空データを送信してウィジェットを更新
-      try {
-        await HomeWidgetsService.updateWeeklyFullSchedule(null);
-        await HomeWidgetsService.updateTodaySchedule(null);
-      } catch (e2) {
-        debugPrint('❌ エラー時のウィジェット更新も失敗: $e2');
-      }
+      await HomeWidgetsService.updateWeeklyFullSchedule(
+        schedule,
+        userId: _userId,
+      );
+    } catch (_) {
+      // Failed reads must not replace the last successful home-widget data.
+      debugPrint('時間割ウィジェットを更新できませんでした');
     }
   }
 
@@ -398,7 +294,7 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> {
   Future<void> updateNotificationsIfEnabled(WidgetRef? ref) async {
     try {
       if (ref == null) return;
-      
+
       // 通知設定が有効かチェック
       final notificationEnabled = ref.read(scheduleNotificationEnabledProvider);
       if (!notificationEnabled) return;
@@ -411,35 +307,14 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> {
       // 通知更新エラーは無視
     }
   }
-
-  // 1週間分の時間割を取得
-  Future<Map<String, List<ScheduleClass?>>> _getWeeklySchedule() async {
-    try {
-      final schedule = await ScheduleService.getScheduleByUserId(_userId);
-      if (schedule == null) return {};
-
-      final weeklySchedule = <String, List<ScheduleClass?>>{};
-      const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-      
-      for (final weekday in weekdays) {
-        final daySchedule = schedule.timetable[weekday];
-        if (daySchedule != null) {
-          weeklySchedule[weekday] = List.generate(10, (index) => daySchedule[index + 1]);
-        } else {
-          weeklySchedule[weekday] = List.filled(10, null);
-        }
-      }
-      
-      return weeklySchedule;
-    } catch (e) {
-      print('❌ 週間時間割取得エラー: $e');
-      return {};
-    }
-  }
 }
 
 // ScheduleNotifierプロバイダー
-final scheduleNotifierProvider = StateNotifierProvider.family<ScheduleNotifier, AsyncValue<Schedule?>, String>((ref, userId) {
+final scheduleNotifierProvider = StateNotifierProvider.family<
+  ScheduleNotifier,
+  AsyncValue<Schedule?>,
+  String
+>((ref, userId) {
   return ScheduleNotifier(userId);
 });
 
@@ -452,41 +327,45 @@ final currentUserScheduleProvider = Provider<AsyncValue<Schedule?>>((ref) {
   return ref.watch(scheduleNotifierProvider(userId));
 });
 
-final currentUserTodayScheduleProvider = Provider<AsyncValue<List<ScheduleClass?>>>((ref) {
-  final userId = ref.watch(currentUserIdProvider);
-  if (userId == null) {
-    return const AsyncValue.loading();
-  }
-  return ref.watch(todayScheduleProvider(userId));
-});
+final currentUserTodayScheduleProvider =
+    Provider<AsyncValue<List<ScheduleClass?>>>((ref) {
+      final userId = ref.watch(currentUserIdProvider);
+      if (userId == null) {
+        return const AsyncValue.loading();
+      }
+      return ref.watch(todayScheduleProvider(userId));
+    });
 
 // 現在選択中（未選択時は先頭）の時間割の「今日の時間割」
 final currentUserSelectedTodayScheduleProvider =
     Provider<AsyncValue<List<ScheduleClass?>>>((ref) {
-  final userId = ref.watch(currentUserIdProvider);
-  if (userId == null) {
-    return const AsyncValue.loading();
-  }
-
-  final selectedId = ref.watch(selectedScheduleIdProvider);
-  final schedulesAsync = ref.watch(scheduleListProvider(userId));
-  return schedulesAsync.when(
-    data: (schedules) {
-      if (schedules.isEmpty) {
-        return const AsyncValue.data(<ScheduleClass?>[]);
+      final userId = ref.watch(currentUserIdProvider);
+      if (userId == null) {
+        return const AsyncValue.loading();
       }
-      final activeId = (selectedId != null &&
-              schedules.any((schedule) => schedule.id == selectedId))
-          ? selectedId
-          : schedules.first.id;
-      return ref.watch(todayScheduleByIdProvider(activeId));
-    },
-    loading: () => const AsyncValue.loading(),
-    error: (error, stackTrace) => AsyncValue.error(error, stackTrace),
-  );
-});
 
-final currentUserNextClassProvider = Provider<AsyncValue<ScheduleClass?>>((ref) {
+      final selectedId = ref.watch(selectedScheduleIdProvider);
+      final schedulesAsync = ref.watch(scheduleListProvider(userId));
+      return schedulesAsync.when(
+        data: (schedules) {
+          if (schedules.isEmpty) {
+            return const AsyncValue.data(<ScheduleClass?>[]);
+          }
+          final activeId =
+              (selectedId != null &&
+                      schedules.any((schedule) => schedule.id == selectedId))
+                  ? selectedId
+                  : schedules.first.id;
+          return ref.watch(todayScheduleByIdProvider(activeId));
+        },
+        loading: () => const AsyncValue.loading(),
+        error: (error, stackTrace) => AsyncValue.error(error, stackTrace),
+      );
+    });
+
+final currentUserNextClassProvider = Provider<AsyncValue<ScheduleClass?>>((
+  ref,
+) {
   final userId = ref.watch(currentUserIdProvider);
   if (userId == null) {
     return const AsyncValue.loading();
@@ -503,32 +382,47 @@ final currentUserCurrentPeriodProvider = Provider<AsyncValue<int?>>((ref) {
 });
 
 // 週間時間割プロバイダー
-final weeklyScheduleProvider = FutureProvider.family<Map<String, List<ScheduleClass?>>, String>((ref, userId) async {
-  final schedule = await ScheduleService.getScheduleByUserId(userId);
-  if (schedule == null) return {};
+final weeklyScheduleProvider =
+    FutureProvider.family<Map<String, List<ScheduleClass?>>, String>((
+      ref,
+      userId,
+    ) async {
+      final schedule = await ScheduleService.getScheduleByUserId(userId);
+      if (schedule == null) return {};
 
-  final weeklySchedule = <String, List<ScheduleClass?>>{};
-  const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  
-  for (final weekday in weekdays) {
-    final daySchedule = schedule.timetable[weekday];
-    if (daySchedule != null) {
-      weeklySchedule[weekday] = List.generate(10, (index) => daySchedule[index + 1]);
-    } else {
-      weeklySchedule[weekday] = List.filled(10, null);
-    }
-  }
-  
-  return weeklySchedule;
-});
+      final weeklySchedule = <String, List<ScheduleClass?>>{};
+      const weekdays = [
+        'monday',
+        'tuesday',
+        'wednesday',
+        'thursday',
+        'friday',
+        'saturday',
+      ];
 
-final currentUserWeeklyScheduleProvider = Provider<AsyncValue<Map<String, List<ScheduleClass?>>>>((ref) {
-  final userId = ref.watch(currentUserIdProvider);
-  if (userId == null) {
-    return const AsyncValue.loading();
-  }
-  return ref.watch(weeklyScheduleProvider(userId));
-});
+      for (final weekday in weekdays) {
+        final daySchedule = schedule.timetable[weekday];
+        if (daySchedule != null) {
+          weeklySchedule[weekday] = List.generate(
+            10,
+            (index) => daySchedule[index + 1],
+          );
+        } else {
+          weeklySchedule[weekday] = List.filled(10, null);
+        }
+      }
+
+      return weeklySchedule;
+    });
+
+final currentUserWeeklyScheduleProvider =
+    Provider<AsyncValue<Map<String, List<ScheduleClass?>>>>((ref) {
+      final userId = ref.watch(currentUserIdProvider);
+      if (userId == null) {
+        return const AsyncValue.loading();
+      }
+      return ref.watch(weeklyScheduleProvider(userId));
+    });
 
 // 科目リクエストクラス
 class ClassRequest {
@@ -550,12 +444,15 @@ class ClassRequest {
 }
 
 // 特定の曜日・時限の科目プロバイダー
-final classProvider = Provider.family<ScheduleClass?, ClassRequest>((ref, request) {
+final classProvider = Provider.family<ScheduleClass?, ClassRequest>((
+  ref,
+  request,
+) {
   final userId = ref.watch(currentUserIdProvider);
   if (userId == null) return null;
-  
+
   final scheduleAsync = ref.watch(scheduleProvider(userId));
-  
+
   return scheduleAsync.when(
     data: (schedule) {
       if (schedule == null) return null;
@@ -568,18 +465,21 @@ final classProvider = Provider.family<ScheduleClass?, ClassRequest>((ref, reques
 });
 
 // 特定の曜日の時間割プロバイダー
-final dayScheduleProvider = Provider.family<List<ScheduleClass?>, String>((ref, weekdayKey) {
+final dayScheduleProvider = Provider.family<List<ScheduleClass?>, String>((
+  ref,
+  weekdayKey,
+) {
   final userId = ref.watch(currentUserIdProvider);
   if (userId == null) return List.filled(10, null);
-  
+
   final scheduleAsync = ref.watch(scheduleProvider(userId));
-  
+
   return scheduleAsync.when(
     data: (schedule) {
       if (schedule == null) return List.filled(10, null);
       final daySchedule = schedule.timetable[weekdayKey];
       if (daySchedule == null) return List.filled(10, null);
-      
+
       return List.generate(10, (index) => daySchedule[index + 1]);
     },
     loading: () => List.filled(10, null),
@@ -617,24 +517,33 @@ final selectedAcademicYearProvider = StateProvider<AcademicYear>((ref) {
 });
 
 // 年度・学期別時間割プロバイダー
-final scheduleByAcademicYearProvider = FutureProvider.family<Schedule?, (String, AcademicYear)>((ref, params) async {
-  final (userId, academicYear) = params;
-  return await ScheduleService.getScheduleByUserIdAndAcademicYear(userId, academicYear);
-});
+final scheduleByAcademicYearProvider =
+    FutureProvider.family<Schedule?, (String, AcademicYear)>((
+      ref,
+      params,
+    ) async {
+      final (userId, academicYear) = params;
+      return await ScheduleService.getScheduleByUserIdAndAcademicYear(
+        userId,
+        academicYear,
+      );
+    });
 
 // ユーザーの年度・学期リストプロバイダー
-final userAcademicYearsProvider = FutureProvider.family<List<AcademicYear>, String>((ref, userId) async {
-  return await ScheduleService.getUserAcademicYears(userId);
-});
+final userAcademicYearsProvider =
+    FutureProvider.family<List<AcademicYear>, String>((ref, userId) async {
+      return await ScheduleService.getUserAcademicYears(userId);
+    });
 
 // 現在のユーザーの年度・学期リストプロバイダー
-final currentUserAcademicYearsProvider = Provider<AsyncValue<List<AcademicYear>>>((ref) {
-  final userId = ref.watch(currentUserIdProvider);
-  if (userId == null) {
-    return const AsyncValue.loading();
-  }
-  return ref.watch(userAcademicYearsProvider(userId));
-});
+final currentUserAcademicYearsProvider =
+    Provider<AsyncValue<List<AcademicYear>>>((ref) {
+      final userId = ref.watch(currentUserIdProvider);
+      if (userId == null) {
+        return const AsyncValue.loading();
+      }
+      return ref.watch(userAcademicYearsProvider(userId));
+    });
 
 // 全年度リストプロバイダー（2023-2050）
 final allAcademicYearsProvider = Provider<List<AcademicYear>>((ref) {
@@ -642,14 +551,18 @@ final allAcademicYearsProvider = Provider<List<AcademicYear>>((ref) {
 });
 
 // 年度別切り替え機能を削除したが、互換性のためプロバイダーは残す（現在のスケジュールを返す）
-final selectedAcademicYearScheduleProvider = Provider<AsyncValue<Schedule?>>((ref) {
+final selectedAcademicYearScheduleProvider = Provider<AsyncValue<Schedule?>>((
+  ref,
+) {
   // 常に現在のユーザーのスケジュールを返す
   return ref.watch(currentUserScheduleProvider);
 });
 
 // 年度・学期管理のStateNotifier
-class AcademicYearScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> {
-  AcademicYearScheduleNotifier(this._userId, this._academicYear) : super(const AsyncValue.loading()) {
+class AcademicYearScheduleNotifier
+    extends StateNotifier<AsyncValue<Schedule?>> {
+  AcademicYearScheduleNotifier(this._userId, this._academicYear)
+    : super(const AsyncValue.loading()) {
     _loadSchedule();
   }
 
@@ -658,11 +571,17 @@ class AcademicYearScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> 
 
   Future<void> _loadSchedule() async {
     try {
-      state = const AsyncValue.loading();
-      final schedule = await ScheduleService.getScheduleByUserIdAndAcademicYear(_userId, _academicYear);
+      state = const AsyncValue<Schedule?>.loading().copyWithPrevious(state);
+      final schedule = await ScheduleService.getScheduleByUserIdAndAcademicYear(
+        _userId,
+        _academicYear,
+      );
       state = AsyncValue.data(schedule);
     } catch (e, stackTrace) {
-      state = AsyncValue.error(e, stackTrace);
+      state = AsyncValue<Schedule?>.error(
+        e,
+        stackTrace,
+      ).copyWithPrevious(state);
     }
   }
 
@@ -684,41 +603,18 @@ class AcademicYearScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> 
         throw Exception('時間割が読み込まれていません');
       }
 
-      // 連続講義の場合は複数の時限に登録
-      for (int i = 0; i < scheduleClass.duration; i++) {
-        final currentPeriod = period + i;
-        
-        if (currentPeriod > 10) {
-          throw Exception('${scheduleClass.duration}時間連続講義は${period}限から開始できません（10限を超えます）');
-        }
-
-        final latestSchedule = state.value!;
-        final existingClass = latestSchedule.timetable[weekdayKey]?[currentPeriod];
-        if (existingClass != null) {
-          throw Exception('${currentPeriod}限には既に「${existingClass.subjectName}」が登録されています');
-        }
-
-        final classToAdd = ScheduleClass(
-          id: scheduleClass.id,
-          subjectName: scheduleClass.subjectName,
-          classroom: scheduleClass.classroom,
-          instructor: scheduleClass.instructor,
-          color: scheduleClass.color,
-          notes: scheduleClass.notes,
-          duration: scheduleClass.duration,
-          isStartCell: i == 0,
-        );
-
-        await ScheduleService.addOrUpdateClass(
-          scheduleId: latestSchedule.id,
-          weekdayKey: weekdayKey,
-          period: currentPeriod,
-          scheduleClass: classToAdd,
-        );
-      }
+      final existingClass = currentSchedule.timetable[weekdayKey]?[period];
+      await ScheduleService.saveClass(
+        scheduleId: currentSchedule.id,
+        weekdayKey: weekdayKey,
+        period: period,
+        scheduleClass: scheduleClass,
+        expectedClass:
+            existingClass?.id == scheduleClass.id ? existingClass : null,
+      );
 
       await refresh();
-      
+
       // ホーム画面で表示される関連プロバイダーを無効化（ホーム画面の表示を更新）
       if (ref != null) {
         ref.invalidate(todayScheduleProvider(_userId));
@@ -727,7 +623,11 @@ class AcademicYearScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> 
         ref.invalidate(scheduleProvider(_userId));
       }
     } catch (e, stackTrace) {
-      state = AsyncValue.error(e, stackTrace);
+      state = AsyncValue<Schedule?>.error(
+        e,
+        stackTrace,
+      ).copyWithPrevious(state);
+      rethrow;
     }
   }
 
@@ -743,14 +643,17 @@ class AcademicYearScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> 
         throw Exception('時間割が読み込まれていません');
       }
 
+      final targetClass = currentSchedule.timetable[weekdayKey]?[period];
+      if (targetClass == null) return;
       await ScheduleService.removeClass(
         scheduleId: currentSchedule.id,
         weekdayKey: weekdayKey,
         period: period,
+        expectedClass: targetClass,
       );
 
       await refresh();
-      
+
       // ホーム画面で表示される関連プロバイダーを無効化（ホーム画面の表示を更新）
       if (ref != null) {
         ref.invalidate(todayScheduleProvider(_userId));
@@ -759,7 +662,11 @@ class AcademicYearScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> 
         ref.invalidate(scheduleProvider(_userId));
       }
     } catch (e, stackTrace) {
-      state = AsyncValue.error(e, stackTrace);
+      state = AsyncValue<Schedule?>.error(
+        e,
+        stackTrace,
+      ).copyWithPrevious(state);
+      rethrow;
     }
   }
 
@@ -774,13 +681,20 @@ class AcademicYearScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> 
       await ScheduleService.clearSchedule(currentSchedule.id);
       await refresh();
     } catch (e, stackTrace) {
-      state = AsyncValue.error(e, stackTrace);
+      state = AsyncValue<Schedule?>.error(
+        e,
+        stackTrace,
+      ).copyWithPrevious(state);
     }
   }
 }
 
 // 年度・学期別ScheduleNotifierプロバイダー
-final academicYearScheduleNotifierProvider = StateNotifierProvider.family<AcademicYearScheduleNotifier, AsyncValue<Schedule?>, (String, AcademicYear)>((ref, params) {
+final academicYearScheduleNotifierProvider = StateNotifierProvider.family<
+  AcademicYearScheduleNotifier,
+  AsyncValue<Schedule?>,
+  (String, AcademicYear)
+>((ref, params) {
   final (userId, academicYear) = params;
   return AcademicYearScheduleNotifier(userId, academicYear);
 });

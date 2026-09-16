@@ -160,13 +160,7 @@ List<CampusClassroomLocation> get pilotTsudanumaBuilding4FloorB1 => [
     buildingDisplayName: '4号館',
     floor: -1,
     roomCode: '04B108',
-    searchTerms: [
-      '04b108',
-      '04B108',
-      '04b108号室',
-      '04B108号室',
-      '乾燥室',
-    ],
+    searchTerms: ['04b108', '04B108', '04b108号室', '04B108号室', '乾燥室'],
     pinX: 0.70,
     pinY: 0.09,
     description: 'B1 右上・乾燥室',
@@ -178,13 +172,7 @@ List<CampusClassroomLocation> get pilotTsudanumaBuilding4FloorB1 => [
     buildingDisplayName: '4号館',
     floor: -1,
     roomCode: '04B109',
-    searchTerms: [
-      '04b109',
-      '04B109',
-      '04b109号室',
-      '04B109号室',
-      '塗装室',
-    ],
+    searchTerms: ['04b109', '04B109', '04b109号室', '04B109号室', '塗装室'],
     pinX: 0.65,
     pinY: 0.18,
     description: 'B1 右列・塗装室',
@@ -196,13 +184,7 @@ List<CampusClassroomLocation> get pilotTsudanumaBuilding4FloorB1 => [
     buildingDisplayName: '4号館',
     floor: -1,
     roomCode: '04B110',
-    searchTerms: [
-      '04b110',
-      '04B110',
-      '04b110号室',
-      '04B110号室',
-      '水砥室',
-    ],
+    searchTerms: ['04b110', '04B110', '04b110号室', '04B110号室', '水砥室'],
     pinX: 0.75,
     pinY: 0.18,
     description: 'B1 右列・水砥室',
@@ -213,7 +195,6 @@ List<CampusClassroomLocation> get pilotTsudanumaBuilding4FloorB1 => [
 List<CampusClassroomLocation> searchPilotTsudanuma4B1(String query) {
   final q = query.trim().toLowerCase();
   if (q.isEmpty) return const [];
-  bool matches(CampusClassroomLocation r) =>
-      pilotLocationMatchesQuery(r, q);
+  bool matches(CampusClassroomLocation r) => pilotLocationMatchesQuery(r, q);
   return pilotTsudanumaBuilding4FloorB1.where(matches).toList();
 }

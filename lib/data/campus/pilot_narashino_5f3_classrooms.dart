@@ -176,11 +176,7 @@ const List<CampusClassroomLocation> pilotNarashinoBuilding5Floor3 = [
     buildingDisplayName: '5号館',
     floor: 3,
     roomCode: 'ネットルーム53',
-    searchTerms: [
-      'インターネットルーム',
-      'インターネット',
-      'ネットルーム',
-    ],
+    searchTerms: ['インターネットルーム', 'インターネット', 'ネットルーム'],
     pinX: 0.42,
     pinY: 0.10,
     description: '5号館3階・インターネットルーム（北側中央付近）',
@@ -222,8 +218,7 @@ bool _narashino5f3IncludeInMergedPilotSearch(CampusClassroomLocation r) {
 List<CampusClassroomLocation> searchPilotNarashino5f3(String query) {
   final q = query.trim().toLowerCase();
   if (q.isEmpty) return const [];
-  bool matches(CampusClassroomLocation r) =>
-      pilotLocationMatchesQuery(r, q);
+  bool matches(CampusClassroomLocation r) => pilotLocationMatchesQuery(r, q);
   return pilotNarashinoBuilding5Floor3
       .where(_narashino5f3IncludeInMergedPilotSearch)
       .where(matches)

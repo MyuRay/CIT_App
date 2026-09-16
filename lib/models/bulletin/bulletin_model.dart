@@ -5,6 +5,15 @@ class BulletinPost {
   final String title;
   final String description;
   final String imageUrl;
+  final List<String> imageUrls;
+  final double thumbScale;
+
+  List<String> get galleryImageUrls =>
+      imageUrls.isNotEmpty
+          ? List.unmodifiable(imageUrls)
+          : imageUrl.isEmpty
+          ? const []
+          : [imageUrl];
   // サムネイル表示用のアライメント（-1.0〜1.0）。0,0 が中央。
   final double thumbAlignX;
   final double thumbAlignY;
@@ -16,6 +25,8 @@ class BulletinPost {
   final String authorName;
   final int viewCount;
   final bool isPinned;
+  final bool isSponsored;
+  final String sponsorName;
   final bool isActive;
   final bool allowComments; // コメント許可フラグ
   final bool pinRequested; // ピン留め申請状態
@@ -34,6 +45,8 @@ class BulletinPost {
     required this.title,
     required this.description,
     required this.imageUrl,
+    this.imageUrls = const [],
+    this.thumbScale = 1.0,
     this.thumbAlignX = 0.0,
     this.thumbAlignY = 0.0,
     this.externalUrl,
@@ -44,6 +57,8 @@ class BulletinPost {
     required this.authorName,
     this.viewCount = 0,
     this.isPinned = false,
+    this.isSponsored = false,
+    this.sponsorName = '',
     this.isActive = true,
     this.allowComments = true, // デフォルトでコメント許可
     this.pinRequested = false, // デフォルトで申請なし
@@ -64,36 +79,57 @@ class BulletinPost {
         id: json['id'] ?? '',
         title: json['title'] ?? '無題',
         description: json['description'] ?? '',
-        imageUrl: json['imageUrl'] ?? '',
-        thumbAlignX: (json['thumbAlignX'] as num?)?.toDouble() ?? 0.0,
-        thumbAlignY: (json['thumbAlignY'] as num?)?.toDouble() ?? 0.0,
+        imageUrl: _coverUrl(json),
+        imageUrls: _imageUrls(json),
+        thumbScale: _bounded(json['thumbScale'], 1, 4, 1),
+        thumbAlignX: _bounded(json['thumbAlignX'], -1, 1, 0),
+        thumbAlignY: _bounded(json['thumbAlignY'], -1, 1, 0),
         externalUrl: json['externalUrl'] as String?, // 外部リンク
-        category: json['category'] != null 
-            ? BulletinCategory.fromJson(json['category'] as Map<String, dynamic>)
-            : BulletinCategories.other, // デフォルトカテゴリ
+        category:
+            json['category'] != null
+                ? BulletinCategory.fromJson(
+                  json['category'] as Map<String, dynamic>,
+                )
+                : BulletinCategories.other, // デフォルトカテゴリ
         createdAt: _parseDateTime(json['createdAt']),
-        expiresAt: json['expiresAt'] != null ? _parseDateTime(json['expiresAt']) : null,
+        expiresAt:
+            json['expiresAt'] != null
+                ? _parseDateTime(json['expiresAt'])
+                : null,
         authorId: json['authorId'] ?? '',
         authorName: json['authorName'] ?? '匿名',
         viewCount: (json['viewCount'] as num?)?.toInt() ?? 0,
         isPinned: json['isPinned'] == true,
+        isSponsored: json['isSponsored'] == true,
+        sponsorName: (json['sponsorName'] as String?)?.trim() ?? '',
         isActive: json['isActive'] != false, // nullの場合はtrue
         allowComments: json['allowComments'] != false, // nullの場合はtrue（デフォルト許可）
         pinRequested: json['pinRequested'] == true, // ピン留め申請状態
-        pinRequestedAt: json['pinRequestedAt'] != null ? _parseDateTime(json['pinRequestedAt']) : null, // ピン留め申請日時
+        pinRequestedAt:
+            json['pinRequestedAt'] != null
+                ? _parseDateTime(json['pinRequestedAt'])
+                : null, // ピン留め申請日時
         approvalStatus: json['approvalStatus'] ?? 'pending', // 承認状態
-        submittedAt: json['submittedAt'] != null ? _parseDateTime(json['submittedAt']) : null, // 投稿申請日時
-        approvedAt: json['approvedAt'] != null ? _parseDateTime(json['approvedAt']) : null, // 承認日時
+        submittedAt:
+            json['submittedAt'] != null
+                ? _parseDateTime(json['submittedAt'])
+                : null, // 投稿申請日時
+        approvedAt:
+            json['approvedAt'] != null
+                ? _parseDateTime(json['approvedAt'])
+                : null, // 承認日時
         approvedBy: json['approvedBy'] as String?, // 承認者のUID
         isCoupon: json['isCoupon'] == true,
         couponMaxUses: json['couponMaxUses'] as int?,
         couponUsedCount: (json['couponUsedCount'] as num?)?.toInt() ?? 0,
-        couponUsedBy: json['couponUsedBy'] != null ? 
-            Map<String, int>.from(
-              (json['couponUsedBy'] as Map).map((k, v) => 
-                MapEntry(k as String, (v as num).toInt())
-              )
-            ) : null,
+        couponUsedBy:
+            json['couponUsedBy'] != null
+                ? Map<String, int>.from(
+                  (json['couponUsedBy'] as Map).map(
+                    (k, v) => MapEntry(k as String, (v as num).toInt()),
+                  ),
+                )
+                : null,
       );
     } catch (e) {
       print('BulletinPost.fromJson エラー: $e');
@@ -106,17 +142,17 @@ class BulletinPost {
     if (dateTime == null) {
       return DateTime.now();
     }
-    
+
     // Firestore Timestamp型の場合
     if (dateTime is Timestamp) {
       return dateTime.toDate();
     }
-    
+
     // DateTime型の場合
     if (dateTime is DateTime) {
       return dateTime;
     }
-    
+
     // String型の場合
     if (dateTime is String) {
       try {
@@ -126,10 +162,44 @@ class BulletinPost {
         return DateTime.now();
       }
     }
-    
+
     // その他の場合は現在時刻を返す
     print('未対応の日付型: ${dateTime.runtimeType} - $dateTime');
     return DateTime.now();
+  }
+
+  static double _bounded(
+    dynamic value,
+    double min,
+    double max,
+    double fallback,
+  ) {
+    final number = value is num ? value.toDouble() : fallback;
+    return number.isFinite ? number.clamp(min, max) : fallback;
+  }
+
+  static List<String> _imageUrls(Map<String, dynamic> json) {
+    final raw = json['imageUrls'];
+    final urls =
+        raw is List
+            ? raw
+                .whereType<String>()
+                .map((s) => s.trim())
+                .where((s) => s.isNotEmpty)
+                .toSet()
+                .toList()
+            : <String>[];
+    final legacy = json['imageUrl'];
+    if (urls.isEmpty && legacy is String && legacy.trim().isNotEmpty) {
+      urls.add(legacy.trim());
+    }
+    return List.unmodifiable(urls);
+  }
+
+  static String _coverUrl(Map<String, dynamic> json) {
+    final urls = _imageUrls(json);
+    final cover = json['imageUrl'];
+    return urls.contains(cover) ? cover as String : urls.firstOrNull ?? '';
   }
 
   Map<String, dynamic> toJson() {
@@ -138,6 +208,8 @@ class BulletinPost {
       'title': title,
       'description': description,
       'imageUrl': imageUrl,
+      'imageUrls': galleryImageUrls,
+      'thumbScale': thumbScale,
       'thumbAlignX': thumbAlignX,
       'thumbAlignY': thumbAlignY,
       'externalUrl': externalUrl, // 外部リンクを追加
@@ -148,13 +220,22 @@ class BulletinPost {
       'authorName': authorName,
       'viewCount': viewCount,
       'isPinned': isPinned,
+      'isSponsored': isSponsored,
+      'sponsorName': sponsorName,
       'isActive': isActive,
       'allowComments': allowComments, // コメント許可フラグを追加
       'pinRequested': pinRequested, // ピン留め申請状態
-      'pinRequestedAt': pinRequestedAt != null ? Timestamp.fromDate(pinRequestedAt!) : null, // ピン留め申請日時
+      'pinRequestedAt':
+          pinRequestedAt != null
+              ? Timestamp.fromDate(pinRequestedAt!)
+              : null, // ピン留め申請日時
       'approvalStatus': approvalStatus, // 承認状態
-      'submittedAt': submittedAt != null ? Timestamp.fromDate(submittedAt!) : null, // 投稿申請日時
-      'approvedAt': approvedAt != null ? Timestamp.fromDate(approvedAt!) : null, // 承認日時
+      'submittedAt':
+          submittedAt != null
+              ? Timestamp.fromDate(submittedAt!)
+              : null, // 投稿申請日時
+      'approvedAt':
+          approvedAt != null ? Timestamp.fromDate(approvedAt!) : null, // 承認日時
       'approvedBy': approvedBy, // 承認者のUID
       'isCoupon': isCoupon,
       'couponMaxUses': couponMaxUses,
@@ -162,6 +243,11 @@ class BulletinPost {
       'couponUsedBy': couponUsedBy,
     };
   }
+
+  bool isPublishedAt(DateTime now) =>
+      isActive &&
+      approvalStatus == 'approved' &&
+      (expiresAt == null || now.isBefore(expiresAt!));
 }
 
 class BulletinCategory {
@@ -187,12 +273,7 @@ class BulletinCategory {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'color': color,
-      'icon': icon,
-    };
+    return {'id': id, 'name': name, 'color': color, 'icon': icon};
   }
 }
 

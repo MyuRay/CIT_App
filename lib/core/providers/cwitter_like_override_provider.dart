@@ -4,10 +4,7 @@ import '../../models/community/cwitter_post.dart';
 
 /// いいねタップ直後の楽観的表示（Firestore 反映待ち）
 class CwitterLikeOverride {
-  const CwitterLikeOverride({
-    required this.isLiked,
-    required this.likeCount,
-  });
+  const CwitterLikeOverride({required this.isLiked, required this.likeCount});
 
   final bool isLiked;
   final int likeCount;
@@ -59,6 +56,6 @@ class CwitterLikeOverrideNotifier
 }
 
 final cwitterLikeOverrideProvider = StateNotifierProvider<
-    CwitterLikeOverrideNotifier, Map<String, CwitterLikeOverride>>(
-  (ref) => CwitterLikeOverrideNotifier(),
-);
+  CwitterLikeOverrideNotifier,
+  Map<String, CwitterLikeOverride>
+>((ref) => CwitterLikeOverrideNotifier());

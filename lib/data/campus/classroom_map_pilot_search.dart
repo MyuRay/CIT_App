@@ -48,7 +48,9 @@ import 'pilot_tsudanuma_7f9_classrooms.dart';
 
 /// 検索候補に古い `CampusClassroomLocation` が残っていても、
 /// **いまの**パイロット定義の `pinX` / `pinY` を使う。
-CampusClassroomLocation resolveLatestPilotLocation(CampusClassroomLocation room) {
+CampusClassroomLocation resolveLatestPilotLocation(
+  CampusClassroomLocation room,
+) {
   final List<CampusClassroomLocation>? list = _pilotSourceListFor(room);
   if (list == null || list.isEmpty) return room;
 
@@ -56,7 +58,8 @@ CampusClassroomLocation resolveLatestPilotLocation(CampusClassroomLocation room)
   final withCodeAndLabel =
       list
           .where(
-            (r) => r.roomCode == room.roomCode && (r.pinLabel ?? '') == labelKey,
+            (r) =>
+                r.roomCode == room.roomCode && (r.pinLabel ?? '') == labelKey,
           )
           .toList();
   if (withCodeAndLabel.length == 1) return withCodeAndLabel.single;
@@ -67,7 +70,9 @@ CampusClassroomLocation resolveLatestPilotLocation(CampusClassroomLocation room)
   return room;
 }
 
-List<CampusClassroomLocation>? _pilotSourceListFor(CampusClassroomLocation room) {
+List<CampusClassroomLocation>? _pilotSourceListFor(
+  CampusClassroomLocation room,
+) {
   if (room.campus == 'tsudanuma' && room.buildingId == '4') {
     if (room.floor == 9) return pilotTsudanumaBuilding4Floor9;
     if (room.floor == 7) return pilotTsudanumaBuilding4Floor7;

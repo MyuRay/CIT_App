@@ -54,22 +54,26 @@ final activeRoutesProvider = Provider<List<BusRoute>>((ref) {
 final nextBusTimesProvider = Provider<Map<String, BusTimeEntry?>>((ref) {
   final routes = ref.watch(activeRoutesProvider);
   final nextTimes = <String, BusTimeEntry?>{};
-  
+
   for (final route in routes) {
     nextTimes[route.id] = route.getNextBusTime();
   }
-  
+
   return nextTimes;
 });
 
 /// 管理者用: 学バス情報更新プロバイダー
-final busInformationNotifierProvider = StateNotifierProvider<BusInformationNotifier, AsyncValue<BusInformation?>>((ref) {
-  final busService = ref.read(busServiceProvider);
-  return BusInformationNotifier(busService);
-});
+final busInformationNotifierProvider =
+    StateNotifierProvider<BusInformationNotifier, AsyncValue<BusInformation?>>((
+      ref,
+    ) {
+      final busService = ref.read(busServiceProvider);
+      return BusInformationNotifier(busService);
+    });
 
 /// 学バス情報管理用Notifier
-class BusInformationNotifier extends StateNotifier<AsyncValue<BusInformation?>> {
+class BusInformationNotifier
+    extends StateNotifier<AsyncValue<BusInformation?>> {
   BusInformationNotifier(this._busService) : super(const AsyncValue.loading()) {
     _loadBusInformation();
   }

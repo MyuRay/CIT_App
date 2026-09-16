@@ -16,18 +16,21 @@ Future<void> showCwitterPostReportDialog(
     type: ReportType.cwitterPost,
   )) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('このCweetはすでに通報済みです')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('このCweetはすでに通報済みです')));
     return;
   }
 
-  final targetEmail = await _resolveAuthorEmail(post.authorId, post.authorEmail);
+  final targetEmail = await _resolveAuthorEmail(
+    post.authorId,
+    post.authorEmail,
+  );
   if (targetEmail.isEmpty) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('投稿者のメール情報を取得できず通報できませんでした')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('投稿者のメール情報を取得できず通報できませんでした')));
     return;
   }
 
@@ -59,19 +62,21 @@ Future<void> showCwitterReplyReportDialog(
     type: ReportType.cwitterReply,
   )) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('この返信はすでに通報済みです')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('この返信はすでに通報済みです')));
     return;
   }
 
-  final targetEmail =
-      await _resolveAuthorEmail(reply.authorId, reply.authorEmail);
+  final targetEmail = await _resolveAuthorEmail(
+    reply.authorId,
+    reply.authorEmail,
+  );
   if (targetEmail.isEmpty) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('投稿者のメール情報を取得できず通報できませんでした')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('投稿者のメール情報を取得できず通報できませんでした')));
     return;
   }
 
@@ -93,10 +98,7 @@ Future<void> showCwitterReplyReportDialog(
   );
 }
 
-Future<String> _resolveAuthorEmail(
-  String authorId,
-  String? storedEmail,
-) async {
+Future<String> _resolveAuthorEmail(String authorId, String? storedEmail) async {
   final fromDoc = storedEmail?.trim().toLowerCase() ?? '';
   if (fromDoc.isNotEmpty) return fromDoc;
 
@@ -115,18 +117,18 @@ Future<void> showCwitterUserReportDialog(
     type: ReportType.user,
   )) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('このユーザーはすでに通報済みです')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('このユーザーはすでに通報済みです')));
     return;
   }
 
   final targetEmail = await _resolveAuthorEmail(authorId, null);
   if (targetEmail.isEmpty) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('ユーザーのメール情報を取得できず通報できませんでした')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('ユーザーのメール情報を取得できず通報できませんでした')));
     return;
   }
 

@@ -21,14 +21,14 @@ class CacheService {
     try {
       _prefs = await SharedPreferences.getInstance();
       await _cleanExpiredCache();
-      
+
       if (kDebugMode) {
-        print('💾 Cache Service initialized');
+        debugPrint('💾 Cache Service initialized');
         await _printCacheStats();
       }
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Cache Service initialization failed: $e');
+        debugPrint('❌ Cache Service initialization failed: $e');
       }
     }
   }
@@ -37,13 +37,15 @@ class CacheService {
   void setMemoryCache<T>(String key, T data, {Duration? ttl}) {
     _memoryCache[key] = data;
     _cacheTimestamps[key] = DateTime.now();
-    
+
     if (ttl != null) {
       _cacheTTL[key] = ttl;
     }
 
     if (kDebugMode) {
-      print('💾 Memory cache set: $key (TTL: ${ttl?.inMinutes ?? "∞"}min)');
+      debugPrint(
+        '💾 Memory cache set: $key (TTL: ${ttl?.inMinutes ?? "∞"}min)',
+      );
     }
   }
 
@@ -55,13 +57,13 @@ class CacheService {
     if (_cacheTTL.containsKey(key)) {
       final timestamp = _cacheTimestamps[key];
       final ttl = _cacheTTL[key];
-      
+
       if (timestamp != null && ttl != null) {
         final isExpired = DateTime.now().difference(timestamp) > ttl;
         if (isExpired) {
           _removeMemoryCache(key);
           if (kDebugMode) {
-            print('⏰ Memory cache expired: $key');
+            debugPrint('⏰ Memory cache expired: $key');
           }
           return null;
         }
@@ -69,9 +71,9 @@ class CacheService {
     }
 
     if (kDebugMode) {
-      print('💾 Memory cache hit: $key');
+      debugPrint('💾 Memory cache hit: $key');
     }
-    
+
     return _memoryCache[key] as T?;
   }
 
@@ -84,7 +86,7 @@ class CacheService {
 
   /// 永続キャッシュに保存
   Future<void> setPersistentCache<T>(
-    String key, 
+    String key,
     T data, {
     Duration? ttl,
   }) async {
@@ -101,11 +103,13 @@ class CacheService {
       await _prefs!.setString(_getCacheKey(key), jsonString);
 
       if (kDebugMode) {
-        print('💽 Persistent cache set: $key (TTL: ${ttl?.inMinutes ?? "∞"}min)');
+        debugPrint(
+          '💽 Persistent cache set: $key (TTL: ${ttl?.inMinutes ?? "∞"}min)',
+        );
       }
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Persistent cache set error: $e');
+        debugPrint('❌ Persistent cache set error: $e');
       }
     }
   }
@@ -119,27 +123,28 @@ class CacheService {
       if (jsonString == null) return null;
 
       final cacheData = CacheData<T>.fromJson(jsonDecode(jsonString));
-      
+
       // TTLチェック
       if (cacheData.ttl != null) {
-        final isExpired = DateTime.now().difference(cacheData.timestamp) > cacheData.ttl!;
+        final isExpired =
+            DateTime.now().difference(cacheData.timestamp) > cacheData.ttl!;
         if (isExpired) {
           await removePersistentCache(key);
           if (kDebugMode) {
-            print('⏰ Persistent cache expired: $key');
+            debugPrint('⏰ Persistent cache expired: $key');
           }
           return null;
         }
       }
 
       if (kDebugMode) {
-        print('💽 Persistent cache hit: $key');
+        debugPrint('💽 Persistent cache hit: $key');
       }
 
       return cacheData.data;
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Persistent cache get error: $e');
+        debugPrint('❌ Persistent cache get error: $e');
       }
       return null;
     }
@@ -153,10 +158,11 @@ class CacheService {
 
   /// ファイルキャッシュに保存（画像など大きなデータ用）
   Future<void> setFileCache(String key, List<int> data, {Duration? ttl}) async {
+    if (kIsWeb) return;
     try {
       final directory = await getTemporaryDirectory();
       final cacheDir = Directory('${directory.path}/cache');
-      
+
       if (!await cacheDir.exists()) {
         await cacheDir.create(recursive: true);
       }
@@ -176,22 +182,25 @@ class CacheService {
 
       if (kDebugMode) {
         final sizeKB = data.length / 1024;
-        print('📁 File cache set: $key (${sizeKB.toStringAsFixed(1)}KB, TTL: ${ttl?.inMinutes ?? "∞"}min)');
+        debugPrint(
+          '📁 File cache set: $key (${sizeKB.toStringAsFixed(1)}KB, TTL: ${ttl?.inMinutes ?? "∞"}min)',
+        );
       }
     } catch (e) {
       if (kDebugMode) {
-        print('❌ File cache set error: $e');
+        debugPrint('❌ File cache set error: $e');
       }
     }
   }
 
   /// ファイルキャッシュから取得
   Future<List<int>?> getFileCache(String key) async {
+    if (kIsWeb) return null;
     try {
       final directory = await getTemporaryDirectory();
       final cacheDir = Directory('${directory.path}/cache');
       final file = File('${cacheDir.path}/${_hashKey(key)}.cache');
-      
+
       if (!await file.exists()) return null;
 
       // TTLチェック
@@ -199,30 +208,32 @@ class CacheService {
       if (await metaFile.exists()) {
         final metaContent = await metaFile.readAsString();
         final metaData = jsonDecode(metaContent);
-        
-        final timestamp = DateTime.fromMillisecondsSinceEpoch(metaData['timestamp']);
+
+        final timestamp = DateTime.fromMillisecondsSinceEpoch(
+          metaData['timestamp'],
+        );
         final ttl = Duration(milliseconds: metaData['ttl']);
-        
+
         if (DateTime.now().difference(timestamp) > ttl) {
           await removeFileCache(key);
           if (kDebugMode) {
-            print('⏰ File cache expired: $key');
+            debugPrint('⏰ File cache expired: $key');
           }
           return null;
         }
       }
 
       final data = await file.readAsBytes();
-      
+
       if (kDebugMode) {
         final sizeKB = data.length / 1024;
-        print('📁 File cache hit: $key (${sizeKB.toStringAsFixed(1)}KB)');
+        debugPrint('📁 File cache hit: $key (${sizeKB.toStringAsFixed(1)}KB)');
       }
-      
+
       return data;
     } catch (e) {
       if (kDebugMode) {
-        print('❌ File cache get error: $e');
+        debugPrint('❌ File cache get error: $e');
       }
       return null;
     }
@@ -230,18 +241,19 @@ class CacheService {
 
   /// ファイルキャッシュから削除
   Future<void> removeFileCache(String key) async {
+    if (kIsWeb) return;
     try {
       final directory = await getTemporaryDirectory();
       final cacheDir = Directory('${directory.path}/cache');
-      
+
       final file = File('${cacheDir.path}/${_hashKey(key)}.cache');
       final metaFile = File('${cacheDir.path}/${_hashKey(key)}.meta');
-      
+
       if (await file.exists()) await file.delete();
       if (await metaFile.exists()) await metaFile.delete();
     } catch (e) {
       if (kDebugMode) {
-        print('❌ File cache remove error: $e');
+        debugPrint('❌ File cache remove error: $e');
       }
     }
   }
@@ -251,21 +263,22 @@ class CacheService {
     if (_prefs == null) return;
 
     try {
-      final keys = _prefs!.getKeys()
-          .where((key) => key.startsWith('cache_'))
-          .toList();
-      
+      final keys =
+          _prefs!.getKeys().where((key) => key.startsWith('cache_')).toList();
+
       int removedCount = 0;
-      
+
       for (final key in keys) {
         final jsonString = _prefs!.getString(key);
         if (jsonString != null) {
           try {
             final data = jsonDecode(jsonString);
             if (data['ttl'] != null) {
-              final timestamp = DateTime.fromMillisecondsSinceEpoch(data['timestamp']);
+              final timestamp = DateTime.fromMillisecondsSinceEpoch(
+                data['timestamp'],
+              );
               final ttl = Duration(milliseconds: data['ttl']);
-              
+
               if (DateTime.now().difference(timestamp) > ttl) {
                 await _prefs!.remove(key);
                 removedCount++;
@@ -283,21 +296,22 @@ class CacheService {
       await _cleanExpiredFileCache();
 
       if (kDebugMode && removedCount > 0) {
-        print('🧹 Cleaned $removedCount expired cache entries');
+        debugPrint('🧹 Cleaned $removedCount expired cache entries');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Cache cleanup error: $e');
+        debugPrint('❌ Cache cleanup error: $e');
       }
     }
   }
 
   /// 期限切れファイルキャッシュをクリーンアップ
   Future<void> _cleanExpiredFileCache() async {
+    if (kIsWeb) return;
     try {
       final directory = await getTemporaryDirectory();
       final cacheDir = Directory('${directory.path}/cache');
-      
+
       if (!await cacheDir.exists()) return;
 
       final files = await cacheDir.list().toList();
@@ -308,14 +322,16 @@ class CacheService {
           try {
             final metaContent = await file.readAsString();
             final metaData = jsonDecode(metaContent);
-            
-            final timestamp = DateTime.fromMillisecondsSinceEpoch(metaData['timestamp']);
+
+            final timestamp = DateTime.fromMillisecondsSinceEpoch(
+              metaData['timestamp'],
+            );
             final ttl = Duration(milliseconds: metaData['ttl']);
-            
+
             if (DateTime.now().difference(timestamp) > ttl) {
               // メタファイルと対応するキャッシュファイルを削除
               final cacheFile = File(file.path.replaceAll('.meta', '.cache'));
-              
+
               await file.delete();
               if (await cacheFile.exists()) {
                 await cacheFile.delete();
@@ -331,11 +347,11 @@ class CacheService {
       }
 
       if (kDebugMode && removedCount > 0) {
-        print('🧹 Cleaned $removedCount expired file cache entries');
+        debugPrint('🧹 Cleaned $removedCount expired file cache entries');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('❌ File cache cleanup error: $e');
+        debugPrint('❌ File cache cleanup error: $e');
       }
     }
   }
@@ -344,35 +360,37 @@ class CacheService {
   Future<void> _printCacheStats() async {
     try {
       final memoryCount = _memoryCache.length;
-      
-      final persistentKeys = _prefs?.getKeys()
-          .where((key) => key.startsWith('cache_'))
-          .length ?? 0;
 
-      final directory = await getTemporaryDirectory();
-      final cacheDir = Directory('${directory.path}/cache');
+      final persistentKeys =
+          _prefs?.getKeys().where((key) => key.startsWith('cache_')).length ??
+          0;
+
       int fileCount = 0;
       int totalSizeKB = 0;
 
-      if (await cacheDir.exists()) {
-        final files = await cacheDir.list().toList();
-        fileCount = files.where((f) => f.path.endsWith('.cache')).length;
-        
-        for (final file in files) {
-          if (file is File && file.path.endsWith('.cache')) {
-            final stat = await file.stat();
-            totalSizeKB += (stat.size / 1024).round();
+      if (!kIsWeb) {
+        final directory = await getTemporaryDirectory();
+        final cacheDir = Directory('${directory.path}/cache');
+        if (await cacheDir.exists()) {
+          final files = await cacheDir.list().toList();
+          fileCount = files.where((f) => f.path.endsWith('.cache')).length;
+
+          for (final file in files) {
+            if (file is File && file.path.endsWith('.cache')) {
+              final stat = await file.stat();
+              totalSizeKB += (stat.size / 1024).round();
+            }
           }
         }
       }
 
-      print('📊 Cache Stats:');
-      print('   Memory: $memoryCount items');
-      print('   Persistent: $persistentKeys items');
-      print('   File: $fileCount items (${totalSizeKB}KB)');
+      debugPrint('📊 Cache Stats:');
+      debugPrint('   Memory: $memoryCount items');
+      debugPrint('   Persistent: $persistentKeys items');
+      debugPrint('   File: $fileCount items (${totalSizeKB}KB)');
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Cache stats error: $e');
+        debugPrint('❌ Cache stats error: $e');
       }
     }
   }
@@ -386,31 +404,32 @@ class CacheService {
 
     // 永続キャッシュをクリア
     if (_prefs != null) {
-      final keys = _prefs!.getKeys()
-          .where((key) => key.startsWith('cache_'))
-          .toList();
-      
+      final keys =
+          _prefs!.getKeys().where((key) => key.startsWith('cache_')).toList();
+
       for (final key in keys) {
         await _prefs!.remove(key);
       }
     }
 
-    // ファイルキャッシュをクリア
-    try {
-      final directory = await getTemporaryDirectory();
-      final cacheDir = Directory('${directory.path}/cache');
-      
-      if (await cacheDir.exists()) {
-        await cacheDir.delete(recursive: true);
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('❌ File cache clear error: $e');
+    // ファイルキャッシュをクリア（Webにはファイルシステムがない）
+    if (!kIsWeb) {
+      try {
+        final directory = await getTemporaryDirectory();
+        final cacheDir = Directory('${directory.path}/cache');
+
+        if (await cacheDir.exists()) {
+          await cacheDir.delete(recursive: true);
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('❌ File cache clear error: $e');
+        }
       }
     }
 
     if (kDebugMode) {
-      print('🧹 All cache cleared');
+      debugPrint('🧹 All cache cleared');
     }
   }
 
@@ -431,11 +450,7 @@ class CacheData<T> {
   final DateTime timestamp;
   final Duration? ttl;
 
-  CacheData({
-    required this.data,
-    required this.timestamp,
-    this.ttl,
-  });
+  CacheData({required this.data, required this.timestamp, this.ttl});
 
   Map<String, dynamic> toJson() {
     return {
@@ -456,8 +471,8 @@ class CacheData<T> {
 
 /// キャッシュ戦略の列挙型
 enum CacheStrategy {
-  memoryFirst,     // メモリ → 永続 → ネットワーク
+  memoryFirst, // メモリ → 永続 → ネットワーク
   persistentFirst, // 永続 → メモリ → ネットワーク
-  networkFirst,    // ネットワーク → キャッシュ
-  cacheOnly,       // キャッシュのみ
+  networkFirst, // ネットワーク → キャッシュ
+  cacheOnly, // キャッシュのみ
 }

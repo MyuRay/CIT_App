@@ -15,9 +15,11 @@ class CafeteriaMenu {
     return CafeteriaMenu(
       date: map['date'] ?? '',
       campus: map['campus'] ?? '',
-      items: (map['items'] as List<dynamic>?)
-          ?.map((e) => MenuItem.fromMap(e as Map<String, dynamic>))
-          .toList() ?? [],
+      items:
+          (map['items'] as List<dynamic>?)
+              ?.map((e) => MenuItem.fromMap(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       fetchedAt: DateTime.fromMillisecondsSinceEpoch(map['fetchedAt'] ?? 0),
     );
   }
@@ -105,11 +107,11 @@ class CafeteriaCongestion {
 }
 
 enum CongestionLevel {
-  empty,    // 空いている
-  low,      // やや空いている
-  medium,   // 普通
-  high,     // 混雑
-  full,     // 満席
+  empty, // 空いている
+  low, // やや空いている
+  medium, // 普通
+  high, // 混雑
+  full, // 満席
 }
 
 extension CongestionLevelExtension on CongestionLevel {

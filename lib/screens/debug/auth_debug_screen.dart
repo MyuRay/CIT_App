@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,7 +13,7 @@ class AuthDebugScreen extends ConsumerWidget {
     final authState = ref.watch(authStateProvider);
     final simpleAuthState = ref.watch(simpleAuthStateProvider);
     final currentUser = ref.watch(currentUserSimpleProvider);
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('認証デバッグ'),
@@ -38,21 +39,23 @@ class AuthDebugScreen extends ConsumerWidget {
           children: [
             // タスクキル対応状況カード
             _buildTaskKillInfoCard(context, ref),
-            
+
             const SizedBox(height: 16),
-            
+
             // アプリライフサイクル監視状況
-            _buildLifecycleInfoCard(),
-            
+            _buildLifecycleInfoCard(context),
+
             const SizedBox(height: 16),
-            
+
             // 現在の認証状態
             _buildStatusCard(
               'Firebase Auth 状態',
               authState.when(
-                data: (user) => user != null 
-                    ? '✅ ログイン済み\nUID: ${user.uid}\nEmail: ${user.email}'
-                    : '❌ 未ログイン',
+                data:
+                    (user) =>
+                        user != null
+                            ? '✅ ログイン済み\nUID: ${user.uid}\nEmail: ${user.email}'
+                            : '❌ 未ログイン',
                 loading: () => '⏳ 読み込み中...',
                 error: (error, _) => '❌ エラー: $error',
               ),
@@ -62,16 +65,18 @@ class AuthDebugScreen extends ConsumerWidget {
                 error: (_, __) => Colors.red,
               ),
             ),
-            
+
             const SizedBox(height: 16),
 
             // シンプル認証状態
             _buildStatusCard(
               'シンプル Auth 状態',
               simpleAuthState.when(
-                data: (user) => user != null
-                    ? '✅ ログイン済み\nUID: ${user.uid}\nEmail: ${user.email}'
-                    : '❌ 未ログイン',
+                data:
+                    (user) =>
+                        user != null
+                            ? '✅ ログイン済み\nUID: ${user.uid}\nEmail: ${user.email}'
+                            : '❌ 未ログイン',
                 loading: () => '⏳ 初期化中...',
                 error: (error, _) => '❌ エラー: $error',
               ),
@@ -85,15 +90,15 @@ class AuthDebugScreen extends ConsumerWidget {
             const SizedBox(height: 16),
 
             // 現在のユーザー情報
-            _buildCurrentUserCard(currentUser),
-            
+            _buildCurrentUserCard(context, currentUser),
+
             const SizedBox(height: 16),
-            
+
             // アクションボタン
-            _buildActionButtons(ref),
-            
+            _buildActionButtons(context, ref),
+
             const SizedBox(height: 16),
-            
+
             // ログ表示
             _buildLogSection(context),
           ],
@@ -130,17 +135,14 @@ class AuthDebugScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Text(
-              content,
-              style: const TextStyle(fontSize: 14),
-            ),
+            Text(content, style: const TextStyle(fontSize: 14)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCurrentUserCard(User? user) {
+  Widget _buildCurrentUserCard(BuildContext context, User? user) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -149,10 +151,7 @@ class AuthDebugScreen extends ConsumerWidget {
           children: [
             const Text(
               '👤 現在のユーザー情報',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             if (user != null) ...[
@@ -161,13 +160,16 @@ class AuthDebugScreen extends ConsumerWidget {
               _buildInfoRow('表示名', user.displayName ?? 'なし'),
               _buildInfoRow('メール認証', user.emailVerified ? '✅ 済み' : '❌ 未認証'),
               _buildInfoRow('匿名ユーザー', user.isAnonymous ? 'はい' : 'いいえ'),
-              _buildInfoRow('作成日時', user.metadata.creationTime?.toString() ?? 'なし'),
-              _buildInfoRow('最終ログイン', user.metadata.lastSignInTime?.toString() ?? 'なし'),
-            ] else ...[
-              const Text(
-                '未ログイン',
-                style: TextStyle(color: Colors.grey),
+              _buildInfoRow(
+                '作成日時',
+                user.metadata.creationTime?.toString() ?? 'なし',
               ),
+              _buildInfoRow(
+                '最終ログイン',
+                user.metadata.lastSignInTime?.toString() ?? 'なし',
+              ),
+            ] else ...[
+               Text('未ログイン', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ],
           ],
         ),
@@ -184,40 +186,40 @@ class AuthDebugScreen extends ConsumerWidget {
           children: [
             const Text(
               '🔍 詳細デバッグ情報',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            ...info.entries.map((entry) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 150,
-                    child: Text(
-                      entry.key,
-                      style: const TextStyle(fontWeight: FontWeight.w500),
+            ...info.entries.map(
+              (entry) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 150,
+                      child: Text(
+                        entry.key,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      entry.value?.toString() ?? 'null',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                    Expanded(
+                      child: Text(
+                        entry.value?.toString() ?? 'null',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            )),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildActionButtons(WidgetRef ref) {
+  Widget _buildActionButtons(BuildContext context, WidgetRef ref) {
+    final errorBackground = AppColors.snackBarSurface(context, Colors.red);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -226,10 +228,7 @@ class AuthDebugScreen extends ConsumerWidget {
           children: [
             const Text(
               '🛠️ デバッグアクション',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -248,36 +247,41 @@ class AuthDebugScreen extends ConsumerWidget {
                       ScaffoldMessenger.of(ref.context).showSnackBar(
                         SnackBar(
                           content: Text('再読み込みエラー: $e'),
-                          backgroundColor: Colors.red,
+                          backgroundColor: errorBackground,
                         ),
                       );
                     }
                   },
                   icon: const Icon(Icons.security, size: 18),
                   label: const Text('ユーザー再読み込み'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                  style: ElevatedButton.styleFrom(foregroundColor: AppColors.onColor(Colors.blue), backgroundColor: Colors.blue),
                 ),
                 ElevatedButton.icon(
                   onPressed: () async {
                     try {
-                      final token = await FirebaseAuth.instance.currentUser?.getIdToken(true);
+                      final token = await FirebaseAuth.instance.currentUser
+                          ?.getIdToken(true);
                       ScaffoldMessenger.of(ref.context).showSnackBar(
                         SnackBar(
-                          content: Text(token != null ? 'トークン更新成功' : 'ユーザーが未ログイン'),
+                          content: Text(
+                            token != null ? 'トークン更新成功' : 'ユーザーが未ログイン',
+                          ),
                         ),
                       );
                     } catch (e) {
                       ScaffoldMessenger.of(ref.context).showSnackBar(
                         SnackBar(
                           content: Text('トークン更新エラー: $e'),
-                          backgroundColor: Colors.red,
+                          backgroundColor: errorBackground,
                         ),
                       );
                     }
                   },
                   icon: const Icon(Icons.token, size: 18),
                   label: const Text('トークン更新'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  style: ElevatedButton.styleFrom(foregroundColor: AppColors.onColor(Colors.green),
+                    backgroundColor: Colors.green,
+                  ),
                 ),
                 ElevatedButton.icon(
                   onPressed: () {
@@ -289,7 +293,9 @@ class AuthDebugScreen extends ConsumerWidget {
                   },
                   icon: const Icon(Icons.refresh, size: 18),
                   label: const Text('プロバイダーリフレッシュ'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                  style: ElevatedButton.styleFrom(foregroundColor: AppColors.onColor(Colors.orange),
+                    backgroundColor: Colors.orange,
+                  ),
                 ),
               ],
             ),
@@ -308,16 +314,13 @@ class AuthDebugScreen extends ConsumerWidget {
           children: [
             const Text(
               '📋 認証ログの確認',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -330,9 +333,9 @@ class AuthDebugScreen extends ConsumerWidget {
                 '• ✅ 認証復元\n'
                 '• ❌ 認証エラー\n'
                 '• 🔄 再接続試行',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontSize: 13,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontSize: 13),
               ),
             ),
           ],
@@ -348,16 +351,13 @@ class AuthDebugScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+             Row(
               children: [
-                Icon(Icons.task_alt, color: Colors.blue),
+                Icon(Icons.task_alt, color: AppColors.accent(context, Colors.blue)),
                 SizedBox(width: 8),
                 Text(
                   'タスクキル対応状況',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -370,7 +370,7 @@ class AuthDebugScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: AppColors.tintedSurface(context, Colors.blue),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.blue.shade200),
               ),
@@ -387,23 +387,20 @@ class AuthDebugScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildLifecycleInfoCard() {
+  Widget _buildLifecycleInfoCard(BuildContext context) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+             Row(
               children: [
-                Icon(Icons.sync, color: Colors.green),
+                Icon(Icons.sync, color: AppColors.accent(context, Colors.green)),
                 SizedBox(width: 8),
                 Text(
                   'アプリライフサイクル監視',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -416,7 +413,7 @@ class AuthDebugScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.green.shade50,
+                color: AppColors.tintedSurface(context, Colors.green),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.green.shade200),
               ),
@@ -439,19 +436,13 @@ class AuthDebugScreen extends ConsumerWidget {
         children: [
           Expanded(
             flex: 3,
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: 13),
-            ),
+            child: Text(label, style: const TextStyle(fontSize: 13)),
           ),
           Expanded(
             flex: 2,
             child: Text(
               value,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
             ),
           ),
         ],

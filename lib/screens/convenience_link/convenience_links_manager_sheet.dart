@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../core/providers/auth_provider.dart';
@@ -68,9 +69,9 @@ class _ConvenienceLinksManagerSheetState
           .reorderLinks(reordered);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('並び替えに失敗しました: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('並び替えに失敗しました: $e')));
         // 失敗時はプロバイダーから再同期
         final linksAsync = ref.read(currentUserConvenienceLinksProvider);
         linksAsync.whenData(_syncFromProvider);
@@ -120,10 +121,11 @@ class _ConvenienceLinksManagerSheetState
 
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (context) => ConvenienceLinkEditScreen(
-          initialLink: link,
-          userId: params.userId,
-        ),
+        builder:
+            (context) => ConvenienceLinkEditScreen(
+              initialLink: link,
+              userId: params.userId,
+            ),
       ),
     );
 
@@ -149,7 +151,7 @@ class _ConvenienceLinksManagerSheetState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('設定の変更に失敗しました: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.snackBarSurface(context, Colors.red),
         ),
       );
     }
@@ -158,23 +160,22 @@ class _ConvenienceLinksManagerSheetState
   Future<void> _resetToDefaults() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('デフォルトにリセット'),
-        content: const Text(
-          'すべてのリンクをデフォルトの状態にリセットしますか？\nカスタムリンクは削除されます。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('デフォルトにリセット'),
+            content: const Text('すべてのリンクをデフォルトの状態にリセットしますか？\nカスタムリンクは削除されます。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('キャンセル'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('リセット'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('リセット'),
-          ),
-        ],
-      ),
     );
 
     if (confirmed != true) return;
@@ -195,18 +196,15 @@ class _ConvenienceLinksManagerSheetState
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+         SnackBar(
           content: Text('デフォルトにリセットしました'),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.snackBarSurface(context, Colors.green),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('リセットに失敗しました: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('リセットに失敗しました: $e'), backgroundColor: AppColors.snackBarSurface(context, Colors.red)),
       );
     }
   }
@@ -232,7 +230,7 @@ class _ConvenienceLinksManagerSheetState
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -300,7 +298,9 @@ class _ConvenienceLinksManagerSheetState
                 }
 
                 final listLinks =
-                    _initialized ? _displayLinks : List<ConvenienceLink>.from(links);
+                    _initialized
+                        ? _displayLinks
+                        : List<ConvenienceLink>.from(links);
 
                 return ReorderableListView.builder(
                   scrollController: widget.scrollController,
@@ -336,27 +336,23 @@ class _ConvenienceLinksManagerSheetState
                         title: Text(
                           link.title,
                           style: TextStyle(
-                            decoration: link.isEnabled
-                                ? null
-                                : TextDecoration.lineThrough,
-                            color: link.isEnabled
-                                ? null
-                                : Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                            decoration:
+                                link.isEnabled
+                                    ? null
+                                    : TextDecoration.lineThrough,
+                            color:
+                                link.isEnabled
+                                    ? null
+                                    : Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                         subtitle: Text(
                           Uri.parse(link.url).host,
                           style: TextStyle(
-                            color: link.isEnabled
-                                ? Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant
-                                : Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withValues(alpha: 0.5),
+                            color:
+                                link.isEnabled ? Theme.of(context).colorScheme.onSurfaceVariant : Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                         trailing: Row(
@@ -390,20 +386,21 @@ class _ConvenienceLinksManagerSheetState
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: Theme.of(context).colorScheme.error,
+              error:
+                  (error, _) => Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 64,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                        const SizedBox(height: 16),
+                        Text('エラーが発生しました: $error'),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    Text('エラーが発生しました: $error'),
-                  ],
-                ),
-              ),
+                  ),
             ),
           ),
         ],

@@ -7,11 +7,7 @@ import 'in_app_ad_card.dart';
 
 /// 指定配置用のバナー広告スロット（広告がなければ非表示）
 class InAppAdBannerSlot extends ConsumerWidget {
-  const InAppAdBannerSlot({
-    super.key,
-    required this.placement,
-    this.margin,
-  });
+  const InAppAdBannerSlot({super.key, required this.placement, this.margin});
 
   final AdPlacement placement;
   final EdgeInsetsGeometry? margin;

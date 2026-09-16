@@ -13,10 +13,7 @@ class CwitterReplyCountOverrideNotifier
     extends StateNotifier<Map<String, CwitterReplyCountOverride>> {
   CwitterReplyCountOverrideNotifier() : super({});
 
-  void apply({
-    required String postId,
-    required int replyCount,
-  }) {
+  void apply({required String postId, required int replyCount}) {
     state = {
       ...state,
       postId: CwitterReplyCountOverride(
@@ -63,9 +60,9 @@ class CwitterReplyCountOverrideNotifier
 }
 
 final cwitterReplyCountOverrideProvider = StateNotifierProvider<
-    CwitterReplyCountOverrideNotifier, Map<String, CwitterReplyCountOverride>>(
-  (ref) => CwitterReplyCountOverrideNotifier(),
-);
+  CwitterReplyCountOverrideNotifier,
+  Map<String, CwitterReplyCountOverride>
+>((ref) => CwitterReplyCountOverrideNotifier());
 
 int resolveCwitterReplyCount({
   required CwitterPost post,

@@ -1,7 +1,10 @@
+import 'package:cit_app/core/utils/logger.dart';
+import 'services/widget/home_widget_destination.dart';
+import 'dart:async';
 import 'dart:ui';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,13 +15,15 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'core/theme/app_theme.dart';
+import 'widgets/common/app_system_safe_area.dart';
 import 'widgets/common/ui_feedback_listener.dart';
 import 'core/config/app_router.dart';
 import 'core/constants/app_constants.dart';
 import 'core/providers/settings_provider.dart';
 import 'core/providers/auth_session_provider.dart';
+import 'core/providers/analytics_provider.dart';
+import 'core/services/analytics_service.dart';
 import 'core/providers/theme_provider.dart';
-import 'core/providers/simple_auth_provider.dart';
 import 'core/services/performance_monitor.dart';
 import 'core/services/cache_service.dart';
 import 'core/services/simple_offline_service.dart';
@@ -28,19 +33,14 @@ import 'package:home_widget/home_widget.dart';
 import 'services/widget/home_widgets_service.dart';
 import 'services/notification/notification_service.dart';
 import 'services/schedule/schedule_notification_service.dart';
-import 'services/firebase/firebase_menu_service.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:http/http.dart' as http;
 import 'utils/auth_storage_reconciler.dart';
 
 // バックグラウンド通知ハンドラー（トップレベル関数として定義）
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  debugPrint('🔔 バックグラウンド通知を受信: ${message.messageId}');
-  debugPrint('🔔 タイトル: ${message.notification?.title}');
-  debugPrint('🔔 本文: ${message.notification?.body}');
-  debugPrint('🔔 データ: ${message.data}');
+  SecureLogger.debug('🔔 バックグラウンド通知を受信: ${message.messageId}');
+  SecureLogger.debug('バックグラウンド通知イベントを受信しました');
 }
 
 void main() async {
@@ -51,8 +51,8 @@ void main() async {
   };
 
   PlatformDispatcher.instance.onError = (error, stack) {
-    debugPrint('Uncaught error: $error');
-    debugPrint(stack.toString());
+    SecureLogger.debug('Uncaught error: $error');
+    SecureLogger.debug(stack.toString());
     return false;
   };
 
@@ -122,12 +122,12 @@ void main() async {
 
   // Firebase初期化
   try {
-    debugPrint('=== Firebase初期化開始 ===');
-    debugPrint('Platform: ${kIsWeb ? "Web" : "Mobile"}');
-    debugPrint('初期化前のFirebase apps数: ${Firebase.apps.length}');
+    SecureLogger.debug('=== Firebase初期化開始 ===');
+    SecureLogger.debug('Platform: ${kIsWeb ? "Web" : "Mobile"}');
+    SecureLogger.debug('初期化前のFirebase apps数: ${Firebase.apps.length}');
 
     if (kIsWeb) {
-      debugPrint('Web版Firebase初期化開始');
+      SecureLogger.debug('Web版Firebase初期化開始');
 
       await Firebase.initializeApp(
         options: const FirebaseOptions(
@@ -141,29 +141,31 @@ void main() async {
           measurementId: "G-21MB6BYBTE",
         ),
       );
-      debugPrint('Web版Firebase初期化完了');
+      SecureLogger.debug('Web版Firebase初期化完了');
     } else {
-      debugPrint('モバイル版Firebase初期化開始');
+      SecureLogger.debug('モバイル版Firebase初期化開始');
       // 既に初期化されている場合はスキップ
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp();
-        debugPrint('モバイル版Firebase初期化完了');
+        SecureLogger.debug('モバイル版Firebase初期化完了');
       } else {
-        debugPrint('Firebaseは既に初期化済みです');
+        SecureLogger.debug('Firebaseは既に初期化済みです');
       }
 
       // バックグラウンド通知ハンドラーを設定
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-      debugPrint('🔔 バックグラウンド通知ハンドラーを設定しました');
+      FirebaseMessaging.onBackgroundMessage(
+        _firebaseMessagingBackgroundHandler,
+      );
+      SecureLogger.debug('🔔 バックグラウンド通知ハンドラーを設定しました');
     }
 
     // Firebase Auth永続化設定の強化
     final auth = FirebaseAuth.instance;
     try {
-      debugPrint('Firebase Auth永続化設定開始');
+      SecureLogger.debug('Firebase Auth永続化設定開始');
 
       // 認証状態の復元をより確実にするための待機
-      debugPrint('認証状態復元を待機中...');
+      SecureLogger.debug('認証状態復元を待機中...');
 
       // authStateChanges を一度だけ監視して認証状態が安定するまで待つ
       bool authStateResolved = false;
@@ -173,7 +175,7 @@ void main() async {
         if (!authStateResolved) {
           resolvedUser = user;
           authStateResolved = true;
-          debugPrint('認証状態解決: ${user != null ? user.uid : "未ログイン"}');
+          SecureLogger.debug('認証状態解決: ${user != null ? user.uid : "未ログイン"}');
         }
       });
 
@@ -187,14 +189,14 @@ void main() async {
       await subscription.cancel();
 
       if (authStateResolved) {
-        debugPrint(
+        SecureLogger.debug(
           'Firebase Auth認証状態復元完了: ${resolvedUser != null ? "ログイン済み" : "未ログイン"}',
         );
       } else {
-        debugPrint('⚠️ Firebase Auth認証状態復元がタイムアウトしました');
+        SecureLogger.debug('⚠️ Firebase Auth認証状態復元がタイムアウトしました');
       }
     } catch (persistenceError) {
-      debugPrint('Firebase Auth永続化設定警告: $persistenceError');
+      SecureLogger.debug('Firebase Auth永続化設定警告: $persistenceError');
       // 永続化設定エラーでもアプリは継続
     }
 
@@ -204,88 +206,111 @@ void main() async {
     // 現在のユーザー状態をログで確認
     final currentUser = auth.currentUser;
     if (currentUser != null) {
-      debugPrint('✅ 既存ユーザーセッション検出: ${currentUser.uid}');
-      debugPrint('✅ ユーザーメール: ${currentUser.email}');
-      debugPrint('✅ メール認証済み: ${currentUser.emailVerified}');
+      SecureLogger.debug('✅ 既存ユーザーセッション検出: ${currentUser.uid}');
+      SecureLogger.debug('✅ ユーザーメール: ${currentUser.email}');
+      SecureLogger.debug('✅ メール認証済み: ${currentUser.emailVerified}');
 
       // ログイン済みユーザーのプッシュ通知を初期化
       try {
-        debugPrint('🔔 プッシュ通知サービス初期化開始');
+        SecureLogger.debug('🔔 プッシュ通知サービス初期化開始');
         await NotificationService.initialize();
-        debugPrint('🔔 プッシュ通知サービス初期化完了');
+        SecureLogger.debug('🔔 プッシュ通知サービス初期化完了');
       } catch (notificationError) {
-        debugPrint('⚠️ プッシュ通知初期化エラー: $notificationError');
+        SecureLogger.debug('⚠️ プッシュ通知初期化エラー: $notificationError');
         // プッシュ通知エラーでもアプリは継続
       }
     } else {
-      debugPrint('❌ 既存ユーザーセッションなし（未ログイン状態）');
+      SecureLogger.debug('❌ 既存ユーザーセッションなし（未ログイン状態）');
     }
 
-    debugPrint('Firebase初期化成功');
-    debugPrint('初期化後のFirebase apps数: ${Firebase.apps.length}');
-    debugPrint(
+    SecureLogger.debug('Firebase初期化成功');
+    SecureLogger.debug('初期化後のFirebase apps数: ${Firebase.apps.length}');
+    SecureLogger.debug(
       'Firebase app names: ${Firebase.apps.map((app) => app.name).toList()}',
     );
 
     // Firebase Analytics初期化と設定
     try {
       final analytics = FirebaseAnalytics.instance;
-      
-      // Analyticsの収集を明示的に有効化（デフォルトで有効ですが、念のため）
-      await analytics.setAnalyticsCollectionEnabled(true);
-      debugPrint('✅ Firebase Analytics収集を有効化しました');
-      
+
+      // Respect the device's saved preference, including after app restart.
+      await analytics.setAnalyticsCollectionEnabled(
+        prefs.getBool(analyticsCollectionPreferenceKey) ?? true,
+      );
+
       // デバッグモードでDebug Viewを有効化
       if (kDebugMode) {
         // Android: ADBコマンドで有効化が必要
         // adb shell setprop debug.firebase.analytics.app jp.ac.chibakoudai.citapp
         // iOS: Xcodeのスキーム設定で -FIRDebugEnabled を追加
-        debugPrint('🔍 Firebase Analytics Debug Mode');
-        debugPrint('📱 Android: ADBコマンドを実行してください:');
-        debugPrint('   adb shell setprop debug.firebase.analytics.app jp.ac.chibakoudai.citapp');
-        debugPrint('🍎 iOS: Xcodeのスキーム設定で -FIRDebugEnabled を追加してください');
+        SecureLogger.debug('🔍 Firebase Analytics Debug Mode');
+        SecureLogger.debug('📱 Android: ADBコマンドを実行してください:');
+        SecureLogger.debug(
+          '   adb shell setprop debug.firebase.analytics.app jp.ac.chibakoudai.citapp',
+        );
+        SecureLogger.debug('🍎 iOS: Xcodeのスキーム設定で -FIRDebugEnabled を追加してください');
       }
-      
-      // アプリオープンイベントを記録
-      await analytics.logAppOpen();
-      debugPrint('✅ Firebase Analytics app_open logged');
+
+      // app_open is sent by analyticsSessionSyncProvider after user attributes.
     } catch (analyticsError) {
-      debugPrint('❌ Firebase Analytics ログ送信失敗: $analyticsError');
+      SecureLogger.debug('❌ Firebase Analytics ログ送信失敗: $analyticsError');
     }
 
-    // Firebase App Check: debug=debug provider / release=Play Integrity（SHA-256 登録後）
+    // Firebase App Check: Web はビルド時に reCAPTCHA キーが設定された場合のみ有効化する。
+    // ローカル開発でダミーキーを渡すと非同期エラーが残り続けるため、未設定時は明示的にスキップする。
     try {
-      debugPrint('Firebase App Check初期化開始');
-      await FirebaseAppCheck.instance.activate(
-        webProvider: ReCaptchaV3Provider('recaptcha-v3-site-key'),
-        androidProvider:
-            kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
-        appleProvider:
-            kDebugMode
-                ? AppleProvider.debug
-                : AppleProvider.appAttestWithDeviceCheckFallback,
-      );
-      debugPrint('Firebase App Check初期化完了');
+      SecureLogger.debug('Firebase App Check初期化開始');
+      var appCheckActivated = false;
+      if (kIsWeb) {
+        const webRecaptchaSiteKey = String.fromEnvironment(
+          'FIREBASE_RECAPTCHA_SITE_KEY',
+        );
+        if (webRecaptchaSiteKey.isEmpty) {
+          SecureLogger.debug(
+            'Firebase App Check: FIREBASE_RECAPTCHA_SITE_KEY が未設定のためWebではスキップ',
+          );
+        } else {
+          await FirebaseAppCheck.instance.activate(
+            webProvider: ReCaptchaV3Provider(webRecaptchaSiteKey),
+          );
+          appCheckActivated = true;
+        }
+      } else {
+        await FirebaseAppCheck.instance.activate(
+          androidProvider:
+              kDebugMode
+                  ? AndroidProvider.debug
+                  : AndroidProvider.playIntegrity,
+          appleProvider:
+              kDebugMode
+                  ? AppleProvider.debug
+                  : AppleProvider.appAttestWithDeviceCheckFallback,
+        );
+        appCheckActivated = true;
+      }
+      if (appCheckActivated) {
+        SecureLogger.debug('Firebase App Check初期化完了');
+      }
 
-      if (kDebugMode) {
+      if (kDebugMode && appCheckActivated && !kIsWeb) {
         try {
           final debugToken = await FirebaseAppCheck.instance.getToken();
           if (debugToken != null && debugToken.isNotEmpty) {
-            debugPrint(
+            SecureLogger.debug(
               '🔐 App Check debug token（Firebase Console → App Check → デバッグトークン管理）: $debugToken',
             );
           }
         } catch (tokenError) {
-          debugPrint('App Check debug token 取得スキップ: $tokenError');
+          SecureLogger.debug('App Check debug token 取得スキップ: $tokenError');
         }
       }
     } catch (appCheckError) {
-      debugPrint('Firebase App Check初期化警告: $appCheckError');
+      SecureLogger.debug('Firebase App Check初期化警告: $appCheckError');
     }
 
     // Firebase Storage接続テスト（ネットワーク状況を考慮）
     if (Firebase.apps.isNotEmpty) {
-      debugPrint('Firebase Storage接続テスト実行中...');
+      SecureLogger.debug('Firebase Storage接続テスト実行中...');
       try {
         final storage = FirebaseStorage.instance;
         // ネットワーク接続のタイムアウト設定
@@ -294,15 +319,15 @@ void main() async {
         storage.setMaxDownloadRetryTime(const Duration(seconds: 10));
 
         final testRef = storage.ref().child('test/initialization_test.txt');
-        debugPrint('Firebase Storage テスト参照作成成功: ${testRef.fullPath}');
+        SecureLogger.debug('Firebase Storage テスト参照作成成功: ${testRef.fullPath}');
       } catch (storageError) {
-        debugPrint('Firebase Storage テスト失敗 (ネットワーク問題の可能性): $storageError');
+        SecureLogger.debug('Firebase Storage テスト失敗 (ネットワーク問題の可能性): $storageError');
         // ネットワーク接続問題はアプリ起動を阻害しない
       }
     }
   } catch (e, stackTrace) {
-    debugPrint('Firebase初期化失敗: $e');
-    debugPrint('StackTrace: $stackTrace');
+    SecureLogger.debug('Firebase初期化失敗: $e');
+    SecureLogger.debug('StackTrace: $stackTrace');
     // Firebase未設定でもアプリは動作継続
   }
 
@@ -310,7 +335,7 @@ void main() async {
   try {
     await Future.wait(initializationFutures);
   } catch (e) {
-    debugPrint('初期化サービスエラー: $e');
+    SecureLogger.debug('初期化サービスエラー: $e');
     // エラーでもアプリ起動を継続
   }
 
@@ -322,7 +347,7 @@ void main() async {
 
   // アプリ起動時間を記録
   final startupTime = monitor.stopTimer('app_startup');
-  debugPrint('🚀 アプリ起動完了: ${startupTime}ms');
+  SecureLogger.debug('🚀 アプリ起動完了: ${startupTime}ms');
 
   // フレームレート監視開始
   if (kDebugMode) {
@@ -334,9 +359,7 @@ void main() async {
   if (!kIsWeb) {
     try {
       final uri = await HomeWidget.initiallyLaunchedFromHomeWidget();
-      if (uri != null && uri.toString().toLowerCase().contains('schedule')) {
-        initialRoute = '/home?tab=schedule';
-      }
+      initialRoute = homeWidgetDestination(uri) ?? initialRoute;
     } catch (_) {}
 
     // Flutter Engine 経由で渡された defaultRouteName もチェックする
@@ -345,9 +368,7 @@ void main() async {
     try {
       final defaultRoute =
           PlatformDispatcher.instance.defaultRouteName.toLowerCase();
-      if (defaultRoute.contains('schedule')) {
-        initialRoute = '/home?tab=schedule';
-      }
+      initialRoute = homeWidgetDestination(Uri.tryParse(defaultRoute)) ?? initialRoute;
     } catch (_) {}
   }
 
@@ -370,45 +391,15 @@ void _initializeBackgroundServices() {
       // メニュー自動更新（端末側タイマー）は MenuSchedulerService.scheduledUpdatesEnabled で制御
       MenuSchedulerService.startScheduledUpdates();
 
-      // ホームウィジェット初期化
-      await HomeWidgetsService.initialize();
-
-      // 講義通知サービスを初期化
-      await ScheduleNotificationService.initialize();
-
-      debugPrint('✅ バックグラウンドサービス初期化完了');
-    } catch (e) {
-      debugPrint('⚠️ バックグラウンドサービス初期化エラー: $e');
-    }
-  });
-}
-
-/// 学バス情報のダイヤ一覧画像を事前読み込み
-void _preloadBusTimetableImage() {
-  // バックグラウンドで非同期実行（アプリ起動をブロックしない）
-  Future.delayed(const Duration(milliseconds: 500), () async {
-    try {
-      debugPrint('🚌 学バス情報のダイヤ一覧画像を事前読み込み開始');
-      
-      // Firebase Storageから直接画像URLを取得
-      final url = await FirebaseMenuService.getBusTimetableImageUrl();
-      
-      if (url != null) {
-        // HTTPリクエストで画像をダウンロードしてキャッシュに保存
-        // CachedNetworkImageは自動的にキャッシュするので、事前にダウンロードしておく
-        final response = await http.get(Uri.parse(url));
-        if (response.statusCode == 200) {
-          // 画像をダウンロードしたので、次回表示時にキャッシュから読み込まれる
-          debugPrint('✅ 学バス情報のダイヤ一覧画像の事前読み込み完了: $url');
-        } else {
-          debugPrint('⚠️ 学バス情報のダイヤ一覧画像のダウンロード失敗: ${response.statusCode}');
-        }
-      } else {
-        debugPrint('ℹ️ 学バス情報のダイヤ一覧画像URLが取得できませんでした（アセット画像を使用）');
+      if (!kIsWeb) {
+        // ホームウィジェットとローカル講義通知はモバイル専用。
+        await HomeWidgetsService.initialize();
+        await ScheduleNotificationService.initialize();
       }
+
+      SecureLogger.debug('✅ バックグラウンドサービス初期化完了');
     } catch (e) {
-      debugPrint('⚠️ 学バス情報のダイヤ一覧画像の事前読み込みエラー（無視）: $e');
-      // エラーは無視（フォールバックはアセット画像）
+      SecureLogger.debug('⚠️ バックグラウンドサービス初期化エラー: $e');
     }
   });
 }
@@ -428,7 +419,7 @@ void _handleAppReview() {
         await AppReviewService.requestReview();
       }
     } catch (e) {
-      debugPrint('⚠️ ストアレビュー処理エラー: $e');
+      SecureLogger.debug('⚠️ ストアレビュー処理エラー: $e');
     }
   });
 }
@@ -441,6 +432,8 @@ class CITApp extends ConsumerStatefulWidget {
 }
 
 class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
+  StreamSubscription<Uri?>? _homeWidgetClickSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -448,21 +441,22 @@ class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     // ウィジェットタップ時（アプリ起動中）に時間割タブへ遷移
     if (!kIsWeb) {
-      HomeWidget.widgetClicked.listen((uri) {
-        if (uri != null && uri.toString().contains('schedule')) {
+      _homeWidgetClickSubscription = HomeWidget.widgetClicked.listen((uri) {
+        final destination = homeWidgetDestination(uri);
+        if (destination != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              ref.read(routerProvider).go('/home?tab=schedule');
+              ref.read(routerProvider).go(destination);
             }
           });
         }
       });
     }
-
   }
 
   @override
   void dispose() {
+    _homeWidgetClickSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -473,23 +467,23 @@ class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
 
     switch (state) {
       case AppLifecycleState.resumed:
-        debugPrint('🔄 アプリ再開: 認証状態を確認中...');
+        SecureLogger.debug('🔄 アプリ再開: 認証状態を確認中...');
         // アプリが再開された時に認証状態を強制チェック
         _checkAuthenticationOnResume();
         break;
       case AppLifecycleState.paused:
-        debugPrint('⏸️ アプリ一時停止: 最終アクセス時刻を更新');
+        SecureLogger.debug('⏸️ アプリ一時停止: 最終アクセス時刻を更新');
         // アプリが一時停止された時に最終アクセス時刻を更新
         _updateLastAccessOnPause();
         break;
       case AppLifecycleState.detached:
-        debugPrint('🔚 アプリ終了');
+        SecureLogger.debug('🔚 アプリ終了');
         break;
       case AppLifecycleState.inactive:
-        debugPrint('😴 アプリ非アクティブ');
+        SecureLogger.debug('😴 アプリ非アクティブ');
         break;
       case AppLifecycleState.hidden:
-        debugPrint('👁️‍🗨️ アプリ非表示');
+        SecureLogger.debug('👁️‍🗨️ アプリ非表示');
         break;
     }
   }
@@ -498,7 +492,7 @@ class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
   void _checkAuthenticationOnResume() {
     try {
       // Firebase Auth が自動的に認証状態を復元するため、特別な処理は不要
-      debugPrint('✅ アプリ再開: Firebase Auth による自動復元を待機');
+      SecureLogger.debug('✅ アプリ再開: Firebase Auth による自動復元を待機');
 
       // ログイン中なら FCM トークンを再登録しておく。
       // 端末側でトークンが更新されてもアプリ起動中でないと
@@ -508,7 +502,7 @@ class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
         NotificationService.refreshTokenRegistration();
       }
     } catch (e) {
-      debugPrint('⚠️ アプリ再開時認証チェックエラー: $e');
+      SecureLogger.debug('⚠️ アプリ再開時認証チェックエラー: $e');
     }
   }
 
@@ -516,15 +510,16 @@ class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
   void _updateLastAccessOnPause() {
     try {
       // Firebase Auth が自動的に状態を保存するため、特別な処理は不要
-      debugPrint('✅ アプリ一時停止: Firebase Auth による自動保存');
+      SecureLogger.debug('✅ アプリ一時停止: Firebase Auth による自動保存');
     } catch (e) {
-      debugPrint('⚠️ アプリ一時停止処理エラー: $e');
+      SecureLogger.debug('⚠️ アプリ一時停止処理エラー: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     ref.watch(authSessionSyncProvider);
+    ref.watch(analyticsSessionSyncProvider);
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
     final appFontSize = ref.watch(appFontSizeProvider);
@@ -547,8 +542,8 @@ class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
           ),
           child: DefaultTextStyle(
             style: defaultTextStyle,
-            child: UiFeedbackListener(
-              child: child ?? const SizedBox.shrink(),
+            child: AppSystemSafeArea(
+              child: UiFeedbackListener(child: child ?? const SizedBox.shrink()),
             ),
           ),
         );

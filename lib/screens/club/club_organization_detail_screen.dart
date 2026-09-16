@@ -36,7 +36,10 @@ class ClubOrganizationDetailScreen extends StatelessWidget {
                       errorBuilder:
                           (_, __, ___) => Container(
                             width: 280,
-                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            color:
+                                Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
                             alignment: Alignment.center,
                             child: const Icon(Icons.broken_image_outlined),
                           ),
@@ -95,7 +98,8 @@ class ClubOrganizationDetailScreen extends StatelessWidget {
   }
 
   Future<void> _openExternalPage(BuildContext context) async {
-    final rawUrl = (club.detailUrl ?? '').isNotEmpty ? club.detailUrl : club.sourceUrl;
+    final rawUrl =
+        (club.detailUrl ?? '').isNotEmpty ? club.detailUrl : club.sourceUrl;
     if (rawUrl == null || rawUrl.isEmpty) return;
     try {
       final uri = Uri.parse(rawUrl);
@@ -106,9 +110,9 @@ class ClubOrganizationDetailScreen extends StatelessWidget {
       }
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('ページを開けませんでした: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('ページを開けませんでした: $e')));
     }
   }
 }

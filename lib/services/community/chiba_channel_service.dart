@@ -41,9 +41,8 @@ class ChibaChannelService {
         .limit(limit)
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map(ChibaChannelThread.fromFirestore)
-              .toList(),
+          (snapshot) =>
+              snapshot.docs.map(ChibaChannelThread.fromFirestore).toList(),
         );
   }
 
@@ -55,9 +54,12 @@ class ChibaChannelService {
         .orderBy('commentNumber', descending: false)
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => ChibaChannelComment.fromFirestore(threadId, doc))
-              .toList(),
+          (snapshot) =>
+              snapshot.docs
+                  .map(
+                    (doc) => ChibaChannelComment.fromFirestore(threadId, doc),
+                  )
+                  .toList(),
         );
   }
 
@@ -156,8 +158,7 @@ class ChibaChannelService {
       userId: authorId,
       limitKey: UserPostRateLimit.chibaChannelCommentKey,
     );
-    final anonRef =
-        threadRef.collection('anonymous_ids').doc(authorId);
+    final anonRef = threadRef.collection('anonymous_ids').doc(authorId);
 
     await _firestore.runTransaction((transaction) async {
       // --- 読み取りフェーズ（全ての get をここで実施） ---
@@ -178,8 +179,7 @@ class ChibaChannelService {
       final nextNumber = currentCount + 1;
 
       final anonSnap = await transaction.get(anonRef);
-      String anonymousId =
-          (anonSnap.data()?['anonymousId'] as String?) ?? '';
+      String anonymousId = (anonSnap.data()?['anonymousId'] as String?) ?? '';
       final needCreateAnonId = anonymousId.isEmpty;
       if (needCreateAnonId) {
         anonymousId = _generateAnonymousId();
@@ -259,7 +259,10 @@ class ChibaChannelService {
     int? repliedToCommentNumber = inReplyToCommentNumber;
     if (inReplyToCommentId != null && inReplyToCommentId.trim().isNotEmpty) {
       final parentSnap =
-          await threadRef.collection('comments').doc(inReplyToCommentId.trim()).get();
+          await threadRef
+              .collection('comments')
+              .doc(inReplyToCommentId.trim())
+              .get();
       if (parentSnap.exists) {
         final parentData = parentSnap.data()!;
         repliedToAuthorId = parentData['authorId'] as String? ?? '';
@@ -267,11 +270,12 @@ class ChibaChannelService {
             (parentData['commentNumber'] as num?)?.toInt();
       }
     } else if (inReplyToCommentNumber != null) {
-      final parentSnap = await threadRef
-          .collection('comments')
-          .where('commentNumber', isEqualTo: inReplyToCommentNumber)
-          .limit(1)
-          .get();
+      final parentSnap =
+          await threadRef
+              .collection('comments')
+              .where('commentNumber', isEqualTo: inReplyToCommentNumber)
+              .limit(1)
+              .get();
       if (parentSnap.docs.isNotEmpty) {
         repliedToAuthorId =
             parentSnap.docs.first.data()['authorId'] as String? ?? '';

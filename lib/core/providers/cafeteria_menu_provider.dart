@@ -3,19 +3,24 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/cafeteria/cafeteria_menu_item_model.dart';
 import '../../services/cafeteria/cafeteria_menu_item_service.dart';
 
-final cafeteriaMenuItemsProvider = StreamProvider.family<Map<String, CafeteriaMenuItem>, String>((ref, cafeteriaId) {
-  return CafeteriaMenuItemService.streamItems(cafeteriaId).map((items) {
-    final map = <String, CafeteriaMenuItem>{};
-    for (final item in items) {
-      map[item.menuName.toLowerCase()] = item;
-    }
-    return map;
-  });
-});
+final cafeteriaMenuItemsProvider =
+    StreamProvider.family<Map<String, CafeteriaMenuItem>, String>((
+      ref,
+      cafeteriaId,
+    ) {
+      return CafeteriaMenuItemService.streamItems(cafeteriaId).map((items) {
+        final map = <String, CafeteriaMenuItem>{};
+        for (final item in items) {
+          map[item.menuName.toLowerCase()] = item;
+        }
+        return map;
+      });
+    });
 
-final cafeteriaMenuItemsListProvider = StreamProvider.family<List<CafeteriaMenuItem>, String>((ref, cafeteriaId) {
-  return CafeteriaMenuItemService.streamItems(cafeteriaId);
-});
+final cafeteriaMenuItemsListProvider =
+    StreamProvider.family<List<CafeteriaMenuItem>, String>((ref, cafeteriaId) {
+      return CafeteriaMenuItemService.streamItems(cafeteriaId);
+    });
 
 class CafeteriaMenuItemActions {
   Future<String> create({
@@ -28,7 +33,7 @@ class CafeteriaMenuItemActions {
     if (user == null) {
       throw Exception('ログインが必要です');
     }
-    
+
     final item = CafeteriaMenuItem(
       id: '',
       cafeteriaId: cafeteriaId,
@@ -38,7 +43,7 @@ class CafeteriaMenuItemActions {
       createdAt: DateTime.now(),
       viewCount: 0,
     );
-    
+
     return await CafeteriaMenuItemService.addMenuItem(item);
   }
 
@@ -72,6 +77,8 @@ class CafeteriaMenuItemActions {
   }
 }
 
-final cafeteriaMenuItemActionsProvider = Provider<CafeteriaMenuItemActions>((ref) {
+final cafeteriaMenuItemActionsProvider = Provider<CafeteriaMenuItemActions>((
+  ref,
+) {
   return CafeteriaMenuItemActions();
 });

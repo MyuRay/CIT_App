@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,13 +8,11 @@ import '../../core/providers/contact_provider.dart';
 class ContactDetailScreen extends ConsumerStatefulWidget {
   final ContactForm contact;
 
-  const ContactDetailScreen({
-    super.key,
-    required this.contact,
-  });
+  const ContactDetailScreen({super.key, required this.contact});
 
   @override
-  ConsumerState<ContactDetailScreen> createState() => _ContactDetailScreenState();
+  ConsumerState<ContactDetailScreen> createState() =>
+      _ContactDetailScreenState();
 }
 
 class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
@@ -48,11 +47,11 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
             onPressed: () => context.pop(),
           ),
         ),
-        body: const Center(
+        body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error, size: 64, color: Colors.red),
+              Icon(Icons.error, size: 64, color: AppColors.accent(context, Colors.red)),
               SizedBox(height: 16),
               Text('お問い合わせIDが無効です'),
             ],
@@ -60,8 +59,10 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
         ),
       );
     }
-    
-    final contactDetailAsync = ref.watch(contactDetailProvider(widget.contact.id));
+
+    final contactDetailAsync = ref.watch(
+      contactDetailProvider(widget.contact.id),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -72,29 +73,31 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
         ),
         actions: [
           PopupMenuButton(
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                child: const Text('ステータスを変更'),
-                onTap: () => _showStatusDialog(),
-              ),
-              PopupMenuItem(
-                child: const Text('お問い合わせを削除'),
-                onTap: () => _showDeleteDialog(),
-              ),
-            ],
+            itemBuilder:
+                (context) => [
+                  PopupMenuItem(
+                    child: const Text('ステータスを変更'),
+                    onTap: () => _showStatusDialog(),
+                  ),
+                  PopupMenuItem(
+                    child: const Text('お問い合わせを削除'),
+                    onTap: () => _showDeleteDialog(),
+                  ),
+                ],
           ),
         ],
       ),
       body: contactDetailAsync.when(
-        data: (contact) => contact != null 
-            ? _buildContactDetail(contact)
-            : const Center(child: Text('お問い合わせが見つかりません')),
+        data:
+            (contact) =>
+                contact != null
+                    ? _buildContactDetail(contact)
+                    : const Center(child: Text('お問い合わせが見つかりません')),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _buildErrorWidget(error),
       ),
-      bottomNavigationBar: _isLoading 
-          ? const LinearProgressIndicator()
-          : _buildBottomBar(),
+      bottomNavigationBar:
+          _isLoading ? const LinearProgressIndicator() : _buildBottomBar(),
     );
   }
 
@@ -106,17 +109,17 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
         children: [
           // 基本情報カード
           _buildBasicInfoCard(contact),
-          
+
           const SizedBox(height: 16),
-          
+
           // お問い合わせ内容カード
           _buildContentCard(contact),
-          
+
           const SizedBox(height: 16),
-          
+
           // 返信カード
           _buildResponseCard(contact),
-          
+
           const SizedBox(height: 100), // BottomBarのスペース確保
         ],
       ),
@@ -136,9 +139,11 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
                   width: 50,
                   height: 50,
                   decoration: BoxDecoration(
-                    color: contact.statusColor.withOpacity(0.1),
+                    color: contact.statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(25),
-                    border: Border.all(color: contact.statusColor.withOpacity(0.3)),
+                    border: Border.all(
+                      color: contact.statusColor.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Center(
                     child: Text(
@@ -162,22 +167,25 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
                       Text(
                         '${contact.name ?? '匿名'} (${contact.email ?? '未入力'})',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                       const SizedBox(height: 8),
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: contact.statusColor,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               contact.statusDisplayName,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: AppColors.onColor(contact.statusColor),
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -185,16 +193,21 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
                           ),
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.1),
+                              color: Colors.blue.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                              border: Border.all(
+                                color: Colors.blue.withValues(alpha: 0.3),
+                              ),
                             ),
                             child: Text(
                               contact.categoryName,
-                              style: const TextStyle(
-                                color: Colors.blue,
+                              style: TextStyle(
+                                color: AppColors.accent(context, Colors.blue),
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -207,11 +220,11 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 16),
-            
+
             _buildInfoRow('お問い合わせID', contact.id),
             _buildInfoRow('作成日時', _formatDateTime(contact.createdAt)),
             if (contact.updatedAt != null)
@@ -233,7 +246,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.message, color: Colors.blue),
+                 Icon(Icons.message, color: AppColors.accent(context, Colors.blue)),
                 const SizedBox(width: 8),
                 Text(
                   'お問い合わせ内容',
@@ -243,16 +256,16 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 12),
-            
+
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey[50],
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[300]!),
+                border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
               ),
               child: Text(
                 contact.message,
@@ -274,7 +287,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.reply, color: Colors.green),
+                 Icon(Icons.reply, color: AppColors.accent(context, Colors.green)),
                 const SizedBox(width: 8),
                 Text(
                   '返信',
@@ -284,15 +297,15 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 12),
-            
+
             if (contact.response != null) ...[
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.green[50],
+                  color: AppColors.tintedSurface(context, Colors.green),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.green[300]!),
                 ),
@@ -304,9 +317,9 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
               const SizedBox(height: 12),
               Text(
                 '返信済み: ${_formatDateTime(contact.respondedAt!)}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[600],
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 16),
               const Text('返信を編集:'),
@@ -315,7 +328,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
               const Text('まだ返信がありません。返信を作成してください。'),
               const SizedBox(height: 16),
             ],
-            
+
             TextField(
               controller: _responseController,
               maxLines: 6,
@@ -335,10 +348,10 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
+            color: Colors.grey.withValues(alpha: 0.3),
             spreadRadius: 1,
             blurRadius: 5,
             offset: const Offset(0, -3),
@@ -357,9 +370,10 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
           Expanded(
             flex: 2,
             child: ElevatedButton(
-              onPressed: _responseController.text.trim().isEmpty 
-                  ? null 
-                  : () => _sendResponse(),
+              onPressed:
+                  _responseController.text.trim().isEmpty
+                      ? null
+                      : () => _sendResponse(),
               child: const Text('返信を送信'),
             ),
           ),
@@ -380,7 +394,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
               label,
               style: TextStyle(
                 fontWeight: FontWeight.w500,
-                color: Colors.grey[600],
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
@@ -400,12 +414,13 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error, size: 64, color: Colors.red),
+           Icon(Icons.error, size: 64, color: AppColors.accent(context, Colors.red)),
           const SizedBox(height: 16),
           Text('エラーが発生しました: $error'),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: () => ref.invalidate(contactDetailProvider(widget.contact.id)),
+            onPressed:
+                () => ref.invalidate(contactDetailProvider(widget.contact.id)),
             child: const Text('再読み込み'),
           ),
         ],
@@ -420,81 +435,88 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
   void _showStatusDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('ステータスを変更'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<String>(
-              title: const Text('未対応'),
-              value: 'pending',
-              groupValue: _selectedStatus,
-              onChanged: (value) => setState(() => _selectedStatus = value!),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('ステータスを変更'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RadioListTile<String>(
+                  title: const Text('未対応'),
+                  value: 'pending',
+                  groupValue: _selectedStatus,
+                  onChanged:
+                      (value) => setState(() => _selectedStatus = value!),
+                ),
+                RadioListTile<String>(
+                  title: const Text('対応中'),
+                  value: 'in_progress',
+                  groupValue: _selectedStatus,
+                  onChanged:
+                      (value) => setState(() => _selectedStatus = value!),
+                ),
+                RadioListTile<String>(
+                  title: const Text('解決済み'),
+                  value: 'resolved',
+                  groupValue: _selectedStatus,
+                  onChanged:
+                      (value) => setState(() => _selectedStatus = value!),
+                ),
+              ],
             ),
-            RadioListTile<String>(
-              title: const Text('対応中'),
-              value: 'in_progress',
-              groupValue: _selectedStatus,
-              onChanged: (value) => setState(() => _selectedStatus = value!),
-            ),
-            RadioListTile<String>(
-              title: const Text('解決済み'),
-              value: 'resolved',
-              groupValue: _selectedStatus,
-              onChanged: (value) => setState(() => _selectedStatus = value!),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('キャンセル'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('キャンセル'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await _updateStatus();
+                },
+                child: const Text('更新'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await _updateStatus();
-            },
-            child: const Text('更新'),
-          ),
-        ],
-      ),
     );
   }
 
   void _showDeleteDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('お問い合わせを削除'),
-        content: const Text('このお問い合わせを完全に削除しますか？この操作は元に戻せません。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('キャンセル'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('お問い合わせを削除'),
+            content: const Text('このお問い合わせを完全に削除しますか？この操作は元に戻せません。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('キャンセル'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await _deleteContact();
+                },
+                style: ElevatedButton.styleFrom(foregroundColor: AppColors.onColor(Colors.red), backgroundColor: Colors.red),
+                child: Text('削除', style: TextStyle(color: AppColors.onColor(Colors.red))),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await _deleteContact();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('削除', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
     );
   }
 
   Future<void> _updateStatus() async {
     setState(() => _isLoading = true);
     try {
-      await ref.read(contactActionsProvider).updateStatus(widget.contact.id, _selectedStatus);
+      await ref
+          .read(contactActionsProvider)
+          .updateStatus(widget.contact.id, _selectedStatus);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+           SnackBar(
             content: Text('ステータスを更新しました'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.green),
           ),
         );
       }
@@ -503,7 +525,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('ステータス更新に失敗しました: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
           ),
         );
       }
@@ -518,12 +540,14 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
 
     setState(() => _isLoading = true);
     try {
-      await ref.read(contactActionsProvider).sendResponse(widget.contact.id, response);
+      await ref
+          .read(contactActionsProvider)
+          .sendResponse(widget.contact.id, response);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+           SnackBar(
             content: Text('返信を送信しました'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.green),
           ),
         );
       }
@@ -532,7 +556,7 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('返信送信に失敗しました: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
           ),
         );
       }
@@ -548,19 +572,16 @@ class _ContactDetailScreenState extends ConsumerState<ContactDetailScreen> {
       if (mounted) {
         context.pop(); // 削除後は前の画面に戻る
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+           SnackBar(
             content: Text('お問い合わせを削除しました'),
-            backgroundColor: Colors.orange,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.orange),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('削除に失敗しました: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('削除に失敗しました: $e'), backgroundColor: AppColors.snackBarSurface(context, Colors.red)),
         );
       }
     } finally {

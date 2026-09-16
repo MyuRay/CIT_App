@@ -9,7 +9,7 @@ class FirebaseBusTimetableWidget extends ConsumerStatefulWidget {
   final double? width;
   final double? height;
   final BoxFit fit;
-  
+
   const FirebaseBusTimetableWidget({
     super.key,
     this.width,
@@ -18,10 +18,12 @@ class FirebaseBusTimetableWidget extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<FirebaseBusTimetableWidget> createState() => _FirebaseBusTimetableWidgetState();
+  ConsumerState<FirebaseBusTimetableWidget> createState() =>
+      _FirebaseBusTimetableWidgetState();
 }
 
-class _FirebaseBusTimetableWidgetState extends ConsumerState<FirebaseBusTimetableWidget> {
+class _FirebaseBusTimetableWidgetState
+    extends ConsumerState<FirebaseBusTimetableWidget> {
   bool _isPreCaching = false;
 
   @override
@@ -36,11 +38,11 @@ class _FirebaseBusTimetableWidgetState extends ConsumerState<FirebaseBusTimetabl
   // アセット画像をプリキャッシング
   void _preCacheAssetImage() async {
     if (_isPreCaching || !mounted) return;
-    
+
     setState(() {
       _isPreCaching = true;
     });
-    
+
     try {
       // アセット画像をプリキャッシング
       await precacheImage(
@@ -48,7 +50,7 @@ class _FirebaseBusTimetableWidgetState extends ConsumerState<FirebaseBusTimetabl
         context,
       );
       debugPrint('バス時刻表アセット画像のプリキャッシング完了');
-      
+
       // Firebase画像もプリロードを試行（バックグラウンドで）
       _preCacheFirebaseImage();
     } catch (e) {
@@ -67,7 +69,7 @@ class _FirebaseBusTimetableWidgetState extends ConsumerState<FirebaseBusTimetabl
     // プロバイダーから画像URLを非同期で取得
     Future.delayed(const Duration(milliseconds: 100), () async {
       if (!mounted) return;
-      
+
       try {
         final imageUrl = await ref.read(firebaseBusTimetableProvider.future);
         if (imageUrl != null && mounted) {
@@ -117,13 +119,17 @@ class _FirebaseBusTimetableWidgetState extends ConsumerState<FirebaseBusTimetabl
     );
   }
 
-  Widget _buildImageWidget(BuildContext context, WidgetRef ref, String imageUrl) {
+  Widget _buildImageWidget(
+    BuildContext context,
+    WidgetRef ref,
+    String imageUrl,
+  ) {
     return Container(
       width: widget.width,
       height: widget.height,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Stack(
         children: [
@@ -132,40 +138,45 @@ class _FirebaseBusTimetableWidgetState extends ConsumerState<FirebaseBusTimetabl
             onTap: () => _showFullScreenImage(context, imageUrl, false),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: kIsWeb
-                  ? // Web版：Image.networkを使用（Firebase SDKでCORS解決済み）
-                    Image.network(
-                      imageUrl,
-                      width: widget.width,
-                      height: widget.height,
-                      fit: widget.fit,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        // 読み込み中でもアセット画像を表示
-                        return _buildAssetImageWidget(context);
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        debugPrint('Firebase画像読み込みエラー: $error - アセット画像にフォールバック');
-                        return _buildAssetImageWidget(context);
-                      },
-                    )
-                  : // モバイル版：Image.networkを使用（キャッシュなし）
-                    Image.network(
-                      imageUrl,
-                      width: widget.width,
-                      height: widget.height,
-                      fit: widget.fit,
-                      cacheWidth: null, // キャッシュ無効化
-                      cacheHeight: null, // キャッシュ無効化
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return _buildLoadingWidget(context);
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        debugPrint('Firebase画像読み込みエラー: $error - アセット画像にフォールバック');
-                        return _buildAssetImageWidget(context);
-                      },
-                    ),
+              child:
+                  kIsWeb
+                      ? // Web版：Image.networkを使用（Firebase SDKでCORS解決済み）
+                      Image.network(
+                        imageUrl,
+                        width: widget.width,
+                        height: widget.height,
+                        fit: widget.fit,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          // 読み込み中でもアセット画像を表示
+                          return _buildAssetImageWidget(context);
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          debugPrint(
+                            'Firebase画像読み込みエラー: $error - アセット画像にフォールバック',
+                          );
+                          return _buildAssetImageWidget(context);
+                        },
+                      )
+                      : // モバイル版：Image.networkを使用（キャッシュなし）
+                      Image.network(
+                        imageUrl,
+                        width: widget.width,
+                        height: widget.height,
+                        fit: widget.fit,
+                        cacheWidth: null, // キャッシュ無効化
+                        cacheHeight: null, // キャッシュ無効化
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return _buildLoadingWidget(context);
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          debugPrint(
+                            'Firebase画像読み込みエラー: $error - アセット画像にフォールバック',
+                          );
+                          return _buildAssetImageWidget(context);
+                        },
+                      ),
             ),
           ),
           // バス時刻表ラベル
@@ -175,7 +186,7 @@ class _FirebaseBusTimetableWidgetState extends ConsumerState<FirebaseBusTimetabl
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.8),
+                color: Colors.green.shade800,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: const Text(
@@ -199,7 +210,7 @@ class _FirebaseBusTimetableWidgetState extends ConsumerState<FirebaseBusTimetabl
       height: widget.height,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Stack(
         children: [
@@ -285,7 +296,11 @@ class _FirebaseBusTimetableWidgetState extends ConsumerState<FirebaseBusTimetabl
     );
   }
 
-  void _showFullScreenImage(BuildContext context, String imageUrl, bool isAsset) {
+  void _showFullScreenImage(
+    BuildContext context,
+    String imageUrl,
+    bool isAsset,
+  ) {
     if (isAsset) {
       showInteractiveFullscreenAssetImage(
         context,
@@ -369,7 +384,7 @@ class _BusLoadingPlaceholderState extends State<_BusLoadingPlaceholder>
           child: Center(
             child: Icon(
               Icons.directions_bus,
-              color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+              color: scheme.onSurfaceVariant,
               size: 28,
             ),
           ),

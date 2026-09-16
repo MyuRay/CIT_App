@@ -28,12 +28,7 @@ List<CampusClassroomLocation> get pilotTsudanumaBuilding7Floor5 => [
     pinY: 0.25,
     pinMarkerScale: 0.68,
   ),
-  _tsudanuma7f5Entry(
-    '070503',
-    '認知情報科学科 ラボ',
-    pinX: 0.75,
-    pinY: 0.43,
-  ),
+  _tsudanuma7f5Entry('070503', '認知情報科学科 ラボ', pinX: 0.75, pinY: 0.43),
   _tsudanuma7f5Entry(
     '070504',
     '認知情報科学科 オフィス',
@@ -55,12 +50,7 @@ List<CampusClassroomLocation> get pilotTsudanumaBuilding7Floor5 => [
     pinY: 0.52,
     pinMarkerScale: 0.70,
   ),
-  _tsudanuma7f5Entry(
-    '070507',
-    '情報工学科 ラボ',
-    pinX: 0.75,
-    pinY: 0.70,
-  ),
+  _tsudanuma7f5Entry('070507', '情報工学科 ラボ', pinX: 0.75, pinY: 0.70),
   _tsudanuma7f5Entry(
     '070508',
     '情報工学科 オフィス',
@@ -138,12 +128,7 @@ List<CampusClassroomLocation> get pilotTsudanumaBuilding7Floor5 => [
     pinY: 0.34,
     pinMarkerScale: 0.78,
   ),
-  _tsudanuma7f5Entry(
-    '070519',
-    '認知情報科学科 ラボ',
-    pinX: 0.31,
-    pinY: 0.14,
-  ),
+  _tsudanuma7f5Entry('070519', '認知情報科学科 ラボ', pinX: 0.31, pinY: 0.14),
   _tsudanuma7f5Entry(
     '070520',
     '認知情報科学科 オフィス',
@@ -181,10 +166,7 @@ const Map<String, String> _zw = {
 };
 
 String _zenRoomCode(String roomCode) {
-  return roomCode.replaceAllMapped(
-    RegExp(r'\d'),
-    (m) => _zw[m[0]]!,
-  );
+  return roomCode.replaceAllMapped(RegExp(r'\d'), (m) => _zw[m[0]]!);
 }
 
 CampusClassroomLocation _tsudanuma7f5Entry(
@@ -204,8 +186,8 @@ CampusClassroomLocation _tsudanuma7f5Entry(
     '$roomCode号室',
     '$roomCode号',
     pinLabelFull,
-  ]
-    ..addAll(extraSearchTerms);
+    ...extraSearchTerms,
+  ];
 
   return CampusClassroomLocation(
     campus: 'tsudanuma',

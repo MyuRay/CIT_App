@@ -1,12 +1,17 @@
+import 'package:cit_app/core/utils/logger.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
 import '../../services/user/user_service.dart';
 import '../../services/notification/notification_service.dart';
-import '../../models/user/user_model.dart';
 import '../../utils/auth_error_message.dart';
-import 'settings_provider.dart';
+import '../../services/auth/session_logout.dart';
+import '../../services/schedule/schedule_notification_service.dart';
+import '../../services/widget/home_widgets_service.dart';
+import '../services/cache_service.dart';
+import '../services/simple_offline_service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final firebaseAuthProvider = Provider<FirebaseAuth>((ref) {
   return FirebaseAuth.instance;
@@ -15,20 +20,24 @@ final firebaseAuthProvider = Provider<FirebaseAuth>((ref) {
 final authStateProvider = StreamProvider<User?>((ref) {
   try {
     final auth = ref.watch(firebaseAuthProvider);
-    print('🔐 AuthStateProvider: 認証状態変更リスナーを設定');
-    
-    return auth.authStateChanges().map((user) {
+    SecureLogger.debug('🔐 AuthStateProvider: 認証状態変更リスナーを設定');
+
+    return auth.idTokenChanges().map((user) {
       if (user != null) {
-        print('✅ AuthStateProvider: ユーザーログイン検出 - UID: ${user.uid}');
-        print('✅ AuthStateProvider: メール: ${user.email}');
-        print('✅ AuthStateProvider: メール認証済み: ${user.emailVerified}');
+        SecureLogger.debug(
+          '✅ AuthStateProvider: ユーザーログイン検出 - UID: ${user.uid}',
+        );
+        SecureLogger.debug('✅ AuthStateProvider: メール: ${user.email}');
+        SecureLogger.debug(
+          '✅ AuthStateProvider: メール認証済み: ${user.emailVerified}',
+        );
       } else {
-        print('❌ AuthStateProvider: ユーザーログアウト検出');
+        SecureLogger.debug('❌ AuthStateProvider: ユーザーログアウト検出');
       }
       return user;
     });
   } catch (e) {
-    print('❌ AuthStateProvider: エラー - $e');
+    SecureLogger.debug('❌ AuthStateProvider: エラー - $e');
     // Firebase未初期化の場合はnullユーザーのStreamを返す
     return Stream.value(null);
   }
@@ -76,72 +85,6 @@ class AuthService {
     return AppConstants.isAllowedDomain(email);
   }
 
-  Future<UserCredential?> signUpWithEmailAndPassword({
-    required String displayName,
-    required String email,
-    required String password,
-  }) async {
-    try {
-      if (!AppConstants.isValidCitEmailForSignup(email)) {
-        throw FirebaseAuthException(
-          code: 'invalid-domain',
-          message: AppConstants.errorSignupInvalidDomain,
-        );
-      }
-
-      final trimmedName = displayName.trim();
-      if (trimmedName.isEmpty) {
-        throw FirebaseAuthException(
-          code: 'invalid-display-name',
-          message: '表示名を入力してください',
-        );
-      }
-
-      if (!AppConstants.isValidPasswordFormat(password)) {
-        throw FirebaseAuthException(
-          code: 'weak-password',
-          message: password.length < 6
-              ? AppConstants.errorWeakPassword
-              : AppConstants.errorPasswordChars,
-        );
-      }
-
-      final credential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      // Firebase Authでアカウント作成成功後、表示名を設定しFirestoreにも保存
-      if (credential.user != null) {
-        await credential.user!.updateDisplayName(trimmedName);
-        await credential.user!.reload();
-        final refreshedUser = _auth.currentUser ?? credential.user!;
-        final appUser = UserService.createAppUserFromFirebaseUser(refreshedUser)
-            .copyWith(displayName: trimmedName);
-        // メール認証状態も含めて保存（初期はfalse）
-        await UserService.createUser(appUser);
-        print('✅ Firestoreにユーザー情報を保存しました: ${credential.user!.uid}');
-      }
-
-      // メール認証メールを送信
-      try {
-        await credential.user?.sendEmailVerification();
-        print('✅ 認証メールを送信しました: ${credential.user?.email}');
-      } catch (emailError) {
-        print('⚠️ 認証メール送信エラー: $emailError');
-        // メール送信エラーでもアカウント作成は成功しているため、続行
-        // ユーザーは認証待ち画面から再送信可能
-      }
-      
-      return credential;
-    } on FirebaseAuthException {
-      rethrow;
-    } catch (e) {
-      print('❌ アカウント作成エラー: $e');
-      rethrow;
-    }
-  }
-
   Future<UserCredential?> signInWithEmailAndPassword({
     required String email,
     required String password,
@@ -154,41 +97,45 @@ class AuthService {
         );
       }
 
-      print('🔐 Firebase Auth ログイン試行中...');
+      SecureLogger.debug('🔐 Firebase Auth ログイン試行中...');
       final credential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      print('✅ Firebase Auth ログイン成功');
+      SecureLogger.debug('✅ Firebase Auth ログイン成功');
 
       // ログイン成功後、Firestoreにユーザー情報が存在するか確認し、なければ作成
       if (credential.user != null) {
         // メール認証状態を確認
         await credential.user!.reload();
         final refreshedUser = _auth.currentUser ?? credential.user!;
-        print('📧 メール認証状態: ${refreshedUser.emailVerified}');
-        
-        print('📝 Firestoreユーザー情報確認中...');
+        SecureLogger.debug('📧 メール認証状態: ${refreshedUser.emailVerified}');
+
+        // Legacy unverified accounts stay in the verification flow. Do not
+        // create a profile or initialize user services before ownership proof.
+        if (!refreshedUser.emailVerified) return credential;
+
+        SecureLogger.debug('📝 Firestoreユーザー情報確認中...');
         await UserService.getCurrentUserOrCreate();
-        
+
         // メール認証状態をFirestoreに同期
         await UserService.syncEmailVerificationStatus(
           refreshedUser.uid,
           refreshedUser.emailVerified,
         );
         await UserService.syncEmailFromFirebaseAuth(refreshedUser);
-        
+
         // 最終ログイン時刻を更新
         await UserService.updateLastLogin(credential.user!.uid);
-        print('✅ Firestoreユーザー情報確認完了');
+        SecureLogger.debug('✅ Firestoreユーザー情報確認完了');
 
         // プッシュ通知を初期化
         try {
-          print('🔔 プッシュ通知サービス初期化中...');
+          SecureLogger.debug('🔔 プッシュ通知サービス初期化中...');
           await NotificationService.initialize();
-          print('🔔 プッシュ通知サービス初期化完了');
+          SecureLogger.debug('🔔 プッシュ通知サービス初期化完了');
         } catch (notificationError) {
-          print('⚠️ プッシュ通知初期化エラー: $notificationError');
+          SecureLogger.debug('⚠️ プッシュ通知初期化エラー: $notificationError');
           // プッシュ通知エラーはログインを阻害しない
         }
       }
@@ -200,7 +147,7 @@ class AuthService {
         message: loginAuthErrorMessage(e),
       );
     } catch (e) {
-      print('❌ ログインエラー: $e');
+      SecureLogger.debug('❌ ログインエラー: $e');
       rethrow;
     }
   }
@@ -229,32 +176,47 @@ class AuthService {
   }
 
   Future<void> signOut() async {
-    print('🔓 ログアウト処理開始');
-
-    // Firebase Authからサインアウト
-    await _auth.signOut();
-    print('✅ Firebase Authからサインアウトしました');
+    try {
+      await SessionLogout(
+        unregisterDevice: NotificationService.unregisterCurrentDevice,
+        clearLocalData: () async {
+          if (!kIsWeb &&
+              (defaultTargetPlatform == TargetPlatform.android ||
+                  defaultTargetPlatform == TargetPlatform.iOS)) {
+            await ScheduleNotificationService.clearSessionNotifications();
+            await HomeWidgetsService.clearUserSchedule();
+          }
+          await SimpleOfflineService().clearPendingActions();
+          await CacheService().clearAllCache();
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('selected_schedule_id');
+        },
+        signOut: _auth.signOut,
+      ).run();
+    } finally {
+      NotificationService.finishLogout();
+    }
   }
 
   User? get currentUser => _auth.currentUser;
-  
+
   // 現在のユーザーの表示名を取得
   String getCurrentUserDisplayName() {
     final user = _auth.currentUser;
     if (user == null) {
       return '匿名ユーザー';
     }
-    
+
     // displayNameが設定されている場合はそれを使用
     if (user.displayName != null && user.displayName!.isNotEmpty) {
       return user.displayName!;
     }
-    
+
     // displayNameがない場合はメールアドレスから推測
     if (user.email != null && user.email!.isNotEmpty) {
       return user.email!.split('@').first;
     }
-    
+
     return '匿名ユーザー';
   }
 
@@ -282,6 +244,7 @@ class AuthService {
     }
     await user.reload();
     final refreshedUser = _auth.currentUser;
+    await refreshedUser?.getIdToken(true);
     return refreshedUser?.emailVerified ?? false;
   }
 
@@ -292,7 +255,10 @@ class AuthService {
       throw FirebaseAuthException(code: 'not-logged-in', message: 'ログインが必要です');
     }
     if (user.emailVerified) {
-      throw FirebaseAuthException(code: 'already-verified', message: 'メールアドレスは既に認証済みです');
+      throw FirebaseAuthException(
+        code: 'already-verified',
+        message: 'メールアドレスは既に認証済みです',
+      );
     }
     await user.sendEmailVerification();
   }
@@ -332,9 +298,10 @@ class AuthService {
     if (!isValidCITEmail(normalizedNew)) {
       throw FirebaseAuthException(
         code: 'invalid-email',
-        message: !AppConstants.isValidEmailLocalPart(normalizedNew)
-            ? AppConstants.errorEmailLocalPart
-            : AppConstants.errorInvalidDomain,
+        message:
+            !AppConstants.isValidEmailLocalPart(normalizedNew)
+                ? AppConstants.errorEmailLocalPart
+                : AppConstants.errorInvalidDomain,
       );
     }
     if (normalizedNew.toLowerCase() == currentEmail.toLowerCase()) {

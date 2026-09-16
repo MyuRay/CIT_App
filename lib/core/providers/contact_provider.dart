@@ -3,20 +3,27 @@ import '../../models/admin/admin_model.dart';
 import '../../services/contact/contact_service.dart';
 
 // お問い合わせ一覧プロバイダー
-final allContactsProvider = StreamProvider.family<List<ContactForm>, ContactFilter>((ref, filter) {
-  return ContactService.getAllContacts(
-    statusFilter: filter.statusFilter,
-    categoryFilter: filter.categoryFilter,
-  );
-});
+final allContactsProvider =
+    StreamProvider.family<List<ContactForm>, ContactFilter>((ref, filter) {
+      return ContactService.getAllContacts(
+        statusFilter: filter.statusFilter,
+        categoryFilter: filter.categoryFilter,
+      );
+    });
 
 // 特定のお問い合わせ詳細プロバイダー
-final contactDetailProvider = FutureProvider.family<ContactForm?, String>((ref, contactId) {
+final contactDetailProvider = FutureProvider.family<ContactForm?, String>((
+  ref,
+  contactId,
+) {
   return ContactService.getContactById(contactId);
 });
 
 // ユーザーのお問い合わせプロバイダー
-final userContactsProvider = StreamProvider.family<List<ContactForm>, String>((ref, userId) {
+final userContactsProvider = StreamProvider.family<List<ContactForm>, String>((
+  ref,
+  userId,
+) {
   return ContactService.getUserContacts(userId);
 });
 
@@ -40,15 +47,9 @@ class ContactFilter {
   final String? statusFilter;
   final String? categoryFilter;
 
-  const ContactFilter({
-    this.statusFilter,
-    this.categoryFilter,
-  });
+  const ContactFilter({this.statusFilter, this.categoryFilter});
 
-  ContactFilter copyWith({
-    String? statusFilter,
-    String? categoryFilter,
-  }) {
+  ContactFilter copyWith({String? statusFilter, String? categoryFilter}) {
     return ContactFilter(
       statusFilter: statusFilter ?? this.statusFilter,
       categoryFilter: categoryFilter ?? this.categoryFilter,
@@ -79,19 +80,19 @@ class ContactActions {
       subject: subject,
       message: message,
     );
-    
+
     // 関連プロバイダーを更新
     ref.invalidate(allContactsProvider);
     ref.invalidate(contactStatsProvider);
     ref.invalidate(contactCategoryStatsProvider);
-    
+
     return contactId;
   }
 
   // ステータスを更新
   Future<void> updateStatus(String contactId, String newStatus) async {
     await ContactService.updateContactStatus(contactId, newStatus);
-    
+
     // 関連プロバイダーを更新
     ref.invalidate(allContactsProvider);
     ref.invalidate(contactDetailProvider(contactId));
@@ -104,7 +105,7 @@ class ContactActions {
       contactId: contactId,
       response: response,
     );
-    
+
     // 関連プロバイダーを更新
     ref.invalidate(allContactsProvider);
     ref.invalidate(contactDetailProvider(contactId));
@@ -114,7 +115,7 @@ class ContactActions {
   // お問い合わせを削除
   Future<void> deleteContact(String contactId) async {
     await ContactService.deleteContact(contactId);
-    
+
     // 関連プロバイダーを更新
     ref.invalidate(allContactsProvider);
     ref.invalidate(contactStatsProvider);

@@ -15,9 +15,11 @@ firebase deploy --only functions:getUserGrowthStats
 
 ## 確認方法
 
-### 1. ブラウザで直接確認
+### 1. Flutterアプリから確認（推奨）
 
-デプロイ後、以下のURLにアクセスするとJSON形式でデータが表示されます：
+メール認証済みの管理者としてログインし、**管理者ダッシュボード** → **ダッシュボード**の「ユーザー数推移」を確認します。アプリはFirebase AuthのIDトークンをリクエストに付与します。
+
+APIは以下のURLで、管理者認証付きのGETを受け付けます。ブラウザのアドレス欄から開くだけでは認証情報が付かないため、401になります。
 
 ```
 https://us-central1-cit-app-2de1c.cloudfunctions.net/getUserGrowthStats
@@ -25,18 +27,13 @@ https://us-central1-cit-app-2de1c.cloudfunctions.net/getUserGrowthStats
 
 ### 2. curlコマンドで確認
 
-ターミナルで以下のコマンドを実行：
+検証用の管理者IDトークンを環境変数 `ADMIN_ID_TOKEN` に設定した場合の例です。トークンをソースコード・URLクエリ・ログへ書き込まないでください。
 
 ```bash
-curl https://us-central1-cit-app-2de1c.cloudfunctions.net/getUserGrowthStats
+curl -H "Authorization: Bearer $ADMIN_ID_TOKEN" https://us-central1-cit-app-2de1c.cloudfunctions.net/getUserGrowthStats
 ```
 
-### 3. Flutterアプリ内で確認
-
-1. アプリを起動
-2. 管理者権限でログイン
-3. **管理者ダッシュボード** → **ダッシュボード**タブ
-4. 「ユーザー数推移」カードを確認
+IDトークンの有効性・失効状態、許可した大学ドメイン、メール認証、`admin_permissions/{uid}.isAdmin == true` をサーバー側で確認します。未認証は401、権限不足は403、GET以外の処理要求は405、権限情報を取得できない場合は503です。OPTIONSは事前確認用に許可します。
 
 ### 4. Firebase Consoleで確認
 

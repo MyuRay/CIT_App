@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 import '../../../models/community/chiba_channel_comment.dart';
@@ -40,20 +41,21 @@ class ChibaChannelReplyChainSheet extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.55,
-        minChildSize: 0.35,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) {
-          return ChibaChannelReplyChainSheet(
-            chain: chain,
-            threadAuthorId: threadAuthorId,
-            highlightCommentNumber: anchorNumber,
-            scrollController: scrollController,
-          );
-        },
-      ),
+      builder:
+          (context) => DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.55,
+            minChildSize: 0.35,
+            maxChildSize: 0.9,
+            builder: (context, scrollController) {
+              return ChibaChannelReplyChainSheet(
+                chain: chain,
+                threadAuthorId: threadAuthorId,
+                highlightCommentNumber: anchorNumber,
+                scrollController: scrollController,
+              );
+            },
+          ),
     );
   }
 
@@ -96,9 +98,9 @@ class ChibaChannelReplyChainSheet extends StatelessWidget {
             controller: scrollController,
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             itemCount: chain.length,
-            separatorBuilder: (context, index) => _ChainConnector(
-              isLast: index == chain.length - 1,
-            ),
+            separatorBuilder:
+                (context, index) =>
+                    _ChainConnector(isLast: index == chain.length - 1),
             itemBuilder: (context, index) {
               final comment = chain[index];
               final isHighlighted =
@@ -131,17 +133,14 @@ class _ChainConnector extends StatelessWidget {
           Icon(
             Icons.arrow_downward,
             size: 16,
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
           const SizedBox(width: 6),
           Text(
             '返信',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.45),
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -164,19 +163,21 @@ class _ChainCommentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isThreadOwner = threadAuthorId.isNotEmpty &&
-        comment.authorId == threadAuthorId;
+    final isThreadOwner =
+        threadAuthorId.isNotEmpty && comment.authorId == threadAuthorId;
 
     return Container(
       decoration: BoxDecoration(
-        color: isHighlighted
-            ? const Color(0xFF4CAF50).withValues(alpha: 0.1)
-            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        color:
+            isHighlighted
+                ? const Color(0xFF4CAF50).withValues(alpha: 0.1)
+                : colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isHighlighted
-              ? const Color(0xFF4CAF50).withValues(alpha: 0.45)
-              : colorScheme.outlineVariant.withValues(alpha: 0.4),
+          color:
+              isHighlighted
+                  ? const Color(0xFF4CAF50).withValues(alpha: 0.45)
+                  : colorScheme.outlineVariant.withValues(alpha: 0.4),
         ),
       ),
       padding: const EdgeInsets.all(12),
@@ -189,7 +190,7 @@ class _ChainCommentCard extends StatelessWidget {
                 '${comment.commentNumber}',
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: const Color(0xFF2E7D32),
+                  color: AppColors.accent(context, const Color(0xFF2E7D32)),
                 ),
               ),
               const SizedBox(width: 8),
@@ -203,7 +204,7 @@ class _ChainCommentCard extends StatelessWidget {
               Text(
                 comment.displayIdLabel,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: const Color(0xFF2E7D32),
+                  color: AppColors.accent(context, const Color(0xFF2E7D32)),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -215,7 +216,7 @@ class _ChainCommentCard extends StatelessWidget {
               Text(
                 formatCommunityRelativeTime(comment.createdAt),
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.55),
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -225,7 +226,7 @@ class _ChainCommentCard extends StatelessWidget {
             Text(
               '>>${comment.inReplyToCommentNumber}',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: const Color(0xFF1565C0),
+                color: AppColors.accent(context, const Color(0xFF1565C0)),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -235,7 +236,7 @@ class _ChainCommentCard extends StatelessWidget {
             Text(
               '[${ChibaChannelComment.deletedMessage}]',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurface.withValues(alpha: 0.45),
+                color: colorScheme.onSurfaceVariant,
                 fontStyle: FontStyle.italic,
               ),
             )
@@ -249,8 +250,7 @@ class _ChainCommentCard extends StatelessWidget {
               const SizedBox(height: 8),
               CwitterPostImagesGrid(
                 imageUrls: comment.imageUrls,
-                heroTagPrefix:
-                    'chibaChain_${comment.threadId}_${comment.id}',
+                heroTagPrefix: 'chibaChain_${comment.threadId}_${comment.id}',
               ),
             ],
           ],
@@ -271,12 +271,12 @@ class _MiniThreadOwnerBadge extends StatelessWidget {
         color: const Color(0xFF1565C0).withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(5),
       ),
-      child: const Text(
+      child: Text(
         'スレ主',
         style: TextStyle(
           fontSize: 9,
           fontWeight: FontWeight.bold,
-          color: Color(0xFF1565C0),
+          color: AppColors.accent(context, Color(0xFF1565C0)),
         ),
       ),
     );

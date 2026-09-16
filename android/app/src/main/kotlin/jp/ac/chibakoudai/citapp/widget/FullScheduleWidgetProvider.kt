@@ -85,18 +85,21 @@ class FullScheduleWidgetProvider : HomeWidgetProvider() {
 
             if (weekly != null && weekly.isNotEmpty()) {
                 val obj = JSONObject(weekly)
-                // 高さ変更時は最大高さを優先して情報量を増やす
+                // Use the smaller orientation so rows fit in portrait too.
                 val maxHeightDp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN && options != null) {
-                    options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 400)
+                    options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 340)
                 } else 400
                 val densitySlots = getMaxSlotsForHeight(maxHeightDp)
                 val showEmptyRows = densitySlots >= 6
                 // 科目名が潰れにくいよう、教室表示はかなり高い時だけ有効化
                 val showRoom = densitySlots >= 9
                 // タイトル/曜日行ぶんを引いた残りを10限で割って、縦を使い切る行高を算出
-                val estimatedHeaderDp = 34
+                val estimatedHeaderDp = (36 + 20 * context.resources.configuration.fontScale.coerceAtLeast(1f)).toInt()
+                val needsResize = maxHeightDp < estimatedHeaderDp + 24 * MAX_PERIODS + ROW_GAP_DP * (MAX_PERIODS - 1)
+                views.setViewVisibility(R.id.weekly_grid, if (needsResize) android.view.View.GONE else android.view.View.VISIBLE)
+                views.setViewVisibility(R.id.weekly_resize_hint, if (needsResize) android.view.View.VISIBLE else android.view.View.GONE)
                 val slotHeightDp = ((maxHeightDp - estimatedHeaderDp - (ROW_GAP_DP * (MAX_PERIODS - 1))) / MAX_PERIODS)
-                    .coerceIn(16, 56)
+                    .coerceIn(24, 64)
                 populateWeekly(
                     context,
                     views,
@@ -151,7 +154,7 @@ class FullScheduleWidgetProvider : HomeWidgetProvider() {
 
         views.removeAllViews(periodsListId)
         for (period in 1..MAX_PERIODS) {
-            views.addView(periodsListId, createPeriodRow(context, period, slotHeightDp))
+            views.addView(periodsListId, createPeriodRow(context, period, slotHeightDp, weekly))
         }
 
         for (i in weekdays.indices) {
@@ -242,9 +245,10 @@ class FullScheduleWidgetProvider : HomeWidgetProvider() {
         val row = RemoteViews(context.packageName, R.layout.item_weekly_class)
         val subject = item.optString("subject", "")
         val room = item.optString("classroom", "")
+        val showClassroom = showRoom && room.isNotEmpty() && blockMinHeightDp(blockSpan, slotHeightDp) >= 42
         val colorHex = item.optString("color", "#2196F3")
         row.setTextViewText(R.id.text_subject, subject)
-        if (showRoom && room.isNotEmpty()) {
+        if (showClassroom) {
             row.setTextViewText(R.id.text_room, room)
             row.setViewVisibility(R.id.text_room, android.view.View.VISIBLE)
         } else {
@@ -257,9 +261,10 @@ class FullScheduleWidgetProvider : HomeWidgetProvider() {
         }
         row.setInt(R.id.item_root, "setBackgroundColor", bgColor)
         row.setViewVisibility(R.id.color_dot, android.view.View.GONE)
-        // ユーザー要望: 講義情報テキストは黒固定
-        row.setTextColor(R.id.text_subject, Color.BLACK)
-        row.setTextColor(R.id.text_room, Color.BLACK)
+        // 任意の講義色でも文字の明暗差を保つ。
+        val textColor = if (androidx.core.graphics.ColorUtils.calculateLuminance(bgColor) > 0.179) Color.BLACK else Color.WHITE
+        row.setTextColor(R.id.text_subject, textColor)
+        row.setTextColor(R.id.text_room, textColor)
 
         // 連続コマ数に応じて高さを拡張し、下側に余白が余りにくくする
         row.setInt(
@@ -267,6 +272,11 @@ class FullScheduleWidgetProvider : HomeWidgetProvider() {
             "setMinimumHeight",
             dpToPx(context, blockMinHeightDp(blockSpan, slotHeightDp))
         )
+        // Match the time column exactly, even when a long subject wraps.
+        val roomHeight = if (showClassroom) 14 else 0
+        row.setInt(R.id.text_subject, "setHeight", dpToPx(context,
+            blockMinHeightDp(blockSpan, slotHeightDp) - 4 - roomHeight))
+        row.setInt(R.id.text_room, "setHeight", dpToPx(context, roomHeight))
 
         val intent = Intent(context, MainActivity::class.java)
         intent.putExtra("open_schedule", true)
@@ -291,6 +301,7 @@ class FullScheduleWidgetProvider : HomeWidgetProvider() {
     ): RemoteViews {
         val row = RemoteViews(context.packageName, R.layout.item_weekly_class_empty)
         row.setTextViewText(R.id.text_subject, "[$period] —")
+        row.setInt(R.id.text_subject, "setHeight", dpToPx(context, blockMinHeightDp(blockSpan, slotHeightDp) - 4))
         row.setInt(
             R.id.item_root,
             "setMinimumHeight",
@@ -326,14 +337,18 @@ class FullScheduleWidgetProvider : HomeWidgetProvider() {
         return row
     }
 
-    private fun createPeriodRow(context: Context, period: Int, slotHeightDp: Int): RemoteViews {
+    private fun createPeriodRow(context: Context, period: Int, slotHeightDp: Int, weekly: JSONObject): RemoteViews {
         val row = RemoteViews(context.packageName, R.layout.item_weekly_period)
-        row.setTextViewText(R.id.text_period, "${period}限")
+        val (start, end) = WidgetSnapshot.periodTimes(weekly, period)
+        row.setTextViewText(R.id.text_period, "$period")
+        row.setTextViewText(R.id.text_time, WidgetSnapshot.timeLabel(start, end, "\n"))
+        row.setContentDescription(R.id.item_root, "${period}限、${WidgetSnapshot.timeLabel(start, end)}")
         row.setInt(
             R.id.text_period,
-            "setMinHeight",
+            "setHeight",
             dpToPx(context, blockMinHeightDp(1, slotHeightDp))
         )
+        row.setInt(R.id.text_time, "setHeight", dpToPx(context, slotHeightDp))
         return row
     }
 }

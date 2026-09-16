@@ -1,0 +1,16 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "jp.ac.chibakoudai.citapp",
+      "sha256_cert_fingerprints": [
+        "09:32:CC:76:50:95:55:69:2A:1D:E2:1F:77:17:86:F1:7C:F2:3C:5D:AC:A7:B6:D3:9A:EE:4E:3F:A9:DD:94:C9",
+        "D3:F5:AB:C7:DE:8C:2E:7E:31:F1:0E:4D:0C:E2:18:65:4B:BE:1E:A4:7C:E8:47:A0:49:84:D4:38:D5:E8:AB:ED",
+        "9F:B8:0A:B1:B5:E0:0A:68:A0:38:16:04:11:5C:72:FD:4F:75:4A:8A:36:F7:5C:23:EE:16:9E:64:81:A7:11:EA"
+      ]
+    }
+  }
+]

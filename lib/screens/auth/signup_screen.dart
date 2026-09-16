@@ -1,16 +1,19 @@
+import 'dart:async';
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/providers/email_registration_provider.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/legal_consent_provider.dart';
 import '../../core/constants/app_constants.dart';
-import '../../core/providers/settings_provider.dart';
+import '../../services/auth/email_registration.dart';
 import 'widgets/auth_components.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
-  const SignUpScreen({super.key});
-
+  const SignUpScreen({super.key, this.emailLink, this.completing = false});
+  final String? emailLink;
+  final bool completing;
   @override
   ConsumerState<SignUpScreen> createState() => _SignUpScreenState();
 }
@@ -21,269 +24,380 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  bool _isLoading = false;
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
-  bool _agreedTerms = false;
-  bool _agreedPrivacy = false;
+  final _linkController = TextEditingController();
+  bool _isLoading = false,
+      _obscurePassword = true,
+      _obscureConfirmPassword = true;
+  bool _agreedTerms = false, _agreedPrivacy = false;
+  String? _sentTo;
+  int _cooldown = 0;
+  Timer? _resendTimer;
+  bool get _completing => widget.completing || widget.emailLink != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final registration = ref.read(emailRegistrationServiceProvider);
+    final pending = registration.pendingEmail;
+    _emailController.text =
+        pending ?? registration.auth.currentUser?.email ?? '';
+    _displayNameController.text =
+        registration.auth.currentUser?.displayName ?? '';
+    if (!_completing) _sentTo = pending;
+  }
 
   @override
   void dispose() {
-    _displayNameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
+    _resendTimer?.cancel();
+    for (final controller in [
+      _displayNameController,
+      _emailController,
+      _passwordController,
+      _confirmPasswordController,
+      _linkController,
+    ]) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
-  bool get _canSubmit => _agreedTerms && _agreedPrivacy && !_isLoading;
+  void _message(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
 
-  Future<void> _signUp() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (!_agreedTerms || !_agreedPrivacy) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('利用規約とプライバシーポリシーに同意してください')),
-        );
-      }
+  Future<void> _submit() async {
+    if (_isLoading || !_formKey.currentState!.validate()) return;
+    if (_completing && (!_agreedTerms || !_agreedPrivacy)) {
+      _message('利用規約とプライバシーポリシーに同意してください');
       return;
     }
-
     setState(() => _isLoading = true);
-
+    final service = ref.read(emailRegistrationServiceProvider);
+    final completionState = ref.read(registrationCompletingProvider.notifier);
+    final consentRevision = ref.read(legalConsentRevisionProvider.notifier);
+    if (_completing) completionState.state = true;
     try {
-      final authService = ref.read(authServiceProvider);
-      await authService.signUpWithEmailAndPassword(
-        displayName: _displayNameController.text.trim(),
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
-
-      await ref.read(sharedPreferencesProvider).setString(
-            AppConstants.legalConsentAcceptedVersionKey,
-            AppConstants.currentLegalConsentVersion,
-          );
-      ref.read(legalConsentRevisionProvider.notifier).state++;
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              '確認メールを送信しました。認証完了後にログインし、'
-              '交流タブでCwitter IDを設定してご利用を開始できます。',
-            ),
-            duration: Duration(seconds: 5),
-          ),
+      if (!_completing) {
+        await service.sendLink(_emailController.text);
+        if (!mounted) return;
+        setState(() {
+          _sentTo = _emailController.text.trim();
+          _cooldown = 60;
+        });
+        _resendTimer?.cancel();
+        _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+          if (!mounted || _cooldown <= 1) {
+            timer.cancel();
+            if (mounted) setState(() => _cooldown = 0);
+          } else {
+            setState(() => _cooldown--);
+          }
+        });
+        _message('確認メールを送信しました。メール内のリンクから登録を続けてください。');
+      } else {
+        await service.complete(
+          email: _emailController.text,
+          link: widget.emailLink ?? '',
+          displayName: _displayNameController.text,
+          password: _passwordController.text,
         );
-        // メール認証待ち画面へ遷移
-        context.go('/email-verification');
+        consentRevision.state++;
+        _passwordController.clear();
+        _confirmPasswordController.clear();
+        if (mounted) context.go('/home');
       }
-    } on FirebaseAuthException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message ?? 'アカウント作成に失敗しました')),
-        );
-      }
+    } catch (error) {
+      _message(registrationErrorMessage(error));
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (_completing) completionState.state = false;
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  String? _validateDisplayName(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return '表示名を入力してください';
+  void _usePastedLink() {
+    final link = normalizeRegistrationLink(_linkController.text);
+    if (link == null) {
+      _message('確認メールにある登録リンクを、そのまま貼り付けてください。');
+      return;
     }
-    if (value.trim().length < 2) {
-      return '表示名は2文字以上で入力してください';
-    }
-    return null;
-  }
-
-  String? _validateConfirmPassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'パスワードを再入力してください';
-    }
-    if (value != _passwordController.text) {
-      return AppConstants.errorPasswordMismatch;
-    }
-    return null;
+    context.go(
+      Uri(path: '/signup/complete', queryParameters: {'link': link}).toString(),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      body: GestureDetector(
-        behavior: HitTestBehavior.deferToChild,
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Stack(
-          children: [
-            const AuthBackgroundDecoration(),
-            SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    padding: EdgeInsets.only(
-                      left: 24,
-                      right: 24,
-                      top: 16,
-                      bottom: 24 + MediaQuery.viewInsetsOf(context).bottom,
-                    ),
+    return PopScope(
+      canPop: !_isLoading,
+      child: Scaffold(
+        backgroundColor: theme.colorScheme.surface,
+        body: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Stack(
+            children: [
+              const AuthBackgroundDecoration(),
+              SafeArea(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 24,
+                  ),
+                  child: Center(
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight - 40,
-                      ),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 460),
-                          child: _buildContent(theme),
+                      constraints: const BoxConstraints(maxWidth: 460),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            AuthHeader(
+                              title: _completing ? '登録を完了する' : 'メールアドレスを確認',
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              _completing
+                                  ? 'ステップ 2 / 2　表示名とパスワードを設定'
+                                  : 'ステップ 1 / 2　大学のメールアドレスを確認',
+                              style: theme.textTheme.titleSmall,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              _completing
+                                  ? 'メールを受け取ったアドレスを入力してください。リンクの認証が成功すると、アカウントを作成します。'
+                                  : '確認メールのリンクを開いてからアカウントを作成します。メールを送信しただけでは登録されません。',
+                            ),
+                            const SizedBox(height: 18),
+                            AllowedEmailInfoCard(
+                              headline: '千葉工業大学のメールアドレスで登録できます',
+                              domains: AppConstants.signupAllowedDomains,
+                            ),
+                            const SizedBox(height: 18),
+                            AuthTextField(
+                              controller: _emailController,
+                              hintText: 'CITメールアドレス',
+                              prefixIcon: Icons.alternate_email,
+                              keyboardType: TextInputType.emailAddress,
+                              textInputAction:
+                                  _completing
+                                      ? TextInputAction.next
+                                      : TextInputAction.done,
+                              enabled: !_isLoading,
+                              autocorrect: false,
+                              inputFormatters:
+                                  AppConstants.citEmailInputFormatters,
+                              validator: AppConstants.validateCitEmailForSignup,
+                            ),
+                            if (_completing) ...[
+                              const SizedBox(height: 12),
+                              AuthTextField(
+                                controller: _displayNameController,
+                                hintText: '表示名（掲示板・レビューなどに表示）',
+                                prefixIcon: Icons.person_outline,
+                                enabled: !_isLoading,
+                                textInputAction: TextInputAction.next,
+                                validator:
+                                    (value) =>
+                                        (value?.trim().length ?? 0) < 2
+                                            ? '表示名は2文字以上で入力してください'
+                                            : null,
+                              ),
+                              const SizedBox(height: 12),
+                              AuthTextField(
+                                controller: _passwordController,
+                                hintText: 'パスワード',
+                                prefixIcon: Icons.lock_outline,
+                                obscureText: _obscurePassword,
+                                enabled: !_isLoading,
+                                autocorrect: false,
+                                textInputAction: TextInputAction.next,
+                                inputFormatters:
+                                    AppConstants.passwordInputFormatters,
+                                validator: AppConstants.validatePassword,
+                                suffixIcon: IconButton(
+                                  tooltip:
+                                      _obscurePassword
+                                          ? 'パスワードを表示'
+                                          : 'パスワードを非表示',
+                                  onPressed:
+                                      () => setState(
+                                        () =>
+                                            _obscurePassword =
+                                                !_obscurePassword,
+                                      ),
+                                  icon: Icon(
+                                    _obscurePassword
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              AuthTextField(
+                                controller: _confirmPasswordController,
+                                hintText: 'パスワード（確認）',
+                                prefixIcon: Icons.lock_outline,
+                                obscureText: _obscureConfirmPassword,
+                                enabled: !_isLoading,
+                                autocorrect: false,
+                                textInputAction: TextInputAction.done,
+                                inputFormatters:
+                                    AppConstants.passwordInputFormatters,
+                                validator:
+                                    (value) =>
+                                        value != _passwordController.text ||
+                                                (value?.isEmpty ?? true)
+                                            ? AppConstants.errorPasswordMismatch
+                                            : null,
+                                suffixIcon: IconButton(
+                                  tooltip:
+                                      _obscureConfirmPassword
+                                          ? 'パスワードを表示'
+                                          : 'パスワードを非表示',
+                                  onPressed:
+                                      () => setState(
+                                        () =>
+                                            _obscureConfirmPassword =
+                                                !_obscureConfirmPassword,
+                                      ),
+                                  icon: Icon(
+                                    _obscureConfirmPassword
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              _PasswordRecommendationNote(),
+                              const SizedBox(height: 12),
+                              Text(
+                                '登録済みのメールアドレスの場合は、アカウントを引き継ぎ、入力したパスワードに更新します。',
+                                style: theme.textTheme.bodySmall,
+                              ),
+                              const SizedBox(height: 12),
+                              _AgreementCheckboxRow(
+                                value: _agreedTerms,
+                                enabled: !_isLoading,
+                                onChanged:
+                                    (v) => setState(() => _agreedTerms = v),
+                                linkLabel: '利用規約',
+                                suffixLabel: 'に同意します',
+                                onTapLink: () => context.push('/terms'),
+                              ),
+                              _AgreementCheckboxRow(
+                                value: _agreedPrivacy,
+                                enabled: !_isLoading,
+                                onChanged:
+                                    (v) => setState(() => _agreedPrivacy = v),
+                                linkLabel: 'プライバシーポリシー',
+                                suffixLabel: 'に同意します',
+                                onTapLink: () => context.push('/privacy'),
+                              ),
+                            ],
+                            const SizedBox(height: 20),
+                            PrimaryAuthButton(
+                              label:
+                                  _completing
+                                      ? 'メールを認証して登録を完了'
+                                      : _cooldown > 0
+                                      ? '再送まで $_cooldown秒'
+                                      : _sentTo == null
+                                      ? '確認メールを送信'
+                                      : '確認メールを再送',
+                              isLoading: _isLoading,
+                              onPressed:
+                                  _isLoading ||
+                                          (!_completing && _cooldown > 0) ||
+                                          (_completing &&
+                                              (!_agreedTerms ||
+                                                  !_agreedPrivacy))
+                                      ? null
+                                      : _submit,
+                            ),
+                            if (!_completing && _sentTo != null) ...[
+                              const SizedBox(height: 18),
+                              Semantics(
+                                liveRegion: true,
+                                child: Text(
+                                  '$_sentTo に送信しました。受信トレイと迷惑メールを確認してください。',
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              ExpansionTile(
+                                tilePadding: EdgeInsets.zero,
+                                title: const Text('リンクからアプリが開かない場合'),
+                                children: [
+                                  const Text(
+                                    'メールの登録リンクを長押ししてコピーし、ここに貼り付けてください。送信先と同じメールアドレスで続けます。',
+                                  ),
+                                  const SizedBox(height: 10),
+                                  TextField(
+                                    controller: _linkController,
+                                    autocorrect: false,
+                                    enableSuggestions: false,
+                                    decoration: const InputDecoration(
+                                      labelText: 'メールの登録リンク',
+                                    ),
+                                    minLines: 1,
+                                    maxLines: 3,
+                                  ),
+                                  TextButton(
+                                    onPressed:
+                                        _isLoading ? null : _usePastedLink,
+                                    child: const Text('貼り付けたリンクで続ける'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            const SizedBox(height: 24),
+                            if (ref
+                                    .read(emailRegistrationServiceProvider)
+                                    .auth
+                                    .currentUser !=
+                                null)
+                              TextButton(
+                                onPressed:
+                                    _isLoading
+                                        ? null
+                                        : () async {
+                                          await ref
+                                              .read(authServiceProvider)
+                                              .signOut();
+                                          if (context.mounted) {
+                                            context.go('/login');
+                                          }
+                                        },
+                                child: const Text('いったんログアウトする'),
+                              ),
+                            if (_completing)
+                              TextButton(
+                                onPressed:
+                                    _isLoading
+                                        ? null
+                                        : () => context.go('/signup'),
+                                child: const Text('新しい確認メールを送る'),
+                              ),
+                            AuthNavigationCard(
+                              label: 'すでにアカウントをお持ちの方はこちら',
+                              emphasizeText: true,
+                              onTap:
+                                  _isLoading
+                                      ? null
+                                      : () => context.go('/login'),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  );
-                },
+                  ),
+                ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildContent(ThemeData theme) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 550),
-      curve: Curves.easeOutCubic,
-      builder: (context, t, child) {
-        return Opacity(
-          opacity: t,
-          child: Transform.translate(
-            offset: Offset(0, (1 - t) * 26),
-            child: child,
+            ],
           ),
-        );
-      },
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SizedBox(height: 8),
-            const AuthHeader(title: 'アカウント作成'),
-            const SizedBox(height: 28),
-            AllowedEmailInfoCard(
-              headline: '千葉工業大学のメールアドレスのみ登録可能です',
-              domains: AppConstants.signupAllowedDomains,
-            ),
-            const SizedBox(height: 12),
-            const CwitterInfoCard(),
-            const SizedBox(height: 22),
-            AuthTextField(
-              controller: _displayNameController,
-              hintText: '表示名（掲示板、学食レビュー、交流機能に表示されます）',
-              prefixIcon: Icons.person_outline,
-              textInputAction: TextInputAction.next,
-              enabled: !_isLoading,
-              validator: _validateDisplayName,
-            ),
-            const SizedBox(height: 12),
-            AuthTextField(
-              controller: _emailController,
-              hintText: 'CITメールアドレス',
-              prefixIcon: Icons.mail_outline,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-              enabled: !_isLoading,
-              autocorrect: false,
-              inputFormatters: AppConstants.citEmailInputFormatters,
-              validator: AppConstants.validateCitEmailForSignup,
-            ),
-            const SizedBox(height: 12),
-            AuthTextField(
-              controller: _passwordController,
-              hintText: 'パスワード',
-              prefixIcon: Icons.lock_outline,
-              obscureText: _obscurePassword,
-              textInputAction: TextInputAction.next,
-              enabled: !_isLoading,
-              autocorrect: false,
-              inputFormatters: AppConstants.passwordInputFormatters,
-              validator: AppConstants.validatePassword,
-              suffixIcon: IconButton(
-                tooltip: _obscurePassword ? 'パスワードを表示' : 'パスワードを非表示',
-                icon: Icon(
-                  _obscurePassword
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                ),
-                onPressed: () =>
-                    setState(() => _obscurePassword = !_obscurePassword),
-              ),
-            ),
-            const SizedBox(height: 12),
-            AuthTextField(
-              controller: _confirmPasswordController,
-              hintText: 'パスワード（確認）',
-              prefixIcon: Icons.lock_outline,
-              obscureText: _obscureConfirmPassword,
-              textInputAction: TextInputAction.done,
-              enabled: !_isLoading,
-              autocorrect: false,
-              inputFormatters: AppConstants.passwordInputFormatters,
-              validator: _validateConfirmPassword,
-              suffixIcon: IconButton(
-                tooltip:
-                    _obscureConfirmPassword ? 'パスワードを表示' : 'パスワードを非表示',
-                icon: Icon(
-                  _obscureConfirmPassword
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                ),
-                onPressed: () => setState(
-                  () => _obscureConfirmPassword = !_obscureConfirmPassword,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _PasswordRecommendationNote(),
-            const SizedBox(height: 16),
-            _AgreementCheckboxRow(
-              value: _agreedTerms,
-              enabled: !_isLoading,
-              onChanged: (v) => setState(() => _agreedTerms = v),
-              linkLabel: '利用規約',
-              suffixLabel: 'に同意します',
-              onTapLink: () => context.push('/terms'),
-            ),
-            _AgreementCheckboxRow(
-              value: _agreedPrivacy,
-              enabled: !_isLoading,
-              onChanged: (v) => setState(() => _agreedPrivacy = v),
-              linkLabel: 'プライバシーポリシー',
-              suffixLabel: 'に同意します',
-              onTapLink: () => context.push('/privacy'),
-            ),
-            const SizedBox(height: 22),
-            PrimaryAuthButton(
-              label: 'アカウントを作成',
-              isLoading: _isLoading,
-              onPressed: _canSubmit ? _signUp : null,
-            ),
-            const SizedBox(height: 22),
-            const AuthDivider(),
-            const SizedBox(height: 22),
-            AuthNavigationCard(
-              label: 'すでにアカウントをお持ちの方はこちら',
-              emphasizeText: true,
-              onTap: _isLoading ? null : () => context.go('/login'),
-            ),
-            const SizedBox(height: 12),
-          ],
         ),
       ),
     );
@@ -301,11 +415,7 @@ class _PasswordRecommendationNote extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.info_outline,
-            size: 16,
-            color: theme.colorScheme.primary,
-          ),
+          Icon(Icons.info_outline, size: 16, color: theme.colorScheme.primary),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -358,7 +468,7 @@ class _AgreementCheckboxRow extends StatelessWidget {
               child: Checkbox(
                 value: value,
                 onChanged: enabled ? (v) => onChanged(v ?? false) : null,
-                activeColor: AuthPalette.green,
+                activeColor: AuthPalette.greenDark,
                 checkColor: Colors.white,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 shape: RoundedRectangleBorder(
@@ -376,17 +486,22 @@ class _AgreementCheckboxRow extends StatelessWidget {
                     child: Text(
                       linkLabel,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: AuthPalette.greenDark,
+                        color: AppColors.accent(context, AuthPalette.greenDark),
                         fontWeight: FontWeight.w700,
                         decoration: TextDecoration.underline,
-                        decorationColor: AuthPalette.greenDark,
+                        decorationColor: AppColors.accent(
+                          context,
+                          AuthPalette.greenDark,
+                        ),
                       ),
                     ),
                   ),
                   Text(
                     suffixLabel,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.85,
+                      ),
                     ),
                   ),
                 ],

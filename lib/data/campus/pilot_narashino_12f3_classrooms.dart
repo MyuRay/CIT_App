@@ -16,13 +16,7 @@ const List<CampusClassroomLocation> pilotNarashinoBuilding12Floor3 = [
     buildingDisplayName: '12号館',
     floor: 3,
     roomCode: '工作実習室',
-    searchTerms: [
-      '工作実習室',
-      'こうさくじっしつ',
-      '工作',
-      '12号館 工作実習室',
-      '12号館3階工作実習室',
-    ],
+    searchTerms: ['工作実習室', 'こうさくじっしつ', '工作', '12号館 工作実習室', '12号館3階工作実習室'],
     pinX: 0.27,
     pinY: 0.17,
     description: '12号館3階・工作実習室',
@@ -78,7 +72,6 @@ const List<CampusClassroomLocation> pilotNarashinoBuilding12Floor3 = [
 List<CampusClassroomLocation> searchPilotNarashino12f3(String query) {
   final q = query.trim().toLowerCase();
   if (q.isEmpty) return const [];
-  bool matches(CampusClassroomLocation r) =>
-      pilotLocationMatchesQuery(r, q);
+  bool matches(CampusClassroomLocation r) => pilotLocationMatchesQuery(r, q);
   return pilotNarashinoBuilding12Floor3.where(matches).toList();
 }

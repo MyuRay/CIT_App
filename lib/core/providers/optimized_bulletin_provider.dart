@@ -6,7 +6,8 @@ import '../services/performance_monitor.dart';
 import '../services/simple_offline_service.dart';
 
 /// 最適化された掲示板プロバイダー
-class OptimizedBulletinNotifier extends StateNotifier<AsyncValue<List<BulletinPost>>> 
+class OptimizedBulletinNotifier
+    extends StateNotifier<AsyncValue<List<BulletinPost>>>
     with PerformanceTrackingMixin, SimpleOfflineSupportMixin {
   OptimizedBulletinNotifier() : super(const AsyncValue.loading()) {
     _initialize();
@@ -58,16 +59,13 @@ class OptimizedBulletinNotifier extends StateNotifier<AsyncValue<List<BulletinPo
         .limit(_batchSize);
 
     final snapshot = await query.get(const GetOptions(source: Source.server));
-    
+
     final posts = <BulletinPost>[];
-    
+
     // バッチ処理で効率的に変換
     final futures = snapshot.docs.map((doc) async {
       try {
-        final data = {
-          'id': doc.id,
-          ...doc.data(),
-        };
+        final data = {'id': doc.id, ...doc.data()};
         return BulletinPost.fromJson(data);
       } catch (e) {
         print('❌ 投稿変換エラー (${doc.id}): $e');
@@ -76,7 +74,7 @@ class OptimizedBulletinNotifier extends StateNotifier<AsyncValue<List<BulletinPo
     });
 
     final results = await Future.wait(futures);
-    
+
     for (final post in results) {
       if (post != null) {
         posts.add(post);
@@ -102,19 +100,21 @@ class OptimizedBulletinNotifier extends StateNotifier<AsyncValue<List<BulletinPo
       if (morePosts.isNotEmpty) {
         final updatedPosts = [...currentPosts, ...morePosts];
         state = AsyncValue.data(updatedPosts);
-        
+
         // キャッシュを更新
         final cache = CacheService();
         await cache.setPersistentCache(_cacheKey, updatedPosts, ttl: _cacheTTL);
       }
-    } catch (error, stackTrace) {
+    } catch (error) {
       // エラーでも現在の状態を維持
       print('❌ 追加投稿読み込みエラー: $error');
     }
   }
 
   /// より多くの投稿をFirestoreから取得
-  Future<List<BulletinPost>> _fetchMorePostsFromFirestore(DateTime lastCreatedAt) async {
+  Future<List<BulletinPost>> _fetchMorePostsFromFirestore(
+    DateTime lastCreatedAt,
+  ) async {
     final firestore = FirebaseFirestore.instance;
 
     final query = firestore
@@ -126,15 +126,12 @@ class OptimizedBulletinNotifier extends StateNotifier<AsyncValue<List<BulletinPo
         .limit(_batchSize);
 
     final snapshot = await query.get();
-    
+
     final posts = <BulletinPost>[];
-    
+
     for (final doc in snapshot.docs) {
       try {
-        final data = {
-          'id': doc.id,
-          ...doc.data(),
-        };
+        final data = {'id': doc.id, ...doc.data()};
         final post = BulletinPost.fromJson(data);
         posts.add(post);
       } catch (e) {
@@ -148,23 +145,23 @@ class OptimizedBulletinNotifier extends StateNotifier<AsyncValue<List<BulletinPo
   /// カテゴリ別の投稿を取得
   List<BulletinPost> getPostsByCategory(String? categoryId) {
     if (state is! AsyncData<List<BulletinPost>>) return [];
-    
+
     final posts = state.value!;
-    
+
     if (categoryId == null) {
       return posts;
     }
-    
+
     return posts.where((post) => post.category.id == categoryId).toList();
   }
 
   /// 検索機能
   List<BulletinPost> searchPosts(String query) {
     if (state is! AsyncData<List<BulletinPost>>) return [];
-    
+
     final posts = state.value!;
     final lowercaseQuery = query.toLowerCase();
-    
+
     return posts.where((post) {
       return post.title.toLowerCase().contains(lowercaseQuery) ||
           post.description.toLowerCase().contains(lowercaseQuery) ||
@@ -175,7 +172,7 @@ class OptimizedBulletinNotifier extends StateNotifier<AsyncValue<List<BulletinPo
   /// ピン留めされた投稿を取得
   List<BulletinPost> getPinnedPosts() {
     if (state is! AsyncData<List<BulletinPost>>) return [];
-    
+
     final posts = state.value!;
     return posts.where((post) => post.isPinned).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -184,10 +181,10 @@ class OptimizedBulletinNotifier extends StateNotifier<AsyncValue<List<BulletinPo
   /// 新着投稿を取得（24時間以内）
   List<BulletinPost> getRecentPosts() {
     if (state is! AsyncData<List<BulletinPost>>) return [];
-    
+
     final posts = state.value!;
     final yesterday = DateTime.now().subtract(const Duration(days: 1));
-    
+
     return posts.where((post) => post.createdAt.isAfter(yesterday)).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
@@ -199,15 +196,19 @@ class OptimizedBulletinNotifier extends StateNotifier<AsyncValue<List<BulletinPo
 }
 
 /// 最適化された掲示板プロバイダー
-final optimizedBulletinProvider = StateNotifierProvider<OptimizedBulletinNotifier, AsyncValue<List<BulletinPost>>>((ref) {
+final optimizedBulletinProvider = StateNotifierProvider<
+  OptimizedBulletinNotifier,
+  AsyncValue<List<BulletinPost>>
+>((ref) {
   return OptimizedBulletinNotifier();
 });
 
 /// カテゴリ別投稿プロバイダー
-final bulletinPostsByCategoryProvider = Provider.family<List<BulletinPost>, String?>((ref, categoryId) {
-  final notifier = ref.read(optimizedBulletinProvider.notifier);
-  return notifier.getPostsByCategory(categoryId);
-});
+final bulletinPostsByCategoryProvider =
+    Provider.family<List<BulletinPost>, String?>((ref, categoryId) {
+      final notifier = ref.read(optimizedBulletinProvider.notifier);
+      return notifier.getPostsByCategory(categoryId);
+    });
 
 /// ピン留め投稿プロバイダー
 final pinnedBulletinPostsProvider = Provider<List<BulletinPost>>((ref) {
@@ -216,7 +217,10 @@ final pinnedBulletinPostsProvider = Provider<List<BulletinPost>>((ref) {
 });
 
 /// 検索プロバイダー
-final bulletinSearchProvider = Provider.family<List<BulletinPost>, String>((ref, query) {
+final bulletinSearchProvider = Provider.family<List<BulletinPost>, String>((
+  ref,
+  query,
+) {
   final notifier = ref.read(optimizedBulletinProvider.notifier);
   return notifier.searchPosts(query);
 });
@@ -230,26 +234,27 @@ final recentBulletinPostsProvider = Provider<List<BulletinPost>>((ref) {
 /// 掲示板統計プロバイダー
 final bulletinStatsProvider = Provider<BulletinStats?>((ref) {
   final state = ref.watch(optimizedBulletinProvider);
-  
+
   return state.when(
     data: (posts) {
       final categoryStats = <String, int>{};
       int pinnedCount = 0;
       int recentCount = 0;
-      
+
       final yesterday = DateTime.now().subtract(const Duration(days: 1));
-      
+
       for (final post in posts) {
         // カテゴリ別統計
-        categoryStats[post.category.name] = (categoryStats[post.category.name] ?? 0) + 1;
-        
+        categoryStats[post.category.name] =
+            (categoryStats[post.category.name] ?? 0) + 1;
+
         // ピン留め統計
         if (post.isPinned) pinnedCount++;
-        
+
         // 新着統計
         if (post.createdAt.isAfter(yesterday)) recentCount++;
       }
-      
+
       return BulletinStats(
         totalPosts: posts.length,
         categoryStats: categoryStats,

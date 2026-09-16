@@ -1,10 +1,16 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../models/bulletin/bulletin_model.dart';
+import '../../services/bulletin/bulletin_feed_service.dart';
 import 'schedule_provider.dart';
+
+final bulletinFeedServiceProvider = Provider(
+  (ref) => BulletinFeedService(FirebaseFirestore.instance),
+);
 
 class BulletinFeedState {
   const BulletinFeedState({
@@ -43,6 +49,7 @@ class BulletinFeedNotifier extends StateNotifier<BulletinFeedState> {
   BulletinFeedNotifier(this._ref) : super(const BulletinFeedState()) {
     _ref.listen<String?>(currentUserIdProvider, (previous, next) {
       if (previous != next) {
+        state = const BulletinFeedState();
         refresh();
       }
     });
@@ -52,113 +59,87 @@ class BulletinFeedNotifier extends StateNotifier<BulletinFeedState> {
   }
 
   final Ref _ref;
-  QueryDocumentSnapshot<Map<String, dynamic>>? _lastDocument;
+  StreamSubscription<BulletinFeedBatch>? _subscription;
+  Completer<void>? _pending;
+  int _generation = 0;
+  int _recentLimit = AppConstants.postPageSize;
 
-  Future<void> refresh() async {
-    if (_ref.read(currentUserIdProvider) == null) {
-      _lastDocument = null;
-      state = const BulletinFeedState();
-      return;
-    }
-
-    state = state.copyWith(isLoading: true, clearError: true);
-    _lastDocument = null;
-
-    try {
-      final page = await _fetchPage();
-      state = BulletinFeedState(
-        posts: _sortPosts(page.posts),
-        hasMore: page.hasMore,
-      );
-    } catch (error) {
-      state = state.copyWith(isLoading: false, error: error);
-    }
-  }
+  Future<void> refresh() => _watch(AppConstants.postPageSize, refreshing: true);
 
   Future<void> loadMore() async {
     if (_ref.read(currentUserIdProvider) == null) return;
     if (state.isLoading || state.isLoadingMore || !state.hasMore) return;
 
-    state = state.copyWith(isLoadingMore: true, clearError: true);
-    try {
-      final page = await _fetchPage();
-      final merged = _mergePosts(state.posts, page.posts);
+    await _watch(_recentLimit + AppConstants.postPageSize, refreshing: false);
+  }
+
+  Future<void> _watch(int limit, {required bool refreshing}) {
+    final generation = ++_generation;
+    unawaited(_subscription?.cancel());
+    _subscription = null;
+    _finishPending();
+
+    if (_ref.read(currentUserIdProvider) == null) {
+      _recentLimit = AppConstants.postPageSize;
+      state = const BulletinFeedState(hasMore: false);
+      return Future.value();
+    }
+
+    final pending = Completer<void>();
+    _pending = pending;
+    state = state.copyWith(
+      isLoading: refreshing,
+      isLoadingMore: !refreshing,
+      clearError: true,
+    );
+    void fail(Object error) {
+      if (!mounted || generation != _generation) return;
       state = state.copyWith(
-        posts: _sortPosts(merged),
+        isLoading: false,
         isLoadingMore: false,
-        hasMore: page.hasMore,
+        error: error,
       );
+      _finishPending();
+    }
+
+    try {
+      _subscription = _ref
+          .read(bulletinFeedServiceProvider)
+          .watchFeed(recentLimit: limit)
+          .listen((batch) {
+            if (!mounted || generation != _generation) return;
+            _recentLimit = limit;
+            state = BulletinFeedState(
+              posts: batch.posts,
+              hasMore: batch.hasMore,
+            );
+            _finishPending();
+          }, onError: (Object error, StackTrace stack) => fail(error));
     } catch (error) {
-      state = state.copyWith(isLoadingMore: false, error: error);
+      fail(error);
     }
+    return pending.future;
   }
 
-  Future<({List<BulletinPost> posts, bool hasMore})> _fetchPage() async {
-    var query = FirebaseFirestore.instance
-        .collection('bulletin_posts')
-        .where('approvalStatus', isEqualTo: 'approved')
-        .orderBy('createdAt', descending: true)
-        .limit(AppConstants.postPageSize + 1);
-
-    if (_lastDocument != null) {
-      query = query.startAfterDocument(_lastDocument!);
-    }
-
-    final snapshot = await query.get();
-    final docs = snapshot.docs;
-    final hasMore = docs.length > AppConstants.postPageSize;
-    final pageDocs =
-        hasMore ? docs.sublist(0, AppConstants.postPageSize) : docs;
-
-    if (pageDocs.isNotEmpty) {
-      _lastDocument = pageDocs.last;
-    }
-
-    final posts = <BulletinPost>[];
-    for (final doc in pageDocs) {
-      try {
-        final post = BulletinPost.fromJson({'id': doc.id, ...doc.data()});
-        if (post.isActive) {
-          posts.add(post);
-        }
-      } catch (_) {
-        // 壊れたドキュメントはスキップ
-      }
-    }
-
-    return (posts: posts, hasMore: hasMore);
+  void _finishPending() {
+    final pending = _pending;
+    if (pending != null && !pending.isCompleted) pending.complete();
+    _pending = null;
   }
 
-  List<BulletinPost> _mergePosts(
-    List<BulletinPost> current,
-    List<BulletinPost> incoming,
-  ) {
-    if (incoming.isEmpty) return current;
-    final seen = current.map((post) => post.id).toSet();
-    final merged = List<BulletinPost>.from(current);
-    for (final post in incoming) {
-      if (seen.add(post.id)) {
-        merged.add(post);
-      }
-    }
-    return merged;
-  }
-
-  List<BulletinPost> _sortPosts(List<BulletinPost> posts) {
-    final sorted = List<BulletinPost>.from(posts);
-    sorted.sort((a, b) {
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      return b.createdAt.compareTo(a.createdAt);
-    });
-    return sorted;
+  @override
+  void dispose() {
+    _generation++;
+    unawaited(_subscription?.cancel());
+    _finishPending();
+    super.dispose();
   }
 }
 
 final bulletinFeedProvider =
     StateNotifierProvider<BulletinFeedNotifier, BulletinFeedState>((ref) {
-  return BulletinFeedNotifier(ref);
-});
+      return BulletinFeedNotifier(ref);
+    });
 
 /// 読み込み済み掲示板投稿（ページネーション対応）
 final bulletinPostsProvider = Provider<AsyncValue<List<BulletinPost>>>((ref) {
@@ -186,19 +167,19 @@ final bulletinLatestPostCreatedAtProvider = StreamProvider<DateTime?>((ref) {
       .limit(1)
       .snapshots()
       .map((snapshot) {
-    if (snapshot.docs.isEmpty) return null;
-    final createdAt = snapshot.docs.first.data()['createdAt'];
-    if (createdAt is Timestamp) return createdAt.toDate();
-    return null;
-  });
+        if (snapshot.docs.isEmpty) return null;
+        final createdAt = snapshot.docs.first.data()['createdAt'];
+        if (createdAt is Timestamp) return createdAt.toDate();
+        return null;
+      });
 });
 
 final bulletinPostsByCategoryProvider =
     Provider.family<List<BulletinPost>, String?>((ref, categoryId) {
-  final posts = ref.watch(bulletinPostsProvider).valueOrNull ?? const [];
-  if (categoryId == null) return posts;
-  return posts.where((post) => post.category.id == categoryId).toList();
-});
+      final posts = ref.watch(bulletinPostsProvider).valueOrNull ?? const [];
+      if (categoryId == null) return posts;
+      return posts.where((post) => post.category.id == categoryId).toList();
+    });
 
 final pinnedBulletinPostsProvider = Provider<List<BulletinPost>>((ref) {
   final posts = ref.watch(bulletinPostsProvider).valueOrNull ?? const [];

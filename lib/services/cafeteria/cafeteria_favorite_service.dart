@@ -1,107 +1,70 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/cafeteria/cafeteria_favorite_model.dart';
+import '../../models/cafeteria/cafeteria_favorite_target.dart';
 
-/// 学食お気に入り（メニュー / 食堂）用サービス
-///
-/// Firestore パス:
-///   users/{uid}/cafeteria_favorites/{favoriteId}
 class CafeteriaFavoriteService {
-  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  CafeteriaFavoriteService(this.firestore);
+  final FirebaseFirestore firestore;
+  CollectionReference<Map<String, dynamic>> _col(String uid) =>
+      firestore.collection('users').doc(uid).collection('cafeteria_favorites');
+  Stream<List<CafeteriaFavorite>> streamFavorites(String uid) =>
+      _col(uid).snapshots().map(
+        (snap) => uniqueCafeteriaFavorites([
+          for (final doc in snap.docs)
+            CafeteriaFavorite.fromJson({...doc.data(), 'id': doc.id}),
+        ]),
+      );
 
-  static CollectionReference<Map<String, dynamic>> _col(String userId) {
-    return _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('cafeteria_favorites');
-  }
-
-  /// ストリームでユーザーのお気に入り一覧を取得
-  static Stream<List<CafeteriaFavorite>> streamFavorites(String userId) {
-    return _col(userId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snap) => snap.docs
-              .map(
-                (d) => CafeteriaFavorite.fromJson({
-                  'id': d.id,
-                  ...d.data(),
-                }),
-              )
-              .toList(),
-        );
-  }
-
-  /// お気に入りを追加
-  static Future<void> addFavorite({
+  /// Stable IDs prevent repeated adds. Legacy duplicates are all removed, and
+  /// name-only menus are matched by cafeteria plus name, never by null ID alone.
+  Future<void> setFavorite({
     required String userId,
-    required String type, // 'cafeteria' | 'menu'
-    String? cafeteriaId,
-    String? menuItemId,
-    String? menuName,
+    required CafeteriaFavoriteTarget target,
+    required bool enabled,
   }) async {
-    final data = CafeteriaFavorite(
-      id: '',
-      userId: userId,
-      type: type,
-      cafeteriaId: cafeteriaId,
-      menuItemId: menuItemId,
-      menuName: menuName,
-      createdAt: DateTime.now(),
-    ).toJson();
-
-    await _col(userId).add(data);
+    if (userId.isEmpty || !target.isValid) throw ArgumentError('お気に入りの対象が不明です');
+    final collection = _col(userId);
+    final snapshot = await collection.get();
+    final matches =
+        snapshot.docs
+            .where(
+              (doc) => target.matches(
+                CafeteriaFavorite.fromJson({...doc.data(), 'id': doc.id}),
+              ),
+            )
+            .toList();
+    final canonical = collection.doc(target.key);
+    final removals =
+        matches.where((doc) => !enabled || doc.id != canonical.id).toList();
+    // Set first so a failed legacy cleanup cannot lose a saved favorite.
+    if (enabled) {
+      final oldDate =
+          matches.isEmpty ? null : matches.first.data()['createdAt'];
+      await canonical.set({
+        'userId': userId,
+        'type': target.type,
+        'cafeteriaId': target.cafeteriaId,
+        'menuItemId': target.hasMenuId ? target.menuItemId!.trim() : null,
+        'menuName': target.menuName?.trim(),
+        'createdAt':
+            oldDate is Timestamp ? oldDate : FieldValue.serverTimestamp(),
+      });
+    }
+    for (var start = 0; start < removals.length; start += 400) {
+      final batch = firestore.batch();
+      for (final doc in removals.skip(start).take(400)) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
   }
 
-  /// お気に入りを削除（type + target で検索して削除）
-  static Future<void> removeFavorite({
-    required String userId,
-    required String type,
-    String? cafeteriaId,
-    String? menuItemId,
-  }) async {
-    final query = _col(userId)
-        .where('type', isEqualTo: type)
-        .where(
-          type == 'cafeteria' ? 'cafeteriaId' : 'menuItemId',
-          isEqualTo: type == 'cafeteria' ? cafeteriaId : menuItemId,
-        )
-        .limit(1);
-
-    final snap = await query.get();
-    if (snap.docs.isEmpty) return;
-    await snap.docs.first.reference.delete();
-  }
-
-  /// お気に入り状態を確認
-  static Future<bool> isFavorite({
-    required String userId,
-    required String type,
-    String? cafeteriaId,
-    String? menuItemId,
-  }) async {
-    final query = _col(userId)
-        .where('type', isEqualTo: type)
-        .where(
-          type == 'cafeteria' ? 'cafeteriaId' : 'menuItemId',
-          isEqualTo: type == 'cafeteria' ? cafeteriaId : menuItemId,
-        )
-        .limit(1);
-
-    final snap = await query.get();
-    return snap.docs.isNotEmpty;
-  }
-
-  /// 特定メニューをお気に入り登録しているユーザー数を取得
-  static Future<int> getMenuFavoriteUserCount(String menuItemId) async {
-    if (menuItemId.isEmpty) return 0;
-    final aggregate = await _firestore
-        .collectionGroup('cafeteria_favorites')
-        .where('type', isEqualTo: 'menu')
-        .where('menuItemId', isEqualTo: menuItemId)
-        .count()
-        .get();
-    return aggregate.count ?? 0;
-  }
+  Stream<int?> streamFavoriteCount(CafeteriaFavoriteTarget target) => firestore
+      .collection('cafeteria_favorite_stats')
+      .doc(target.key)
+      .snapshots()
+      .map((doc) {
+        final count = doc.data()?['count'];
+        return count is int && count >= 0 ? count : null;
+      });
 }
-

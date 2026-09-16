@@ -61,8 +61,9 @@ String tsudanumaFloorTabLabel(int floor) {
 }
 
 Future<void> _openInGoogleMaps(double lat, double lng) async {
-  final url =
-      Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+  final url = Uri.parse(
+    'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+  );
   if (await canLaunchUrl(url)) {
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
@@ -274,10 +275,9 @@ class _TsudanumaFloorsFullscreenDialogState
                 controller: _pageController,
                 itemCount: widget.floors.length,
                 onPageChanged:
-                    (i) => setState(() => _pageIndex = i.clamp(
-                          0,
-                          widget.floors.length - 1,
-                        )),
+                    (i) => setState(
+                      () => _pageIndex = i.clamp(0, widget.floors.length - 1),
+                    ),
                 itemBuilder: (context, i) {
                   return TsudanumaBuildingFloorFullscreenBody(
                     buildingId: widget.buildingId,
@@ -315,8 +315,10 @@ class TsudanumaBuildingFloorFullscreenBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final path =
-        _tsudanumaLocalFloorAssetOrNull(buildingId: buildingId, floor: floor);
+    final path = _tsudanumaLocalFloorAssetOrNull(
+      buildingId: buildingId,
+      floor: floor,
+    );
     if (path != null) {
       return PanGateInteractiveViewer(
         minScale: 0.55,
@@ -341,15 +343,17 @@ class TsudanumaBuildingFloorFullscreenBody extends ConsumerWidget {
     return floorMapAsync.when(
       data: (mapUrl) => tsudanumaNetworkFloorFullscreen(mapUrl),
       loading:
-          () =>
-              const Center(child: AnimatedImagePlaceholder(width: 120, height: 120)),
-      error: (_, _) => Center(
-        child: Text(
-          'フロアマップの読み込みに失敗しました',
-          style: TextStyle(color: Colors.grey.shade400),
-          textAlign: TextAlign.center,
-        ),
-      ),
+          () => const Center(
+            child: AnimatedImagePlaceholder(width: 120, height: 120),
+          ),
+      error:
+          (_, _) => Center(
+            child: Text(
+              'フロアマップの読み込みに失敗しました',
+              style: TextStyle(color: Colors.grey.shade400),
+              textAlign: TextAlign.center,
+            ),
+          ),
     );
   }
 }
@@ -387,7 +391,8 @@ Widget tsudanumaNetworkFloorFullscreen(String? mapUrl) {
                 return const AnimatedImagePlaceholder(width: 120, height: 120);
               },
               errorBuilder:
-                  (_, __, ___) => Icon(Icons.broken_image, color: Colors.grey.shade500),
+                  (_, __, ___) =>
+                      Icon(Icons.broken_image, color: Colors.grey.shade500),
             );
           } else {
             image = CachedNetworkImage(
@@ -395,11 +400,13 @@ Widget tsudanumaNetworkFloorFullscreen(String? mapUrl) {
               width: cw,
               height: ch,
               fit: BoxFit.contain,
-              placeholder: (_, __) => const Center(
-                child: AnimatedImagePlaceholder(width: 120, height: 120),
-              ),
+              placeholder:
+                  (_, __) => const Center(
+                    child: AnimatedImagePlaceholder(width: 120, height: 120),
+                  ),
               errorWidget:
-                  (_, __, ___) => Icon(Icons.broken_image, color: Colors.grey.shade500),
+                  (_, __, ___) =>
+                      Icon(Icons.broken_image, color: Colors.grey.shade500),
             );
           }
           return Center(child: image);
@@ -449,7 +456,8 @@ Future<void> showTsudanumaBuildingFloorMapsBottomSheet(
                       fewFloors ? TabAlignment.fill : TabAlignment.center,
                   labelColor: Theme.of(sheetContext).colorScheme.primary,
                   tabs: [
-                    for (final f in floors) Tab(text: tsudanumaFloorTabLabel(f)),
+                    for (final f in floors)
+                      Tab(text: tsudanumaFloorTabLabel(f)),
                   ],
                 ),
                 Expanded(
@@ -500,8 +508,10 @@ Widget _tsudanumaSheetFloorPlanThumbnail(
   }
 
   final h = mapHeight.clamp(160, 400).toDouble();
-  final path =
-      _tsudanumaLocalFloorAssetOrNull(buildingId: buildingId, floor: floor);
+  final path = _tsudanumaLocalFloorAssetOrNull(
+    buildingId: buildingId,
+    floor: floor,
+  );
   if (path != null) {
     return TsudanumaAssetFloorThumbnailForSheet(
       assetPath: path,

@@ -1,10 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// フォロー / フォロー解除失敗時のユーザー向けメッセージ
-String cwitterFollowActionErrorMessage(
-  Object error, {
-  required bool unfollow,
-}) {
+String cwitterFollowActionErrorMessage(Object error, {required bool unfollow}) {
   final action = unfollow ? 'フォロー解除' : 'フォロー';
 
   if (error is StateError) {

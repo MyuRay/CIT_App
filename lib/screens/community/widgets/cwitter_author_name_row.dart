@@ -25,10 +25,9 @@ class CwitterAuthorNameRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isOfficial = AppConstants.isOfficialCwitterAccount(cwitterId);
-    final resolvedNameStyle = nameStyle ??
-        theme.textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.bold,
-        );
+    final resolvedNameStyle =
+        nameStyle ??
+        theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold);
 
     final limitedTags = tags.take(AppConstants.cwitterTagsMaxCount).toList();
 
@@ -56,12 +55,15 @@ class CwitterAuthorNameRow extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Flexible(
-                    child: maxNameWidth != null
-                        ? ConstrainedBox(
-                            constraints: BoxConstraints(maxWidth: maxNameWidth),
-                            child: nameText,
-                          )
-                        : nameText,
+                    child:
+                        maxNameWidth != null
+                            ? ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: maxNameWidth,
+                              ),
+                              child: nameText,
+                            )
+                            : nameText,
                   ),
                   const SizedBox(width: 6),
                   const CwitterOfficialTag(),

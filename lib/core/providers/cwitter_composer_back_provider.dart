@@ -17,7 +17,8 @@ class CwitterComposerBackGate {
   final CwitterComposerBackHandler? handleBack;
 }
 
-class CwitterComposerBackGateNotifier extends Notifier<CwitterComposerBackGate> {
+class CwitterComposerBackGateNotifier
+    extends Notifier<CwitterComposerBackGate> {
   @override
   CwitterComposerBackGate build() => const CwitterComposerBackGate();
 
@@ -39,5 +40,5 @@ class CwitterComposerBackGateNotifier extends Notifier<CwitterComposerBackGate> 
 
 final cwitterComposerBackGateProvider =
     NotifierProvider<CwitterComposerBackGateNotifier, CwitterComposerBackGate>(
-  CwitterComposerBackGateNotifier.new,
-);
+      CwitterComposerBackGateNotifier.new,
+    );

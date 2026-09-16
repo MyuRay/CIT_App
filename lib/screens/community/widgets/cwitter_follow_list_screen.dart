@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -25,22 +26,22 @@ class CwitterFollowListScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final currentUid = ref.watch(currentUserIdProvider);
-    final usersAsync = kind == CwitterFollowListKind.following
-        ? ref.watch(filteredCwitterFollowingUsersProvider(userId))
-        : ref.watch(filteredCwitterFollowerUsersProvider(userId));
+    final usersAsync =
+        kind == CwitterFollowListKind.following
+            ? ref.watch(filteredCwitterFollowingUsersProvider(userId))
+            : ref.watch(filteredCwitterFollowerUsersProvider(userId));
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('${userDisplayName}の${kind.title}'),
-      ),
+      appBar: AppBar(title: Text('$userDisplayNameの${kind.title}')),
       body: usersAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text('読み込みに失敗しました: $error'),
-          ),
-        ),
+        error:
+            (error, _) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text('読み込みに失敗しました: $error'),
+              ),
+            ),
         data: (users) {
           if (users.isEmpty) {
             return Center(
@@ -49,7 +50,7 @@ class CwitterFollowListScreen extends ConsumerWidget {
                     ? 'フォロー中のユーザーはいません'
                     : 'フォロワーはいません',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
             );
@@ -61,10 +62,7 @@ class CwitterFollowListScreen extends ConsumerWidget {
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final user = users[index];
-              return _FollowUserTile(
-                user: user,
-                currentUid: currentUid,
-              );
+              return _FollowUserTile(user: user, currentUid: currentUid);
             },
           );
         },
@@ -74,10 +72,7 @@ class CwitterFollowListScreen extends ConsumerWidget {
 }
 
 class _FollowUserTile extends StatelessWidget {
-  const _FollowUserTile({
-    required this.user,
-    required this.currentUid,
-  });
+  const _FollowUserTile({required this.user, required this.currentUid});
 
   final CwitterFollowUser user;
   final String? currentUid;
@@ -141,7 +136,7 @@ class _FollowUserTile extends StatelessWidget {
                     CwitterHandleText(
                       cwitterId: user.cwitterId,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF2E7D32),
+                        color: AppColors.accent(context, const Color(0xFF2E7D32)),
                       ),
                     ),
                   ],
@@ -149,7 +144,7 @@ class _FollowUserTile extends StatelessWidget {
               ),
               Icon(
                 Icons.chevron_right,
-                color: colorScheme.onSurface.withValues(alpha: 0.35),
+                color: colorScheme.onSurfaceVariant,
               ),
             ],
           ),

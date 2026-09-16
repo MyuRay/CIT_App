@@ -6,7 +6,10 @@ import '../../../models/community/cwitter_post.dart';
 import '../../../models/community/cwitter_reply.dart';
 import '../../../services/community/cwitter_service.dart';
 
-final _leadingMentionPattern = RegExp(r'^@([a-z0-9_]+)\s', caseSensitive: false);
+final _leadingMentionPattern = RegExp(
+  r'^@([a-z0-9_]+)\s',
+  caseSensitive: false,
+);
 
 String? parseLeadingMention(String body) {
   final match = _leadingMentionPattern.firstMatch(body.trim());
@@ -89,10 +92,7 @@ class CwitterReplyContextPreview extends ConsumerWidget {
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(8),
         border: Border(
-          left: BorderSide(
-            color: const Color(0xFF4CAF50),
-            width: 3,
-          ),
+          left: BorderSide(color: const Color(0xFF4CAF50), width: 3),
         ),
       ),
       child: Column(

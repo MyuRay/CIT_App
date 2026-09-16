@@ -15,17 +15,20 @@ class UserGrowthStats {
   factory UserGrowthStats.fromJson(Map<String, dynamic> json) {
     return UserGrowthStats(
       totalUsers: json['totalUsers'] as int? ?? 0,
-      daily: (json['daily'] as List<dynamic>?)
+      daily:
+          (json['daily'] as List<dynamic>?)
               ?.map((e) => DailyStat.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      monthly: (json['monthly'] as List<dynamic>?)
+      monthly:
+          (json['monthly'] as List<dynamic>?)
               ?.map((e) => MonthlyStat.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      generatedAt: json['generatedAt'] != null
-          ? DateTime.parse(json['generatedAt'] as String)
-          : DateTime.now(),
+      generatedAt:
+          json['generatedAt'] != null
+              ? DateTime.parse(json['generatedAt'] as String)
+              : DateTime.now(),
     );
   }
 
@@ -60,11 +63,7 @@ class DailyStat {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'date': date,
-      'count': count,
-      'cumulative': cumulative,
-    };
+    return {'date': date, 'count': count, 'cumulative': cumulative};
   }
 
   DateTime get dateTime => DateTime.parse(date);
@@ -91,11 +90,7 @@ class MonthlyStat {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'month': month,
-      'count': count,
-      'cumulative': cumulative,
-    };
+    return {'month': month, 'count': count, 'cumulative': cumulative};
   }
 
   DateTime get dateTime {
@@ -103,5 +98,3 @@ class MonthlyStat {
     return DateTime(int.parse(parts[0]), int.parse(parts[1]));
   }
 }
-
-

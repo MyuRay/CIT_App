@@ -1,9 +1,16 @@
+import 'package:cit_app/core/utils/logger.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/notification/notification_model.dart';
 import '../schedule/schedule_notification_service.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
+import 'device_token_store.dart';
+import 'notification_target.dart';
+import '../auth/session_work_guard.dart';
 
 class NotificationService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -13,9 +20,58 @@ class NotificationService {
   /// FCM リスナーの二重登録を防ぐためのガード。
   /// `initialize()` は起動時・ログイン時・復帰時など複数経路から呼ばれ得る。
   static bool _messagingHandlersRegistered = false;
+  static Future<void> _registrationQueue = Future.value();
+  static bool _loggingOut = false;
+  static int _sessionGeneration = 0;
+  static final taps = NotificationTapQueue();
+
+  static bool get _supportsMessaging =>
+      kIsWeb ||
+      defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS ||
+      defaultTargetPlatform == TargetPlatform.macOS;
+
+  static Future<String> _installationId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final existing = prefs.getString('push_installation_id');
+    if (existing != null) return existing;
+    final id = const Uuid().v4();
+    await prefs.setString('push_installation_id', id);
+    return id;
+  }
+
+  /// Freeze token refreshes, drain earlier writes, then remove this installation.
+  /// Failure propagates so the UI keeps the account signed in and offers retry.
+  static Future<void> unregisterCurrentDevice() async {
+    _loggingOut = true;
+    SessionWorkGuard.suspend();
+    _sessionGeneration++;
+    taps.clear();
+    await _registrationQueue;
+    final user = _auth.currentUser;
+    if (user == null || !_supportsMessaging) return;
+    if (!await _messaging.isSupported()) return;
+    try {
+      await DeviceTokenStore(
+        _firestore,
+      ).unregister(userId: user.uid, installationId: await _installationId());
+    } on FirebaseException catch (error) {
+      // A revoked Auth session cannot edit its registry; invalidating the FCM
+      // token still prevents delivery. Other failures remain retryable errors.
+      if (error.code != 'permission-denied' && error.code != 'unauthenticated')
+        rethrow;
+    }
+    await _messaging.deleteToken();
+  }
+
+  static void finishLogout() {
+    _loggingOut = false;
+    SessionWorkGuard.resume();
+  }
 
   // Firebase Messaging初期化（複数回呼ばれても安全）
   static Future<void> initialize() async {
+    if (!_supportsMessaging || !await _messaging.isSupported()) return;
     // 通知権限を要求
     NotificationSettings settings = await _messaging.requestPermission(
       alert: true,
@@ -27,13 +83,13 @@ class NotificationService {
       sound: true,
     );
 
-    print('ユーザー通知権限: ${settings.authorizationStatus}');
+    SecureLogger.debug('ユーザー通知権限: ${settings.authorizationStatus}');
 
     // フォアグラウンド表示用にローカル通知サービスを初期化しておく。
     try {
       await ScheduleNotificationService.initialize();
     } catch (e) {
-      print('ローカル通知初期化エラー（無視）: $e');
+      SecureLogger.debug('ローカル通知初期化エラー（無視）: $e');
     }
 
     // FCMトークンを取得してFirestoreに保存
@@ -48,26 +104,26 @@ class NotificationService {
 
     // トークンリフレッシュ時の処理
     _messaging.onTokenRefresh.listen((fcmToken) async {
-      print('FCMトークンがリフレッシュされました: $fcmToken');
-      await _saveFCMToken(token: fcmToken);
+      SecureLogger.debug('通知トークンが更新されました');
+      await _saveFCMToken();
     });
 
     // フォアグラウンド通知受信時の処理
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('フォアグラウンド通知を受信: ${message.notification?.title}');
+      SecureLogger.debug('通知イベントを受信しました');
       _handleForegroundMessage(message);
     });
 
     // バックグラウンド通知タップ時の処理
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      print('バックグラウンド通知がタップされました: ${message.data}');
+      SecureLogger.debug('通知イベントを受信しました');
       _handleBackgroundMessageTap(message);
     });
 
     // アプリ終了時の通知タップ時の処理（アプリ起動時にチェック）
     RemoteMessage? initialMessage = await _messaging.getInitialMessage();
     if (initialMessage != null) {
-      print('アプリ終了時の通知がタップされました: ${initialMessage.data}');
+      SecureLogger.debug('通知イベントを受信しました');
       _handleBackgroundMessageTap(initialMessage);
     }
   }
@@ -79,58 +135,84 @@ class NotificationService {
   }
 
   // FCMトークンを保存
-  static Future<void> _saveFCMToken({String? token}) async {
-    try {
-      final user = _auth.currentUser;
-      if (user == null) return;
-
-      final resolvedToken = token ?? await _messaging.getToken();
-      if (resolvedToken != null) {
-        await _firestore
-            .collection('user_tokens')
-            .doc(user.uid)
-            .set({
-          'fcmToken': resolvedToken,
-          'updatedAt': FieldValue.serverTimestamp(),
-          'platform': defaultTargetPlatform.name,
-        }, SetOptions(merge: true));
-
-        print('FCMトークンを保存: $resolvedToken');
+  static Future<void> _saveFCMToken() {
+    final generation = _sessionGeneration;
+    final user = _auth.currentUser;
+    if (_loggingOut ||
+        user == null ||
+        !user.emailVerified ||
+        !_supportsMessaging)
+      return Future.value();
+    final task = _registrationQueue.then((_) async {
+      if (!await _messaging.isSupported()) return;
+      if (_loggingOut ||
+          generation != _sessionGeneration ||
+          _auth.currentUser?.uid != user.uid)
+        return;
+      final prefs = await SharedPreferences.getInstance();
+      String? previousToken;
+      if (prefs.getBool('push_registry_v2_migrated') != true) {
+        // Revoke legacy associations left by earlier app versions on this phone.
+        previousToken = await _messaging.getToken();
+        await _messaging.deleteToken();
+        await prefs.setBool('push_registry_v2_migrated', true);
       }
-    } catch (e) {
-      print('FCMトークン保存エラー: $e');
-    }
+      // Read the current token, never a possibly stale queued refresh event.
+      final resolvedToken = await _messaging.getToken();
+      final installationId = await _installationId();
+      if (resolvedToken == null ||
+          _loggingOut ||
+          generation != _sessionGeneration ||
+          _auth.currentUser?.uid != user.uid)
+        return;
+      await DeviceTokenStore(_firestore).register(
+        userId: user.uid,
+        installationId: installationId,
+        token: resolvedToken,
+        platform: kIsWeb ? 'web' : defaultTargetPlatform.name,
+        previousToken: previousToken,
+      );
+    });
+    _registrationQueue = task.catchError((Object _) {
+      SecureLogger.debug('通知端末の登録に失敗しました');
+    });
+    return _registrationQueue;
   }
 
   // フォアグラウンド通知処理
   static void _handleForegroundMessage(RemoteMessage message) {
+    final target = NotificationTarget.fromData(message.data);
+    final user = _auth.currentUser;
+    if (_loggingOut || user == null || !target.belongsTo(user.uid)) return;
     // フォアグラウンドでは OS がプッシュを自動表示しないため、
     // ローカル通知として明示的に表示する（「開いている時は通知が来ない」対策）。
     final notification = message.notification;
-    final title = notification?.title ??
-        (message.data['title'] as String?) ??
-        'お知らせ';
-    final body = notification?.body ??
+    final title =
+        notification?.title ?? (message.data['title'] as String?) ?? 'お知らせ';
+    final body =
+        notification?.body ??
         (message.data['body'] as String?) ??
         (message.data['message'] as String?) ??
         '';
 
     if (title.trim().isEmpty && body.trim().isEmpty) return;
 
+    if (kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.android &&
+            defaultTargetPlatform != TargetPlatform.iOS))
+      return;
     ScheduleNotificationService.showImmediateNotification(
       title: title,
       body: body,
-    );
+      payload: target.encode(),
+    ).catchError((Object _) {
+      SecureLogger.debug('通知を表示できませんでした');
+    });
   }
 
   // バックグラウンド通知タップ処理
   static void _handleBackgroundMessageTap(RemoteMessage message) {
-    // 適切な画面に遷移
-    final data = message.data;
-    if (data.containsKey('postId')) {
-      // 投稿詳細画面に遷移
-      // TODO: ナビゲーション実装
-    }
+    taps.add(NotificationTarget.fromData(message.data));
   }
 
   // 通知を作成してFirestoreに保存
@@ -138,44 +220,15 @@ class NotificationService {
     try {
       final docRef = _firestore.collection('notifications').doc();
       final notificationWithId = notification.copyWith(id: docRef.id);
-      
+
       await docRef.set(notificationWithId.toJson());
-      print('通知を作成: ${notification.title}');
-
-      // プッシュ通知を送信
-      await _sendPushNotification(notificationWithId);
+      SecureLogger.debug('通知を作成しました');
     } catch (e) {
-      print('通知作成エラー: $e');
+      SecureLogger.debug('通知作成エラー: $e');
     }
   }
 
-  // プッシュ通知送信
-  static Future<void> _sendPushNotification(AppNotification notification) async {
-    try {
-      // ユーザーのFCMトークンを取得
-      final tokenDoc = await _firestore
-          .collection('user_tokens')
-          .doc(notification.userId)
-          .get();
-
-      if (!tokenDoc.exists) {
-        print('ユーザーのFCMトークンが見つかりません: ${notification.userId}');
-        return;
-      }
-
-      final fcmToken = tokenDoc.data()?['fcmToken'] as String?;
-      if (fcmToken == null) {
-        print('FCMトークンが空です');
-        return;
-      }
-
-      // TODO: Firebase Functions経由でプッシュ通知を送信
-      // または、FCM Admin SDKを使用してサーバーサイドで送信
-      print('プッシュ通知を送信予定: ${notification.title} -> $fcmToken');
-    } catch (e) {
-      print('プッシュ通知送信エラー: $e');
-    }
-  }
+  // Push delivery is performed by the notifications Firestore trigger.
 
   // ユーザーの通知一覧を取得
   static Stream<List<AppNotification>> getUserNotifications(String userId) {
@@ -186,26 +239,22 @@ class NotificationService {
         .limit(50)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
-        return AppNotification.fromJson({
-          ...data,
-          'id': doc.id,
+          return snapshot.docs.map((doc) {
+            final data = doc.data();
+            return AppNotification.fromJson({...data, 'id': doc.id});
+          }).toList();
         });
-      }).toList();
-    });
   }
 
   // 通知を既読にする
   static Future<void> markAsRead(String notificationId) async {
     try {
-      await _firestore
-          .collection('notifications')
-          .doc(notificationId)
-          .update({'isRead': true});
-      print('通知を既読にしました: $notificationId');
+      await _firestore.collection('notifications').doc(notificationId).update({
+        'isRead': true,
+      });
+      SecureLogger.debug('通知を既読にしました: $notificationId');
     } catch (e) {
-      print('既読更新エラー: $e');
+      SecureLogger.debug('既読更新エラー: $e');
     }
   }
 
@@ -222,13 +271,10 @@ class NotificationService {
   // 通知削除
   static Future<void> deleteNotification(String notificationId) async {
     try {
-      await _firestore
-          .collection('notifications')
-          .doc(notificationId)
-          .delete();
-      print('通知を削除しました: $notificationId');
+      await _firestore.collection('notifications').doc(notificationId).delete();
+      SecureLogger.debug('通知を削除しました: $notificationId');
     } catch (e) {
-      print('通知削除エラー: $e');
+      SecureLogger.debug('通知削除エラー: $e');
     }
   }
 
@@ -236,20 +282,21 @@ class NotificationService {
   static Future<void> markAllAsRead(String userId) async {
     try {
       final batch = _firestore.batch();
-      final notifications = await _firestore
-          .collection('notifications')
-          .where('userId', isEqualTo: userId)
-          .where('isRead', isEqualTo: false)
-          .get();
+      final notifications =
+          await _firestore
+              .collection('notifications')
+              .where('userId', isEqualTo: userId)
+              .where('isRead', isEqualTo: false)
+              .get();
 
       for (var doc in notifications.docs) {
         batch.update(doc.reference, {'isRead': true});
       }
 
       await batch.commit();
-      print('全通知を既読にしました');
+      SecureLogger.debug('全通知を既読にしました');
     } catch (e) {
-      print('一括既読エラー: $e');
+      SecureLogger.debug('一括既読エラー: $e');
     }
   }
 
@@ -365,6 +412,6 @@ class NotificationService {
 // バックグラウンド通知ハンドラー（トップレベル関数）
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  print('バックグラウンド通知を受信: ${message.messageId}');
+  SecureLogger.debug('バックグラウンド通知を受信: ${message.messageId}');
   // 必要に応じて処理を追加
 }

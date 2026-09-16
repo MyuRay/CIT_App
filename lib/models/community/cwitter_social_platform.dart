@@ -12,39 +12,41 @@ enum CwitterSocialPlatform {
   String get storageKey => name;
 
   String get label => switch (this) {
-        CwitterSocialPlatform.instagram => 'Instagram',
-        CwitterSocialPlatform.x => 'X',
-        CwitterSocialPlatform.discord => 'Discord',
-        CwitterSocialPlatform.github => 'GitHub',
-      };
+    CwitterSocialPlatform.instagram => 'Instagram',
+    CwitterSocialPlatform.x => 'X',
+    CwitterSocialPlatform.discord => 'Discord',
+    CwitterSocialPlatform.github => 'GitHub',
+  };
 
   String get inputHint => switch (this) {
-        CwitterSocialPlatform.instagram => 'ユーザー名またはプロフィールURL',
-        CwitterSocialPlatform.x => 'ユーザー名またはプロフィールURL',
-        CwitterSocialPlatform.discord => 'ユーザー名・招待URL・プロフィールURL',
-        CwitterSocialPlatform.github => 'ユーザー名またはプロフィールURL',
-      };
+    CwitterSocialPlatform.instagram => 'ユーザー名またはプロフィールURL',
+    CwitterSocialPlatform.x => 'ユーザー名またはプロフィールURL',
+    CwitterSocialPlatform.discord => 'ユーザー名・招待URL・プロフィールURL',
+    CwitterSocialPlatform.github => 'ユーザー名またはプロフィールURL',
+  };
 
   String get inputHelper => switch (this) {
-        CwitterSocialPlatform.instagram => '例: cit_student または https://instagram.com/cit_student',
-        CwitterSocialPlatform.x => '例: cit_student または https://x.com/cit_student',
-        CwitterSocialPlatform.discord => '例: username または https://discord.gg/xxxxx',
-        CwitterSocialPlatform.github => '例: cit-student または https://github.com/cit-student',
-      };
+    CwitterSocialPlatform.instagram =>
+      '例: cit_student または https://instagram.com/cit_student',
+    CwitterSocialPlatform.x => '例: cit_student または https://x.com/cit_student',
+    CwitterSocialPlatform.discord => '例: username または https://discord.gg/xxxxx',
+    CwitterSocialPlatform.github =>
+      '例: cit-student または https://github.com/cit-student',
+  };
 
   Color get brandColor => switch (this) {
-        CwitterSocialPlatform.instagram => const Color(0xFFE4405F),
-        CwitterSocialPlatform.x => const Color(0xFF0F1419),
-        CwitterSocialPlatform.discord => const Color(0xFF5865F2),
-        CwitterSocialPlatform.github => const Color(0xFF24292F),
-      };
+    CwitterSocialPlatform.instagram => const Color(0xFFE4405F),
+    CwitterSocialPlatform.x => const Color(0xFF0F1419),
+    CwitterSocialPlatform.discord => const Color(0xFF5865F2),
+    CwitterSocialPlatform.github => const Color(0xFF24292F),
+  };
 
   FaIconData get brandIcon => switch (this) {
-        CwitterSocialPlatform.instagram => FontAwesomeIcons.instagram,
-        CwitterSocialPlatform.x => FontAwesomeIcons.xTwitter,
-        CwitterSocialPlatform.discord => FontAwesomeIcons.discord,
-        CwitterSocialPlatform.github => FontAwesomeIcons.github,
-      };
+    CwitterSocialPlatform.instagram => FontAwesomeIcons.instagram,
+    CwitterSocialPlatform.x => FontAwesomeIcons.xTwitter,
+    CwitterSocialPlatform.discord => FontAwesomeIcons.discord,
+    CwitterSocialPlatform.github => FontAwesomeIcons.github,
+  };
 
   Color iconColor(BuildContext context, {required bool registered}) {
     if (!registered) {
@@ -52,7 +54,9 @@ enum CwitterSocialPlatform {
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    if (isDark && (this == CwitterSocialPlatform.x || this == CwitterSocialPlatform.github)) {
+    if (isDark &&
+        (this == CwitterSocialPlatform.x ||
+            this == CwitterSocialPlatform.github)) {
       return Theme.of(context).colorScheme.onSurface;
     }
     return brandColor;

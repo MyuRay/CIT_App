@@ -21,7 +21,7 @@
             android:layout_width="6dp"
             android:layout_height="6dp"
             android:layout_marginEnd="2dp"
-            android:background="#E0E0E0" />
+            android:background="@color/widget_outline" />
 
         <TextView
             android:id="@+id/text_subject"
@@ -30,7 +30,7 @@
             android:layout_weight="1"
             android:text="[2] —"
             android:textSize="9sp"
-            android:textColor="#BDBDBD"
+            android:textColor="@color/widget_secondary"
             android:maxLines="1"
             android:ellipsize="end" />
     </LinearLayout>
@@ -40,6 +40,6 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textSize="10sp"
-        android:textColor="#E0E0E0"
+        android:textColor="@color/widget_secondary"
         android:visibility="gone" />
 </LinearLayout>

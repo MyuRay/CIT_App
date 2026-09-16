@@ -1,13 +1,11 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:home_widget/home_widget.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../constants/app_constants.dart';
-import '../providers/auth_provider.dart';
 import '../providers/simple_auth_provider.dart';
+import '../providers/email_registration_provider.dart';
+import '../../services/auth/email_registration.dart';
 import '../services/analytics_service.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/signup_screen.dart';
@@ -20,28 +18,59 @@ import '../../screens/legal/privacy_policy_screen.dart';
 import '../../screens/user_block/blocked_user_list_screen.dart';
 import '../../screens/classroom_map/classroom_map_calibration_screen.dart';
 import '../../screens/classroom_map/classroom_map_screen.dart';
+import '../../screens/bus/bus_information_screen.dart';
+import '../../services/widget/home_widget_destination.dart';
 
 /// ウィジェットから起動時の初期ルート（override用）
 final initialRouteFromWidgetProvider = Provider<String>((ref) => '/home');
 
 final routerProvider = Provider<GoRouter>((ref) {
   // シンプルな認証プロバイダーを使用
-  final isLoggedIn = ref.watch(isLoggedInSimpleProvider);
-  final isEmailVerified = ref.watch(isEmailVerifiedSyncProvider);
-  final currentUser = ref.watch(currentUserSimpleProvider);
   final analyticsObserver = ref.watch(firebaseAnalyticsObserverProvider);
   final initialRoute = ref.watch(initialRouteFromWidgetProvider);
 
-  return GoRouter(
+  final router = GoRouter(
     initialLocation: initialRoute,
     redirect: (context, state) {
+      final isLoggedIn = ref.read(isLoggedInSimpleProvider);
+      final isEmailVerified = ref.read(isEmailVerifiedSyncProvider);
+      final currentUser = ref.read(currentUserSimpleProvider);
+      final registration = ref.read(emailRegistrationServiceProvider);
+      final completing = ref.read(registrationCompletingProvider);
       // 認証画面（ログイン/サインアップ等）と、誰でも見られる公開画面（規約/ポリシー）を分けて扱う
-      final authPages = ['/login', '/signup', '/forgot-password'];
+      final authPages = [
+        '/login',
+        '/signup',
+        '/signup/complete',
+        '/forgot-password',
+        '/__/auth/links',
+        '/__/auth/action',
+      ];
       final publicPages = ['/terms', '/privacy'];
       final verificationPage = '/email-verification';
       final changeEmailPages = ['/change-email', '/change-email-verification'];
 
       final loc = state.matchedLocation;
+      final incomingLink = registrationLinkFromLocation(state.uri);
+      if (incomingLink != null) {
+        return Uri(
+          path: '/signup/complete',
+          queryParameters: {'link': incomingLink},
+        ).toString();
+      }
+      // Keep the same navigation stack while Firebase emits its first verified
+      // identity and password/profile persistence is still in progress.
+      if (completing) {
+        return loc == '/signup/complete' ? null : '/signup/complete';
+      }
+      if (registration.hasPendingSetup && !publicPages.contains(loc)) {
+        return loc == '/signup/complete' ? null : '/signup/complete';
+      }
+      final widgetDestination = homeWidgetDestination(state.uri);
+      if (widgetDestination != null &&
+          state.uri.toString() != widgetDestination) {
+        return widgetDestination;
+      }
       final goingAuth = authPages.contains(loc);
       final goingPublic = publicPages.contains(loc);
       final goingVerification = loc == verificationPage;
@@ -76,7 +105,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // ログイン済みの場合
       if (isLoggedIn) {
         // メール認証が未完了の場合
-        if (!isEmailVerified && currentUser != null) {
+        if (!isEmailVerified) {
           // 認証待ち画面以外にアクセスしようとしたら認証待ち画面へ
           if (!goingVerification && !goingPublic) {
             return verificationPage;
@@ -108,6 +137,11 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(
+        path: '/bus',
+        name: 'bus',
+        builder: (context, state) => const BusInformationScreen(),
+      ),
+      GoRoute(
         path: '/login',
         name: 'login',
         builder: (context, state) => const LoginScreen(),
@@ -117,6 +151,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'signup',
         builder: (context, state) => const SignUpScreen(),
       ),
+      GoRoute(
+        path: '/signup/complete',
+        name: 'signup-complete',
+        builder:
+            (context, state) => SignUpScreen(
+              completing: true,
+              emailLink: state.uri.queryParameters['link'],
+            ),
+      ),
+      for (final path in ['/__/auth/links', '/__/auth/action'])
+        GoRoute(
+          path: path,
+          builder:
+              (context, state) => SignUpScreen(
+                completing: true,
+                emailLink: registrationLinkFromLocation(state.uri),
+              ),
+        ),
       GoRoute(
         path: '/email-verification',
         name: 'email-verification',
@@ -174,7 +226,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           final campus = state.uri.queryParameters['campus'];
           final rawQ = state.uri.queryParameters['q'];
           final trimmedQ =
-              rawQ == null ? null : rawQ.trim().isEmpty ? null : rawQ.trim();
+              rawQ == null
+                  ? null
+                  : rawQ.trim().isEmpty
+                  ? null
+                  : rawQ.trim();
           return ClassroomMapScreen(
             initialCampusId: campus,
             initialSearchQuery: trimmedQ,
@@ -194,7 +250,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       // 自動フォールバックする。特にホーム画面ウィジェット由来の
       // `citapp://schedule` 等を「ページが見つかりません」で止めない。
       final raw = state.uri.toString().toLowerCase();
-      final fallback = raw.contains('schedule') ? '/home?tab=schedule' : '/home';
+      final fallback =
+          raw.contains('schedule') ? '/home?tab=schedule' : '/home';
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (context.mounted) {
           context.go(fallback);
@@ -203,4 +260,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     },
   );
+  ref.listen(isLoggedInSimpleProvider, (_, __) => router.refresh());
+  ref.listen(isEmailVerifiedSyncProvider, (_, __) => router.refresh());
+  ref.listen(
+    currentUserSimpleProvider.select((user) => (user?.uid, user?.email)),
+    (_, __) => router.refresh(),
+  );
+  ref.listen(registrationCompletingProvider, (_, __) => router.refresh());
+  ref.onDispose(router.dispose);
+  return router;
 });

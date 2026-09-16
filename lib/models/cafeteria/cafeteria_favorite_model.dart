@@ -4,12 +4,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class CafeteriaFavorite {
   final String id;
   final String userId;
+
   /// 'cafeteria' または 'menu'
   final String type;
+
   /// type == 'cafeteria' のときは Cafeterias.xxx
   final String? cafeteriaId;
+
   /// type == 'menu' のときに使用。`cafeteria_menu_items` のドキュメントID
   final String? menuItemId;
+
   /// type == 'menu' でメニューIDがまだ存在しないケース向けの補助情報
   final String? menuName;
   final DateTime createdAt;
@@ -58,4 +62,3 @@ class CafeteriaFavorite {
     return DateTime.now();
   }
 }
-

@@ -23,9 +23,8 @@ class CwitterPostImagesGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final count = imageUrls.isNotEmpty
-        ? imageUrls.length
-        : (localXFiles?.length ?? 0);
+    final count =
+        imageUrls.isNotEmpty ? imageUrls.length : (localXFiles?.length ?? 0);
     if (count == 0) return const SizedBox.shrink();
 
     final urls = imageUrls;
@@ -140,13 +139,14 @@ class CwitterPostImagesGrid extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: hasUrl
-            ? () => showInteractiveFullscreenNetworkImageGallery(
+        onTap:
+            hasUrl
+                ? () => showInteractiveFullscreenNetworkImageGallery(
                   context,
                   imageUrls: urls,
                   initialIndex: index,
                 )
-            : null,
+                : null,
         child: image,
       ),
     );

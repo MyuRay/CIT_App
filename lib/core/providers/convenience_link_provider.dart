@@ -4,8 +4,10 @@ import '../../services/convenience_link/convenience_link_service.dart';
 import 'auth_provider.dart';
 
 // 便利リンク管理のStateNotifier
-class ConvenienceLinkNotifier extends StateNotifier<AsyncValue<List<ConvenienceLink>>> {
-  ConvenienceLinkNotifier(this._userId, {this.userEmail}) : super(const AsyncValue.loading()) {
+class ConvenienceLinkNotifier
+    extends StateNotifier<AsyncValue<List<ConvenienceLink>>> {
+  ConvenienceLinkNotifier(this._userId, {this.userEmail})
+    : super(const AsyncValue.loading()) {
     _loadLinks();
   }
 
@@ -16,7 +18,10 @@ class ConvenienceLinkNotifier extends StateNotifier<AsyncValue<List<ConvenienceL
   Future<void> _loadLinks() async {
     try {
       state = const AsyncValue.loading();
-      final links = await ConvenienceLinkService.getUserLinks(_userId, userEmail: userEmail);
+      final links = await ConvenienceLinkService.getUserLinks(
+        _userId,
+        userEmail: userEmail,
+      );
       state = AsyncValue.data(links);
     } catch (e, stackTrace) {
       state = AsyncValue.error(e, stackTrace);
@@ -101,37 +106,46 @@ class ConvenienceLinkNotifier extends StateNotifier<AsyncValue<List<ConvenienceL
 }
 
 // 便利リンクプロバイダー（ユーザーIDごと）
-final convenienceLinkProvider = StateNotifierProvider.family<ConvenienceLinkNotifier, AsyncValue<List<ConvenienceLink>>, ({String userId, String? userEmail})>((ref, params) {
+final convenienceLinkProvider = StateNotifierProvider.family<
+  ConvenienceLinkNotifier,
+  AsyncValue<List<ConvenienceLink>>,
+  ({String userId, String? userEmail})
+>((ref, params) {
   return ConvenienceLinkNotifier(params.userId, userEmail: params.userEmail);
 });
 
 // 現在のユーザーの便利リンクプロバイダー
-final currentUserConvenienceLinksProvider = Provider<AsyncValue<List<ConvenienceLink>>>((ref) {
-  final authService = ref.watch(authServiceProvider);
-  final currentUser = authService.currentUser;
-  
-  if (currentUser == null || currentUser.uid.isEmpty) {
-    return const AsyncValue.data([]);
-  }
-  
-  // Firebase UIDを使用（一意性保証）
-  final userId = currentUser.uid;
-  final userEmail = currentUser.email;
-  
-  return ref.watch(convenienceLinkProvider((userId: userId, userEmail: userEmail)));
-});
+final currentUserConvenienceLinksProvider =
+    Provider<AsyncValue<List<ConvenienceLink>>>((ref) {
+      final authService = ref.watch(authServiceProvider);
+      final currentUser = authService.currentUser;
+
+      if (currentUser == null || currentUser.uid.isEmpty) {
+        return const AsyncValue.data([]);
+      }
+
+      // Firebase UIDを使用（一意性保証）
+      final userId = currentUser.uid;
+      final userEmail = currentUser.email;
+
+      return ref.watch(
+        convenienceLinkProvider((userId: userId, userEmail: userEmail)),
+      );
+    });
 
 // 有効な便利リンクのみを取得するプロバイダー
-final enabledConvenienceLinksProvider = Provider<AsyncValue<List<ConvenienceLink>>>((ref) {
-  final linksAsync = ref.watch(currentUserConvenienceLinksProvider);
-  
-  return linksAsync.when(
-    data: (links) {
-      final enabledLinks = links.where((link) => link.isEnabled).toList();
-      return AsyncValue<List<ConvenienceLink>>.data(enabledLinks);
-    },
-    loading: () => const AsyncValue<List<ConvenienceLink>>.loading(),
-    error: (error, stackTrace) =>
-        AsyncValue<List<ConvenienceLink>>.error(error, stackTrace),
-  );
-});
+final enabledConvenienceLinksProvider =
+    Provider<AsyncValue<List<ConvenienceLink>>>((ref) {
+      final linksAsync = ref.watch(currentUserConvenienceLinksProvider);
+
+      return linksAsync.when(
+        data: (links) {
+          final enabledLinks = links.where((link) => link.isEnabled).toList();
+          return AsyncValue<List<ConvenienceLink>>.data(enabledLinks);
+        },
+        loading: () => const AsyncValue<List<ConvenienceLink>>.loading(),
+        error:
+            (error, stackTrace) =>
+                AsyncValue<List<ConvenienceLink>>.error(error, stackTrace),
+      );
+    });

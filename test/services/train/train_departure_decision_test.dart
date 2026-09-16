@@ -14,17 +14,20 @@ void main() {
       expect(r.category, TrainDecisionCategory.noData);
     });
 
-    test('plenty when margin >= 5 (walk 10: arrival 10:10, dep 10:15 => margin 5)', () {
-      final r = computeTrainDepartureDecision(
-        now: base,
-        walkMinutesToStation: 10,
-        nextDepartureAt: DateTime(2026, 4, 7, 10, 15),
-        secondDepartureAt: DateTime(2026, 4, 7, 10, 30),
-      );
-      expect(r.category, TrainDecisionCategory.plenty);
-      expect(r.marginMinutes, 5);
-      expect(r.minutesUntilDepartureFromNow, 15);
-    });
+    test(
+      'plenty when margin >= 5 (walk 10: arrival 10:10, dep 10:15 => margin 5)',
+      () {
+        final r = computeTrainDepartureDecision(
+          now: base,
+          walkMinutesToStation: 10,
+          nextDepartureAt: DateTime(2026, 4, 7, 10, 15),
+          secondDepartureAt: DateTime(2026, 4, 7, 10, 30),
+        );
+        expect(r.category, TrainDecisionCategory.plenty);
+        expect(r.marginMinutes, 5);
+        expect(r.minutesUntilDepartureFromNow, 15);
+      },
+    );
 
     test('slight when margin 4', () {
       final r = computeTrainDepartureDecision(

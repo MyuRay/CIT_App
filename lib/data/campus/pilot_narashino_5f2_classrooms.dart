@@ -296,13 +296,7 @@ const List<CampusClassroomLocation> pilotNarashinoBuilding5Floor2 = [
     buildingDisplayName: '5号館',
     floor: 2,
     roomCode: '資料室52',
-    searchTerms: [
-      '資料室',
-      'しりょうしつ',
-      '参考文献',
-      '5号館2階資料室',
-      '5号館 資料室',
-    ],
+    searchTerms: ['資料室', 'しりょうしつ', '参考文献', '5号館2階資料室', '5号館 資料室'],
     pinX: 0.08,
     pinY: 0.14,
     description: '5号館2階・資料室',
@@ -314,13 +308,7 @@ const List<CampusClassroomLocation> pilotNarashinoBuilding5Floor2 = [
     buildingDisplayName: '5号館',
     floor: 2,
     roomCode: 'ネットルーム52',
-    searchTerms: [
-      'インターネットルーム',
-      'インターネット',
-      'ネットルーム',
-      'ＰＣルーム',
-      'パソコンルーム',
-    ],
+    searchTerms: ['インターネットルーム', 'インターネット', 'ネットルーム', 'ＰＣルーム', 'パソコンルーム'],
     pinX: 0.48,
     pinY: 0.14,
     description: '5号館2階・インターネットルーム',
@@ -333,12 +321,7 @@ const List<CampusClassroomLocation> pilotNarashinoBuilding5Floor2 = [
     buildingDisplayName: '5号館',
     floor: 2,
     roomCode: '女子トイレ52',
-    searchTerms: [
-      '女子トイレ',
-      '女性トイレ',
-      '女トイレ',
-      'wc女',
-    ],
+    searchTerms: ['女子トイレ', '女性トイレ', '女トイレ', 'wc女'],
     pinX: 0.06,
     pinY: 0.86,
     description: '5号館2階・女子トイレ（南側）',
@@ -350,12 +333,7 @@ const List<CampusClassroomLocation> pilotNarashinoBuilding5Floor2 = [
     buildingDisplayName: '5号館',
     floor: 2,
     roomCode: '男子トイレ52',
-    searchTerms: [
-      '男子トイレ',
-      '男性トイレ',
-      '男トイレ',
-      'wc男',
-    ],
+    searchTerms: ['男子トイレ', '男性トイレ', '男トイレ', 'wc男'],
     pinX: 0.92,
     pinY: 0.86,
     description: '5号館2階・男子トイレ（南側）',
@@ -372,8 +350,7 @@ bool _narashino5f2IncludeInMergedPilotSearch(CampusClassroomLocation r) {
 List<CampusClassroomLocation> searchPilotNarashino5f2(String query) {
   final q = query.trim().toLowerCase();
   if (q.isEmpty) return const [];
-  bool matches(CampusClassroomLocation r) =>
-      pilotLocationMatchesQuery(r, q);
+  bool matches(CampusClassroomLocation r) => pilotLocationMatchesQuery(r, q);
   return pilotNarashinoBuilding5Floor2
       .where(_narashino5f2IncludeInMergedPilotSearch)
       .where(matches)

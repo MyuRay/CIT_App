@@ -245,10 +245,11 @@ class NotificationFactory {
     required String postId,
     String? reason,
   }) {
-    final message = reason != null
-        ? '投稿「$postTitle」は管理者により却下されました。理由: $reason'
-        : '投稿「$postTitle」は管理者により却下されました';
-    
+    final message =
+        reason != null
+            ? '投稿「$postTitle」は管理者により却下されました。理由: $reason'
+            : '投稿「$postTitle」は管理者により却下されました';
+
     return AppNotification(
       id: '', // Firestoreで自動生成
       userId: postAuthorId,
@@ -283,10 +284,11 @@ class NotificationFactory {
     required String postId,
     String? reason,
   }) {
-    final message = reason != null
-        ? '投稿「$postTitle」のピン留め申請は却下されました。理由: $reason'
-        : '投稿「$postTitle」のピン留め申請は却下されました';
-    
+    final message =
+        reason != null
+            ? '投稿「$postTitle」のピン留め申請は却下されました。理由: $reason'
+            : '投稿「$postTitle」のピン留め申請は却下されました';
+
     return AppNotification(
       id: '', // Firestoreで自動生成
       userId: postAuthorId,
@@ -397,10 +399,7 @@ class NotificationFactory {
       postId: threadId,
       commentId: commentId,
       createdAt: DateTime.now(),
-      data: const {
-        'source': 'chiba_channel',
-        'kind': 'thread_reply',
-      },
+      data: const {'source': 'chiba_channel', 'kind': 'thread_reply'},
     );
   }
 
@@ -419,8 +418,7 @@ class NotificationFactory {
       userId: commentAuthorId,
       type: NotificationType.reply,
       title: 'ちばちゃんねるに返信がありました',
-      message:
-          '名無しさんがあなたのレス（>>$replyToCommentNumber）に返信しました$suffix',
+      message: '名無しさんがあなたのレス（>>$replyToCommentNumber）に返信しました$suffix',
       postId: threadId,
       commentId: commentId,
       createdAt: DateTime.now(),
@@ -496,9 +494,10 @@ class GlobalNotification {
       isActive: json['isActive'] as bool? ?? true,
       version: json['version'] as String?,
       url: json['url'] as String?,
-      expiresAt: json['expiresAt'] != null 
-          ? (json['expiresAt'] as Timestamp).toDate() 
-          : null,
+      expiresAt:
+          json['expiresAt'] != null
+              ? (json['expiresAt'] as Timestamp).toDate()
+              : null,
       data: json['data'] as Map<String, dynamic>?,
     );
   }

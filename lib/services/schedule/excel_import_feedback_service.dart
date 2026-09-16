@@ -5,6 +5,7 @@ import 'package:excel/excel.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import 'excel_schedule_import_service.dart';
+import 'excel_timetable_layout.dart';
 
 class ExcelImportFeedbackService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -12,8 +13,8 @@ class ExcelImportFeedbackService {
 
   static Future<void> submitTrainingSample({
     required String userId,
-    required String originalFileName,
     required Uint8List excelBytes,
+    required List<String> sourceSheetNames,
     required List<ImportedScheduleEntry> autoExtractedEntries,
     required List<ImportedScheduleEntry> reviewedEntries,
     required List<String> parserWarnings,
@@ -21,9 +22,13 @@ class ExcelImportFeedbackService {
     final now = DateTime.now();
     final millis = now.millisecondsSinceEpoch;
     final docId = '${userId}_$millis';
-    final safeFileName = _sanitizeFileName(originalFileName);
+    // University filenames can contain a student number as well.
+    const safeFileName = 'timetable.xlsx';
     final storagePath = 'excel_import_training/$userId/${docId}_$safeFileName';
-    final maskedExcelBytes = _maskExcelBytesFixedCells(excelBytes);
+    final maskedExcelBytes = prepareTrainingWorkbook(
+      excelBytes,
+      sourceSheetNames: sourceSheetNames,
+    );
 
     final ref = _storage.ref().child(storagePath);
     final metadata = SettableMetadata(
@@ -33,27 +38,30 @@ class ExcelImportFeedbackService {
         'source': 'excel_import_training',
         'userId': userId,
         'submittedAt': now.toIso8601String(),
-        'maskedCells': 'Sheet1!I4,Sheet1!AG4,Sheet2!I4,Sheet2!AG4',
+        'privacyFilter': 'timetable_cells_only_v2',
       },
     );
     await ref.putData(maskedExcelBytes, metadata);
     final downloadUrl = await ref.getDownloadURL();
 
-    await _firestore.collection('excel_import_training_submissions').doc(docId).set({
-      'userId': userId,
-      'originalFileName': originalFileName,
-      'storagePath': storagePath,
-      'storageUrl': downloadUrl,
-      'consentForTraining': true,
-      'excelMaskedByFixedCells': true,
-      'maskedCells': ['Sheet1!I4', 'Sheet1!AG4', 'Sheet2!I4', 'Sheet2!AG4'],
-      'providedAt': Timestamp.fromDate(now),
-      'autoEntryCount': autoExtractedEntries.length,
-      'reviewedEntryCount': reviewedEntries.length,
-      'parserWarnings': parserWarnings,
-      'autoExtractedEntries': autoExtractedEntries.map(_entryToMap).toList(),
-      'reviewedEntries': reviewedEntries.map(_entryToMap).toList(),
-    });
+    await _firestore
+        .collection('excel_import_training_submissions')
+        .doc(docId)
+        .set({
+          'userId': userId,
+          'originalFileName': safeFileName,
+          'storagePath': storagePath,
+          'storageUrl': downloadUrl,
+          'consentForTraining': true,
+          'privacyFilter': 'timetable_cells_only_v2',
+          'providedAt': Timestamp.fromDate(now),
+          'autoEntryCount': autoExtractedEntries.length,
+          'reviewedEntryCount': reviewedEntries.length,
+          'parserWarnings': parserWarnings,
+          'autoExtractedEntries':
+              autoExtractedEntries.map(_entryToMap).toList(),
+          'reviewedEntries': reviewedEntries.map(_entryToMap).toList(),
+        });
   }
 
   static Map<String, dynamic> _entryToMap(ImportedScheduleEntry entry) {
@@ -67,31 +75,68 @@ class ExcelImportFeedbackService {
     };
   }
 
-  static String _sanitizeFileName(String fileName) {
-    final trimmed = fileName.trim();
-    if (trimmed.isEmpty) return 'unknown.xlsx';
-    return trimmed.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-  }
+  /// Rebuilds only the timetable cells; original headers, shared strings,
+  /// sheet names, document properties and unrelated sheets are never copied.
+  static Uint8List prepareTrainingWorkbook(
+    Uint8List excelBytes, {
+    List<String>? sourceSheetNames,
+  }) {
+    final source = Excel.decodeBytes(excelBytes);
+    final output = Excel.createExcel();
+    var sheetCount = 0;
+    for (final sheet in source.tables.values) {
+      if (sourceSheetNames != null &&
+          !sourceSheetNames.contains(sheet.sheetName)) {
+        continue;
+      }
+      final layout = ExcelTimetableLayout.detect(sheet);
+      if (layout == null) continue;
+      final target = output['Sheet${++sheetCount}'];
+      final firstRow = layout.periodAnchors.keys.first;
+      final headerRow = layout.headerRow >= 0 ? layout.headerRow : firstRow - 1;
+      // Keep relative row/column positions so wrapped text remains useful for
+      // parser feedback, but copy values into a fresh workbook as literal text.
+      void put(int column, int row, String value) {
+        target
+            .cell(
+              CellIndex.indexByColumnRow(
+                columnIndex: column,
+                rowIndex: row - headerRow,
+              ),
+            )
+            .value = TextCellValue(value);
+      }
 
-  static Uint8List _maskExcelBytesFixedCells(Uint8List excelBytes) {
-    final excel = Excel.decodeBytes(excelBytes);
-
-    const targets = <String>['Sheet1', 'Sheet2'];
-    for (final name in targets) {
-      final sheet = excel.tables[name];
-      if (sheet == null) continue;
-      _maskCell(sheet, col: 8, row: 3); // I4
-      _maskCell(sheet, col: 32, row: 3); // AG4
+      for (final day in layout.dayColumns.entries) {
+        put(
+          day.value,
+          headerRow,
+          '${ExcelTimetableLayout.dayLabels[day.key]}曜日',
+        );
+      }
+      for (final anchor in layout.periodAnchors.entries) {
+        put(layout.periodColumn, anchor.key, '${anchor.value}');
+        for (final column in layout.dayColumns.values) {
+          // Empty slots cannot provide useful lecture extraction examples.
+          if (layout.text(column, anchor.key).isEmpty) continue;
+          for (
+            var row = anchor.key;
+            row <= layout.blockEndRow(anchor.key);
+            row++
+          ) {
+            final value = layout.text(column, row);
+            if (value.isNotEmpty) put(column, row, value);
+          }
+        }
+      }
     }
-
-    final encoded = excel.encode();
-    if (encoded == null) return excelBytes;
+    if (sheetCount == 0) {
+      throw const FormatException('時間割を確認できないためデータを提供できません。');
+    }
+    final encoded = output.encode();
+    if (encoded == null) {
+      throw StateError('個人情報を除いたExcelの作成に失敗しました。');
+    }
     return Uint8List.fromList(encoded);
-  }
-
-  static void _maskCell(Sheet sheet, {required int col, required int row}) {
-    sheet
-        .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row))
-        .value = TextCellValue('<MASKED>');
   }
 }

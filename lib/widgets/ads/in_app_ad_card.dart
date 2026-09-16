@@ -8,6 +8,7 @@ import '../../models/ads/in_app_ad_model.dart';
 import '../../models/bulletin/bulletin_model.dart';
 import '../../screens/bulletin/bulletin_post_detail_screen.dart';
 import '../../core/providers/bulletin_provider.dart';
+import 'in_app_ad_creative.dart';
 
 class InAppAdCard extends ConsumerStatefulWidget {
   const InAppAdCard({
@@ -27,6 +28,16 @@ class InAppAdCard extends ConsumerStatefulWidget {
 
 class _InAppAdCardState extends ConsumerState<InAppAdCard> {
   bool _impressionLogged = false;
+
+  @override
+  void didUpdateWidget(covariant InAppAdCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.ad.id != widget.ad.id ||
+        oldWidget.placement != widget.placement) {
+      _impressionLogged = false;
+      _logImpressionIfNeeded();
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -88,7 +99,9 @@ class _InAppAdCardState extends ConsumerState<InAppAdCard> {
   Future<void> _openExternalUrl(String url) async {
     debugPrint('🌐 _openExternalUrl called with: $url');
     final uri = Uri.tryParse(url);
-    if (uri == null) {
+    if (uri == null ||
+        !['http', 'https'].contains(uri.scheme) ||
+        uri.host.isEmpty) {
       debugPrint('🌐 URI parsing failed for: $url');
       _showMessage('リンクが無効です');
       return;
@@ -227,142 +240,6 @@ class _InAppAdCardState extends ConsumerState<InAppAdCard> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    debugPrint(
-      '🎨 Building InAppAdCard | id=${widget.ad.id}, title=${widget.ad.title}, action=${widget.ad.actionType}, payload=${widget.ad.actionPayload}',
-    );
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    final hasImage =
-        widget.ad.imageUrl != null && widget.ad.imageUrl!.trim().isNotEmpty;
-
-    return Card(
-      margin:
-          widget.margin ??
-          const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: _onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              if (hasImage) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: Image.network(
-                    widget.ad.imageUrl!.trim(),
-                    width: 48,
-                    height: 48,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) {
-                        debugPrint('🖼️ Ad image loaded successfully | url=${widget.ad.imageUrl}');
-                        return child;
-                      }
-                      debugPrint(
-                        '🖼️ Ad image loading... | url=${widget.ad.imageUrl}, '
-                        'downloaded=${loadingProgress.cumulativeBytesLoaded}, '
-                        'total=${loadingProgress.expectedTotalBytes}',
-                      );
-                      return Container(
-                        width: 48,
-                        height: 48,
-                        color: Colors.grey.shade200,
-                        child: const Center(
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      debugPrint('❌ Ad image load error | url=${widget.ad.imageUrl}');
-                      debugPrint('❌ Error: $error');
-                      debugPrint('❌ StackTrace: $stackTrace');
-                      return Container(
-                        width: 48,
-                        height: 48,
-                        color: Colors.grey.shade200,
-                        child: const Icon(Icons.image_not_supported, size: 24),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primary.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '広告',
-                            style: TextStyle(
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 9,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            widget.ad.title,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      widget.ad.body,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontSize: 12,
-                        color: theme.textTheme.bodySmall?.color?.withOpacity(
-                          0.85,
-                        ),
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.arrow_forward_ios,
-                color: colorScheme.primary,
-                size: 16,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      InAppAdCreative(ad: widget.ad, margin: widget.margin, onTap: _onTap);
 }

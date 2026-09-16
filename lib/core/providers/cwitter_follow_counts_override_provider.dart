@@ -4,10 +4,7 @@ import '../../models/community/cwitter_follow_counts.dart';
 
 /// フォロー操作直後の楽観的表示（Firestore 反映待ち）
 class CwitterFollowCountsOverride {
-  const CwitterFollowCountsOverride({
-    this.followerCount,
-    this.followingCount,
-  });
+  const CwitterFollowCountsOverride({this.followerCount, this.followingCount});
 
   final int? followerCount;
   final int? followingCount;
@@ -56,8 +53,10 @@ class CwitterFollowCountsOverrideNotifier
     if (override == null) return;
 
     final followerSynced =
-        override.followerCount == null || override.followerCount == server.followerCount;
-    final followingSynced = override.followingCount == null ||
+        override.followerCount == null ||
+        override.followerCount == server.followerCount;
+    final followingSynced =
+        override.followingCount == null ||
         override.followingCount == server.followingCount;
 
     if (followerSynced && followingSynced) {
@@ -67,10 +66,9 @@ class CwitterFollowCountsOverrideNotifier
 }
 
 final cwitterFollowCountsOverrideProvider = StateNotifierProvider<
-    CwitterFollowCountsOverrideNotifier,
-    Map<String, CwitterFollowCountsOverride>>(
-  (ref) => CwitterFollowCountsOverrideNotifier(),
-);
+  CwitterFollowCountsOverrideNotifier,
+  Map<String, CwitterFollowCountsOverride>
+>((ref) => CwitterFollowCountsOverrideNotifier());
 
 CwitterFollowCounts resolveCwitterFollowCounts({
   required CwitterFollowCounts server,

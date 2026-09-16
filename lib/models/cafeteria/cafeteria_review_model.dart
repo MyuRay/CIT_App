@@ -45,9 +45,10 @@ class CafeteriaReview {
       userName: json['userName'] as String? ?? '匿名',
       createdAt: _parseDateTime(json['createdAt']),
       likeCount: (json['likeCount'] as num?)?.toInt() ?? 0,
-      likedBy: json['likedBy'] is Map
-          ? Map<String, dynamic>.from(json['likedBy'] as Map)
-          : null,
+      likedBy:
+          json['likedBy'] is Map
+              ? Map<String, dynamic>.from(json['likedBy'] as Map)
+              : null,
     );
   }
 
@@ -72,7 +73,9 @@ class CafeteriaReview {
     if (v is Timestamp) return v.toDate();
     if (v is DateTime) return v;
     if (v is String) {
-      try { return DateTime.parse(v); } catch (_) {}
+      try {
+        return DateTime.parse(v);
+      } catch (_) {}
     }
     return DateTime.now();
   }

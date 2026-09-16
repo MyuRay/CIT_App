@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -36,11 +37,10 @@ class _CwitterSocialLinksSectionState
     return asyncLinks ?? widget.initialLinks;
   }
 
-  bool get _hasAnyLink =>
-      CwitterSocialPlatform.values.any((platform) {
-        final value = _links[platform.storageKey];
-        return value != null && value.trim().isNotEmpty;
-      });
+  bool get _hasAnyLink => CwitterSocialPlatform.values.any((platform) {
+    final value = _links[platform.storageKey];
+    return value != null && value.trim().isNotEmpty;
+  });
 
   Future<void> _showEditDialog(CwitterSocialPlatform platform) async {
     final result = await showDialog<String?>(
@@ -80,9 +80,7 @@ class _CwitterSocialLinksSectionState
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
@@ -103,9 +101,9 @@ class _CwitterSocialLinksSectionState
 
     await Clipboard.setData(ClipboardData(text: value));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${platform.label} IDをコピーしました')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${platform.label} IDをコピーしました')));
   }
 
   Future<void> _handleIconTap(
@@ -115,7 +113,7 @@ class _CwitterSocialLinksSectionState
   ) async {
     final registered = value != null && value.trim().isNotEmpty;
     if (registered) {
-      await _openRegisteredLink(context, platform, value!.trim());
+      await _openRegisteredLink(context, platform, value.trim());
       return;
     }
     if (widget.isSelf) {
@@ -130,8 +128,7 @@ class _CwitterSocialLinksSectionState
     }
 
     final theme = Theme.of(context);
-    final mutedColor =
-        theme.colorScheme.onSurface.withValues(alpha: 0.65);
+    final mutedColor = theme.colorScheme.onSurface.withValues(alpha: 0.65);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -155,24 +152,25 @@ class _CwitterSocialLinksSectionState
                 value: _links[platform.storageKey],
                 isSelf: widget.isSelf,
                 isSaving: _isSaving,
-                onTap: () => _handleIconTap(
-                  context,
-                  platform,
-                  _links[platform.storageKey],
-                ),
-                onLongPress: widget.isSelf &&
-                        (_links[platform.storageKey]?.trim().isNotEmpty ?? false)
-                    ? () => _showEditDialog(platform)
-                    : null,
+                onTap:
+                    () => _handleIconTap(
+                      context,
+                      platform,
+                      _links[platform.storageKey],
+                    ),
+                onLongPress:
+                    widget.isSelf &&
+                            (_links[platform.storageKey]?.trim().isNotEmpty ??
+                                false)
+                        ? () => _showEditDialog(platform)
+                        : null,
               ),
           ],
         ),
         if (widget.isSelf) ...[
           const SizedBox(height: 6),
           Text(
-            widget.isSelf
-                ? '未登録のアイコンをタップして追加。登録済みはタップで開き、長押しで編集できます'
-                : '',
+            widget.isSelf ? '未登録のアイコンをタップして追加。登録済みはタップで開き、長押しで編集できます' : '',
             style: theme.textTheme.bodySmall?.copyWith(color: mutedColor),
           ),
         ],
@@ -253,17 +251,11 @@ class _SocialLinkEditDialogState extends State<_SocialLinkEditDialog> {
       ),
       actions: [
         if (widget.initialValue.isNotEmpty)
-          TextButton(
-            onPressed: _delete,
-            child: const Text('削除'),
-          ),
-        TextButton(
-          onPressed: _cancel,
-          child: const Text('キャンセル'),
-        ),
+          TextButton(onPressed: _delete, child: const Text('削除')),
+        TextButton(onPressed: _cancel, child: const Text('キャンセル')),
         FilledButton(
           onPressed: _save,
-          style: FilledButton.styleFrom(
+          style: FilledButton.styleFrom(foregroundColor: AppColors.onColor(const Color(0xFF4CAF50)),
             backgroundColor: const Color(0xFF4CAF50),
           ),
           child: const Text('保存'),
@@ -299,9 +291,10 @@ class _SocialLinkIconButton extends StatelessWidget {
     }
 
     final color = platform.iconColor(context, registered: _isRegistered);
-    final borderColor = _isRegistered
-        ? color.withValues(alpha: 0.45)
-        : platform.brandColor.withValues(alpha: 0.35);
+    final borderColor =
+        _isRegistered
+            ? color.withValues(alpha: 0.45)
+            : platform.brandColor.withValues(alpha: 0.35);
 
     return Material(
       color: Colors.transparent,
@@ -313,20 +306,17 @@ class _SocialLinkIconButton extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: _isRegistered
-                ? color.withValues(alpha: 0.12)
-                : Colors.transparent,
+            color:
+                _isRegistered
+                    ? color.withValues(alpha: 0.12)
+                    : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: borderColor),
           ),
           child: Stack(
             alignment: Alignment.center,
             children: [
-              FaIcon(
-                platform.brandIcon,
-                color: color,
-                size: 22,
-              ),
+              FaIcon(platform.brandIcon, color: color, size: 22),
               if (_isRegistered)
                 Positioned(
                   right: 4,

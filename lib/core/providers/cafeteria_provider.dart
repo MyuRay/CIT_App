@@ -3,14 +3,18 @@ import '../../models/cafeteria/cafeteria_model.dart';
 import '../../services/cafeteria/cafeteria_scraping_service.dart';
 
 // 学食メニュープロバイダー
-final cafeteriaMenuProvider = FutureProvider.family<CafeteriaMenu?, String>((ref, campus) async {
+final cafeteriaMenuProvider = FutureProvider.family<CafeteriaMenu?, String>((
+  ref,
+  campus,
+) async {
   return await CafeteriaScrapeService.fetchTodayMenu(campus);
 });
 
 // 学食混雑状況プロバイダー
-final cafeteriaCongestionProvider = FutureProvider.family<CafeteriaCongestion?, String>((ref, campus) async {
-  return await CafeteriaScrapeService.fetchCongestionStatus(campus);
-});
+final cafeteriaCongestionProvider =
+    FutureProvider.family<CafeteriaCongestion?, String>((ref, campus) async {
+      return await CafeteriaScrapeService.fetchCongestionStatus(campus);
+    });
 
 // 津田沼キャンパスの学食情報
 final tsudanumaMenuProvider = Provider((ref) {

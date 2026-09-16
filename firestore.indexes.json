@@ -1,6 +1,22 @@
 {
   "indexes": [
     {
+      "collectionGroup": "cafeteria_favorites",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "menuItemId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cafeteria_favorites",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "cafeteriaId", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "cwitter_posts",
       "queryScope": "COLLECTION",
       "fields": [

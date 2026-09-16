@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -7,43 +6,46 @@ import 'package:path_provider/path_provider.dart';
 class MenuImageService {
   static const String _userAgent = 'CIT App Mobile Client';
   static const Duration _timeout = Duration(seconds: 30);
-  
+
   // CITメニュー画像のベースURL
-  static const String _baseImageUrl = 'https://www.cit-s.com/wp/wp-content/themes/cit/menu/';
-  
+  static const String _baseImageUrl =
+      'https://www.cit-s.com/wp/wp-content/themes/cit/menu/';
+
   // キャッシュディレクトリ名
   static const String _cacheDirectory = 'menu_images';
-  
+
   // 津田沼・新習志野キャンパス（実際のファイル名に合わせて修正）
   static const Map<String, String> campusFileNames = {
-    'td': 'td',      // 津田沼
-    'ns': 'sd1',     // 新習志野（実際はsd1）
+    'td': 'td', // 津田沼
+    'ns': 'sd1', // 新習志野（実際はsd1）
   };
 
   /// 現在の週の月曜日から金曜日のメニュー画像URLを生成
   static List<String> getCurrentWeekImageUrls(String campus) {
     final urls = <String>[];
     final now = DateTime.now();
-    
+
     // 実際のファイル名形式に合わせる: td_202508_2.png, sd1_202508_2.png
     final campusCode = campusFileNames[campus] ?? campus;
     final yearMonth = '${now.year}${now.month.toString().padLeft(2, '0')}';
-    
+
     // 8月は固定で2を使用（実際のサイトに合わせて）
     final weekNumber = 2; // 現在8月は2で固定
-    
+
     // URL形式: td_202508_2.png
     final filename = '${campusCode}_${yearMonth}_$weekNumber.png';
     final fullUrl = '$_baseImageUrl$filename';
-    
+
     debugPrint('Generated menu image URL: $fullUrl for campus: $campus');
     urls.add(fullUrl);
-    
+
     return urls;
   }
 
   /// 今週のメニュー画像を一括ダウンロード
-  static Future<Map<String, String?>> downloadWeeklyMenuImages(String campus) async {
+  static Future<Map<String, String?>> downloadWeeklyMenuImages(
+    String campus,
+  ) async {
     final results = <String, String?>{};
     final urls = getCurrentWeekImageUrls(campus);
     final monday = _getMondayOfCurrentWeek();
@@ -52,7 +54,7 @@ class MenuImageService {
       final url = urls[i];
       final date = monday.add(Duration(days: i));
       final dateKey = _getDateKey(date);
-      
+
       try {
         final localPath = await _downloadAndCacheImage(url, campus, date);
         results[dateKey] = localPath;
@@ -67,17 +69,20 @@ class MenuImageService {
   }
 
   /// 特定の日のメニュー画像を取得
-  static Future<String?> getMenuImageForDate(String campus, DateTime date) async {
+  static Future<String?> getMenuImageForDate(
+    String campus,
+    DateTime date,
+  ) async {
     final dateKey = _getDateKey(date);
     final cachedPath = await _getCachedImagePath(campus, date);
-    
+
     // キャッシュされた画像が存在するかチェック
     if (cachedPath != null && await File(cachedPath).exists()) {
       // ファイルが1週間以内のものかチェック
       final file = File(cachedPath);
       final lastModified = await file.lastModified();
       final weekAgo = DateTime.now().subtract(const Duration(days: 7));
-      
+
       if (lastModified.isAfter(weekAgo)) {
         return cachedPath;
       }
@@ -87,9 +92,9 @@ class MenuImageService {
     try {
       final month = date.month.toString().padLeft(2, '0');
       final day = date.day.toString().padLeft(2, '0');
-      final filename = '${campus}_${month}_${day}.png';
+      final filename = '${campus}_${month}_$day.png';
       final url = '$_baseImageUrl$filename';
-      
+
       return await _downloadAndCacheImage(url, campus, date);
     } catch (e) {
       debugPrint('Failed to download menu image for $dateKey: $e');
@@ -115,26 +120,31 @@ class MenuImageService {
   }
 
   /// 画像をダウンロードしてローカルにキャッシュ
-  static Future<String> _downloadAndCacheImage(String url, String campus, DateTime date) async {
+  static Future<String> _downloadAndCacheImage(
+    String url,
+    String campus,
+    DateTime date,
+  ) async {
     debugPrint('Downloading menu image from: $url');
-    
+
     try {
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {'User-Agent': _userAgent},
-      ).timeout(_timeout);
+      final response = await http
+          .get(Uri.parse(url), headers: {'User-Agent': _userAgent})
+          .timeout(_timeout);
 
       debugPrint('HTTP Response: ${response.statusCode} for URL: $url');
 
       if (response.statusCode != 200) {
-        throw Exception('Failed to download image: ${response.statusCode} from $url');
+        throw Exception(
+          'Failed to download image: ${response.statusCode} from $url',
+        );
       }
 
       final bytes = response.bodyBytes;
       debugPrint('Downloaded ${bytes.length} bytes from: $url');
-      
+
       final cachePath = await _getCachedImagePath(campus, date);
-      
+
       if (cachePath != null) {
         final file = File(cachePath);
         await file.parent.create(recursive: true);
@@ -142,7 +152,7 @@ class MenuImageService {
         debugPrint('Cached image to: $cachePath');
         return cachePath;
       }
-      
+
       throw Exception('Failed to create cache path for: $url');
     } catch (e) {
       debugPrint('Error downloading menu image from $url: $e');
@@ -151,23 +161,26 @@ class MenuImageService {
   }
 
   /// キャッシュされた画像のパスを取得
-  static Future<String?> _getCachedImagePath(String campus, DateTime date) async {
+  static Future<String?> _getCachedImagePath(
+    String campus,
+    DateTime date,
+  ) async {
     try {
       final appDir = await getApplicationDocumentsDirectory();
       final cacheDir = Directory('${appDir.path}/$_cacheDirectory');
-      
+
       // キャッシュディレクトリの場所をログ出力
       debugPrint('=== メニュー画像キャッシュ場所 ===');
       debugPrint('アプリディレクトリ: ${appDir.path}');
       debugPrint('キャッシュディレクトリ: ${cacheDir.path}');
-      
+
       final month = date.month.toString().padLeft(2, '0');
       final day = date.day.toString().padLeft(2, '0');
-      final filename = '${campus}_${month}_${day}.png';
+      final filename = '${campus}_${month}_$day.png';
       final fullPath = '${cacheDir.path}/$filename';
-      
+
       debugPrint('ファイルパス: $fullPath');
-      
+
       return fullPath;
     } catch (e) {
       debugPrint('Failed to get cache path: $e');
@@ -197,15 +210,15 @@ class MenuImageService {
   static Future<Map<String, String?>> getWeeklyMenuPaths(String campus) async {
     final paths = <String, String?>{};
     final monday = _getMondayOfCurrentWeek();
-    
+
     // キャッシュディレクトリの内容を確認
     await _debugCacheDirectory();
-    
+
     for (int i = 0; i < 5; i++) {
       final date = monday.add(Duration(days: i));
       final dateKey = _getDateKey(date);
       final path = await _getCachedImagePath(campus, date);
-      
+
       // ファイルが存在するかチェック
       if (path != null && await File(path).exists()) {
         paths[dateKey] = path;
@@ -213,7 +226,7 @@ class MenuImageService {
         paths[dateKey] = null;
       }
     }
-    
+
     return paths;
   }
 
@@ -222,15 +235,15 @@ class MenuImageService {
     try {
       final appDir = await getApplicationDocumentsDirectory();
       final cacheDir = Directory('${appDir.path}/$_cacheDirectory');
-      
+
       debugPrint('=== キャッシュディレクトリの確認 ===');
       debugPrint('ディレクトリ: ${cacheDir.path}');
       debugPrint('存在: ${await cacheDir.exists()}');
-      
+
       if (await cacheDir.exists()) {
         final files = await cacheDir.list().toList();
         debugPrint('ファイル数: ${files.length}');
-        
+
         for (var file in files) {
           if (file is File) {
             final stat = await file.stat();
@@ -250,11 +263,11 @@ class MenuImageService {
     try {
       final appDir = await getApplicationDocumentsDirectory();
       final cacheDir = Directory('${appDir.path}/$_cacheDirectory');
-      
+
       if (await cacheDir.exists()) {
         final files = await cacheDir.list().toList();
         final twoWeeksAgo = DateTime.now().subtract(const Duration(days: 14));
-        
+
         for (final file in files) {
           if (file is File) {
             final lastModified = await file.lastModified();

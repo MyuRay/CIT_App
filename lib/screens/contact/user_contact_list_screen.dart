@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,13 +13,9 @@ class UserContactListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUser = FirebaseAuth.instance.currentUser;
-    
+
     if (currentUser == null) {
-      return const Scaffold(
-        body: Center(
-          child: Text('ログインが必要です'),
-        ),
-      );
+      return const Scaffold(body: Center(child: Text('ログインが必要です')));
     }
 
     final userContactsAsync = ref.watch(userContactsProvider(currentUser.uid));
@@ -45,8 +42,8 @@ class UserContactListScreen extends ConsumerWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _navigateToContactForm(context),
-        child: const Icon(Icons.add),
         tooltip: '新しいお問い合わせ',
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -57,21 +54,13 @@ class UserContactListScreen extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inbox, size: 80, color: Colors.grey[400]),
+            Icon(Icons.inbox, size: 80, color: Theme.of(context).colorScheme.onSurfaceVariant),
             const SizedBox(height: 16),
             Text(
               'お問い合わせ履歴がありません',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'お困りのことがございましたら\nお気軽にお問い合わせください',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[500],
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
@@ -103,9 +92,11 @@ class UserContactListScreen extends ConsumerWidget {
           width: 50,
           height: 50,
           decoration: BoxDecoration(
-            color: contact.statusColor.withOpacity(0.1),
+            color: contact.statusColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(25),
-            border: Border.all(color: contact.statusColor.withOpacity(0.3)),
+            border: Border.all(
+              color: contact.statusColor.withValues(alpha: 0.3),
+            ),
           ),
           child: Center(
             child: Text(
@@ -116,10 +107,7 @@ class UserContactListScreen extends ConsumerWidget {
         ),
         title: Text(
           contact.subject,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -129,24 +117,24 @@ class UserContactListScreen extends ConsumerWidget {
             const SizedBox(height: 4),
             Text(
               contact.categoryName,
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 13,
-              ),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
             ),
             const SizedBox(height: 8),
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: contact.statusColor,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     contact.statusDisplayName,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AppColors.onColor(contact.statusColor),
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                     ),
@@ -155,15 +143,18 @@ class UserContactListScreen extends ConsumerWidget {
                 const SizedBox(width: 8),
                 if (contact.response != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.green,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Text(
+                    child: Text(
                       '返信済み',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.onColor(Colors.green),
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
@@ -172,10 +163,7 @@ class UserContactListScreen extends ConsumerWidget {
                 const Spacer(),
                 Text(
                   _formatDateTime(contact.createdAt),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[500],
-                  ),
+                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -192,7 +180,7 @@ class UserContactListScreen extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error, size: 64, color: Colors.red),
+           Icon(Icons.error, size: 64, color: AppColors.accent(context, Colors.red)),
           const SizedBox(height: 16),
           Text('エラーが発生しました: $error'),
           const SizedBox(height: 16),
@@ -208,11 +196,9 @@ class UserContactListScreen extends ConsumerWidget {
   }
 
   void _navigateToContactForm(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const ContactFormScreen(),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const ContactFormScreen()));
   }
 
   void _showContactDetail(BuildContext context, ContactForm contact) {
@@ -228,202 +214,218 @@ class UserContactListScreen extends ConsumerWidget {
       initialChildSize: 0.7,
       maxChildSize: 0.9,
       minChildSize: 0.3,
-      builder: (context, controller) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            // ハンドル
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
+      builder:
+          (context, controller) => Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
-            
-            // ヘッダー
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: contact.statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: contact.statusColor.withOpacity(0.3)),
-                    ),
-                    child: Center(
-                      child: Text(
-                        contact.categoryIcon,
-                        style: const TextStyle(fontSize: 18),
-                      ),
-                    ),
+            child: Column(
+              children: [
+                // ハンドル
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          contact.subject,
-                          style: const TextStyle(
-                            fontSize: 18,
+                ),
+
+                // ヘッダー
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: contact.statusColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: contact.statusColor.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            contact.categoryIcon,
+                            style: const TextStyle(fontSize: 18),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              contact.subject,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              contact.categoryName,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: contact.statusColor,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          contact.statusDisplayName,
+                          style: TextStyle(
+                            color: AppColors.onColor(contact.statusColor),
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        Text(
-                          contact.categoryName,
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 14,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Divider(height: 1),
+
+                // 内容
+                Expanded(
+                  child: ListView(
+                    controller: controller,
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      // お問い合わせ内容
+                      const Text(
+                        'お問い合わせ内容',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                        ),
+                        child: Text(
+                          contact.message,
+                          style: const TextStyle(fontSize: 15),
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // 返信があれば表示
+                      if (contact.response != null) ...[
+                        Row(
+                          children: [
+                            Icon(Icons.reply, color: AppColors.accent(context, Colors.green[600])),
+                            const SizedBox(width: 8),
+                            const Text(
+                              '管理者からの返信',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.tintedSurface(context, Colors.green),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green[300]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                contact.response!,
+                                style: const TextStyle(fontSize: 15),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '返信日時: ${_formatDateTime(contact.respondedAt!)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.tintedSurface(context, Colors.orange),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orange[300]!),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.schedule,
+                                color: AppColors.accent(context, Colors.orange[600]),
+                                size: 32,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '管理者からの返信をお待ちください',
+                                style: TextStyle(
+                                  color: AppColors.accent(context, Colors.orange[700]),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: contact.statusColor,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      contact.statusDisplayName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
+
+                      const SizedBox(height: 16),
+
+                      // 詳細情報
+                      _buildDetailRow(context, 'お問い合わせID', contact.id),
+                      _buildDetailRow(context,
+                        '作成日時',
+                        _formatDateTime(contact.createdAt),
                       ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            const Divider(height: 1),
-            
-            // 内容
-            Expanded(
-              child: ListView(
-                controller: controller,
-                padding: const EdgeInsets.all(16),
-                children: [
-                  // お問い合わせ内容
-                  const Text(
-                    'お問い合わせ内容',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey[300]!),
-                    ),
-                    child: Text(
-                      contact.message,
-                      style: const TextStyle(fontSize: 15),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // 返信があれば表示
-                  if (contact.response != null) ...[
-                    Row(
-                      children: [
-                        Icon(Icons.reply, color: Colors.green[600]),
-                        const SizedBox(width: 8),
-                        const Text(
-                          '管理者からの返信',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      if (contact.updatedAt != null)
+                        _buildDetailRow(context,
+                          '更新日時',
+                          _formatDateTime(contact.updatedAt!),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.green[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.green[300]!),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            contact.response!,
-                            style: const TextStyle(fontSize: 15),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '返信日時: ${_formatDateTime(contact.respondedAt!)}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ] else ...[
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.orange[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange[300]!),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(Icons.schedule, color: Colors.orange[600], size: 32),
-                          const SizedBox(height: 8),
-                          Text(
-                            '管理者からの返信をお待ちください',
-                            style: TextStyle(
-                              color: Colors.orange[700],
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  
-                  const SizedBox(height: 16),
-                  
-                  // 詳細情報
-                  _buildDetailRow('お問い合わせID', contact.id),
-                  _buildDetailRow('作成日時', _formatDateTime(contact.createdAt)),
-                  if (contact.updatedAt != null)
-                    _buildDetailRow('更新日時', _formatDateTime(contact.updatedAt!)),
-                ],
-              ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  Widget _buildDetailRow(BuildContext context, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -435,7 +437,7 @@ class UserContactListScreen extends ConsumerWidget {
               label,
               style: TextStyle(
                 fontWeight: FontWeight.w500,
-                color: Colors.grey[600],
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),

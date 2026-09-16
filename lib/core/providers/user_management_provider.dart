@@ -4,7 +4,10 @@ import '../../models/admin/admin_model.dart';
 import '../../services/user_management/user_management_service.dart';
 
 // ユーザー一覧プロバイダー
-final allUsersProvider = StreamProvider.family<List<AppUser>, UserListFilter>((ref, filter) {
+final allUsersProvider = StreamProvider.family<List<AppUser>, UserListFilter>((
+  ref,
+  filter,
+) {
   return UserManagementService.getAllUsers(
     limit: filter.limit,
     isActiveFilter: filter.isActiveFilter,
@@ -23,14 +26,16 @@ final userDetailProvider = FutureProvider.family<AppUser?, String>((ref, uid) {
 });
 
 // ユーザーの管理者権限プロバイダー
-final userAdminPermissionsProvider = FutureProvider.family<AdminPermissions?, String>((ref, uid) {
-  return UserManagementService.getUserAdminPermissions(uid);
-});
+final userAdminPermissionsProvider =
+    FutureProvider.family<AdminPermissions?, String>((ref, uid) {
+      return UserManagementService.getUserAdminPermissions(uid);
+    });
 
 // ユーザーアクティビティプロバイダー
-final userActivitiesProvider = StreamProvider.family<List<UserActivity>, String?>((ref, uid) {
-  return UserManagementService.getUserActivities(uid: uid);
-});
+final userActivitiesProvider =
+    StreamProvider.family<List<UserActivity>, String?>((ref, uid) {
+      return UserManagementService.getUserActivities(uid: uid);
+    });
 
 // ユーザー管理アクションプロバイダー
 final userManagementActionsProvider = Provider<UserManagementActions>((ref) {
@@ -43,11 +48,7 @@ class UserListFilter {
   final bool? isActiveFilter;
   final String? searchQuery;
 
-  const UserListFilter({
-    this.limit,
-    this.isActiveFilter,
-    this.searchQuery,
-  });
+  const UserListFilter({this.limit, this.isActiveFilter, this.searchQuery});
 
   UserListFilter copyWith({
     int? limit,
@@ -96,7 +97,8 @@ class UserManagementActions {
   }
 
   // 管理者権限を付与
-  Future<void> grantAdminPermission(String uid, {
+  Future<void> grantAdminPermission(
+    String uid, {
     bool canManagePosts = false,
     bool canViewContacts = false,
     bool canManageUsers = false,
@@ -125,7 +127,10 @@ class UserManagementActions {
   }
 
   // 管理者権限を更新
-  Future<void> updateAdminPermissions(String uid, AdminPermissions permissions) async {
+  Future<void> updateAdminPermissions(
+    String uid,
+    AdminPermissions permissions,
+  ) async {
     await UserManagementService.updateAdminPermissions(uid, permissions);
     // 関連プロバイダーを更新
     ref.invalidate(userAdminPermissionsProvider(uid));

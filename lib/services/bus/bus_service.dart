@@ -4,7 +4,7 @@ import '../../models/bus/bus_model.dart';
 /// 学バス情報のFirebaseサービス
 class BusService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
+
   static const String _busInfoCollection = 'bus_information';
   static const String _busRoutesSubcollection = 'bus_routes';
   static const String _operationPeriodsSubcollection = 'operation_periods';
@@ -13,22 +13,20 @@ class BusService {
   Future<BusInformation?> getBusInformation() async {
     try {
       print('🚌 学バス情報取得開始');
-      
-      final doc = await _firestore
-          .collection(_busInfoCollection)
-          .doc('main')
-          .get();
+
+      final doc =
+          await _firestore.collection(_busInfoCollection).doc('main').get();
 
       if (!doc.exists) {
         print('🚌 学バス情報が存在しません (ドキュメントなし)');
         return null;
       }
-      
+
       print('🚌 メインドキュメント取得成功');
 
       final data = doc.data()!;
       print('🚌 メインドキュメントデータ: $data');
-      
+
       // 運行期間を取得（whereなしでテスト）
       print('🚌 運行期間取得中（全件）...');
       final periodsSnapshot = await _firestore
@@ -39,15 +37,18 @@ class BusService {
           .timeout(const Duration(seconds: 10));
 
       print('🚌 運行期間取得完了 - ${periodsSnapshot.docs.length}件');
-      final operationPeriods = periodsSnapshot.docs
-          .map((doc) => BusOperationPeriod.fromJson({
-                'id': doc.id,
-                ...doc.data(),
-              }))
-          .toList()
-        ..sort((a, b) => a.startDate.compareTo(b.startDate));
-      
-      print('🚌 期間処理結果: 全期間=${operationPeriods.length}, アクティブ期間=${operationPeriods.where((p) => p.isActive).length}');
+      final operationPeriods =
+          periodsSnapshot.docs
+              .map(
+                (doc) =>
+                    BusOperationPeriod.fromJson({'id': doc.id, ...doc.data()}),
+              )
+              .toList()
+            ..sort((a, b) => a.startDate.compareTo(b.startDate));
+
+      print(
+        '🚌 期間処理結果: 全期間=${operationPeriods.length}, アクティブ期間=${operationPeriods.where((p) => p.isActive).length}',
+      );
 
       // バス路線を取得（whereなしでテスト）
       print('🚌 バス路線取得中（全件）...');
@@ -59,15 +60,15 @@ class BusService {
           .timeout(const Duration(seconds: 10));
 
       print('🚌 バス路線取得完了 - ${routesSnapshot.docs.length}件');
-      final routes = routesSnapshot.docs
-          .map((doc) => BusRoute.fromJson({
-                'id': doc.id,
-                ...doc.data(),
-              }))
-          .toList()
-        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder)); // Dart側でソート
-      
-      print('🚌 路線処理結果: 全路線=${routes.length}, アクティブ路線=${routes.where((r) => r.isActive).length}');
+      final routes =
+          routesSnapshot.docs
+              .map((doc) => BusRoute.fromJson({'id': doc.id, ...doc.data()}))
+              .toList()
+            ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder)); // Dart側でソート
+
+      print(
+        '🚌 路線処理結果: 全路線=${routes.length}, アクティブ路線=${routes.where((r) => r.isActive).length}',
+      );
 
       print('🚌 BusInformation作成中...');
       final busInfo = BusInformation(
@@ -76,7 +77,8 @@ class BusService {
         description: data['description'] ?? '',
         routes: routes,
         operationPeriods: operationPeriods,
-        lastUpdated: (data['lastUpdated'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        lastUpdated:
+            (data['lastUpdated'] as Timestamp?)?.toDate() ?? DateTime.now(),
         updatedBy: data['updatedBy'] ?? '',
       );
       print('🚌 BusInformation作成完了: ${busInfo.title}');
@@ -92,7 +94,7 @@ class BusService {
   /// 学バス情報をリアルタイム監視
   Stream<BusInformation?> watchBusInformation() {
     print('🚌 watchBusInformation: ストリーム開始');
-    
+
     return _firestore
         .collection(_busInfoCollection)
         .doc('main')
@@ -100,46 +102,59 @@ class BusService {
         .asyncMap((doc) async {
           print('🚌 watchBusInformation: スナップショット受信 - exists: ${doc.exists}');
           if (!doc.exists) return null;
-          
+
           final data = doc.data()!;
-          
+
           // 運行期間を取得
           print('🚌 watchBusInformation: 運行期間取得中...');
-          final periodsSnapshot = await _firestore
-              .collection(_busInfoCollection)
-              .doc('main')
-              .collection(_operationPeriodsSubcollection)
-              .get();
+          final periodsSnapshot =
+              await _firestore
+                  .collection(_busInfoCollection)
+                  .doc('main')
+                  .collection(_operationPeriodsSubcollection)
+                  .get();
 
-          print('🚌 watchBusInformation: 運行期間取得完了 - ${periodsSnapshot.docs.length}件');
-          final operationPeriods = periodsSnapshot.docs
-              .map((doc) => BusOperationPeriod.fromJson({
-                    'id': doc.id,
-                    ...doc.data(),
-                  }))
-              .toList()
-            ..sort((a, b) => a.startDate.compareTo(b.startDate));
-          
-          print('🚌 ストリーム: 全運行期間=${operationPeriods.length}, アクティブ期間=${operationPeriods.where((p) => p.isActive).length}');
+          print(
+            '🚌 watchBusInformation: 運行期間取得完了 - ${periodsSnapshot.docs.length}件',
+          );
+          final operationPeriods =
+              periodsSnapshot.docs
+                  .map(
+                    (doc) => BusOperationPeriod.fromJson({
+                      'id': doc.id,
+                      ...doc.data(),
+                    }),
+                  )
+                  .toList()
+                ..sort((a, b) => a.startDate.compareTo(b.startDate));
+
+          print(
+            '🚌 ストリーム: 全運行期間=${operationPeriods.length}, アクティブ期間=${operationPeriods.where((p) => p.isActive).length}',
+          );
 
           // バス路線を取得
           print('🚌 watchBusInformation: バス路線取得中...');
-          final routesSnapshot = await _firestore
-              .collection(_busInfoCollection)
-              .doc('main')
-              .collection(_busRoutesSubcollection)
-              .get();
+          final routesSnapshot =
+              await _firestore
+                  .collection(_busInfoCollection)
+                  .doc('main')
+                  .collection(_busRoutesSubcollection)
+                  .get();
 
-          print('🚌 watchBusInformation: バス路線取得完了 - ${routesSnapshot.docs.length}件');
-          final routes = routesSnapshot.docs
-              .map((doc) => BusRoute.fromJson({
-                    'id': doc.id,
-                    ...doc.data(),
-                  }))
-              .toList()
-            ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-          
-          print('🚌 ストリーム: 全路線=${routes.length}, アクティブ路線=${routes.where((r) => r.isActive).length}');
+          print(
+            '🚌 watchBusInformation: バス路線取得完了 - ${routesSnapshot.docs.length}件',
+          );
+          final routes =
+              routesSnapshot.docs
+                  .map(
+                    (doc) => BusRoute.fromJson({'id': doc.id, ...doc.data()}),
+                  )
+                  .toList()
+                ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
+          print(
+            '🚌 ストリーム: 全路線=${routes.length}, アクティブ路線=${routes.where((r) => r.isActive).length}',
+          );
 
           final busInfo = BusInformation(
             id: doc.id,
@@ -147,13 +162,17 @@ class BusService {
             description: data['description'] ?? '',
             routes: routes,
             operationPeriods: operationPeriods,
-            lastUpdated: (data['lastUpdated'] as Timestamp?)?.toDate() ?? DateTime.now(),
+            lastUpdated:
+                (data['lastUpdated'] as Timestamp?)?.toDate() ?? DateTime.now(),
             updatedBy: data['updatedBy'] ?? '',
           );
-          
-          print('🚌 watchBusInformation: BusInformation作成完了 - ${busInfo.title} - routes: ${busInfo.routes.length} - periods: ${busInfo.operationPeriods.length}');
+
+          print(
+            '🚌 watchBusInformation: BusInformation作成完了 - ${busInfo.title} - routes: ${busInfo.routes.length} - periods: ${busInfo.operationPeriods.length}',
+          );
           return busInfo;
-        }).handleError((error) {
+        })
+        .handleError((error) {
           print('❌ watchBusInformation: ストリームエラー - $error');
           throw error;
         });
@@ -163,7 +182,7 @@ class BusService {
   Future<bool> saveBusInformation(BusInformation busInfo) async {
     try {
       print('🚌 saveBusInformation開始');
-      
+
       final batch = _firestore.batch();
       final mainDocRef = _firestore.collection(_busInfoCollection).doc('main');
 
@@ -174,10 +193,10 @@ class BusService {
         'lastUpdated': Timestamp.fromDate(busInfo.lastUpdated),
         'updatedBy': busInfo.updatedBy,
       };
-      
+
       print('🚌 メインドキュメント保存: $mainData');
       batch.set(mainDocRef, mainData);
-      
+
       await batch.commit();
       print('✅ メインドキュメント保存完了');
 
@@ -209,10 +228,11 @@ class BusService {
         .collection(_operationPeriodsSubcollection);
 
     for (final period in periods) {
-      final docRef = period.id.isNotEmpty 
-          ? collectionRef.doc(period.id)
-          : collectionRef.doc();
-      
+      final docRef =
+          period.id.isNotEmpty
+              ? collectionRef.doc(period.id)
+              : collectionRef.doc();
+
       batch.set(docRef, period.toJson());
     }
 
@@ -228,10 +248,11 @@ class BusService {
         .collection(_busRoutesSubcollection);
 
     for (final route in routes) {
-      final docRef = route.id.isNotEmpty 
-          ? collectionRef.doc(route.id)
-          : collectionRef.doc();
-      
+      final docRef =
+          route.id.isNotEmpty
+              ? collectionRef.doc(route.id)
+              : collectionRef.doc();
+
       batch.set(docRef, route.toJson());
     }
 
@@ -308,7 +329,7 @@ class BusService {
       }
 
       print('🔄 バス路線追加開始: ${route.name}');
-      
+
       final docRef = await _firestore
           .collection(_busInfoCollection)
           .doc('main')
@@ -347,7 +368,7 @@ class BusService {
       }
 
       print('🔄 バス路線更新開始: ${route.id} (${route.name})');
-      
+
       await _firestore
           .collection(_busInfoCollection)
           .doc('main')
@@ -386,24 +407,24 @@ class BusService {
   Future<bool> createInitialBusData({bool forceRecreate = false}) async {
     try {
       print('🚌 初期データ作成開始');
-      
+
       // 既存データをチェック
       final existing = await getBusInformation();
       if (existing != null && !forceRecreate) {
         print('ℹ️ 学バス情報は既に存在します: ${existing.title}');
         return true;
       }
-      
+
       if (forceRecreate && existing != null) {
         print('🚌 既存データを削除して再作成します');
         await _deleteAllBusData();
       }
-      
+
       print('🚌 既存データなし、新規作成を開始');
 
       // サンプルの運行期間（現在の日付を含むように設定）
       final now = DateTime.now();
-      
+
       final currentPeriod = BusOperationPeriod(
         id: '',
         name: '通常運行',
@@ -468,48 +489,52 @@ class BusService {
       final result = await saveBusInformation(initialBusInfo);
       if (result) {
         print('✅ 学バス情報の初期データを作成しました');
-        
+
         // 作成後、実際にデータが読み取れるか確認
         final verification = await getBusInformation();
         if (verification != null) {
-          print('✅ 作成確認: ${verification.title} - 路線数: ${verification.routes.length} - 運行期間数: ${verification.operationPeriods.length}');
+          print(
+            '✅ 作成確認: ${verification.title} - 路線数: ${verification.routes.length} - 運行期間数: ${verification.operationPeriods.length}',
+          );
         } else {
           print('❌ 作成後の確認でデータが読み取れません');
         }
       } else {
         print('❌ 学バス情報の保存に失敗');
       }
-      
+
       return result;
     } catch (e) {
       print('❌ 初期データ作成エラー: $e');
       return false;
     }
   }
-  
+
   /// 全学バスデータを削除（初期化用）
   Future<void> _deleteAllBusData() async {
     try {
       print('🚌 全学バスデータ削除開始');
-      
+
       final batch = _firestore.batch();
       final mainDocRef = _firestore.collection(_busInfoCollection).doc('main');
-      
+
       // 運行期間を削除
-      final periodsSnapshot = await mainDocRef.collection(_operationPeriodsSubcollection).get();
+      final periodsSnapshot =
+          await mainDocRef.collection(_operationPeriodsSubcollection).get();
       for (final doc in periodsSnapshot.docs) {
         batch.delete(doc.reference);
       }
-      
+
       // バス路線を削除
-      final routesSnapshot = await mainDocRef.collection(_busRoutesSubcollection).get();
+      final routesSnapshot =
+          await mainDocRef.collection(_busRoutesSubcollection).get();
       for (final doc in routesSnapshot.docs) {
         batch.delete(doc.reference);
       }
-      
+
       // メインドキュメントを削除
       batch.delete(mainDocRef);
-      
+
       await batch.commit();
       print('✅ 全学バスデータ削除完了');
     } catch (e) {

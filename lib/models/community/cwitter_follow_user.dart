@@ -42,7 +42,4 @@ enum CwitterFollowListKind {
   final String title;
 }
 
-enum CwitterFeedTab {
-  everyone,
-  following,
-}
+enum CwitterFeedTab { everyone, following }

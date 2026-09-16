@@ -2,17 +2,23 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/cafeteria/cafeteria_review_model.dart';
 
 class CafeteriaReviewService {
-  static final _col = FirebaseFirestore.instance.collection('cafeteria_reviews');
+  static final _col = FirebaseFirestore.instance.collection(
+    'cafeteria_reviews',
+  );
 
   static Stream<List<CafeteriaReview>> streamReviews(String cafeteriaId) {
     return _col
         .where('cafeteriaId', isEqualTo: cafeteriaId)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map((d) => CafeteriaReview.fromJson({
-              'id': d.id,
-              ...d.data(),
-            })).toList());
+        .map(
+          (snap) =>
+              snap.docs
+                  .map(
+                    (d) => CafeteriaReview.fromJson({'id': d.id, ...d.data()}),
+                  )
+                  .toList(),
+        );
   }
 
   static Future<void> addReview(CafeteriaReview review) async {
@@ -33,4 +39,3 @@ class CafeteriaReviewService {
     await _col.doc(id).delete();
   }
 }
-

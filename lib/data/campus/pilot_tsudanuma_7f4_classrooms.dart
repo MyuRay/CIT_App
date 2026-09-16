@@ -115,18 +115,19 @@ CampusClassroomLocation _tsudanuma7f4Room(
 }) {
   final zenRoomCode = roomCode.replaceAllMapped(
     RegExp(r'\d'),
-    (m) => const {
-      '0': '０',
-      '1': '１',
-      '2': '２',
-      '3': '３',
-      '4': '４',
-      '5': '５',
-      '6': '６',
-      '7': '７',
-      '8': '８',
-      '9': '９',
-    }[m[0]]!,
+    (m) =>
+        const {
+          '0': '０',
+          '1': '１',
+          '2': '２',
+          '3': '３',
+          '4': '４',
+          '5': '５',
+          '6': '６',
+          '7': '７',
+          '8': '８',
+          '9': '９',
+        }[m[0]]!,
   );
 
   final compactLabel = pinLabelFull.replaceAll(' ', '');

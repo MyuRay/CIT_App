@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm run test:rules",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-cit-review --config firebase.test.json \"node --test test/firestore/*.test.cjs\"",
+    "test:auth": "firebase emulators:exec --only auth --project demo-cit-registration --config firebase.auth.test.json \"node --test test/auth/*.test.cjs\""
   },
   "keywords": [],
   "author": "",
@@ -11,5 +13,10 @@
   "description": "",
   "dependencies": {
     "firebase-admin": "^13.6.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase": "^12.19.0",
+    "firebase-tools": "^15.30.0"
   }
 }

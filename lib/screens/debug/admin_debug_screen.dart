@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -33,7 +34,7 @@ class _AdminDebugScreenState extends ConsumerState<AdminDebugScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('管理者デバッグ画面'),
-        backgroundColor: Colors.orange.shade50,
+        backgroundColor: AppColors.tintedSurface(context, Colors.orange),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -42,7 +43,7 @@ class _AdminDebugScreenState extends ConsumerState<AdminDebugScreen> {
           children: [
             // 現在の状態表示
             Card(
-              color: Colors.blue.shade50,
+              color: AppColors.tintedSurface(context, Colors.blue),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -50,35 +51,45 @@ class _AdminDebugScreenState extends ConsumerState<AdminDebugScreen> {
                   children: [
                     const Text(
                       '現在の状態',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Text('デバッグ情報: $debugStatus'),
                     const SizedBox(height: 8),
                     authState.when(
-                      data: (user) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('認証状態: ${user != null ? "ログイン済み" : "未ログイン"}'),
-                          if (user != null) ...[
-                            Text('ユーザーID: ${user.uid}'),
-                            Text('メールアドレス: ${user.email ?? "なし"}'),
-                            Text('表示名: ${user.displayName ?? "なし"}'),
-                          ],
-                        ],
-                      ),
+                      data:
+                          (user) => Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '認証状態: ${user != null ? "ログイン済み" : "未ログイン"}',
+                              ),
+                              if (user != null) ...[
+                                Text('ユーザーID: ${user.uid}'),
+                                Text('メールアドレス: ${user.email ?? "なし"}'),
+                                Text('表示名: ${user.displayName ?? "なし"}'),
+                              ],
+                            ],
+                          ),
                       loading: () => const Text('認証状態: 確認中...'),
                       error: (error, _) => Text('認証エラー: $error'),
                     ),
                     const SizedBox(height: 8),
                     adminPermissions.when(
-                      data: (permissions) => Text(
-                        '管理者権限: ${permissions?.isAdmin == true ? "あり" : "なし"}',
-                        style: TextStyle(
-                          color: permissions?.isAdmin == true ? Colors.green : Colors.red,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      data:
+                          (permissions) => Text(
+                            '管理者権限: ${permissions?.isAdmin == true ? "あり" : "なし"}',
+                            style: TextStyle(
+                              color:
+                                  permissions?.isAdmin == true
+                                      ? Colors.green
+                                      : Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                       loading: () => const Text('管理者権限: 確認中...'),
                       error: (error, _) => Text('管理者権限エラー: $error'),
                     ),
@@ -86,9 +97,9 @@ class _AdminDebugScreenState extends ConsumerState<AdminDebugScreen> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // 管理者作成ツール
             Card(
               child: Padding(
@@ -98,10 +109,13 @@ class _AdminDebugScreenState extends ConsumerState<AdminDebugScreen> {
                   children: [
                     const Text(
                       '管理者作成ツール',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // 現在のユーザーを管理者にする
                     SizedBox(
                       width: double.infinity,
@@ -109,14 +123,14 @@ class _AdminDebugScreenState extends ConsumerState<AdminDebugScreen> {
                         onPressed: _isLoading ? null : _makeCurrentUserAdmin,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
+                          foregroundColor: AppColors.onColor(Colors.green),
                         ),
                         child: const Text('現在のユーザーを管理者にする'),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 16),
-                    
+
                     // メールアドレスで管理者作成
                     TextField(
                       controller: _emailController,
@@ -134,14 +148,14 @@ class _AdminDebugScreenState extends ConsumerState<AdminDebugScreen> {
                         onPressed: _isLoading ? null : _makeUserAdminByEmail,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
+                          foregroundColor: AppColors.onColor(Colors.blue),
                         ),
                         child: const Text('メールアドレスで管理者作成'),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 16),
-                    
+
                     // 管理者一覧表示
                     SizedBox(
                       width: double.infinity,
@@ -149,14 +163,14 @@ class _AdminDebugScreenState extends ConsumerState<AdminDebugScreen> {
                         onPressed: _isLoading ? null : _listAdmins,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.orange,
-                          foregroundColor: Colors.white,
+                          foregroundColor: AppColors.onColor(Colors.orange),
                         ),
                         child: const Text('管理者一覧表示'),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 16),
-                    
+
                     // 状態更新
                     SizedBox(
                       width: double.infinity,
@@ -164,43 +178,49 @@ class _AdminDebugScreenState extends ConsumerState<AdminDebugScreen> {
                         onPressed: _isLoading ? null : _refreshState,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.purple,
-                          foregroundColor: Colors.white,
+                          foregroundColor: AppColors.onColor(Colors.purple),
                         ),
                         child: const Text('状態を更新'),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 16),
-                    
+
                     // Firestore Rules テスト
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _isLoading ? null : () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const FirestoreRulesTestScreen(),
-                            ),
-                          );
-                        },
+                        onPressed:
+                            _isLoading
+                                ? null
+                                : () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) =>
+                                              const FirestoreRulesTestScreen(),
+                                    ),
+                                  );
+                                },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
+                          foregroundColor: AppColors.onColor(Colors.blue),
                         ),
                         child: const Text('Firestore Rules テスト'),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 8),
-                    
+
                     // Firebase Console直接アクセス
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _isLoading ? null : _showFirebaseInstructions,
+                        onPressed:
+                            _isLoading ? null : _showFirebaseInstructions,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
+                          foregroundColor: AppColors.onColor(Colors.red),
                         ),
                         child: const Text('Firebase Rules修正手順'),
                       ),
@@ -209,13 +229,13 @@ class _AdminDebugScreenState extends ConsumerState<AdminDebugScreen> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // 結果表示
             if (_result.isNotEmpty)
               Card(
-                color: Colors.grey.shade50,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -225,7 +245,10 @@ class _AdminDebugScreenState extends ConsumerState<AdminDebugScreen> {
                         children: [
                           const Text(
                             '実行結果',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const Spacer(),
                           IconButton(
@@ -244,10 +267,8 @@ class _AdminDebugScreenState extends ConsumerState<AdminDebugScreen> {
                         ),
                         child: Text(
                           _result,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: Colors.white, fontSize: 12),
                         ),
                       ),
                     ],
@@ -283,21 +304,20 @@ class _AdminDebugScreenState extends ConsumerState<AdminDebugScreen> {
       });
 
       await AdminSetupHelper.makeCurrentUserAdmin();
-      
+
       setState(() {
         _result += '✅ 管理者権限の作成が完了しました！\n';
         _result += '🔄 リアルタイム更新により自動反映されます...\n';
       });
-      
+
       // StreamProviderは自動でリアルタイム更新されるため、invalidateは不要
       // しかし念のため実行（StreamProviderでは効果は限定的）
       ref.invalidate(currentUserAdminProvider);
       ref.invalidate(adminPermissionsProvider);
-      
+
       setState(() {
         _result += '✅ 完了！マイページに戻って管理者メニューが自動表示されるはずです。';
       });
-      
     } catch (e) {
       setState(() {
         _result += '❌ エラー発生: $e\n\n';
@@ -319,9 +339,9 @@ class _AdminDebugScreenState extends ConsumerState<AdminDebugScreen> {
   Future<void> _makeUserAdminByEmail() async {
     final email = _emailController.text.trim();
     if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('メールアドレスを入力してください')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('メールアドレスを入力してください')));
       return;
     }
 
@@ -336,11 +356,10 @@ class _AdminDebugScreenState extends ConsumerState<AdminDebugScreen> {
         _result = '✅ $email に管理者権限を付与しました（リアルタイム更新されます）';
       });
       _emailController.clear();
-      
+
       // StreamProviderは自動でリアルタイム更新されるため、invalidateは不要
       ref.invalidate(currentUserAdminProvider);
       ref.invalidate(adminPermissionsProvider);
-      
     } catch (e) {
       setState(() {
         _result = '❌ エラー: $e';
@@ -359,7 +378,7 @@ class _AdminDebugScreenState extends ConsumerState<AdminDebugScreen> {
     try {
       // コンソール出力をキャプチャするため、独自実装
       final result = StringBuffer();
-      
+
       await AdminSetupHelper.listAdmins();
       setState(() {
         _result = '管理者一覧をコンソールに出力しました。\nFlutter DevToolsのコンソールを確認してください。';
@@ -377,13 +396,13 @@ class _AdminDebugScreenState extends ConsumerState<AdminDebugScreen> {
     setState(() {
       _result = '🔄 状態を更新中...';
     });
-    
+
     // 全ての関連プロバイダーを更新
     ref.invalidate(currentUserAdminProvider);
     ref.invalidate(adminPermissionsProvider);
     ref.invalidate(authStateProvider);
     ref.invalidate(debugAdminStatusProvider);
-    
+
     setState(() {
       _result = '✅ 状態を更新しました';
     });
@@ -392,76 +411,81 @@ class _AdminDebugScreenState extends ConsumerState<AdminDebugScreen> {
   void _showFirebaseInstructions() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.warning, color: Colors.red),
-            SizedBox(width: 8),
-            Text('Firebase Rules修正が必要'),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'permission deniedエラーを解決するため、以下の手順でFirestoreルールを修正してください：',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              const Text('1. Firebase Consoleにアクセス'),
-              const Text('   https://console.firebase.google.com/'),
-              const SizedBox(height: 8),
-              const Text('2. プロジェクト「cit-app-2de1c」を選択'),
-              const SizedBox(height: 8),
-              const Text('3. Firestore Database → Rules をクリック'),
-              const SizedBox(height: 8),
-              const Text('4. 既存のルールに以下を追加:'),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'match /admin_permissions/{document} {\n'
-                  '  allow read, write: if request.auth != null;\n'
-                  '}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontSize: 12,
+      builder:
+          (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.warning, color: AppColors.accent(context, Colors.red)),
+                SizedBox(width: 8),
+                Text('Firebase Rules修正が必要'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'permission deniedエラーを解決するため、以下の手順でFirestoreルールを修正してください：',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
+                  const SizedBox(height: 16),
+                  const Text('1. Firebase Consoleにアクセス'),
+                  const Text('   https://console.firebase.google.com/'),
+                  const SizedBox(height: 8),
+                  const Text('2. プロジェクト「cit-app-2de1c」を選択'),
+                  const SizedBox(height: 8),
+                  const Text('3. Firestore Database → Rules をクリック'),
+                  const SizedBox(height: 8),
+                  const Text('4. 既存のルールに以下を追加:'),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'match /admin_permissions/{document} {\n'
+                      '  allow read, write: if request.auth != null;\n'
+                      '}',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('5. 「公開」ボタンをクリック'),
+                  const SizedBox(height: 8),
+                  const Text('6. このアプリに戻って再試行'),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('了解'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  // クリップボードにルールをコピー
+                  setState(() {
+                    _result =
+                        '📋 以下のルールをFirebase Consoleに追加してください:\n\n'
+                        'match /admin_permissions/{document} {\n'
+                        '  allow read, write: if request.auth != null;\n'
+                        '}';
+                  });
+                },
+                style: ElevatedButton.styleFrom(foregroundColor: AppColors.onColor(Colors.blue), backgroundColor: Colors.blue),
+                child: Text(
+                  'ルールをコピー',
+                  style: TextStyle(color: AppColors.onColor(Colors.blue)),
                 ),
               ),
-              const SizedBox(height: 8),
-              const Text('5. 「公開」ボタンをクリック'),
-              const SizedBox(height: 8),
-              const Text('6. このアプリに戻って再試行'),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('了解'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // クリップボードにルールをコピー
-              setState(() {
-                _result = '📋 以下のルールをFirebase Consoleに追加してください:\n\n'
-                    'match /admin_permissions/{document} {\n'
-                    '  allow read, write: if request.auth != null;\n'
-                    '}';
-              });
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-            child: const Text('ルールをコピー', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
     );
   }
 }

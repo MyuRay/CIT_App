@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -35,19 +36,13 @@ class CwitterActivityCard extends ConsumerWidget {
           parentPost: activity.parentPost,
         );
       case CwitterProfileActivityKind.recweet:
-        return CwitterPostCard(
-          post: activity.post!,
-          recweet: activity.recweet,
-        );
+        return CwitterPostCard(post: activity.post!, recweet: activity.recweet);
     }
   }
 }
 
 class _ReplyActivityCard extends ConsumerWidget {
-  const _ReplyActivityCard({
-    required this.reply,
-    this.parentPost,
-  });
+  const _ReplyActivityCard({required this.reply, this.parentPost});
 
   final CwitterReply reply;
   final CwitterPost? parentPost;
@@ -71,9 +66,10 @@ class _ReplyActivityCard extends ConsumerWidget {
         ),
       ),
       child: InkWell(
-        onTap: parentPost != null
-            ? () => CwitterReplySheet.show(context, parentPost!)
-            : null,
+        onTap:
+            parentPost != null
+                ? () => CwitterReplySheet.show(context, parentPost!)
+                : null,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -97,13 +93,13 @@ class _ReplyActivityCard extends ConsumerWidget {
                         Icon(
                           Icons.reply,
                           size: 14,
-                          color: const Color(0xFF2E7D32),
+                          color: AppColors.accent(context, const Color(0xFF2E7D32)),
                         ),
                         const SizedBox(width: 4),
                         Text(
                           '返信',
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: const Color(0xFF2E7D32),
+                            color: AppColors.accent(context, const Color(0xFF2E7D32)),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -119,34 +115,38 @@ class _ReplyActivityCard extends ConsumerWidget {
                   ),
                   CwitterMoreMenu(
                     isOwner: isOwner,
-                    onDeleteReply: isOwner
-                        ? () => CwitterService.deleteReply(
+                    onDeleteReply:
+                        isOwner
+                            ? () => CwitterService.deleteReply(
                               postId: reply.postId,
                               replyId: reply.id,
                               userId: uid,
                             )
-                        : null,
-                    onReport: isOwner
-                        ? null
-                        : () {
-                            if (parentPost == null) return;
-                            showCwitterReplyReportDialog(
-                              context,
-                              post: parentPost!,
-                              reply: reply,
-                            );
-                          },
-                    onBlock: isOwner
-                        ? null
-                        : () => showBlockConfirmationDialog(
+                            : null,
+                    onReport:
+                        isOwner
+                            ? null
+                            : () {
+                              if (parentPost == null) return;
+                              showCwitterReplyReportDialog(
+                                context,
+                                post: parentPost!,
+                                reply: reply,
+                              );
+                            },
+                    onBlock:
+                        isOwner
+                            ? null
+                            : () => showBlockConfirmationDialog(
                               context,
                               blockedUserId: reply.authorId,
                               blockedUserName: reply.displayName,
                               blockedUserCwitterId: reply.cwitterId,
                             ),
-                    onBan: (!isAdmin || isOwner || uid == null)
-                        ? null
-                        : () => showAdminBanDialog(
+                    onBan:
+                        (!isAdmin || isOwner || uid == null)
+                            ? null
+                            : () => showAdminBanDialog(
                               context,
                               targetUserId: reply.authorId,
                               targetLabel: '@${reply.cwitterId}',
@@ -190,8 +190,8 @@ class _ReplyActivityCard extends ConsumerWidget {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton.icon(
-                    onPressed: () =>
-                        CwitterReplySheet.show(context, parentPost!),
+                    onPressed:
+                        () => CwitterReplySheet.show(context, parentPost!),
                     icon: const Icon(Icons.chat_bubble_outline, size: 18),
                     label: const Text('スレッドを見る'),
                     style: TextButton.styleFrom(
@@ -226,10 +226,7 @@ class _QuotedPostPreview extends StatelessWidget {
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(8),
         border: Border(
-          left: BorderSide(
-            color: const Color(0xFF4CAF50),
-            width: 3,
-          ),
+          left: BorderSide(color: const Color(0xFF4CAF50), width: 3),
         ),
       ),
       child: Column(

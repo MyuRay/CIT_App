@@ -12,13 +12,15 @@ plugins {
 // リリース署名情報を android/key.properties から読み込む（リポジトリにはコミットしない）
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
+// Only for local bundle inspection. Unsigned bundles cannot be uploaded to Play.
+val allowUnsignedRelease = providers.gradleProperty("citUnsignedRelease").orNull == "true"
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
 android {
     namespace = "jp.ac.chibakoudai.citapp"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = "28.2.13676358"
 
     compileOptions {
@@ -36,10 +38,11 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -55,12 +58,18 @@ android {
 
     buildTypes {
         release {
-            // key.properties があれば正式鍵で署名、無ければ debug 署名にフォールバック
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            } else null
+        }
+    }
+}
+
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    doFirst {
+        check(keystorePropertiesFile.exists() || allowUnsignedRelease) {
+            "Release signing is missing. Restore android/key.properties and the existing Play upload key. " +
+                "Debug signing is never used for a release. See docs/releases/2.3.0.md."
         }
     }
 }
@@ -70,6 +79,8 @@ flutter {
 }
 
 dependencies {
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
     implementation("androidx.multidex:multidex:2.0.1")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     // AGP 8.8.2環境向け（依存関係のバージョンは自動解決）

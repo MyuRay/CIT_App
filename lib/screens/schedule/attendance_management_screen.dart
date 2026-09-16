@@ -1,15 +1,15 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/schedule/lecture_period_model.dart';
 import '../../models/schedule/schedule_model.dart';
+import '../../models/schedule/attendance_session.dart';
+import '../../widgets/schedule/attendance_status_chip.dart';
 import '../../services/schedule/attendance_service.dart';
 import '../../services/schedule/lecture_period_service.dart';
 
 class AttendanceManagementScreen extends StatefulWidget {
-  const AttendanceManagementScreen({
-    super.key,
-    required this.schedule,
-  });
+  const AttendanceManagementScreen({super.key, required this.schedule});
 
   final Schedule schedule;
 
@@ -18,8 +18,9 @@ class AttendanceManagementScreen extends StatefulWidget {
       _AttendanceManagementScreenState();
 }
 
-class _AttendanceManagementScreenState extends State<AttendanceManagementScreen> {
-  static const int _weekCount = 15;
+class _AttendanceManagementScreenState
+    extends State<AttendanceManagementScreen> {
+  static const int _weekCount = AttendanceSession.weekCount;
   LecturePeriodSettings? _lecturePeriod;
 
   @override
@@ -44,9 +45,7 @@ class _AttendanceManagementScreenState extends State<AttendanceManagementScreen>
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('出欠管理 (${widget.schedule.semester})'),
-      ),
+      appBar: AppBar(title: Text('出欠管理 (${widget.schedule.semester})')),
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: AttendanceService.watchScheduleAttendanceRecords(
           userId: widget.schedule.userId,
@@ -65,7 +64,11 @@ class _AttendanceManagementScreenState extends State<AttendanceManagementScreen>
             final status = record['status'] as String? ?? '';
             final weekdayKey = record['weekdayKey'] as String? ?? '';
             final startPeriod = record['startPeriod'] as int?;
-            if (recordId.isEmpty || classId.isEmpty || date == null || status.isEmpty) continue;
+            if (recordId.isEmpty ||
+                classId.isEmpty ||
+                date == null ||
+                status.isEmpty)
+              continue;
             final localDate = date.toLocal();
             final dateKey = _dateKey(localDate);
             final cellRecord = _AttendanceCellRecord(
@@ -85,7 +88,7 @@ class _AttendanceManagementScreenState extends State<AttendanceManagementScreen>
                 margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.12),
+                  color: Colors.orange.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: Colors.orange.shade300),
                 ),
@@ -127,16 +130,20 @@ class _AttendanceManagementScreenState extends State<AttendanceManagementScreen>
                                         '${_weekdayLabel(row.weekdayKey)}${row.period}限\n${row.subjectName}',
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context).textTheme.bodyMedium,
+                                        style:
+                                            Theme.of(
+                                              context,
+                                            ).textTheme.bodyMedium,
                                       ),
                                     ),
                                   ),
                                   ...weeks.map((weekIndex) {
-                                    final targetDate = _targetDateForWeekAndClass(
-                                      semesterStartDate: semesterStartDate,
-                                      weekdayKey: row.weekdayKey,
-                                      weekIndex: weekIndex,
-                                    );
+                                    final targetDate =
+                                        _targetDateForWeekAndClass(
+                                          semesterStartDate: semesterStartDate,
+                                          weekdayKey: row.weekdayKey,
+                                          weekIndex: weekIndex,
+                                        );
                                     final key =
                                         '${row.classId}|${_dateKey(targetDate)}';
                                     final slotKey =
@@ -153,7 +160,8 @@ class _AttendanceManagementScreenState extends State<AttendanceManagementScreen>
                                           row: row,
                                           attendanceDate: targetDate,
                                           currentStatus: status,
-                                          existingRecordId: cellRecord?.recordId,
+                                          existingRecordId:
+                                              cellRecord?.recordId,
                                         );
                                       },
                                     );
@@ -166,19 +174,14 @@ class _AttendanceManagementScreenState extends State<AttendanceManagementScreen>
                   ),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 4, 16, 16),
-                child: Row(
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
                   children: [
-                    _LegendDot(color: Colors.green, text: '出席'),
-                    SizedBox(width: 12),
-                    _LegendDot(color: Colors.orange, text: '遅刻'),
-                    SizedBox(width: 12),
-                    _LegendDot(color: Colors.red, text: '欠席'),
-                    SizedBox(width: 12),
-                    _LegendDot(color: Colors.pink, text: '休講'),
-                    SizedBox(width: 12),
-                    _LegendDot(color: Colors.grey, text: '未記録'),
+                    for (final status in AttendanceStatusStyle.values)
+                      _LegendDot(color: status.color, text: status.label),
                   ],
                 ),
               ),
@@ -195,7 +198,8 @@ class _AttendanceManagementScreenState extends State<AttendanceManagementScreen>
     final base =
         isFall
             ? _lecturePeriod?.fallStartDate
-            : _lecturePeriod?.springStartDate ?? _lecturePeriod?.lectureStartDate;
+            : _lecturePeriod?.springStartDate ??
+                _lecturePeriod?.lectureStartDate;
     final date = base ?? DateTime.now();
     return DateTime(date.year, date.month, date.day);
   }
@@ -235,23 +239,11 @@ class _AttendanceManagementScreenState extends State<AttendanceManagementScreen>
   }
 
   Widget _statusCell(BuildContext context, String? status) {
-    if (status == 'present') {
-      return const Icon(Icons.check_circle, color: Colors.green, size: 18);
-    }
-    if (status == 'late') {
-      return const Icon(Icons.access_time_filled, color: Colors.orange, size: 18);
-    }
-    if (status == 'cancelled') {
-      return const Icon(Icons.event_busy, color: Colors.pink, size: 18);
-    }
-    // present/late以外で値がある場合は欠席として扱う
-    if (status != null && status.isNotEmpty) {
-      return const Icon(Icons.cancel, color: Colors.red, size: 18);
-    }
+    final style = AttendanceStatusStyle.fromValue(status);
     return Icon(
-      Icons.radio_button_unchecked,
-      color: Theme.of(context).colorScheme.outline,
-      size: 17,
+      style.icon,
+      color: AppColors.accent(context, style.color),
+      size: 18,
     );
   }
 
@@ -314,46 +306,19 @@ class _AttendanceManagementScreenState extends State<AttendanceManagementScreen>
       context: context,
       builder:
           (dialogContext) => AlertDialog(
-            title: Text('${row.subjectName}\n${_formatDate(attendanceDate)} の出欠を編集'),
+            title: Text(
+              '${row.subjectName}\n${_formatDate(attendanceDate)} の出欠を編集',
+            ),
             content: Wrap(
               spacing: 10,
               runSpacing: 10,
               children: [
-                _statusButton(
-                  context: dialogContext,
-                  label: '出席',
-                  color: Colors.green,
-                  isSelected: currentStatus == 'present',
-                  onTap: () => Navigator.of(dialogContext).pop('present'),
-                ),
-                _statusButton(
-                  context: dialogContext,
-                  label: '遅刻',
-                  color: Colors.orange,
-                  isSelected: currentStatus == 'late',
-                  onTap: () => Navigator.of(dialogContext).pop('late'),
-                ),
-                _statusButton(
-                  context: dialogContext,
-                  label: '欠席',
-                  color: Colors.red,
-                  isSelected: currentStatus == 'absent',
-                  onTap: () => Navigator.of(dialogContext).pop('absent'),
-                ),
-                _statusButton(
-                  context: dialogContext,
-                  label: '休講',
-                  color: Colors.pink,
-                  isSelected: currentStatus == 'cancelled',
-                  onTap: () => Navigator.of(dialogContext).pop('cancelled'),
-                ),
-                _statusButton(
-                  context: dialogContext,
-                  label: '未記録',
-                  color: Colors.grey,
-                  isSelected: currentStatus == null || currentStatus.isEmpty,
-                  onTap: () => Navigator.of(dialogContext).pop(''),
-                ),
+                for (final status in AttendanceStatusStyle.values)
+                  AttendanceStatusChip(
+                    status: status,
+                    selected: AttendanceStatusStyle.fromValue(currentStatus) == status,
+                    onSelected: () => Navigator.of(dialogContext).pop(status.value ?? ''),
+                  ),
               ],
             ),
             actions: [
@@ -394,49 +359,6 @@ class _AttendanceManagementScreenState extends State<AttendanceManagementScreen>
     }
   }
 
-  Widget _statusButton({
-    required BuildContext context,
-    required String label,
-    required Color color,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        width: 120,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(isSelected ? 0.28 : 0.12),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected ? color : color.withOpacity(0.5),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isSelected ? Icons.check_circle : Icons.circle_outlined,
-              size: 16,
-              color: color,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   String _weekdayLabel(String key) {
     switch (key) {
       case 'monday':
@@ -474,10 +396,7 @@ class _AttendanceClassRow {
 }
 
 class _AttendanceCellRecord {
-  const _AttendanceCellRecord({
-    required this.recordId,
-    required this.status,
-  });
+  const _AttendanceCellRecord({required this.recordId, required this.status});
 
   final String recordId;
   final String status;

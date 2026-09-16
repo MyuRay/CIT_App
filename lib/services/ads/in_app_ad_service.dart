@@ -37,6 +37,11 @@ class InAppAdService {
     await _collection.doc(id).update(ad.toFirestore());
   }
 
+  static Future<void> setActive(String id, bool active) =>
+      _collection.doc(id).update({
+        'isActive': active, 'updatedAt': FieldValue.serverTimestamp(),
+      });
+
   static Future<void> deleteAd(String id) async {
     await _collection.doc(id).delete();
   }

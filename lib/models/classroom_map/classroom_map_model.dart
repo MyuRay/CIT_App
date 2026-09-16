@@ -33,7 +33,8 @@ class BuildingMarker {
       buildingName: json['buildingName'] as String,
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
-      facilities: (json['facilities'] as List<dynamic>?)
+      facilities:
+          (json['facilities'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
@@ -57,7 +58,8 @@ class FloorInfo {
     return FloorInfo(
       floor: json['floor'] as int,
       floorName: json['floorName'] as String? ?? '${json['floor']}階',
-      rooms: (json['rooms'] as List<dynamic>?)
+      rooms:
+          (json['rooms'] as List<dynamic>?)
               ?.map((e) => RoomInfo.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -67,11 +69,7 @@ class FloorInfo {
 
 /// 教室情報
 class RoomInfo {
-  const RoomInfo({
-    required this.id,
-    required this.name,
-    this.type,
-  });
+  const RoomInfo({required this.id, required this.name, this.type});
 
   final String id;
   final String name;
@@ -128,7 +126,8 @@ class BuildingRooms {
       campusId: json['campusId'] as String,
       buildingId: json['buildingId'] as String,
       buildingName: json['buildingName'] as String,
-      floors: (json['floors'] as List<dynamic>?)
+      floors:
+          (json['floors'] as List<dynamic>?)
               ?.map((e) => FloorInfo.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],

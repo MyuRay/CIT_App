@@ -42,9 +42,7 @@ class _TermsOfServiceScreenState extends State<TermsOfServiceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('利用規約'),
-      ),
+      appBar: AppBar(title: const Text('利用規約')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -62,7 +60,10 @@ class _TermsOfServiceScreenState extends State<TermsOfServiceScreen> {
             ),
             const SizedBox(height: 24),
 
-            const Text('第1条（適用）', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '第1条（適用）',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '1. 本規約は、ユーザーと本アプリの運営者である「CIT App開発・運営チーム（代表：村井雅斗）」（以下「運営者」といいます）との間の、本アプリの利用に関わる一切の関係に適用されます。\n'
@@ -70,7 +71,10 @@ class _TermsOfServiceScreenState extends State<TermsOfServiceScreen> {
             ),
             const SizedBox(height: 16),
 
-            const Text('第2条（利用資格）', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '第2条（利用資格）',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '1. 本アプリは、主として千葉工業大学の学生および教職員を対象としたサービスです。\n'
@@ -79,7 +83,10 @@ class _TermsOfServiceScreenState extends State<TermsOfServiceScreen> {
             ),
             const SizedBox(height: 16),
 
-            const Text('第3条（禁止事項）', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '第3条（禁止事項）',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               'ユーザーは、本アプリの利用にあたり、以下の行為をしてはなりません。',
@@ -118,7 +125,10 @@ class _TermsOfServiceScreenState extends State<TermsOfServiceScreen> {
             ),
             const SizedBox(height: 16),
 
-            const Text('第3条の2（Cwitter の利用）', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '第3条の2（Cwitter の利用）',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '1. Cwitter は、本アプリ内のマイクロブログ型コミュニティ機能です。千葉工業大学のメールアドレスによる認証および Cwitter ID の設定が必要です。\n\n'
@@ -156,7 +166,10 @@ class _TermsOfServiceScreenState extends State<TermsOfServiceScreen> {
             ),
             const SizedBox(height: 16),
 
-            const Text('第4条（コンテンツの管理）', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '第4条（コンテンツの管理）',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '1. 運営者は、投稿されたコンテンツが本規約に違反すると判断した場合、事前の通知なくコンテンツを削除することができます。\n\n'
@@ -166,7 +179,10 @@ class _TermsOfServiceScreenState extends State<TermsOfServiceScreen> {
             ),
             const SizedBox(height: 16),
 
-            const Text('第5条（アカウントの停止・削除）', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '第5条（アカウントの停止・削除）',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '運営者は、ユーザーが以下に該当する場合、事前の通知なくアカウントの利用停止または削除を行うことができます。\n\n'
@@ -179,7 +195,10 @@ class _TermsOfServiceScreenState extends State<TermsOfServiceScreen> {
             ),
             const SizedBox(height: 16),
 
-            const Text('第6条（通報・ブロック機能）', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '第6条（通報・ブロック機能）',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '1. 本アプリでは、ユーザーの安全で快適な利用環境を確保するため、通報機能およびブロック機能を提供する場合があります。\n\n'
@@ -189,7 +208,10 @@ class _TermsOfServiceScreenState extends State<TermsOfServiceScreen> {
             ),
             const SizedBox(height: 16),
 
-            const Text('第7条（個人情報の取り扱い）', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '第7条（個人情報の取り扱い）',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '1. 本アプリにおけるユーザーの個人情報の取り扱いについては、別途定める「プライバシーポリシー」に従います。\n'
@@ -198,7 +220,10 @@ class _TermsOfServiceScreenState extends State<TermsOfServiceScreen> {
             ),
             const SizedBox(height: 16),
 
-            const Text('第8条（本アプリの提供の停止等）', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '第8条（本アプリの提供の停止等）',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '運営者は、以下の場合において、事前の通知なく本アプリの全部または一部の提供を停止または中断することがあります。\n\n'
@@ -209,7 +234,10 @@ class _TermsOfServiceScreenState extends State<TermsOfServiceScreen> {
             ),
             const SizedBox(height: 16),
 
-            const Text('第9条（免責事項）', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '第9条（免責事項）',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '1. 運営者は、本アプリの利用によりユーザーに生じた損害について、運営者に故意または重大な過失がある場合を除き、一切の責任を負いません。\n\n'
@@ -219,7 +247,10 @@ class _TermsOfServiceScreenState extends State<TermsOfServiceScreen> {
             ),
             const SizedBox(height: 16),
 
-            const Text('第10条（規約の変更）', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '第10条（規約の変更）',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '1. 運営者は、必要と判断した場合、本規約を変更することができます。\n'
@@ -228,16 +259,19 @@ class _TermsOfServiceScreenState extends State<TermsOfServiceScreen> {
             ),
             const SizedBox(height: 16),
 
-            const Text('第11条（準拠法・管轄裁判所）', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              '第11条（準拠法・管轄裁判所）',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             const Text(
               '本規約は日本法に準拠し、本規約または本アプリの利用に関して生じた紛争については、東京地方裁判所を第一審の専属的合意管轄裁判所とします。',
             ),
             const SizedBox(height: 24),
 
-            const Text(
+             Text(
               '最終更新日：2026年5月31日',
-              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500),
             ),
           ],
         ),

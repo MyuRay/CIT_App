@@ -1,0 +1,19 @@
+{
+  "hosting": {
+    "site": "cit-app-2de1c",
+    "public": "auth-hosting",
+    "ignore": ["**/node_modules/**"],
+    "rewrites": [{"source": "/signup/complete", "destination": "/index.html"}],
+    "headers": [
+      {"source": "/.well-known/**", "headers": [
+        {"key": "Content-Type", "value": "application/json"},
+        {"key": "Cache-Control", "value": "public, max-age=300"}
+      ]},
+      {"source": "**", "headers": [
+        {"key": "Referrer-Policy", "value": "no-referrer"},
+        {"key": "X-Content-Type-Options", "value": "nosniff"},
+        {"key": "Content-Security-Policy", "value": "default-src 'none'; style-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"}
+      ]}
+    ]
+  }
+}

@@ -9,9 +9,7 @@ class ChibaChannelReplyChain {
     ChibaChannelComment comment,
     List<ChibaChannelComment> allComments,
   ) {
-    final byNumber = {
-      for (final item in allComments) item.commentNumber: item,
-    };
+    final byNumber = {for (final item in allComments) item.commentNumber: item};
     final reversed = <ChibaChannelComment>[comment];
     var current = comment;
 
@@ -37,9 +35,7 @@ class ChibaChannelReplyChain {
       return chainToFrom;
     }
 
-    final byNumber = {
-      for (final item in allComments) item.commentNumber: item,
-    };
+    final byNumber = {for (final item in allComments) item.commentNumber: item};
     final anchor = byNumber[anchorNumber];
     if (anchor == null) return chainToFrom;
     return buildChainToComment(anchor, allComments);

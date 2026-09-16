@@ -42,7 +42,8 @@ class TrainSnapshot {
     return TrainSnapshot(
       campusKey: campusKey,
       stationName: data['stationName'] as String? ?? '',
-      updatedAt: parseTrainDateTime(data['updatedAt']) ??
+      updatedAt:
+          parseTrainDateTime(data['updatedAt']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
       source: data['source'] as String? ?? '',
       delay: delay,
@@ -54,8 +55,7 @@ class TrainSnapshot {
   factory TrainSnapshot.fromFirestore(
     String campusKey,
     Map<String, dynamic> data,
-  ) =>
-      TrainSnapshot.fromMap(campusKey, data);
+  ) => TrainSnapshot.fromMap(campusKey, data);
 }
 
 /// API / Firestore / キャッシュ共通の日時パース
@@ -72,10 +72,7 @@ DateTime? parseTrainDateTime(dynamic v) {
 }
 
 class TrainDelayInfo {
-  const TrainDelayInfo({
-    required this.status,
-    this.message,
-  });
+  const TrainDelayInfo({required this.status, this.message});
 
   final TrainDelayStatus status;
   final String? message;
@@ -147,12 +144,11 @@ class TrainDirectionSnapshot {
       directionKey: json['directionKey'] as String? ?? '',
       directionLabel: json['directionLabel'] as String? ?? '',
       lineLabel: json['lineLabel'] as String?,
-      nextDepartureAt: parseTrainDateTime(json['nextDepartureAt']) ??
+      nextDepartureAt:
+          parseTrainDateTime(json['nextDepartureAt']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
       secondDepartureAt: parseTrainDateTime(json['secondDepartureAt']),
-      timetableType: parseTrainTimetableType(
-        json['timetableType'] as String?,
-      ),
+      timetableType: parseTrainTimetableType(json['timetableType'] as String?),
       boardingPlatform: json['boardingPlatform'] as String?,
     );
   }

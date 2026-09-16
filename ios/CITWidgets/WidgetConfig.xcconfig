@@ -1,0 +1,2 @@
+// Share Flutter's app version; the extension deliberately has no Flutter/Pods dependency.
+#include "../Flutter/Generated.xcconfig"

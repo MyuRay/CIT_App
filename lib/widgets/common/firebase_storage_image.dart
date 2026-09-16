@@ -72,7 +72,9 @@ class _FirebaseStorageImageState extends State<FirebaseStorageImage> {
         return widget.placeholder ?? _defaultPlaceholder();
       },
       errorBuilder: (context, error, stackTrace) {
-        debugPrint('FirebaseStorageImage network error: ${widget.imageUrl} → $error');
+        debugPrint(
+          'FirebaseStorageImage network error: ${widget.imageUrl} → $error',
+        );
         if (!_sdkLoadStarted) {
           _startSdkLoad();
           return widget.placeholder ?? _defaultPlaceholder();

@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -78,16 +79,21 @@ class TrainAccessHomeCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildCardHeader(context, ref, campusKey: ref.watch(preferredBusCampusProvider)),
+            _buildCardHeader(
+              context,
+              ref,
+              campusKey: ref.watch(preferredBusCampusProvider),
+            ),
             const SizedBox(height: 12),
             asyncVm.when(
               data: (vm) => _TrainAccessBody(vm: vm),
-              loading: () => const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
+              loading:
+                  () => const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(20),
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
               error: (_, __) => _TrainErrorPanel(theme: Theme.of(context)),
             ),
           ],
@@ -103,14 +109,13 @@ class TrainAccessHomeCard extends ConsumerWidget {
   }) {
     final theme = Theme.of(context);
     final snap = ref.watch(trainHomeDecisionProvider).valueOrNull?.snapshot;
-    final showDirection =
-        snap != null && snap.directions.length > 1;
+    final showDirection = snap != null && snap.directions.length > 1;
 
     return Row(
       children: [
-        const Icon(
+         Icon(
           Icons.directions_railway,
-          color: TrainAccessColors.accent,
+          color: AppColors.accent(context, TrainAccessColors.accent),
           size: 22,
         ),
         const SizedBox(width: 8),
@@ -128,7 +133,7 @@ class TrainAccessHomeCard extends ConsumerWidget {
             icon: const Icon(Icons.swap_horiz),
             tooltip: '方面を変更',
             iconSize: 20,
-            color: TrainAccessColors.accent,
+            color: AppColors.accent(context, TrainAccessColors.accent),
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -140,14 +145,14 @@ class TrainAccessHomeCard extends ConsumerWidget {
               await launchUrl(uri, mode: LaunchMode.externalApplication);
             }
           },
-          icon: const Icon(
+          icon: Icon(
             Icons.open_in_new,
             size: 16,
-            color: TrainAccessColors.accent,
+            color: AppColors.accent(context, TrainAccessColors.accent),
           ),
-          label: const Text(
+          label: Text(
             '公式運転情報',
-            style: TextStyle(fontSize: 11, color: TrainAccessColors.accent),
+            style: TextStyle(fontSize: 11, color: AppColors.accent(context, TrainAccessColors.accent)),
           ),
           style: TextButton.styleFrom(
             minimumSize: const Size(0, 28),
@@ -170,17 +175,17 @@ class _TrainErrorPanel extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.red.shade50,
+        color: AppColors.tintedSurface(context, Colors.red),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.red.shade200),
       ),
       child: Column(
         children: [
-          Icon(Icons.error_outline, size: 40, color: Colors.red.shade400),
+          Icon(Icons.error_outline, size: 40, color: AppColors.accent(context, Colors.red.shade400)),
           const SizedBox(height: 8),
           Text(
             '電車情報の読み込みに失敗しました',
-            style: TextStyle(color: Colors.red.shade600),
+            style: TextStyle(color: AppColors.accent(context, Colors.red.shade600)),
           ),
         ],
       ),
@@ -207,23 +212,25 @@ class _TrainAccessBody extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (vm.delay != null && vm.delay!.status != TrainDelayStatus.normal) ...[
+        if (vm.delay != null &&
+            vm.delay!.status != TrainDelayStatus.normal) ...[
           _DelayBanner(delay: vm.delay!),
           const SizedBox(height: 8),
         ],
         _TrainGradientPanel(
           direction: dir,
-          child: dir == null
-              ? _innerInfoBox(
-                  context,
-                  child: Text(
-                    '方面データがありません',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+          child:
+              dir == null
+                  ? _innerInfoBox(
+                    context,
+                    child: Text(
+                      '方面データがありません',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                )
-              : _TrainCountdownPanel(vm: vm, direction: dir),
+                  )
+                  : _TrainCountdownPanel(vm: vm, direction: dir),
         ),
         const SizedBox(height: 8),
         _TrainFootnote(theme: theme),
@@ -242,9 +249,10 @@ class _TrainEmptyPanel extends ConsumerWidget {
     final theme = Theme.of(context);
     final available = ref.watch(trainInfoAvailableProvider);
     final useMock = ref.watch(trainInfoUseMockProvider);
-    final emptyMsg = useMock
-        ? 'モックデータを取得できません'
-        : available
+    final emptyMsg =
+        useMock
+            ? 'モックデータを取得できません'
+            : available
             ? '時刻データを取得できません'
             : 'API未設定（デバッグはモック自動）';
 
@@ -263,10 +271,10 @@ class _TrainEmptyPanel extends ConsumerWidget {
           ),
           child: Column(
             children: [
-              const Icon(
+               Icon(
                 Icons.directions_railway_outlined,
                 size: 40,
-                color: TrainAccessColors.accent,
+                color: AppColors.accent(context, TrainAccessColors.accent),
               ),
               const SizedBox(height: 8),
               Text(
@@ -299,10 +307,7 @@ class _TrainEmptyPanel extends ConsumerWidget {
 }
 
 class _TrainGradientPanel extends StatelessWidget {
-  const _TrainGradientPanel({
-    required this.direction,
-    required this.child,
-  });
+  const _TrainGradientPanel({required this.direction, required this.child});
 
   final TrainDirectionSnapshot? direction;
   final Widget child;
@@ -345,11 +350,7 @@ class _TrainGradientPanel extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.train,
-                  color: TrainAccessColors.accent,
-                  size: 18,
-                ),
+                Icon(Icons.train, color: AppColors.accent(context, TrainAccessColors.accent), size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: _TrainLineDirectionLabels(direction: direction),
@@ -363,7 +364,6 @@ class _TrainGradientPanel extends StatelessWidget {
       ),
     );
   }
-
 }
 
 /// 路線名・方面名（2行）
@@ -398,28 +398,34 @@ class _TrainLineDirectionLabels extends StatelessWidget {
     }
 
     final line = dir.lineLabel?.trim();
-    final dirLabel = dir.directionLabel.isEmpty
-        ? dir.directionKey
-        : dir.directionLabel;
+    final dirLabel =
+        dir.directionLabel.isEmpty ? dir.directionKey : dir.directionLabel;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         if (line != null && line.isNotEmpty)
-          Text(line, style: lineStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(
+            line,
+            style: lineStyle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         if (dirLabel.isNotEmpty)
-          Text(dirLabel, style: dirStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(
+            dirLabel,
+            style: dirStyle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
       ],
     );
   }
 }
 
 class _TrainCountdownPanel extends StatelessWidget {
-  const _TrainCountdownPanel({
-    required this.vm,
-    required this.direction,
-  });
+  const _TrainCountdownPanel({required this.vm, required this.direction});
 
   final TrainHomeVm vm;
   final TrainDirectionSnapshot direction;
@@ -459,8 +465,7 @@ class _TrainCountdownPanel extends StatelessWidget {
 
     final depTime = DateFormat('H:mm').format(departure);
     final second = direction.secondDepartureAt;
-    final secondStr =
-        second != null ? DateFormat('H:mm').format(second) : null;
+    final secondStr = second != null ? DateFormat('H:mm').format(second) : null;
     final label = trainDecisionCategoryLabelJa(vm.decision.category);
 
     return _innerInfoBox(
@@ -471,9 +476,9 @@ class _TrainCountdownPanel extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
+               Icon(
                 Icons.schedule,
-                color: TrainAccessColors.accent,
+                color: AppColors.accent(context, TrainAccessColors.accent),
                 size: 16,
               ),
               const SizedBox(width: 6),
@@ -492,8 +497,7 @@ class _TrainCountdownPanel extends StatelessWidget {
                           text: ' （その次: $secondStr）',
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.65),
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
                     ],
@@ -507,21 +511,13 @@ class _TrainCountdownPanel extends StatelessWidget {
             children: [
               _buildTimeUnit(context, hours.toString().padLeft(2, '0'), '時間'),
               const SizedBox(width: 8),
-              _buildTimeUnit(
-                context,
-                minutes.toString().padLeft(2, '0'),
-                '分',
-              ),
+              _buildTimeUnit(context, minutes.toString().padLeft(2, '0'), '分'),
               const SizedBox(width: 8),
-              _buildTimeUnit(
-                context,
-                seconds.toString().padLeft(2, '0'),
-                '秒',
-              ),
+              _buildTimeUnit(context, seconds.toString().padLeft(2, '0'), '秒'),
               const Spacer(),
-              const Icon(
+               Icon(
                 Icons.train,
-                color: TrainAccessColors.accent,
+                color: AppColors.accent(context, TrainAccessColors.accent),
                 size: 20,
               ),
             ],
@@ -565,8 +561,8 @@ class _TrainCountdownPanel extends StatelessWidget {
           ),
           child: Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppColors.onColor(TrainAccessColors.accent),
               fontWeight: FontWeight.bold,
               fontSize: 16,
             ),
@@ -646,7 +642,9 @@ class TrainHomeCardCampusSetting extends ConsumerWidget {
         children: [
           Text(
             'JR津田沼駅発　電車',
-            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
@@ -681,9 +679,9 @@ String formatTrainCountdown(Duration remaining) {
   final m = secs ~/ 60;
   final s = secs % 60;
   if (m > 0) {
-    return 'あと${m}分${s.toString().padLeft(2, '0')}秒';
+    return 'あと$m分${s.toString().padLeft(2, '0')}秒';
   }
-  return 'あと${s}秒';
+  return 'あと$s秒';
 }
 
 Future<void> _showDirectionPicker(
@@ -693,9 +691,10 @@ Future<void> _showDirectionPicker(
 ) async {
   final campus = ref.read(preferredBusCampusProvider);
   final settings = ref.read(settingsProvider);
-  final current = campus == 'narashino'
-      ? settings.trainPreferredDirectionNarashino
-      : settings.trainPreferredDirectionTsudanuma;
+  final current =
+      campus == 'narashino'
+          ? settings.trainPreferredDirectionNarashino
+          : settings.trainPreferredDirectionTsudanuma;
 
   await showModalBottomSheet<void>(
     context: context,
@@ -708,17 +707,14 @@ Future<void> _showDirectionPicker(
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: Text(
-                '表示する方面',
-                style: Theme.of(ctx).textTheme.titleMedium,
-              ),
+              child: Text('表示する方面', style: Theme.of(ctx).textTheme.titleMedium),
             ),
             for (final d in snap.directions)
               ListTile(
                 dense: true,
-                leading: const Icon(
+                leading: Icon(
                   Icons.train,
-                  color: TrainAccessColors.accent,
+                  color: AppColors.accent(context, TrainAccessColors.accent),
                 ),
                 title: Text(
                   d.lineLabel?.trim().isNotEmpty == true
@@ -727,22 +723,23 @@ Future<void> _showDirectionPicker(
                           ? d.directionKey
                           : d.directionLabel),
                 ),
-                subtitle: d.lineLabel?.trim().isNotEmpty == true
-                    ? Text(
-                        d.directionLabel.isEmpty
-                            ? d.directionKey
-                            : d.directionLabel,
-                      )
-                    : null,
+                subtitle:
+                    d.lineLabel?.trim().isNotEmpty == true
+                        ? Text(
+                          d.directionLabel.isEmpty
+                              ? d.directionKey
+                              : d.directionLabel,
+                        )
+                        : null,
                 trailing:
                     (current.isEmpty
                             ? snap.directions.first.directionKey ==
                                 d.directionKey
                             : current == d.directionKey)
-                        ? const Icon(
-                            Icons.check,
-                            color: TrainAccessColors.accent,
-                          )
+                        ?  Icon(
+                          Icons.check,
+                          color: AppColors.accent(context, TrainAccessColors.accent),
+                        )
                         : null,
                 onTap: () async {
                   await ref

@@ -42,8 +42,7 @@ class TrainStaticSnapshot {
         TrainDirectionSnapshot(
           directionKey: data['directionKey'] as String? ?? 'tokyo',
           lineLabel: data['lineLabel'] as String?,
-          directionLabel:
-              data['directionLabel'] as String? ?? '西船橋・両国方面 (西行)',
+          directionLabel: data['directionLabel'] as String? ?? '西船橋・両国方面 (西行)',
           nextDepartureAt: departures.first,
           secondDepartureAt: departures.length > 1 ? departures[1] : null,
           timetableType: timetableType,
@@ -118,8 +117,7 @@ bool trainDirectionHasValidDeparture(TrainDirectionSnapshot d) {
 }
 
 TrainSnapshot trainSnapshotWithValidDirections(TrainSnapshot snap) {
-  final dirs =
-      snap.directions.where(trainDirectionHasValidDeparture).toList();
+  final dirs = snap.directions.where(trainDirectionHasValidDeparture).toList();
   return TrainSnapshot(
     campusKey: snap.campusKey,
     stationName: snap.stationName,

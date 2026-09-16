@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,35 +15,36 @@ class BlockedUserListScreen extends ConsumerWidget {
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('ブロック解除の確認'),
-        content: Text('${blockedUser.blockedUserName}のブロックを解除しますか？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('ブロック解除の確認'),
+            content: Text('${blockedUser.blockedUserName}のブロックを解除しますか？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('キャンセル'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('解除する'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('解除する'),
-          ),
-        ],
-      ),
     );
 
     if (confirmed != true) return;
 
     try {
-      await ref.read(userBlockProvider.notifier).unblockUser(
-            blockedUserId: blockedUser.blockedUserId,
-          );
+      await ref
+          .read(userBlockProvider.notifier)
+          .unblockUser(blockedUserId: blockedUser.blockedUserId);
 
       if (!context.mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${blockedUser.blockedUserName}のブロックを解除しました'),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.snackBarSurface(context, Colors.green),
         ),
       );
     } catch (e) {
@@ -51,7 +53,7 @@ class BlockedUserListScreen extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('ブロック解除に失敗しました: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.snackBarSurface(context, Colors.red),
         ),
       );
     }
@@ -76,18 +78,11 @@ class BlockedUserListScreen extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.block,
-                    size: 80,
-                    color: Colors.grey[400],
-                  ),
+                  Icon(Icons.block, size: 80, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   const SizedBox(height: 16),
                   Text(
                     'ブロック済みユーザーはいません',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -101,21 +96,18 @@ class BlockedUserListScreen extends ConsumerWidget {
                 margin: const EdgeInsets.all(16),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.blue[50],
+                  color: AppColors.tintedSurface(context, Colors.blue),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.blue[200]!),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: Colors.blue[700]),
+                    Icon(Icons.info_outline, color: AppColors.accent(context, Colors.blue[700])),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'ブロックしたユーザーの投稿やコメントは表示されません',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.blue[900],
-                        ),
+                        style: TextStyle(fontSize: 13, color: AppColors.accent(context, Colors.blue[900])),
                       ),
                     ),
                   ],
@@ -126,12 +118,13 @@ class BlockedUserListScreen extends ConsumerWidget {
               Expanded(
                 child: ListView.separated(
                   itemCount: blockedUsers.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  separatorBuilder:
+                      (context, index) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final blockedUser = blockedUsers[index];
                     return ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: Colors.grey[300],
+                        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                         child: const Icon(Icons.person, color: Colors.white),
                       ),
                       title: Text(
@@ -146,7 +139,7 @@ class BlockedUserListScreen extends ConsumerWidget {
                             '理由: ${blockedUser.reason.displayName}',
                             style: TextStyle(
                               fontSize: 13,
-                              color: Colors.grey[600],
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                           ),
                           if (blockedUser.notes != null &&
@@ -155,7 +148,7 @@ class BlockedUserListScreen extends ConsumerWidget {
                               'メモ: ${blockedUser.notes}',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey[500],
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -165,13 +158,14 @@ class BlockedUserListScreen extends ConsumerWidget {
                             'ブロック日時: ${blockedUser.timeAgo}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[500],
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
                       ),
                       trailing: TextButton.icon(
-                        onPressed: () => _unblockUser(context, ref, blockedUser),
+                        onPressed:
+                            () => _unblockUser(context, ref, blockedUser),
                         icon: const Icon(Icons.block, size: 18),
                         label: const Text('解除'),
                         style: TextButton.styleFrom(
@@ -186,44 +180,33 @@ class BlockedUserListScreen extends ConsumerWidget {
             ],
           );
         },
-        loading: () => const Center(
-          child: CircularProgressIndicator(),
-        ),
-        error: (error, stack) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.error_outline,
-                size: 80,
-                color: Colors.red[300],
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error:
+            (error, stack) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 80, color: AppColors.accent(context, Colors.red[300])),
+                  const SizedBox(height: 16),
+                  Text(
+                    'データの取得に失敗しました',
+                    style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    error.toString(),
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () => ref.invalidate(blockedUsersProvider),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('再読み込み'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              Text(
-                'データの取得に失敗しました',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                error.toString(),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[500],
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () => ref.invalidate(blockedUsersProvider),
-                icon: const Icon(Icons.refresh),
-                label: const Text('再読み込み'),
-              ),
-            ],
-          ),
-        ),
+            ),
       ),
     );
   }

@@ -107,20 +107,23 @@ class BulletinService {
       }
 
       final QuerySnapshot snapshot = await query.get();
-      
-      List<BulletinPost> posts = snapshot.docs
-          .map((doc) => BulletinPost.fromJson({
-                'id': doc.id,
-                ...doc.data() as Map<String, dynamic>,
-              }))
-          .toList();
+
+      List<BulletinPost> posts =
+          snapshot.docs
+              .map(
+                (doc) => BulletinPost.fromJson({
+                  'id': doc.id,
+                  ...doc.data() as Map<String, dynamic>,
+                }),
+              )
+              .toList();
 
       // ピン留め投稿を優先してソート
       posts.sort((a, b) {
         // まずピン留めステータスで比較
         if (a.isPinned && !b.isPinned) return -1;
         if (!a.isPinned && b.isPinned) return 1;
-        
+
         // ピン留めステータスが同じ場合は作成日時で比較
         return b.createdAt.compareTo(a.createdAt);
       });
@@ -139,7 +142,7 @@ class BulletinService {
       } else {
         posts = posts.take(limit).toList();
       }
-      
+
       return posts;
     } catch (e) {
       throw Exception('投稿の取得に失敗しました: $e');
@@ -172,11 +175,12 @@ class BulletinService {
   /// 期限切れの投稿を自動的に無効化
   static Future<void> deactivateExpiredPosts() async {
     try {
-      final QuerySnapshot snapshot = await _firestore
-          .collection('bulletin_posts')
-          .where('isActive', isEqualTo: true)
-          .where('expiresAt', isLessThan: Timestamp.now())
-          .get();
+      final QuerySnapshot snapshot =
+          await _firestore
+              .collection('bulletin_posts')
+              .where('isActive', isEqualTo: true)
+              .where('expiresAt', isLessThan: Timestamp.now())
+              .get();
 
       final WriteBatch batch = _firestore.batch();
       for (final doc in snapshot.docs) {
@@ -192,21 +196,20 @@ class BulletinService {
   /// 投稿統計を取得
   static Future<Map<String, int>> getPostStatistics() async {
     try {
-      final QuerySnapshot allPosts = await _firestore
-          .collection('bulletin_posts')
-          .where('isActive', isEqualTo: true)
-          .get();
+      final QuerySnapshot allPosts =
+          await _firestore
+              .collection('bulletin_posts')
+              .where('isActive', isEqualTo: true)
+              .get();
 
-      final QuerySnapshot pinnedPosts = await _firestore
-          .collection('bulletin_posts')
-          .where('isActive', isEqualTo: true)
-          .where('isPinned', isEqualTo: true)
-          .get();
+      final QuerySnapshot pinnedPosts =
+          await _firestore
+              .collection('bulletin_posts')
+              .where('isActive', isEqualTo: true)
+              .where('isPinned', isEqualTo: true)
+              .get();
 
-      return {
-        'total': allPosts.docs.length,
-        'pinned': pinnedPosts.docs.length,
-      };
+      return {'total': allPosts.docs.length, 'pinned': pinnedPosts.docs.length};
     } catch (e) {
       return {'total': 0, 'pinned': 0};
     }
@@ -220,59 +223,73 @@ class BulletinService {
       await _firestore.runTransaction((transaction) async {
         final postRef = _firestore.collection('bulletin_posts').doc(postId);
         final postDoc = await transaction.get(postRef);
-        
+
         if (!postDoc.exists) {
           throw Exception('投稿が見つかりません');
         }
-        
+
         final raw = postDoc.data()!;
-        final post = BulletinPost.fromJson({
-          'id': postDoc.id,
-          ...raw,
-        });
+        final post = BulletinPost.fromJson({'id': postDoc.id, ...raw});
         // 事前ログ
         final rawIsCoupon = raw['isCoupon'];
         final rawMax = raw['couponMaxUses'];
         final rawUsedCount = raw['couponUsedCount'];
-        final rawUsedBy = (raw['couponUsedBy'] is Map) ? Map<String, dynamic>.from(raw['couponUsedBy'] as Map) : <String, dynamic>{};
-        final currentUserUsage = (rawUsedBy[userId] is num) ? (rawUsedBy[userId] as num).toInt() : 0;
-        print('🎫 current resource: isCoupon=$rawIsCoupon, couponMaxUses=$rawMax, couponUsedCount=$rawUsedCount');
-        print('🎫 current userUsage[$userId]=$currentUserUsage, usedBy.size=${rawUsedBy.length}');
-        
+        final rawUsedBy =
+            (raw['couponUsedBy'] is Map)
+                ? Map<String, dynamic>.from(raw['couponUsedBy'] as Map)
+                : <String, dynamic>{};
+        final currentUserUsage =
+            (rawUsedBy[userId] is num) ? (rawUsedBy[userId] as num).toInt() : 0;
+        print(
+          '🎫 current resource: isCoupon=$rawIsCoupon, couponMaxUses=$rawMax, couponUsedCount=$rawUsedCount',
+        );
+        print(
+          '🎫 current userUsage[$userId]=$currentUserUsage, usedBy.size=${rawUsedBy.length}',
+        );
+
         // クーポン投稿でない場合はエラー
         if (!post.isCoupon) {
           throw Exception('この投稿はクーポンではありません');
         }
-        
+
         // ユーザーごとの使用回数上限チェック
         final usedBy = post.couponUsedBy ?? <String, int>{};
         final currentUserUsageCount = usedBy[userId] ?? 0;
-        
-        if (post.couponMaxUses != null && currentUserUsageCount >= post.couponMaxUses!) {
+
+        if (post.couponMaxUses != null &&
+            currentUserUsageCount >= post.couponMaxUses!) {
           throw Exception('あなたはこのクーポンの使用回数上限に達しています');
         }
-        
+
         // 使用記録を更新（ユーザーごとの使用回数）
         final updatedUsedBy = Map<String, int>.from(usedBy);
         updatedUsedBy[userId] = currentUserUsageCount + 1;
         final newTotal = post.couponUsedCount + 1;
-        print('🎫 update payload: couponUsedCount: ${post.couponUsedCount} -> $newTotal, '
-              'couponUsedBy[$userId]: $currentUserUsageCount -> ${updatedUsedBy[userId]}');
-        
+        print(
+          '🎫 update payload: couponUsedCount: ${post.couponUsedCount} -> $newTotal, '
+          'couponUsedBy[$userId]: $currentUserUsageCount -> ${updatedUsedBy[userId]}',
+        );
+
         transaction.update(postRef, {
           'couponUsedCount': newTotal,
           'couponUsedBy': updatedUsedBy,
         });
-        print('🎫 transaction.update called with only couponUsedCount & couponUsedBy');
+        print(
+          '🎫 transaction.update called with only couponUsedCount & couponUsedBy',
+        );
       });
-      
+
       // 反映確認ログ（任意）
       try {
-        final after = await _firestore.collection('bulletin_posts').doc(postId).get();
+        final after =
+            await _firestore.collection('bulletin_posts').doc(postId).get();
         final a = after.data();
         final afterCount = a?['couponUsedCount'];
-        final afterUser = (a?['couponUsedBy'] is Map) ? (a?['couponUsedBy'][userId]) : null;
-        print('🎫 after update: couponUsedCount=$afterCount, couponUsedBy[$userId]=$afterUser');
+        final afterUser =
+            (a?['couponUsedBy'] is Map) ? (a?['couponUsedBy'][userId]) : null;
+        print(
+          '🎫 after update: couponUsedCount=$afterCount, couponUsedBy[$userId]=$afterUser',
+        );
       } catch (e) {
         print('⚠️ post-update fetch failed (ignored): $e');
       }
@@ -281,7 +298,9 @@ class BulletinService {
       if (e is FirebaseException) {
         print('❌ FirebaseException(code=${e.code}, message=${e.message})');
       }
-      print('❌ Hint: Ensure only couponUsedCount/couponUsedBy are being updated and user is CIT domain.');
+      print(
+        '❌ Hint: Ensure only couponUsedCount/couponUsedBy are being updated and user is CIT domain.',
+      );
       rethrow;
     }
   }

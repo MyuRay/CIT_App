@@ -15,14 +15,8 @@ void main() {
     });
 
     test('shows imminent when elapsed', () {
-      expect(
-        formatTrainCountdown(const Duration(seconds: 0)),
-        'まもなく発車',
-      );
-      expect(
-        formatTrainCountdown(const Duration(seconds: -3)),
-        'まもなく発車',
-      );
+      expect(formatTrainCountdown(const Duration(seconds: 0)), 'まもなく発車');
+      expect(formatTrainCountdown(const Duration(seconds: -3)), 'まもなく発車');
     });
   });
 }

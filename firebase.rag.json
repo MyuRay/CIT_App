@@ -1,0 +1,9 @@
+{
+  "functions": [{
+    "source": "tools/discord-rag",
+    "codebase": "handoff-rag",
+    "runtime": "nodejs22",
+    "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run predeploy"],
+    "ignore": ["node_modules", ".git", ".env*", ".secret*", "test", "data/*.tmp", "**/*-debug.log"]
+  }]
+}

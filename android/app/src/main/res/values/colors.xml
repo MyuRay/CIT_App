@@ -2,4 +2,13 @@
 <resources>
     <!-- Launch screen background - matches bunny icon green -->
     <color name="launch_background">#6FAF5A</color>
+    <color name="notification_accent">#1976D2</color>
+    <color name="widget_surface">#FFFFFF</color>
+    <color name="widget_row">#F7F9FC</color>
+    <color name="widget_empty">#FBFCFE</color>
+    <color name="widget_outline">#CBD5E1</color>
+    <color name="widget_on_surface">#0F172A</color>
+    <color name="widget_secondary">#475569</color>
+    <color name="widget_accent">#1D4ED8</color>
+    <color name="widget_current_background">#DBEAFE</color>
 </resources>

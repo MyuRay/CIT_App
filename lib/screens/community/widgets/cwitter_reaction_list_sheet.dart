@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -41,19 +42,20 @@ class CwitterReactionListSheet extends ConsumerWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.55,
-        minChildSize: 0.35,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) {
-          return CwitterReactionListSheet(
-            postId: postId,
-            kind: kind,
-            scrollController: scrollController,
-          );
-        },
-      ),
+      builder:
+          (context) => DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.55,
+            minChildSize: 0.35,
+            maxChildSize: 0.9,
+            builder: (context, scrollController) {
+              return CwitterReactionListSheet(
+                postId: postId,
+                kind: kind,
+                scrollController: scrollController,
+              );
+            },
+          ),
     );
   }
 
@@ -62,9 +64,10 @@ class CwitterReactionListSheet extends ConsumerWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final currentUid = ref.watch(currentUserIdProvider);
-    final usersAsync = kind == CwitterReactionListKind.likes
-        ? ref.watch(filteredCwitterPostLikersProvider(postId))
-        : ref.watch(filteredCwitterPostRecweetersProvider(postId));
+    final usersAsync =
+        kind == CwitterReactionListKind.likes
+            ? ref.watch(filteredCwitterPostLikersProvider(postId))
+            : ref.watch(filteredCwitterPostRecweetersProvider(postId));
 
     return Column(
       children: [
@@ -90,12 +93,13 @@ class CwitterReactionListSheet extends ConsumerWidget {
         Expanded(
           child: usersAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text('読み込みに失敗しました: $error'),
-              ),
-            ),
+            error:
+                (error, _) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text('読み込みに失敗しました: $error'),
+                  ),
+                ),
             data: (users) {
               if (users.isEmpty) {
                 return Center(
@@ -104,7 +108,7 @@ class CwitterReactionListSheet extends ConsumerWidget {
                         ? 'まだいいねはありません'
                         : 'まだrecweetはありません',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurface.withValues(alpha: 0.6),
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 );
@@ -131,10 +135,7 @@ class CwitterReactionListSheet extends ConsumerWidget {
 }
 
 class _ReactionUserTile extends StatelessWidget {
-  const _ReactionUserTile({
-    required this.user,
-    required this.currentUid,
-  });
+  const _ReactionUserTile({required this.user, required this.currentUid});
 
   final CwitterFollowUser user;
   final String? currentUid;
@@ -200,7 +201,7 @@ class _ReactionUserTile extends StatelessWidget {
                       cwitterId: user.cwitterId,
                       showOfficialTag: false,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF2E7D32),
+                        color: AppColors.accent(context, const Color(0xFF2E7D32)),
                       ),
                     ),
                   ],
@@ -208,7 +209,7 @@ class _ReactionUserTile extends StatelessWidget {
               ),
               Icon(
                 Icons.chevron_right,
-                color: colorScheme.onSurface.withValues(alpha: 0.35),
+                color: colorScheme.onSurfaceVariant,
               ),
             ],
           ),

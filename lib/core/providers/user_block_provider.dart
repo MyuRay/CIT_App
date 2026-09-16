@@ -29,14 +29,10 @@ class UserBlockNotifier extends StateNotifier<AsyncValue<void>> {
   }
 
   /// ユーザーのブロックを解除
-  Future<void> unblockUser({
-    required String blockedUserId,
-  }) async {
+  Future<void> unblockUser({required String blockedUserId}) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      await UserBlockService.unblockUser(
-        blockedUserId: blockedUserId,
-      );
+      await UserBlockService.unblockUser(blockedUserId: blockedUserId);
     });
   }
 
@@ -47,9 +43,10 @@ class UserBlockNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 // ブロック操作プロバイダー
-final userBlockProvider = StateNotifierProvider<UserBlockNotifier, AsyncValue<void>>((ref) {
-  return UserBlockNotifier();
-});
+final userBlockProvider =
+    StateNotifierProvider<UserBlockNotifier, AsyncValue<void>>((ref) {
+      return UserBlockNotifier();
+    });
 
 // ブロック済みユーザー一覧プロバイダー（Stream）
 final blockedUsersProvider = StreamProvider<List<BlockedUser>>((ref) {
@@ -101,13 +98,10 @@ Stream<Set<String>> _mergeIdSetStreams(List<Stream<Set<String>>> streams) {
     for (var i = 0; i < streams.length; i++) {
       final index = i;
       subscriptions.add(
-        streams[i].listen(
-          (value) {
-            latest[index] = value;
-            emit();
-          },
-          onError: controller.addError,
-        ),
+        streams[i].listen((value) {
+          latest[index] = value;
+          emit();
+        }, onError: controller.addError),
       );
     }
 
@@ -120,10 +114,11 @@ Stream<Set<String>> _mergeIdSetStreams(List<Stream<Set<String>>> streams) {
 }
 
 // 特定ユーザーのブロック状態チェックプロバイダー
-final isUserBlockedProvider = FutureProvider.family<bool, String>((ref, blockedUserId) async {
-  return await UserBlockService.isBlocked(
-    blockedUserId: blockedUserId,
-  );
+final isUserBlockedProvider = FutureProvider.family<bool, String>((
+  ref,
+  blockedUserId,
+) async {
+  return await UserBlockService.isBlocked(blockedUserId: blockedUserId);
 });
 
 // ブロック数プロバイダー

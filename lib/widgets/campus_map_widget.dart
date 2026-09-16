@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../core/providers/firebase_campus_provider.dart';
 import 'common/animated_image_placeholder.dart';
@@ -31,7 +30,9 @@ class CampusMapWidget extends ConsumerWidget {
       children: [
         campusMapAsync.when(
           data: (mapUrl) {
-            debugPrint('🗺️ Campus map data received | campus=$campus, url=$mapUrl');
+            debugPrint(
+              '🗺️ Campus map data received | campus=$campus, url=$mapUrl',
+            );
             if (mapUrl == null || mapUrl.isEmpty) {
               debugPrint('❌ Campus map URL is null or empty | campus=$campus');
               return _buildErrorWidget(context, 'キャンパスマップが見つかりません');
@@ -73,7 +74,7 @@ class CampusMapWidget extends ConsumerWidget {
       height: height ?? 200,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
@@ -107,19 +108,19 @@ class CampusMapWidget extends ConsumerWidget {
       height: height ?? 200,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        color: Colors.grey.shade100,
-        border: Border.all(color: Colors.grey.shade300),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.map, color: Colors.grey.shade600, size: 32),
+            Icon(Icons.map, color: Theme.of(context).colorScheme.onSurfaceVariant, size: 32),
             const SizedBox(height: 8),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
             ),
           ],
         ),
@@ -272,9 +273,10 @@ class _FullScreenCampusMapDialogState
       final translateX = viewportCenter.dx - (tapPosition.dx * _zoomedScale);
       final translateY = viewportCenter.dy - (tapPosition.dy * _zoomedScale);
 
-      controller.value = Matrix4.identity()
-        ..translate(translateX, translateY)
-        ..scale(_zoomedScale);
+      controller.value =
+          Matrix4.identity()
+            ..translate(translateX, translateY)
+            ..scale(_zoomedScale);
     }
   }
 
@@ -325,54 +327,57 @@ class _FullScreenCampusMapDialogState
           child: Transform.scale(
             scale: dragScale,
             child: Stack(
-            children: [
-              Positioned.fill(
-                child: PageView.builder(
-                  controller: _pageController,
-                  // 画像が拡大されている場合はスワイプを無効化
-                  physics: (_isImageZoomed || _isInteractingWithImage)
-                      ? const NeverScrollableScrollPhysics()
-                      : const PageScrollPhysics(),
-                  itemCount: _entries.length,
-                  onPageChanged: (index) {
-                    if (index >= 0 && index < _entries.length) {
-                      final newCampusKey = _entries[index].key;
-                      // 切り替え先のマップのズームをリセット
-                      final newController = _transformationControllers[newCampusKey];
-                      if (newController != null) {
-                        newController.value = Matrix4.identity();
+              children: [
+                Positioned.fill(
+                  child: PageView.builder(
+                    controller: _pageController,
+                    // 画像が拡大されている場合はスワイプを無効化
+                    physics:
+                        (_isImageZoomed || _isInteractingWithImage)
+                            ? const NeverScrollableScrollPhysics()
+                            : const PageScrollPhysics(),
+                    itemCount: _entries.length,
+                    onPageChanged: (index) {
+                      if (index >= 0 && index < _entries.length) {
+                        final newCampusKey = _entries[index].key;
+                        // 切り替え先のマップのズームをリセット
+                        final newController =
+                            _transformationControllers[newCampusKey];
+                        if (newController != null) {
+                          newController.value = Matrix4.identity();
+                        }
+                        setState(() {
+                          _currentIndex = index;
+                          _isImageZoomed = false;
+                        });
                       }
-                      setState(() {
-                        _currentIndex = index;
-                        _isImageZoomed = false;
-                      });
-                    }
-                  },
-                  itemBuilder: (context, index) {
-                    final entry = _entries[index];
-                    return _buildCampusPage(context, entry.key, entry.value);
-                  },
-                ),
-              ),
-              if (_showChrome) _buildTopControls(context),
-              if (_showChrome && _entries.length > 1) _buildCampusSelector(context),
-              if (_showChrome)
-                Positioned(
-                top: MediaQuery.of(context).padding.top + 16,
-                left: 24,
-                child: Text(
-                  _entries[_currentIndex].value,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    },
+                    itemBuilder: (context, index) {
+                      final entry = _entries[index];
+                      return _buildCampusPage(context, entry.key, entry.value);
+                    },
                   ),
                 ),
-              ),
-              if (_showChrome) _buildDoubleTapHint(context),
-            ],
+                if (_showChrome) _buildTopControls(context),
+                if (_showChrome && _entries.length > 1)
+                  _buildCampusSelector(context),
+                if (_showChrome)
+                  Positioned(
+                    top: MediaQuery.of(context).padding.top + 16,
+                    left: 24,
+                    child: Text(
+                      _entries[_currentIndex].value,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                if (_showChrome) _buildDoubleTapHint(context),
+              ],
+            ),
           ),
-        ),
         ),
       ),
     );
@@ -391,9 +396,9 @@ class _FullScreenCampusMapDialogState
             mapUrl ??
             (campusKey == widget.initialCampus ? widget.initialMapUrl : null);
         if (effectiveUrl == null || effectiveUrl.isEmpty) {
-          return _buildMessage(context, '${campusName}のマップが見つかりません');
+          return _buildMessage(context, '$campusNameのマップが見つかりません');
         }
-        
+
         final imageWidget = SafeCachedNetworkImage(
           imageUrl: effectiveUrl,
           width: double.infinity,
@@ -405,10 +410,7 @@ class _FullScreenCampusMapDialogState
             borderRadius: 12,
             borderColor: Colors.white24,
           ),
-          errorWidget: _buildMessage(
-            context,
-            '${campusName}のマップの読み込みに失敗しました',
-          ),
+          errorWidget: _buildMessage(context, '$campusNameのマップの読み込みに失敗しました'),
         );
 
         return LayoutBuilder(
@@ -457,7 +459,7 @@ class _FullScreenCampusMapDialogState
             ),
           ),
       error:
-          (error, _) => _buildMessage(context, '${campusName}のマップの読み込みに失敗しました'),
+          (error, _) => _buildMessage(context, '$campusNameのマップの読み込みに失敗しました'),
     );
   }
 
@@ -466,7 +468,7 @@ class _FullScreenCampusMapDialogState
     if (_isImageZoomed) {
       return const SizedBox.shrink();
     }
-    
+
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     // キャンパスセレクタの上に表示
     // キャンパスセレクタは bottomPadding + 72 に配置されているので、
@@ -484,10 +486,7 @@ class _FullScreenCampusMapDialogState
           ),
           child: const Text(
             'ダブルタップで拡大・縮小、ドラッグで移動できます',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Colors.white70, fontSize: 12),
           ),
         ),
       ),
@@ -642,15 +641,14 @@ class FloorMapWidget extends ConsumerWidget {
       height: height ?? 200,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: GestureDetector(
           onTap:
               onTapForFullscreen ??
-              () =>
-                  _showFullScreenMap(context, campus, mapUrl, campusOptions),
+              () => _showFullScreenMap(context, campus, mapUrl, campusOptions),
           child: SafeCachedNetworkImage(
             imageUrl: mapUrl,
             width: width,
@@ -678,19 +676,19 @@ class FloorMapWidget extends ConsumerWidget {
       height: height ?? 200,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        color: Colors.grey.shade100,
-        border: Border.all(color: Colors.grey.shade300),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.location_on, color: Colors.grey.shade600, size: 32),
+            Icon(Icons.location_on, color: Theme.of(context).colorScheme.onSurfaceVariant, size: 32),
             const SizedBox(height: 8),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
             ),
           ],
         ),

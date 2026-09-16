@@ -8,15 +8,17 @@ class GlobalNotificationService {
   static const String _viewedNotificationsKey = 'viewed_notification_ids';
 
   // 全体通知を作成（管理者用）
-  static Future<String> createGlobalNotification(GlobalNotification notification) async {
+  static Future<String> createGlobalNotification(
+    GlobalNotification notification,
+  ) async {
     try {
       final docRef = await _firestore
           .collection(_collectionName)
           .add(notification.toJson());
-      
+
       // IDを設定して再保存
       await docRef.update({'id': docRef.id});
-      
+
       print('✅ 全体通知を作成しました: ${docRef.id}');
       return docRef.id;
     } catch (e) {
@@ -35,7 +37,7 @@ class GlobalNotificationService {
           .collection(_collectionName)
           .doc(notificationId)
           .update(notification.toJson());
-      
+
       print('✅ 全体通知を更新しました: $notificationId');
     } catch (e) {
       print('❌ 全体通知更新エラー: $e');
@@ -44,13 +46,14 @@ class GlobalNotificationService {
   }
 
   // 全体通知を無効化（管理者用）
-  static Future<void> deactivateGlobalNotification(String notificationId) async {
+  static Future<void> deactivateGlobalNotification(
+    String notificationId,
+  ) async {
     try {
-      await _firestore
-          .collection(_collectionName)
-          .doc(notificationId)
-          .update({'isActive': false});
-      
+      await _firestore.collection(_collectionName).doc(notificationId).update({
+        'isActive': false,
+      });
+
       print('✅ 全体通知を無効化しました: $notificationId');
     } catch (e) {
       print('❌ 全体通知無効化エラー: $e');
@@ -61,11 +64,8 @@ class GlobalNotificationService {
   // 全体通知を削除（管理者用）
   static Future<void> deleteGlobalNotification(String notificationId) async {
     try {
-      await _firestore
-          .collection(_collectionName)
-          .doc(notificationId)
-          .delete();
-      
+      await _firestore.collection(_collectionName).doc(notificationId).delete();
+
       print('✅ 全体通知を削除しました: $notificationId');
     } catch (e) {
       print('❌ 全体通知削除エラー: $e');
@@ -81,14 +81,15 @@ class GlobalNotificationService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      final notifications = snapshot.docs
-          .map((doc) => GlobalNotification.fromJson(doc.data()))
-          .where((notification) => notification.isCurrentlyActive)
-          .toList();
-      
-      print('🔔 アクティブな全体通知: ${notifications.length}件取得');
-      return notifications;
-    });
+          final notifications =
+              snapshot.docs
+                  .map((doc) => GlobalNotification.fromJson(doc.data()))
+                  .where((notification) => notification.isCurrentlyActive)
+                  .toList();
+
+          print('🔔 アクティブな全体通知: ${notifications.length}件取得');
+          return notifications;
+        });
   }
 
   // すべての全体通知を取得（管理者用）
@@ -98,13 +99,14 @@ class GlobalNotificationService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      final notifications = snapshot.docs
-          .map((doc) => GlobalNotification.fromJson(doc.data()))
-          .toList();
-      
-      print('📋 全通知: ${notifications.length}件取得');
-      return notifications;
-    });
+          final notifications =
+              snapshot.docs
+                  .map((doc) => GlobalNotification.fromJson(doc.data()))
+                  .toList();
+
+          print('📋 全通知: ${notifications.length}件取得');
+          return notifications;
+        });
   }
 
   // 未表示の通知を取得（ユーザーがまだ見ていない通知）
@@ -112,20 +114,24 @@ class GlobalNotificationService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final viewedIds = prefs.getStringList(_viewedNotificationsKey) ?? [];
-      
-      final snapshot = await _firestore
-          .collection(_collectionName)
-          .where('isActive', isEqualTo: true)
-          .orderBy('createdAt', descending: true)
-          .get();
-      
-      final unviewedNotifications = snapshot.docs
-          .map((doc) => GlobalNotification.fromJson(doc.data()))
-          .where((notification) => 
-              notification.isCurrentlyActive && 
-              !viewedIds.contains(notification.id))
-          .toList();
-      
+
+      final snapshot =
+          await _firestore
+              .collection(_collectionName)
+              .where('isActive', isEqualTo: true)
+              .orderBy('createdAt', descending: true)
+              .get();
+
+      final unviewedNotifications =
+          snapshot.docs
+              .map((doc) => GlobalNotification.fromJson(doc.data()))
+              .where(
+                (notification) =>
+                    notification.isCurrentlyActive &&
+                    !viewedIds.contains(notification.id),
+              )
+              .toList();
+
       print('🔔 未表示通知: ${unviewedNotifications.length}件');
       return unviewedNotifications;
     } catch (e) {
@@ -139,7 +145,7 @@ class GlobalNotificationService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final viewedIds = prefs.getStringList(_viewedNotificationsKey) ?? [];
-      
+
       if (!viewedIds.contains(notificationId)) {
         viewedIds.add(notificationId);
         await prefs.setStringList(_viewedNotificationsKey, viewedIds);
@@ -151,11 +157,13 @@ class GlobalNotificationService {
   }
 
   // 複数の通知を「表示済み」としてマーク
-  static Future<void> markNotificationsAsViewed(List<String> notificationIds) async {
+  static Future<void> markNotificationsAsViewed(
+    List<String> notificationIds,
+  ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final viewedIds = prefs.getStringList(_viewedNotificationsKey) ?? [];
-      
+
       bool hasChanges = false;
       for (final id in notificationIds) {
         if (!viewedIds.contains(id)) {
@@ -163,7 +171,7 @@ class GlobalNotificationService {
           hasChanges = true;
         }
       }
-      
+
       if (hasChanges) {
         await prefs.setStringList(_viewedNotificationsKey, viewedIds);
         print('✅ ${notificationIds.length}件の通知を表示済みにマーク');
@@ -202,10 +210,11 @@ class GlobalNotificationService {
     required String message,
     DateTime? expiresAt,
   }) async {
-    final notification = GlobalNotificationFactory.createMaintenanceNotification(
-      message: message,
-      expiresAt: expiresAt,
-    );
+    final notification =
+        GlobalNotificationFactory.createMaintenanceNotification(
+          message: message,
+          expiresAt: expiresAt,
+        );
     return await createGlobalNotification(notification);
   }
 

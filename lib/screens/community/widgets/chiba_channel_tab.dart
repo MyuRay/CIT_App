@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -31,13 +32,12 @@ class ChibaChannelTab extends ConsumerWidget {
           },
           child: feedAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(24),
-              children: [
-                Text('読み込みに失敗しました: $error'),
-              ],
-            ),
+            error:
+                (error, _) => ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(24),
+                  children: [Text('読み込みに失敗しました: $error')],
+                ),
             data: (feed) {
               final hasAnyActive =
                   feed.hotThreads.isNotEmpty || feed.activeThreads.isNotEmpty;
@@ -49,20 +49,21 @@ class ChibaChannelTab extends ConsumerWidget {
                   if (feed.hotThreads.isNotEmpty) ...[
                     _SectionHeader(
                       title: 'ホットスレッド',
-                      subtitle:
-                          '24時間以内にレスがあったスレ (${feed.hotThreads.length})',
+                      subtitle: '24時間以内にレスがあったスレ (${feed.hotThreads.length})',
                     ),
                     const SizedBox(height: 10),
                     ...interleaveWidgetsWithBannerAds(
                       items: feed.hotThreads,
                       interval: InAppAdIntervals.chibaChannelThreadList,
-                      itemBuilder: (thread) => ThreadCard(
-                        thread: thread,
-                        onTap: () => _openThread(context, thread),
-                      ),
-                      adBuilder: () => const InAppAdBannerSlot(
-                        placement: AdPlacement.chibaChannelThreadList,
-                      ),
+                      itemBuilder:
+                          (thread) => ThreadCard(
+                            thread: thread,
+                            onTap: () => _openThread(context, thread),
+                          ),
+                      adBuilder:
+                          () => const InAppAdBannerSlot(
+                            placement: AdPlacement.chibaChannelThreadList,
+                          ),
                     ),
                   ],
                   const SizedBox(height: 16),
@@ -72,12 +73,15 @@ class ChibaChannelTab extends ConsumerWidget {
                     sortAscending: sortAscending,
                     showSort: hasAnyActive && feed.activeThreads.isNotEmpty,
                     onSortKeyChanged: (key) {
-                      ref.read(chibaChannelThreadSortKeyProvider.notifier).state =
-                          key;
+                      ref
+                          .read(chibaChannelThreadSortKeyProvider.notifier)
+                          .state = key;
                     },
                     onSortDirectionToggle: () {
                       ref
-                          .read(chibaChannelThreadSortAscendingProvider.notifier)
+                          .read(
+                            chibaChannelThreadSortAscendingProvider.notifier,
+                          )
                           .state = !sortAscending;
                     },
                   ),
@@ -89,7 +93,7 @@ class ChibaChannelTab extends ConsumerWidget {
                         child: Text(
                           'まだスレッドがありません。最初のスレを作成してみましょう。',
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurface.withValues(alpha: 0.65),
+                            color: colorScheme.onSurfaceVariant,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -101,7 +105,7 @@ class ChibaChannelTab extends ConsumerWidget {
                       child: Text(
                         'ホットスレッド以外のスレッドはありません。',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
                     )
@@ -109,13 +113,15 @@ class ChibaChannelTab extends ConsumerWidget {
                     ...interleaveWidgetsWithBannerAds(
                       items: feed.activeThreads,
                       interval: InAppAdIntervals.chibaChannelThreadList,
-                      itemBuilder: (thread) => ThreadCard(
-                        thread: thread,
-                        onTap: () => _openThread(context, thread),
-                      ),
-                      adBuilder: () => const InAppAdBannerSlot(
-                        placement: AdPlacement.chibaChannelThreadList,
-                      ),
+                      itemBuilder:
+                          (thread) => ThreadCard(
+                            thread: thread,
+                            onTap: () => _openThread(context, thread),
+                          ),
+                      adBuilder:
+                          () => const InAppAdBannerSlot(
+                            placement: AdPlacement.chibaChannelThreadList,
+                          ),
                     ),
                 ],
               );
@@ -133,7 +139,7 @@ class ChibaChannelTab extends ConsumerWidget {
               label: const Text('スレを作成'),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF4CAF50),
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.onColor(const Color(0xFF4CAF50)),
                 minimumSize: const Size(double.infinity, 48),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -156,10 +162,7 @@ class ChibaChannelTab extends ConsumerWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.title,
-    this.subtitle,
-  });
+  const _SectionHeader({required this.title, this.subtitle});
 
   final String title;
   final String? subtitle;
@@ -174,7 +177,7 @@ class _SectionHeader extends StatelessWidget {
           title,
           style: theme.textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.bold,
-            color: const Color(0xFF2E7D32),
+            color: AppColors.accent(context, const Color(0xFF2E7D32)),
           ),
         ),
         if (subtitle != null) ...[
@@ -182,7 +185,7 @@ class _SectionHeader extends StatelessWidget {
           Text(
             subtitle!,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -226,7 +229,7 @@ class _ThreadListSectionHeader extends StatelessWidget {
                 'スレッド一覧',
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: const Color(0xFF2E7D32),
+                  color: AppColors.accent(context, const Color(0xFF2E7D32)),
                 ),
               ),
               if (threadCount > 0) ...[
@@ -249,28 +252,29 @@ class _ThreadListSectionHeader extends StatelessWidget {
                 onSortKeyChanged(value);
               }
             },
-            itemBuilder: (context) => [
-              ...ChibaChannelThreadSortKey.values.map(
-                (key) => CheckedPopupMenuItem<Object>(
-                  value: key,
-                  checked: sortKey == key,
-                  child: Text(key.displayName),
-                ),
-              ),
-              PopupMenuItem<Object>(
-                value: 'dir',
-                child: Row(
-                  children: [
-                    Icon(
-                      sortAscending ? Icons.north : Icons.south,
-                      size: 18,
+            itemBuilder:
+                (context) => [
+                  ...ChibaChannelThreadSortKey.values.map(
+                    (key) => CheckedPopupMenuItem<Object>(
+                      value: key,
+                      checked: sortKey == key,
+                      child: Text(key.displayName),
                     ),
-                    const SizedBox(width: 8),
-                    Text(_directionLabel),
-                  ],
-                ),
-              ),
-            ],
+                  ),
+                  PopupMenuItem<Object>(
+                    value: 'dir',
+                    child: Row(
+                      children: [
+                        Icon(
+                          sortAscending ? Icons.north : Icons.south,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(_directionLabel),
+                      ],
+                    ),
+                  ),
+                ],
             child: Padding(
               padding: const EdgeInsets.only(left: 8, top: 2),
               child: Row(

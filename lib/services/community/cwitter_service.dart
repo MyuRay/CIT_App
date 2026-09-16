@@ -131,14 +131,10 @@ class CwitterService {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      transaction.set(
-        userRef,
-        {
-          'cwitterId': normalized,
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
+      transaction.set(userRef, {
+        'cwitterId': normalized,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
       return normalized;
     });
@@ -197,9 +193,7 @@ class CwitterService {
         .limit(limit)
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map(CwitterPost.fromFirestore)
-              .toList(),
+          (snapshot) => snapshot.docs.map(CwitterPost.fromFirestore).toList(),
         );
   }
 
@@ -256,10 +250,12 @@ class CwitterService {
   }
 
   static Future<
-      ({
-        Map<String, ({int postCount, int likeCount})> allTime,
-        Map<String, ({int postCount, int likeCount})> monthly,
-      })> _aggregateAuthorPostStats(DateTime monthStart) async {
+    ({
+      Map<String, ({int postCount, int likeCount})> allTime,
+      Map<String, ({int postCount, int likeCount})> monthly,
+    })
+  >
+  _aggregateAuthorPostStats(DateTime monthStart) async {
     final allTime = <String, ({int postCount, int likeCount})>{};
     final monthly = <String, ({int postCount, int likeCount})>{};
     QueryDocumentSnapshot<Map<String, dynamic>>? cursor;
@@ -405,10 +401,11 @@ class CwitterService {
   }
 
   static Future<String?> fetchOfficialAccountUserId() async {
-    final snap = await _firestore
-        .collection(_idsCollection)
-        .doc(AppConstants.cwitterOfficialCwitterId)
-        .get();
+    final snap =
+        await _firestore
+            .collection(_idsCollection)
+            .doc(AppConstants.cwitterOfficialCwitterId)
+            .get();
     if (!snap.exists) return null;
     return snap.data()?['uid']?.toString();
   }
@@ -429,9 +426,7 @@ class CwitterService {
     stats.remove(officialUid);
   }
 
-  static List<MapEntry<String, int>> _sortByValueDesc(
-    Map<String, int> counts,
-  ) {
+  static List<MapEntry<String, int>> _sortByValueDesc(Map<String, int> counts) {
     return counts.entries.where((entry) => entry.value > 0).toList()
       ..sort((a, b) {
         final valueCompare = b.value.compareTo(a.value);
@@ -523,7 +518,8 @@ class CwitterService {
     return needle;
   }
 
-  static String _normalizeHashtagNeedle(String raw) => _normalizeSearchNeedle(raw);
+  static String _normalizeHashtagNeedle(String raw) =>
+      _normalizeSearchNeedle(raw);
 
   static List<String> _parseCwitterTagsFromData(Map<String, dynamic> data) {
     final value = data['cwitterTags'];
@@ -565,7 +561,8 @@ class CwitterService {
   static Future<void> _forEachCwitterUserBatch(
     Future<void> Function(
       List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
-    ) onBatch, {
+    )
+    onBatch, {
     required int maxIds,
   }) async {
     QueryDocumentSnapshot<Map<String, dynamic>>? cursor;
@@ -601,7 +598,9 @@ class CwitterService {
       final end = math.min(i + _hashtagUserFetchBatchSize, userIds.length);
       final batch = userIds.sublist(i, end);
       final snaps = await Future.wait(
-        batch.map((uid) => _firestore.collection(_usersCollection).doc(uid).get()),
+        batch.map(
+          (uid) => _firestore.collection(_usersCollection).doc(uid).get(),
+        ),
       );
       for (final snap in snaps) {
         results.add(snap.exists ? snap.data() : null);
@@ -643,25 +642,26 @@ class CwitterService {
 
     await flushPending();
 
-    final summaries = counts.entries
-        .map(
-          (entry) => CwitterHashtagSummary(
-            tag: entry.key,
-            userCount: entry.value,
-          ),
-        )
-        .toList()
-      ..sort((a, b) {
-        final countCompare = b.userCount.compareTo(a.userCount);
-        if (countCompare != 0) return countCompare;
-        return a.tag.compareTo(b.tag);
-      });
+    final summaries =
+        counts.entries
+            .map(
+              (entry) =>
+                  CwitterHashtagSummary(tag: entry.key, userCount: entry.value),
+            )
+            .toList()
+          ..sort((a, b) {
+            final countCompare = b.userCount.compareTo(a.userCount);
+            if (countCompare != 0) return countCompare;
+            return a.tag.compareTo(b.tag);
+          });
 
     return summaries;
   }
 
   /// 指定ハッシュタグを設定しているユーザー一覧（完全一致）
-  static Future<List<CwitterFollowUser>> fetchUsersWithHashtag(String tag) async {
+  static Future<List<CwitterFollowUser>> fetchUsersWithHashtag(
+    String tag,
+  ) async {
     final needle = _normalizeHashtagNeedle(tag);
     if (needle.isEmpty) return const [];
 
@@ -706,7 +706,8 @@ class CwitterService {
     await flushPending();
 
     results.sort(
-      (a, b) => a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()),
+      (a, b) =>
+          a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()),
     );
     return results;
   }
@@ -796,10 +797,7 @@ class CwitterService {
         AppConstants.postPageSize,
         _searchPostMaxScan - scanned,
       );
-      final page = await fetchPostsPage(
-        startAfter: cursor,
-        limit: batchSize,
-      );
+      final page = await fetchPostsPage(startAfter: cursor, limit: batchSize);
       if (page.posts.isEmpty) break;
 
       scanned += page.posts.length;
@@ -878,11 +876,11 @@ class CwitterService {
         .limit(1)
         .snapshots()
         .map((snapshot) {
-      if (snapshot.docs.isEmpty) return null;
-      final createdAt = snapshot.docs.first.data()['createdAt'];
-      if (createdAt is Timestamp) return createdAt.toDate();
-      return null;
-    });
+          if (snapshot.docs.isEmpty) return null;
+          final createdAt = snapshot.docs.first.data()['createdAt'];
+          if (createdAt is Timestamp) return createdAt.toDate();
+          return null;
+        });
   }
 
   /// 自分の投稿一覧
@@ -897,9 +895,7 @@ class CwitterService {
         .limit(limit)
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map(CwitterPost.fromFirestore)
-              .toList(),
+          (snapshot) => snapshot.docs.map(CwitterPost.fromFirestore).toList(),
         );
   }
 
@@ -915,40 +911,41 @@ class CwitterService {
         .limit(limit)
         .snapshots()
         .asyncMap((snapshot) async {
-      final activities = <CwitterProfileActivity>[];
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final postId = data['postId'] as String?;
-        if (postId == null) continue;
+          final activities = <CwitterProfileActivity>[];
+          for (final doc in snapshot.docs) {
+            final data = doc.data();
+            final postId = data['postId'] as String?;
+            if (postId == null) continue;
 
-        final createdAt = data['createdAt'];
-        final reply = CwitterReply(
-          id: data['replyId'] as String? ?? doc.id,
-          postId: postId,
-          authorId: data['authorId'] as String? ?? '',
-          authorEmail: data['authorEmail'] as String?,
-          cwitterId: data['cwitterId'] as String? ?? '',
-          displayName: data['displayName'] as String? ?? '匿名',
-          body: data['body'] as String? ?? '',
-          createdAt: createdAt is Timestamp ? createdAt.toDate() : DateTime.now(),
-          profileImageUrl: data['profileImageUrl'] as String?,
-          inReplyToReplyId: data['inReplyToReplyId'] as String?,
-          imageUrls: CwitterReply.parseImageUrls(data['imageUrls']),
-        );
-        final postSnap =
-            await _firestore.collection(_postsCollection).doc(postId).get();
-        final parentPost =
-            postSnap.exists ? CwitterPost.fromFirestore(postSnap) : null;
+            final createdAt = data['createdAt'];
+            final reply = CwitterReply(
+              id: data['replyId'] as String? ?? doc.id,
+              postId: postId,
+              authorId: data['authorId'] as String? ?? '',
+              authorEmail: data['authorEmail'] as String?,
+              cwitterId: data['cwitterId'] as String? ?? '',
+              displayName: data['displayName'] as String? ?? '匿名',
+              body: data['body'] as String? ?? '',
+              createdAt:
+                  createdAt is Timestamp ? createdAt.toDate() : DateTime.now(),
+              profileImageUrl: data['profileImageUrl'] as String?,
+              inReplyToReplyId: data['inReplyToReplyId'] as String?,
+              imageUrls: CwitterReply.parseImageUrls(data['imageUrls']),
+            );
+            final postSnap =
+                await _firestore.collection(_postsCollection).doc(postId).get();
+            final parentPost =
+                postSnap.exists ? CwitterPost.fromFirestore(postSnap) : null;
 
-        activities.add(
-          CwitterProfileActivity.reply(
-            reply: reply,
-            parentPost: parentPost,
-          ),
-        );
-      }
-      return activities;
-    });
+            activities.add(
+              CwitterProfileActivity.reply(
+                reply: reply,
+                parentPost: parentPost,
+              ),
+            );
+          }
+          return activities;
+        });
   }
 
   /// ユーザーが recweet した Cweet
@@ -961,22 +958,25 @@ class CwitterService {
         .limit(limit)
         .snapshots()
         .asyncMap((snapshot) async {
-      final activities = <CwitterProfileActivity>[];
-      for (final doc in snapshot.docs) {
-        final recweet = CwitterRecweet.fromFirestore(doc);
-        final postSnap =
-            await _firestore.collection(_postsCollection).doc(recweet.postId).get();
-        if (!postSnap.exists) continue;
+          final activities = <CwitterProfileActivity>[];
+          for (final doc in snapshot.docs) {
+            final recweet = CwitterRecweet.fromFirestore(doc);
+            final postSnap =
+                await _firestore
+                    .collection(_postsCollection)
+                    .doc(recweet.postId)
+                    .get();
+            if (!postSnap.exists) continue;
 
-        activities.add(
-          CwitterProfileActivity.recweet(
-            recweet: recweet,
-            post: CwitterPost.fromFirestore(postSnap),
-          ),
-        );
-      }
-      return activities;
-    });
+            activities.add(
+              CwitterProfileActivity.recweet(
+                recweet: recweet,
+                post: CwitterPost.fromFirestore(postSnap),
+              ),
+            );
+          }
+          return activities;
+        });
   }
 
   /// 投稿・返信・recweet を時系列でマージ
@@ -1004,30 +1004,25 @@ class CwitterService {
         );
       }
 
-      final postsSub = watchMyPosts(authorId, limit: limit).listen(
-        (value) {
-          posts = value;
-          postsReady = true;
-          emitMerged();
-        },
-        onError: controller.addError,
-      );
-      final repliesSub = watchUserReplies(authorId, limit: limit).listen(
-        (value) {
-          replyActivities = value;
-          repliesReady = true;
-          emitMerged();
-        },
-        onError: controller.addError,
-      );
-      final recweetsSub = watchUserRecweets(authorId, limit: limit).listen(
-        (value) {
-          recweetActivities = value;
-          recweetsReady = true;
-          emitMerged();
-        },
-        onError: controller.addError,
-      );
+      final postsSub = watchMyPosts(authorId, limit: limit).listen((value) {
+        posts = value;
+        postsReady = true;
+        emitMerged();
+      }, onError: controller.addError);
+      final repliesSub = watchUserReplies(authorId, limit: limit).listen((
+        value,
+      ) {
+        replyActivities = value;
+        repliesReady = true;
+        emitMerged();
+      }, onError: controller.addError);
+      final recweetsSub = watchUserRecweets(authorId, limit: limit).listen((
+        value,
+      ) {
+        recweetActivities = value;
+        recweetsReady = true;
+        emitMerged();
+      }, onError: controller.addError);
 
       controller.onCancel = () {
         postsSub.cancel();
@@ -1037,19 +1032,19 @@ class CwitterService {
     });
   }
 
-  static CollectionReference<Map<String, dynamic>> _userLikesRef(String userId) =>
-      _firestore
-          .collection(_usersCollection)
-          .doc(userId)
-          .collection('cwitter_likes');
+  static CollectionReference<Map<String, dynamic>> _userLikesRef(
+    String userId,
+  ) => _firestore
+      .collection(_usersCollection)
+      .doc(userId)
+      .collection('cwitter_likes');
 
   static CollectionReference<Map<String, dynamic>> _userRecweetsRef(
     String userId,
-  ) =>
-      _firestore
-          .collection(_usersCollection)
-          .doc(userId)
-          .collection(_recweetsCollection);
+  ) => _firestore
+      .collection(_usersCollection)
+      .doc(userId)
+      .collection(_recweetsCollection);
 
   /// 指定ユーザーたちの recweet 一覧（フォロー中フィード用）
   static Stream<List<CwitterRecweet>> watchRecweetsFromUserIds(
@@ -1065,8 +1060,9 @@ class CwitterService {
 
     void emitMerged() {
       if (controller.isClosed) return;
-      final merged = latest.values.expand((list) => list).toList()
-        ..sort((a, b) => b.recweetedAt.compareTo(a.recweetedAt));
+      final merged =
+          latest.values.expand((list) => list).toList()
+            ..sort((a, b) => b.recweetedAt.compareTo(a.recweetedAt));
       controller.add(merged);
     }
 
@@ -1077,14 +1073,11 @@ class CwitterService {
               .orderBy('recweetedAt', descending: true)
               .limit(limitPerUser)
               .snapshots()
-              .listen(
-            (snapshot) {
-              latest[userId] =
-                  snapshot.docs.map(CwitterRecweet.fromFirestore).toList();
-              emitMerged();
-            },
-            onError: controller.addError,
-          );
+              .listen((snapshot) {
+                latest[userId] =
+                    snapshot.docs.map(CwitterRecweet.fromFirestore).toList();
+                emitMerged();
+              }, onError: controller.addError);
           subscriptions.add(sub);
         }
       },
@@ -1104,10 +1097,9 @@ class CwitterService {
     required String userId,
     required String postId,
   }) {
-    return _userRecweetsRef(userId)
-        .doc(postId)
-        .snapshots()
-        .map((snapshot) => snapshot.exists);
+    return _userRecweetsRef(
+      userId,
+    ).doc(postId).snapshots().map((snapshot) => snapshot.exists);
   }
 
   /// recweet / 取り消し
@@ -1164,30 +1156,31 @@ class CwitterService {
           'profileImageUrl': profileImageUrl.trim(),
         'recweetedAt': FieldValue.serverTimestamp(),
       });
-      transaction.update(postRef, {
-        'recweetCount': currentCount + 1,
-      });
+      transaction.update(postRef, {'recweetCount': currentCount + 1});
     });
   }
 
-  static CollectionReference<Map<String, dynamic>> _followingRef(String userId) =>
-      _firestore
-          .collection(_usersCollection)
-          .doc(userId)
-          .collection(_followingCollection);
+  static CollectionReference<Map<String, dynamic>> _followingRef(
+    String userId,
+  ) => _firestore
+      .collection(_usersCollection)
+      .doc(userId)
+      .collection(_followingCollection);
 
-  static CollectionReference<Map<String, dynamic>> _followersRef(String userId) =>
-      _firestore
-          .collection(_usersCollection)
-          .doc(userId)
-          .collection(_followersCollection);
+  static CollectionReference<Map<String, dynamic>> _followersRef(
+    String userId,
+  ) => _firestore
+      .collection(_usersCollection)
+      .doc(userId)
+      .collection(_followersCollection);
 
-  static DocumentReference<Map<String, dynamic>> _followStatsRef(String userId) =>
-      _firestore
-          .collection(_usersCollection)
-          .doc(userId)
-          .collection(_socialCollection)
-          .doc(_socialStatsDocId);
+  static DocumentReference<Map<String, dynamic>> _followStatsRef(
+    String userId,
+  ) => _firestore
+      .collection(_usersCollection)
+      .doc(userId)
+      .collection(_socialCollection)
+      .doc(_socialStatsDocId);
 
   /// フォロワー数・フォロー中数（サブコレクションの実件数を正とする）
   static Stream<CwitterFollowCounts> watchFollowCounts(String userId) {
@@ -1210,22 +1203,16 @@ class CwitterService {
     controller = StreamController<CwitterFollowCounts>.broadcast(
       onListen: () {
         subscriptions.add(
-          _followingRef(userId).snapshots().listen(
-            (snapshot) {
-              followingCount = snapshot.docs.length;
-              emit();
-            },
-            onError: controller.addError,
-          ),
+          _followingRef(userId).snapshots().listen((snapshot) {
+            followingCount = snapshot.docs.length;
+            emit();
+          }, onError: controller.addError),
         );
         subscriptions.add(
-          _followersRef(userId).snapshots().listen(
-            (snapshot) {
-              followerCount = snapshot.docs.length;
-              emit();
-            },
-            onError: controller.addError,
-          ),
+          _followersRef(userId).snapshots().listen((snapshot) {
+            followerCount = snapshot.docs.length;
+            emit();
+          }, onError: controller.addError),
         );
       },
       onCancel: () async {
@@ -1266,35 +1253,26 @@ class CwitterService {
               .collection(_postsCollection)
               .where('authorId', isEqualTo: userId)
               .snapshots()
-              .listen(
-            (snapshot) {
-              postCount = snapshot.docs.length;
-              emit();
-            },
-            onError: controller.addError,
-          ),
+              .listen((snapshot) {
+                postCount = snapshot.docs.length;
+                emit();
+              }, onError: controller.addError),
         );
         subscriptions.add(
           _firestore
               .collection(_repliesIndexCollection)
               .where('authorId', isEqualTo: userId)
               .snapshots()
-              .listen(
-            (snapshot) {
-              replyCount = snapshot.docs.length;
-              emit();
-            },
-            onError: controller.addError,
-          ),
+              .listen((snapshot) {
+                replyCount = snapshot.docs.length;
+                emit();
+              }, onError: controller.addError),
         );
         subscriptions.add(
-          _userRecweetsRef(userId).snapshots().listen(
-            (snapshot) {
-              recweetCount = snapshot.docs.length;
-              emit();
-            },
-            onError: controller.addError,
-          ),
+          _userRecweetsRef(userId).snapshots().listen((snapshot) {
+            recweetCount = snapshot.docs.length;
+            emit();
+          }, onError: controller.addError),
         );
       },
       onCancel: () async {
@@ -1316,17 +1294,16 @@ class CwitterService {
     if (followerId == followeeId) {
       return Stream.value(false);
     }
-    return _followingRef(followerId)
-        .doc(followeeId)
-        .snapshots()
-        .map((snapshot) => snapshot.exists);
+    return _followingRef(
+      followerId,
+    ).doc(followeeId).snapshots().map((snapshot) => snapshot.exists);
   }
 
   /// フォロー中ユーザー ID 一覧
   static Stream<Set<String>> watchFollowingUserIds(String userId) {
-    return _followingRef(userId).snapshots().map(
-          (snapshot) => snapshot.docs.map((doc) => doc.id).toSet(),
-        );
+    return _followingRef(
+      userId,
+    ).snapshots().map((snapshot) => snapshot.docs.map((doc) => doc.id).toSet());
   }
 
   /// フォロー中ユーザー一覧
@@ -1390,32 +1367,33 @@ class CwitterService {
         .doc(postId)
         .snapshots()
         .asyncMap((snapshot) async {
-      if (!snapshot.exists) return const <CwitterFollowUser>[];
+          if (!snapshot.exists) return const <CwitterFollowUser>[];
 
-      final likedBy = snapshot.data()?['likedBy'];
-      if (likedBy is! Map) return const <CwitterFollowUser>[];
+          final likedBy = snapshot.data()?['likedBy'];
+          if (likedBy is! Map) return const <CwitterFollowUser>[];
 
-      final userIds = likedBy.entries
-          .where((entry) => entry.value == true)
-          .map((entry) => entry.key.toString())
-          .toList();
-      if (userIds.isEmpty) return const <CwitterFollowUser>[];
+          final userIds =
+              likedBy.entries
+                  .where((entry) => entry.value == true)
+                  .map((entry) => entry.key.toString())
+                  .toList();
+          if (userIds.isEmpty) return const <CwitterFollowUser>[];
 
-      final users = await Future.wait(
-        userIds.map((userId) => _fetchFollowUser(userId)),
-      );
-      return users.whereType<CwitterFollowUser>().toList();
-    });
+          final users = await Future.wait(
+            userIds.map((userId) => _fetchFollowUser(userId)),
+          );
+          return users.whereType<CwitterFollowUser>().toList();
+        });
   }
 
   /// 指定 Cweet の返信数
   static Stream<int> watchPostReplyCount(String postId) {
-    return _firestore.collection(_postsCollection).doc(postId).snapshots().map(
-          (snapshot) {
-        if (!snapshot.exists) return 0;
-        return (snapshot.data()?['replyCount'] as num?)?.toInt() ?? 0;
-      },
-    );
+    return _firestore.collection(_postsCollection).doc(postId).snapshots().map((
+      snapshot,
+    ) {
+      if (!snapshot.exists) return 0;
+      return (snapshot.data()?['replyCount'] as num?)?.toInt() ?? 0;
+    });
   }
 
   /// 指定 Cweet を recweet したユーザー一覧
@@ -1426,17 +1404,17 @@ class CwitterService {
         .orderBy('recweetedAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final recweet = CwitterRecweet.fromFirestore(doc);
-        return CwitterFollowUser(
-          authorId: recweet.userId,
-          displayName: recweet.displayName,
-          cwitterId: recweet.cwitterId,
-          profileImageUrl: recweet.profileImageUrl,
-          followedAt: recweet.recweetedAt,
-        );
-      }).toList();
-    });
+          return snapshot.docs.map((doc) {
+            final recweet = CwitterRecweet.fromFirestore(doc);
+            return CwitterFollowUser(
+              authorId: recweet.userId,
+              displayName: recweet.displayName,
+              cwitterId: recweet.cwitterId,
+              profileImageUrl: recweet.profileImageUrl,
+              followedAt: recweet.recweetedAt,
+            );
+          }).toList();
+        });
   }
 
   static String? _parseCwitterBio(dynamic value) {
@@ -1484,10 +1462,10 @@ class CwitterService {
       updates['cwitterTags'] = normalized;
     }
 
-    await _firestore.collection(_usersCollection).doc(uid).set(
-          updates,
-          SetOptions(merge: true),
-        );
+    await _firestore
+        .collection(_usersCollection)
+        .doc(uid)
+        .set(updates, SetOptions(merge: true));
   }
 
   /// Cwitter プロフィールの自己紹介を更新
@@ -1511,10 +1489,10 @@ class CwitterService {
       updates['cwitterBio'] = trimmed;
     }
 
-    await _firestore.collection(_usersCollection).doc(uid).set(
-          updates,
-          SetOptions(merge: true),
-        );
+    await _firestore
+        .collection(_usersCollection)
+        .doc(uid)
+        .set(updates, SetOptions(merge: true));
   }
 
   /// Cwitter プロフィールの SNS リンクを更新
@@ -1533,10 +1511,10 @@ class CwitterService {
       updates['cwitterSocialLinks'] = sanitized;
     }
 
-    await _firestore.collection(_usersCollection).doc(uid).set(
-          updates,
-          SetOptions(merge: true),
-        );
+    await _firestore
+        .collection(_usersCollection)
+        .doc(uid)
+        .set(updates, SetOptions(merge: true));
   }
 
   static Future<void> followUser({
@@ -1606,7 +1584,6 @@ class CwitterService {
           'followingCount': 0,
         });
       }
-
     });
 
     // アプリ内通知は Cloud Functions が送信
@@ -1670,19 +1647,17 @@ class CwitterService {
     String userId, {
     int limit = 50,
   }) {
-    return _userLikesRef(userId)
-        .orderBy('likedAt', descending: true)
-        .limit(limit)
-        .snapshots()
-        .asyncMap((likesSnap) async {
+    return _userLikesRef(
+      userId,
+    ).orderBy('likedAt', descending: true).limit(limit).snapshots().asyncMap((
+      likesSnap,
+    ) async {
       if (likesSnap.docs.isEmpty) return <CwitterPost>[];
 
       final posts = <CwitterPost>[];
       for (final likeDoc in likesSnap.docs) {
-        final postSnap = await _firestore
-            .collection(_postsCollection)
-            .doc(likeDoc.id)
-            .get();
+        final postSnap =
+            await _firestore.collection(_postsCollection).doc(likeDoc.id).get();
         if (postSnap.exists) {
           posts.add(CwitterPost.fromFirestore(postSnap));
         }
@@ -1764,12 +1739,13 @@ class CwitterService {
       }
 
       if (pollTexts != null) {
-        data['poll'] = CwitterPoll(
-          options: [
-            for (var i = 0; i < pollTexts.length; i++)
-              CwitterPollOption(id: '$i', text: pollTexts[i]),
-          ],
-        ).toMap();
+        data['poll'] =
+            CwitterPoll(
+              options: [
+                for (var i = 0; i < pollTexts.length; i++)
+                  CwitterPollOption(id: '$i', text: pollTexts[i]),
+              ],
+            ).toMap();
       }
 
       await _firestore.runTransaction((transaction) async {
@@ -1796,16 +1772,15 @@ class CwitterService {
   static List<String>? _normalizePollOptions(List<String>? pollOptions) {
     if (pollOptions == null || pollOptions.isEmpty) return null;
 
-    final normalized = pollOptions
-        .map((option) => option.trim())
-        .where((option) => option.isNotEmpty)
-        .take(CwitterPoll.maxOptions)
-        .toList();
+    final normalized =
+        pollOptions
+            .map((option) => option.trim())
+            .where((option) => option.isNotEmpty)
+            .take(CwitterPoll.maxOptions)
+            .toList();
 
     if (normalized.length < CwitterPoll.minOptions) {
-      throw ArgumentError(
-        '投票の選択肢は${CwitterPoll.minOptions}件以上入力してください',
-      );
+      throw ArgumentError('投票の選択肢は${CwitterPoll.minOptions}件以上入力してください');
     }
 
     for (final option in normalized) {
@@ -1850,13 +1825,15 @@ class CwitterService {
         throw ArgumentError('無効な選択肢です');
       }
 
-      final updatedOptions = poll.options
-          .map(
-            (option) => option.id == optionId
-                ? option.copyWith(voteCount: option.voteCount + 1)
-                : option,
-          )
-          .toList();
+      final updatedOptions =
+          poll.options
+              .map(
+                (option) =>
+                    option.id == optionId
+                        ? option.copyWith(voteCount: option.voteCount + 1)
+                        : option,
+              )
+              .toList();
       final updatedVotedBy = Map<String, String>.from(poll.votedBy)
         ..[userId] = optionId;
       final updatedPoll = poll.copyWith(
@@ -1877,9 +1854,10 @@ class CwitterService {
         .orderBy('createdAt', descending: false)
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => CwitterReply.fromFirestore(postId, doc))
-              .toList(),
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => CwitterReply.fromFirestore(postId, doc))
+                  .toList(),
         );
   }
 
@@ -2010,9 +1988,7 @@ class CwitterService {
           'likedBy': likedBy,
           'likeCount': currentCount + 1,
         });
-        transaction.set(likeRef, {
-          'likedAt': FieldValue.serverTimestamp(),
-        });
+        transaction.set(likeRef, {'likedAt': FieldValue.serverTimestamp()});
       }
     });
 
@@ -2062,8 +2038,9 @@ class CwitterService {
       throw StateError('削除権限がありません');
     }
 
-    final imageUrls =
-        CwitterReply.parseImageUrls(replySnap.data()?['imageUrls']);
+    final imageUrls = CwitterReply.parseImageUrls(
+      replySnap.data()?['imageUrls'],
+    );
     if (imageUrls.isNotEmpty) {
       await CwitterPostImageService.deleteReplyImages(
         userId: userId,

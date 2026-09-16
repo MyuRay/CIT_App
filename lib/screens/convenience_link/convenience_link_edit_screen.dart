@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../models/convenience_link/convenience_link_model.dart';
@@ -23,7 +24,7 @@ class _ConvenienceLinkEditScreenState
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _urlController = TextEditingController();
-  
+
   String _selectedIcon = 'link';
   String _selectedColor = 'blue';
   bool _isLoading = false;
@@ -132,93 +133,101 @@ class _ConvenienceLinkEditScreenState
               const SizedBox(height: 24),
 
               // アイコン選択
-              Text(
-                'アイコン',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+              Text('アイコン', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               SizedBox(
                 height: 60,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
-                  children: LinkIcons.iconList.map((entry) {
-                    final isSelected = _selectedIcon == entry.key;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: InkWell(
-                        onTap: () => setState(() => _selectedIcon = entry.key),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          width: 60,
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? Theme.of(context).colorScheme.primaryContainer
-                                : Colors.grey.shade100,
+                  children:
+                      LinkIcons.iconList.map((entry) {
+                        final isSelected = _selectedIcon == entry.key;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: InkWell(
+                            onTap:
+                                () => setState(() => _selectedIcon = entry.key),
                             borderRadius: BorderRadius.circular(12),
-                            border: isSelected
-                                ? Border.all(
-                                    color: Theme.of(context).colorScheme.primary,
-                                    width: 2,
-                                  )
-                                : null,
+                            child: Container(
+                              width: 60,
+                              decoration: BoxDecoration(
+                                color:
+                                    isSelected
+                                        ? Theme.of(
+                                          context,
+                                        ).colorScheme.primaryContainer
+                                        : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(12),
+                                border:
+                                    isSelected
+                                        ? Border.all(
+                                          color:
+                                              Theme.of(
+                                                context,
+                                              ).colorScheme.primary,
+                                          width: 2,
+                                        )
+                                        : null,
+                              ),
+                              child: Icon(
+                                entry.value,
+                                color:
+                                    isSelected
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Colors.grey.shade600,
+                              ),
+                            ),
                           ),
-                          child: Icon(
-                            entry.value,
-                            color: isSelected
-                                ? Theme.of(context).colorScheme.primary
-                                : Colors.grey.shade600,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                        );
+                      }).toList(),
                 ),
               ),
               const SizedBox(height: 24),
 
               // カラー選択
-              Text(
-                'カラー',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+              Text('カラー', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: LinkColors.colorList.map((entry) {
-                  final isSelected = _selectedColor == entry.key;
-                  return InkWell(
-                    onTap: () => setState(() => _selectedColor = entry.key),
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: entry.value,
-                        shape: BoxShape.circle,
-                        border: isSelected
-                            ? Border.all(color: Colors.black, width: 3)
-                            : Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: isSelected
-                          ? const Icon(Icons.check, color: Colors.white)
-                          : null,
-                    ),
-                  );
-                }).toList(),
+                children:
+                    LinkColors.colorList.map((entry) {
+                      final isSelected = _selectedColor == entry.key;
+                      return InkWell(
+                        onTap: () => setState(() => _selectedColor = entry.key),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: entry.value,
+                            shape: BoxShape.circle,
+                            border:
+                                isSelected
+                                    ? Border.all(color: Colors.black, width: 3)
+                                    : Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                          ),
+                          child:
+                              isSelected
+                                  ?  Icon(Icons.check, color: AppColors.onColor(entry.value))
+                                  : null,
+                        ),
+                      );
+                    }).toList(),
               ),
               const SizedBox(height: 40),
 
               // 保存ボタン
               ElevatedButton(
                 onPressed: _isLoading ? null : _saveLink,
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(isEditing ? '更新' : '追加'),
+                child:
+                    _isLoading
+                        ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : Text(isEditing ? '更新' : '追加'),
               ),
             ],
           ),
@@ -228,20 +237,20 @@ class _ConvenienceLinkEditScreenState
   }
 
   Widget _buildPreviewTile() {
-    final title = _titleController.text.trim().isEmpty 
-        ? 'タイトル' 
-        : _titleController.text.trim();
-    final url = _urlController.text.trim().isEmpty 
-        ? 'URL' 
-        : _urlController.text.trim();
+    final title =
+        _titleController.text.trim().isEmpty
+            ? 'タイトル'
+            : _titleController.text.trim();
+    final url =
+        _urlController.text.trim().isEmpty ? 'URL' : _urlController.text.trim();
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: LinkColors.getColor(_selectedColor).withOpacity(0.1),
+        color: LinkColors.getColor(_selectedColor).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: LinkColors.getColor(_selectedColor).withOpacity(0.3),
+          color: LinkColors.getColor(_selectedColor).withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -255,7 +264,7 @@ class _ConvenienceLinkEditScreenState
             ),
             child: Icon(
               LinkIcons.getIcon(_selectedIcon),
-              color: Colors.white,
+              color: AppColors.onColor(LinkColors.getColor(_selectedColor)),
               size: 20,
             ),
           ),
@@ -276,10 +285,7 @@ class _ConvenienceLinkEditScreenState
                 const SizedBox(height: 2),
                 Text(
                   url,
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -319,10 +325,10 @@ class _ConvenienceLinkEditScreenState
         Navigator.of(context).pop(true); // 成功を示すためにtrueを返す
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(widget.initialLink == null 
-                ? 'リンクを追加しました' 
-                : 'リンクを更新しました'),
-            backgroundColor: Colors.green,
+            content: Text(
+              widget.initialLink == null ? 'リンクを追加しました' : 'リンクを更新しました',
+            ),
+            backgroundColor: AppColors.snackBarSurface(context, Colors.green),
           ),
         );
       }
@@ -331,7 +337,7 @@ class _ConvenienceLinkEditScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('エラーが発生しました: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
           ),
         );
       }
@@ -345,27 +351,30 @@ class _ConvenienceLinkEditScreenState
   void _showDeleteConfirmDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('リンクを削除'),
-        content: Text('「${widget.initialLink!.title}」を削除しますか？\nこの操作は元に戻せません。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('キャンセル'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await _deleteLink();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('リンクを削除'),
+            content: Text(
+              '「${widget.initialLink!.title}」を削除しますか？\nこの操作は元に戻せません。',
             ),
-            child: const Text('削除'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('キャンセル'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await _deleteLink();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: AppColors.onColor(Colors.red),
+                ),
+                child: const Text('削除'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -373,24 +382,24 @@ class _ConvenienceLinkEditScreenState
     setState(() => _isLoading = true);
 
     try {
-      await ConvenienceLinkService.deleteLink(widget.userId, widget.initialLink!.id);
-      
+      await ConvenienceLinkService.deleteLink(
+        widget.userId,
+        widget.initialLink!.id,
+      );
+
       if (mounted) {
         Navigator.of(context).pop(true); // 成功を示すためにtrueを返す
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+           SnackBar(
             content: Text('リンクを削除しました'),
-            backgroundColor: Colors.orange,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.orange),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('削除に失敗しました: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('削除に失敗しました: $e'), backgroundColor: AppColors.snackBarSurface(context, Colors.red)),
         );
       }
     } finally {

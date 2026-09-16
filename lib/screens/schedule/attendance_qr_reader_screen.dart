@@ -5,7 +5,8 @@ class AttendanceQrReaderScreen extends StatefulWidget {
   const AttendanceQrReaderScreen({super.key});
 
   @override
-  State<AttendanceQrReaderScreen> createState() => _AttendanceQrReaderScreenState();
+  State<AttendanceQrReaderScreen> createState() =>
+      _AttendanceQrReaderScreenState();
 }
 
 class _AttendanceQrReaderScreenState extends State<AttendanceQrReaderScreen> {
@@ -33,7 +34,7 @@ class _AttendanceQrReaderScreenState extends State<AttendanceQrReaderScreen> {
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
-              color: Colors.black.withOpacity(0.45),
+              color: Colors.black.withValues(alpha: 0.45),
               child: const Text(
                 '教室のQRコードを読み取ってください\n読み取り後に出席サイトを開きます',
                 textAlign: TextAlign.center,

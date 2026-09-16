@@ -29,9 +29,15 @@ class ClassroomMapListTab extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.all(16),
           child: SegmentedButton<String>(
-            segments: mapData.campuses
-                .map((c) => ButtonSegment(value: c.id, label: Text(c.displayName)))
-                .toList(),
+            segments:
+                mapData.campuses
+                    .map(
+                      (c) => ButtonSegment(
+                        value: c.id,
+                        label: Text(c.displayName),
+                      ),
+                    )
+                    .toList(),
             selected: {selectedCampusId},
             onSelectionChanged: (s) => onCampusChanged(s.first),
           ),
@@ -41,9 +47,10 @@ class ClassroomMapListTab extends StatelessWidget {
         Expanded(
           child: buildingRoomsAsync.when(
             data: (buildingRoomsList) {
-              final campusRooms = buildingRoomsList
-                  .where((b) => b.campusId == selectedCampusId)
-                  .toList();
+              final campusRooms =
+                  buildingRoomsList
+                      .where((b) => b.campusId == selectedCampusId)
+                      .toList();
               if (campusRooms.isEmpty) {
                 return _buildBuildingsOnlyList(context, campus);
               }
@@ -68,22 +75,33 @@ class ClassroomMapListTab extends StatelessWidget {
           child: ListTile(
             leading: CircleAvatar(
               backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              child: Text(b.buildingId, style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).colorScheme.onPrimaryContainer,
-              )),
+              child: Text(
+                b.buildingId,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+              ),
             ),
             title: Text(b.buildingName),
-            subtitle: b.facilities.isNotEmpty
-                ? Text(b.facilities.take(3).join('・'), maxLines: 1, overflow: TextOverflow.ellipsis)
-                : null,
+            subtitle:
+                b.facilities.isNotEmpty
+                    ? Text(
+                      b.facilities.take(3).join('・'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    )
+                    : null,
           ),
         );
       },
     );
   }
 
-  Widget _buildBuildingRoomsList(BuildContext context, List<BuildingRooms> buildingRooms) {
+  Widget _buildBuildingRoomsList(
+    BuildContext context,
+    List<BuildingRooms> buildingRooms,
+  ) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: buildingRooms.length,
@@ -94,38 +112,53 @@ class ClassroomMapListTab extends StatelessWidget {
           child: ExpansionTile(
             leading: CircleAvatar(
               backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              child: Text(br.buildingId, style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).colorScheme.onPrimaryContainer,
-              )),
+              child: Text(
+                br.buildingId,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+              ),
             ),
             title: Text(br.buildingName),
             subtitle: Text('${br.floors.length}階建て'),
-            children: br.floors.map((floor) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      floor.floorName,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
+            children:
+                br.floors.map((floor) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
                     ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: floor.rooms.map((r) => Chip(
-                        label: Text(r.name),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      )).toList(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          floor.floorName,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleSmall?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children:
+                              floor.rooms
+                                  .map(
+                                    (r) => Chip(
+                                      label: Text(r.name),
+                                      materialTapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                  )
+                                  .toList(),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              );
-            }).toList(),
+                  );
+                }).toList(),
           ),
         );
       },

@@ -3,11 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_constants.dart';
 
 class CwitterTagsRow extends StatelessWidget {
-  const CwitterTagsRow({
-    super.key,
-    required this.tags,
-    this.compact = false,
-  });
+  const CwitterTagsRow({super.key, required this.tags, this.compact = false});
 
   final List<String> tags;
   final bool compact;
@@ -19,21 +15,18 @@ class CwitterTagsRow extends StatelessWidget {
     return Wrap(
       spacing: 4,
       runSpacing: 4,
-      children: tags
-          .take(AppConstants.cwitterTagsMaxCount)
-          .map((tag) => CwitterTagChip(tag: tag, compact: compact))
-          .toList(),
+      children:
+          tags
+              .take(AppConstants.cwitterTagsMaxCount)
+              .map((tag) => CwitterTagChip(tag: tag, compact: compact))
+              .toList(),
     );
   }
 }
 
 /// 単一のハッシュタグチップ。[Wrap] の子として個別に折り返しできる。
 class CwitterTagChip extends StatelessWidget {
-  const CwitterTagChip({
-    super.key,
-    required this.tag,
-    this.compact = false,
-  });
+  const CwitterTagChip({super.key, required this.tag, this.compact = false});
 
   final String tag;
   final bool compact;
@@ -47,12 +40,14 @@ class CwitterTagChip extends StatelessWidget {
     final verticalPadding = compact ? 2.0 : 3.0;
     final textColor =
         isDark ? const Color(0xFF9AE6A0) : const Color(0xFF2E7D32);
-    final backgroundColor = isDark
-        ? textColor.withValues(alpha: 0.22)
-        : const Color(0xFF4CAF50).withValues(alpha: 0.12);
-    final borderColor = isDark
-        ? textColor.withValues(alpha: 0.55)
-        : const Color(0xFF4CAF50).withValues(alpha: 0.28);
+    final backgroundColor =
+        isDark
+            ? textColor.withValues(alpha: 0.22)
+            : const Color(0xFF4CAF50).withValues(alpha: 0.12);
+    final borderColor =
+        isDark
+            ? textColor.withValues(alpha: 0.55)
+            : const Color(0xFF4CAF50).withValues(alpha: 0.28);
 
     return Container(
       padding: EdgeInsets.symmetric(

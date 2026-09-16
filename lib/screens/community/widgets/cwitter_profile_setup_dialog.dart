@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -9,10 +10,7 @@ import '../../../services/community/cwitter_service.dart';
 class CwitterProfileSetupDialog {
   CwitterProfileSetupDialog._();
 
-  static Future<void> show(
-    BuildContext context, {
-    required String uid,
-  }) {
+  static Future<void> show(BuildContext context, {required String uid}) {
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -73,22 +71,16 @@ class _CwitterProfileSetupDialogBodyState
         await CwitterService.updateCwitterBio(uid: widget.uid, bio: bio);
       }
       if (tag1.isNotEmpty || tag2.isNotEmpty) {
-        await saveCwitterTags(
-          ref,
-          uid: widget.uid,
-          tags: [tag1, tag2],
-        );
+        await saveCwitterTags(ref, uid: widget.uid, tags: [tag1, tag2]);
       }
       if (!mounted) return;
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('プロフィールを保存しました')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('プロフィールを保存しました')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
@@ -106,7 +98,7 @@ class _CwitterProfileSetupDialogBodyState
         color: theme.colorScheme.primary,
         size: 32,
       ),
-      title: const Text('プロフィールを設定しましょう'),
+      title: const Text('プロフィール設定'),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -185,18 +177,19 @@ class _CwitterProfileSetupDialogBodyState
           onPressed: _isSaving ? null : _save,
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFF4CAF50),
-            foregroundColor: Colors.white,
+            foregroundColor: AppColors.onColor(const Color(0xFF4CAF50)),
           ),
-          child: _isSaving
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Text('保存'),
+          child:
+              _isSaving
+                  ?  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.onColor(const Color(0xFF4CAF50)),
+                    ),
+                  )
+                  : const Text('保存'),
         ),
       ],
     );

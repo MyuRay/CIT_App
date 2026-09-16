@@ -108,19 +108,22 @@ class ContactForm {
       categoryName: json['categoryName'] as String? ?? 'その他',
       subject: json['subject'] as String? ?? '',
       message: json['message'] as String? ?? '',
-      createdAt: json['createdAt'] != null 
-          ? (json['createdAt'] as Timestamp).toDate()
-          : DateTime.now(),
+      createdAt:
+          json['createdAt'] != null
+              ? (json['createdAt'] as Timestamp).toDate()
+              : DateTime.now(),
       status: json['status'] as String? ?? 'pending',
       userId: json['userId'] as String? ?? '',
       response: json['response'] as String?,
-      respondedAt: json['respondedAt'] != null 
-          ? (json['respondedAt'] as Timestamp).toDate() 
-          : null,
+      respondedAt:
+          json['respondedAt'] != null
+              ? (json['respondedAt'] as Timestamp).toDate()
+              : null,
       respondedBy: json['respondedBy'] as String?,
-      updatedAt: json['updatedAt'] != null 
-          ? (json['updatedAt'] as Timestamp).toDate() 
-          : null,
+      updatedAt:
+          json['updatedAt'] != null
+              ? (json['updatedAt'] as Timestamp).toDate()
+              : null,
     );
   }
 
@@ -137,7 +140,8 @@ class ContactForm {
       'status': status,
       'userId': userId,
       'response': response,
-      'respondedAt': respondedAt != null ? Timestamp.fromDate(respondedAt!) : null,
+      'respondedAt':
+          respondedAt != null ? Timestamp.fromDate(respondedAt!) : null,
       'respondedBy': respondedBy,
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
     };

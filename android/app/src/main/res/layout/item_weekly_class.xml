@@ -21,15 +21,21 @@
             android:layout_width="6dp"
             android:layout_height="6dp"
             android:layout_marginEnd="2dp"
-            android:background="#2196F3" />
+            android:background="@color/widget_accent" />
 
         <TextView
             android:id="@+id/text_subject"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:textColor="#000000"
+            android:textColor="@color/widget_on_surface"
             android:textSize="12sp"
+            android:includeFontPadding="false"
+            android:gravity="center_vertical"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="10sp"
+            android:autoSizeMaxTextSize="12sp"
+            android:autoSizeStepGranularity="1dp"
             android:textStyle="bold"
             android:maxLines="2"
             android:ellipsize="end" />
@@ -39,8 +45,13 @@
         android:id="@+id/text_room"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="#000000"
+        android:textColor="@color/widget_on_surface"
         android:textSize="10sp"
+        android:includeFontPadding="false"
+        android:autoSizeTextType="uniform"
+        android:autoSizeMinTextSize="8sp"
+        android:autoSizeMaxTextSize="10sp"
+        android:autoSizeStepGranularity="1dp"
         android:maxLines="1"
         android:ellipsize="end" />
 

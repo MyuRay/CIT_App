@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -37,12 +38,13 @@ class CwitterReplySheet extends ConsumerStatefulWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: CwitterReplySheet(post: post),
-      ),
+      builder:
+          (context) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(context).bottom,
+            ),
+            child: CwitterReplySheet(post: post),
+          ),
     );
   }
 
@@ -94,9 +96,9 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
     final images = picked.where(isSupportedPostImageXFile).toList();
     if (images.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('画像ファイルを選択してください')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('画像ファイルを選択してください')));
       return;
     }
 
@@ -126,8 +128,9 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
     );
     if (!confirmed || !mounted) return;
 
-    final replyCountNotifier =
-        ref.read(cwitterReplyCountOverrideProvider.notifier);
+    final replyCountNotifier = ref.read(
+      cwitterReplyCountOverrideProvider.notifier,
+    );
     final nextReplyCount = _resolveReplyCount(ref) + 1;
     replyCountNotifier.apply(
       postId: widget.post.id,
@@ -174,7 +177,8 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
   }
 
   int _resolveReplyCount(WidgetRef ref) {
-    final override = ref.read(cwitterReplyCountOverrideProvider)[widget.post.id];
+    final override =
+        ref.read(cwitterReplyCountOverrideProvider)[widget.post.id];
     final streamCount =
         ref.read(cwitterPostReplyCountProvider(widget.post.id)).valueOrNull;
     return resolveCwitterReplyCount(
@@ -185,8 +189,9 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
   }
 
   Future<void> _deleteReply(String replyId, String userId) async {
-    final replyCountNotifier =
-        ref.read(cwitterReplyCountOverrideProvider.notifier);
+    final replyCountNotifier = ref.read(
+      cwitterReplyCountOverrideProvider.notifier,
+    );
     final nextReplyCount = _resolveReplyCount(ref) - 1;
     replyCountNotifier.apply(
       postId: widget.post.id,
@@ -202,9 +207,9 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
     } catch (e) {
       replyCountNotifier.revert(widget.post.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('返信の削除に失敗しました: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('返信の削除に失敗しました: $e')));
     }
   }
 
@@ -215,7 +220,9 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
     final mutedColor = colorScheme.onSurface.withValues(alpha: 0.65);
     final appUser = ref.watch(currentAppUserStreamProvider).valueOrNull;
     final uid = ref.watch(currentUserIdProvider);
-    final repliesAsync = ref.watch(filteredCwitterRepliesProvider(widget.post.id));
+    final repliesAsync = ref.watch(
+      filteredCwitterRepliesProvider(widget.post.id),
+    );
     final isPostOwner = uid != null && uid == widget.post.authorId;
 
     return DraggableScrollableSheet(
@@ -259,23 +266,25 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
                 post: widget.post,
                 mutedColor: mutedColor,
                 isOwner: isPostOwner,
-                onDeletePost: isPostOwner
-                    ? () async {
-                        await CwitterService.deletePost(
-                          postId: widget.post.id,
-                          userId: uid,
-                        );
-                        ref
-                            .read(cwitterFeedProvider.notifier)
-                            .removePost(widget.post.id);
-                        if (context.mounted) {
-                          Navigator.of(context).pop();
+                onDeletePost:
+                    isPostOwner
+                        ? () async {
+                          await CwitterService.deletePost(
+                            postId: widget.post.id,
+                            userId: uid,
+                          );
+                          ref
+                              .read(cwitterFeedProvider.notifier)
+                              .removePost(widget.post.id);
+                          if (context.mounted) {
+                            Navigator.of(context).pop();
+                          }
                         }
-                      }
-                    : null,
-                onBlock: isPostOwner
-                    ? null
-                    : () => showBlockConfirmationDialog(
+                        : null,
+                onBlock:
+                    isPostOwner
+                        ? null
+                        : () => showBlockConfirmationDialog(
                           context,
                           blockedUserId: widget.post.authorId,
                           blockedUserName: widget.post.displayName,
@@ -286,8 +295,7 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
             const Divider(height: 20),
             Expanded(
               child: repliesAsync.when(
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
+                loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(child: Text('読み込み失敗: $e')),
                 data: (replies) {
                   if (replies.isEmpty) {
@@ -304,8 +312,7 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
                     itemCount: replies.length,
                     itemBuilder: (context, index) {
                       final reply = replies[index];
-                      final isReplyOwner =
-                          uid != null && uid == reply.authorId;
+                      final isReplyOwner = uid != null && uid == reply.authorId;
                       return _ReplyListTile(
                         post: widget.post,
                         reply: reply,
@@ -313,12 +320,14 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
                         mutedColor: mutedColor,
                         isOwner: isReplyOwner,
                         onReply: () => _startReplyTo(reply),
-                        onDelete: isReplyOwner
-                            ? () => _deleteReply(reply.id, uid)
-                            : null,
-                        onBlock: isReplyOwner
-                            ? null
-                            : () => showBlockConfirmationDialog(
+                        onDelete:
+                            isReplyOwner
+                                ? () => _deleteReply(reply.id, uid)
+                                : null,
+                        onBlock:
+                            isReplyOwner
+                                ? null
+                                : () => showBlockConfirmationDialog(
                                   context,
                                   blockedUserId: reply.authorId,
                                   blockedUserName: reply.displayName,
@@ -354,9 +363,10 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: _isSending
-                            ? null
-                            : () => setState(_pendingImages.clear),
+                        onPressed:
+                            _isSending
+                                ? null
+                                : () => setState(_pendingImages.clear),
                         child: const Text('画像をすべて削除'),
                       ),
                     ),
@@ -379,10 +389,8 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
                         onPressed: _isSending ? null : _pickImages,
                         icon: Icon(
                           Icons.image_outlined,
-                          color: _pendingImages.length >=
-                                  CwitterPostImageService.maxImagesPerPost
-                              ? colorScheme.onSurface.withValues(alpha: 0.35)
-                              : const Color(0xFF2E7D32),
+                          color:
+                              _pendingImages.length >= CwitterPostImageService.maxImagesPerPost ? colorScheme.onSurface.withValues(alpha: 0.35) : AppColors.accent(context, const Color(0xFF2E7D32)),
                         ),
                       ),
                       Expanded(
@@ -395,9 +403,10 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
                           maxLength: 280,
                           enabled: !_isSending,
                           decoration: InputDecoration(
-                            hintText: _replyTo != null
-                                ? '@${_replyTo!.cwitterId} への返信…'
-                                : '返信を入力…',
+                            hintText:
+                                _replyTo != null
+                                    ? '@${_replyTo!.cwitterId} への返信…'
+                                    : '返信を入力…',
                             isDense: true,
                             counterText: '',
                             border: OutlineInputBorder(
@@ -417,16 +426,17 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
                           backgroundColor: const Color(0xFF4CAF50),
                           foregroundColor: Colors.white,
                         ),
-                        icon: _isSending
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.send, size: 20),
+                        icon:
+                            _isSending
+                                ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                                : const Icon(Icons.send, size: 20),
                       ),
                     ],
                   ),
@@ -469,13 +479,15 @@ class _PostPreviewHeader extends ConsumerWidget {
           trailing: CwitterMoreMenu(
             isOwner: isOwner,
             onDeletePost: onDeletePost,
-            onReport: isOwner
-                ? null
-                : () => showCwitterPostReportDialog(context, post: post),
+            onReport:
+                isOwner
+                    ? null
+                    : () => showCwitterPostReportDialog(context, post: post),
             onBlock: onBlock,
-            onBan: (!isAdmin || isOwner || uid == null)
-                ? null
-                : () => showAdminBanDialog(
+            onBan:
+                (!isAdmin || isOwner || uid == null)
+                    ? null
+                    : () => showAdminBanDialog(
                       context,
                       targetUserId: post.authorId,
                       targetLabel: '@${post.cwitterId}',
@@ -564,17 +576,19 @@ class _ReplyListTile extends ConsumerWidget {
                 CwitterMoreMenu(
                   isOwner: isOwner,
                   onDeleteReply: onDelete,
-                  onReport: isOwner
-                      ? null
-                      : () => showCwitterReplyReportDialog(
+                  onReport:
+                      isOwner
+                          ? null
+                          : () => showCwitterReplyReportDialog(
                             context,
                             post: post,
                             reply: reply,
                           ),
                   onBlock: onBlock,
-                  onBan: (!isAdmin || isOwner || uid == null)
-                      ? null
-                      : () => showAdminBanDialog(
+                  onBan:
+                      (!isAdmin || isOwner || uid == null)
+                          ? null
+                          : () => showAdminBanDialog(
                             context,
                             targetUserId: reply.authorId,
                             targetLabel: '@${reply.cwitterId}',
@@ -599,8 +613,7 @@ class _ReplyListTile extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                 ],
-                if (reply.body.isNotEmpty)
-                  CwitterBodyText(text: reply.body),
+                if (reply.body.isNotEmpty) CwitterBodyText(text: reply.body),
                 if (reply.hasImages) ...[
                   SizedBox(height: reply.body.isNotEmpty ? 8 : 0),
                   CwitterPostImagesGrid(
@@ -609,10 +622,7 @@ class _ReplyListTile extends ConsumerWidget {
                   ),
                 ],
                 const SizedBox(height: 2),
-                _ReplyActionButton(
-                  mutedColor: mutedColor,
-                  onTap: onReply,
-                ),
+                _ReplyActionButton(mutedColor: mutedColor, onTap: onReply),
               ],
             ),
           ),
@@ -623,10 +633,7 @@ class _ReplyListTile extends ConsumerWidget {
 }
 
 class _ReplyActionButton extends StatelessWidget {
-  const _ReplyActionButton({
-    required this.mutedColor,
-    required this.onTap,
-  });
+  const _ReplyActionButton({required this.mutedColor, required this.onTap});
 
   final Color mutedColor;
   final VoidCallback onTap;
@@ -643,11 +650,7 @@ class _ReplyActionButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.chat_bubble_outline,
-                size: 15,
-                color: mutedColor,
-              ),
+              Icon(Icons.chat_bubble_outline, size: 15, color: mutedColor),
               const SizedBox(width: 4),
               Text(
                 '返信',

@@ -1,9 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'schedule_class_edit.dart';
 import '../../models/schedule/schedule_model.dart';
 import '../../models/schedule/academic_year_model.dart';
 
 class ScheduleService {
-  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  @visibleForTesting
+  static FirebaseFirestore? firestoreOverride;
+  static FirebaseFirestore get _firestore => firestoreOverride ?? FirebaseFirestore.instance;
   static const String _collection = 'schedules';
 
   /// 時間割を保存
@@ -13,7 +17,7 @@ class ScheduleService {
           .collection(_collection)
           .doc(schedule.id)
           .set(schedule.toJson());
-      
+
       print('✅ 時間割を保存しました: ${schedule.id}');
     } catch (e) {
       print('❌ 時間割保存エラー: $e');
@@ -34,21 +38,25 @@ class ScheduleService {
   /// 時間割を取得（ユーザーID別）- 現在の年度・学期
   static Future<Schedule?> getScheduleByUserId(String userId) async {
     final currentAcademicYear = AcademicYear.current();
-    return await getScheduleByUserIdAndAcademicYear(userId, currentAcademicYear);
+    return await getScheduleByUserIdAndAcademicYear(
+      userId,
+      currentAcademicYear,
+    );
   }
 
   /// 時間割を取得（ユーザーID・年度・学期別）
   static Future<Schedule?> getScheduleByUserIdAndAcademicYear(
-    String userId, 
-    AcademicYear academicYear
+    String userId,
+    AcademicYear academicYear,
   ) async {
     try {
-      final querySnapshot = await _firestore
-          .collection(_collection)
-          .where('userId', isEqualTo: userId)
-          .where('semester', isEqualTo: academicYear.displayName)
-          .limit(1)
-          .get();
+      final querySnapshot =
+          await _firestore
+              .collection(_collection)
+              .where('userId', isEqualTo: userId)
+              .where('semester', isEqualTo: academicYear.displayName)
+              .limit(1)
+              .get();
 
       if (querySnapshot.docs.isNotEmpty) {
         final doc = querySnapshot.docs.first;
@@ -59,21 +67,23 @@ class ScheduleService {
       return null;
     } catch (e) {
       print('❌ 時間割取得エラー: $e');
-      // エラー時も自動作成は行わない
-      return null;
+      rethrow;
     }
   }
 
   /// 初期時間割を作成（ユーザー用）- 現在の年度・学期
   static Future<Schedule> createInitialSchedule(String userId) async {
     final currentAcademicYear = AcademicYear.current();
-    return await createInitialScheduleForAcademicYear(userId, currentAcademicYear);
+    return await createInitialScheduleForAcademicYear(
+      userId,
+      currentAcademicYear,
+    );
   }
 
   /// 初期時間割を作成（年度・学期指定）
   static Future<Schedule> createInitialScheduleForAcademicYear(
-    String userId, 
-    AcademicYear academicYear
+    String userId,
+    AcademicYear academicYear,
   ) async {
     try {
       final scheduleId = _firestore.collection(_collection).doc().id;
@@ -85,7 +95,7 @@ class ScheduleService {
 
       await saveSchedule(schedule);
       print('✅ 初期時間割を作成しました: $scheduleId (${academicYear.displayName})');
-      
+
       return schedule;
     } catch (e) {
       print('❌ 初期時間割作成エラー: $e');
@@ -151,7 +161,7 @@ class ScheduleService {
             .set(updatedSchedule.toJsonWithListTimeSlots());
         print('✅ 互換形式(List timeSlots)で時間割を更新しました: ${schedule.id}');
       }
-      
+
       print('✅ 時間割を更新しました: ${schedule.id}');
     } catch (e) {
       print('❌ 時間割更新エラー: $e');
@@ -162,14 +172,14 @@ class ScheduleService {
   /// ユーザーの全時間割を取得（年度・学期別）
   static Future<List<Schedule>> getAllSchedulesByUserId(String userId) async {
     try {
-      final querySnapshot = await _firestore
-          .collection(_collection)
-          .where('userId', isEqualTo: userId)
-          .get();
+      final querySnapshot =
+          await _firestore
+              .collection(_collection)
+              .where('userId', isEqualTo: userId)
+              .get();
 
-      final schedules = querySnapshot.docs
-          .map((doc) => Schedule.fromFirestore(doc))
-          .toList();
+      final schedules =
+          querySnapshot.docs.map((doc) => Schedule.fromFirestore(doc)).toList();
 
       // userId配下の全時間割を返しつつ、更新日時が新しい順に表示する
       schedules.sort((a, b) {
@@ -185,18 +195,19 @@ class ScheduleService {
       return schedules;
     } catch (e) {
       print('❌ 時間割一覧取得エラー: $e');
-      return [];
+      rethrow;
     }
   }
 
   /// ユーザーが持つ年度・学期のリストを取得
   static Future<List<AcademicYear>> getUserAcademicYears(String userId) async {
     try {
-      final querySnapshot = await _firestore
-          .collection(_collection)
-          .where('userId', isEqualTo: userId)
-          .orderBy('semester', descending: true)
-          .get();
+      final querySnapshot =
+          await _firestore
+              .collection(_collection)
+              .where('userId', isEqualTo: userId)
+              .orderBy('semester', descending: true)
+              .get();
 
       final academicYears = <AcademicYear>[];
       final seenSemesters = <String>{};
@@ -219,8 +230,11 @@ class ScheduleService {
 
       // デフォルトで現在の年度・学期を含める
       final currentYear = AcademicYear.current();
-      if (!academicYears.any((year) => 
-          year.year == currentYear.year && year.semester == currentYear.semester)) {
+      if (!academicYears.any(
+        (year) =>
+            year.year == currentYear.year &&
+            year.semester == currentYear.semester,
+      )) {
         academicYears.insert(0, currentYear);
       }
 
@@ -237,11 +251,11 @@ class ScheduleService {
     // "2024年度前期" -> AcademicYear(2024, 前期)
     final pattern = RegExp(r'(\d{4})年度(前期|後期|通年)');
     final match = pattern.firstMatch(displayName);
-    
+
     if (match != null) {
       final year = int.parse(match.group(1)!);
       final semesterName = match.group(2)!;
-      
+
       AcademicSemester semester;
       switch (semesterName) {
         case '前期':
@@ -256,93 +270,91 @@ class ScheduleService {
         default:
           return null;
       }
-      
+
       return AcademicYear(year: year, semester: semester);
     }
-    
+
     return null;
   }
 
   /// 科目を追加/更新（単一セル登録）
-  static Future<void> addOrUpdateClass({
+  static Future<void> saveClass({
     required String scheduleId,
     required String weekdayKey,
     required int period,
     required ScheduleClass scheduleClass,
+    ScheduleClass? expectedClass,
   }) async {
-    try {
-      final schedule = await getScheduleById(scheduleId);
-      if (schedule == null) {
-        throw Exception('時間割が見つかりません: $scheduleId');
-      }
-
-      final updatedTimetable = Map<String, Map<int, ScheduleClass?>>.from(schedule.timetable);
-      if (updatedTimetable[weekdayKey] == null) {
-        updatedTimetable[weekdayKey] = <int, ScheduleClass?>{};
-      }
-
-      // 指定された時限に単一セルとして登録
-      updatedTimetable[weekdayKey]![period] = scheduleClass;
-
-      final updatedSchedule = Schedule(
-        id: schedule.id,
-        userId: schedule.userId,
-        name: schedule.name,
-        semester: schedule.semester,
-        timetable: updatedTimetable,
-        timeSlots: schedule.timeSlots,
-        createdAt: schedule.createdAt,
-        updatedAt: DateTime.now(),
+    final document = _firestore.collection(_collection).doc(scheduleId);
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(document);
+      if (!snapshot.exists) throw StateError('対象の時間割が見つかりません');
+      final schedule = Schedule.fromFirestore(snapshot);
+      final timetable = applyScheduleClassEdit(
+        schedule: schedule, weekdayKey: weekdayKey, period: period,
+        replacement: scheduleClass, expectedClass: expectedClass,
       );
-
-      await updateSchedule(updatedSchedule);
-      print('✅ 科目を追加しました: ${scheduleClass.subjectName} ($weekdayKey ${period}限)');
-    } catch (e) {
-      print('❌ 科目追加エラー: $e');
-      rethrow;
-    }
+      transaction.update(document, {
+        'timetable': {
+          for (final day in timetable.entries) day.key: {
+            for (final slot in day.value.entries) slot.key.toString(): slot.value?.toJson(),
+          },
+        },
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
   }
 
-  /// 既存の連続講義を削除（内部メソッド）
-  static Future<void> _removeExistingContinuousClass(
-    Map<String, Map<int, ScheduleClass?>> timetable, 
-    String weekdayKey, 
-    String classId
-  ) async {
-    if (timetable[weekdayKey] == null) return;
-    
-    final periodsToRemove = <int>[];
-    
-    // 指定されたクラスIDの全ての時限を収集
-    for (final entry in timetable[weekdayKey]!.entries) {
-      final periodClass = entry.value;
-      if (periodClass != null && periodClass.id == classId) {
-        periodsToRemove.add(entry.key);
-      }
-    }
-    
-    // 収集した時限を削除
-    for (final period in periodsToRemove) {
-      timetable[weekdayKey]![period] = null;
-    }
+  /// Move and remove the source in the same transaction; never overwrite a
+  /// destination occupied since the drag or picker operation started.
+  static Future<Schedule> moveClass({
+    required String scheduleId,
+    required String fromWeekdayKey,
+    required int fromPeriod,
+    required String toWeekdayKey,
+    required int toPeriod,
+    required ScheduleClass expectedClass,
+  }) async {
+    final document = _firestore.collection(_collection).doc(scheduleId);
+    return _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(document);
+      if (!snapshot.exists) throw StateError('対象の時間割が見つかりません');
+      final schedule = Schedule.fromFirestore(snapshot);
+      final timetable = applyScheduleClassMove(
+        schedule: schedule, fromWeekdayKey: fromWeekdayKey, fromPeriod: fromPeriod,
+        toWeekdayKey: toWeekdayKey, toPeriod: toPeriod, expectedClass: expectedClass,
+      );
+      transaction.update(document, {
+        'timetable': {
+          for (final day in timetable.entries) day.key: {
+            for (final cell in day.value.entries) cell.key.toString(): cell.value?.toJson(),
+          },
+        },
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      return Schedule(
+        id: schedule.id, userId: schedule.userId, name: schedule.name,
+        semester: schedule.semester, timetable: timetable,
+        timeSlots: schedule.timeSlots, createdAt: schedule.createdAt,
+        updatedAt: DateTime.now(),
+      );
+    });
   }
 
   /// 時間割を取得（ID別）
   static Future<Schedule?> getScheduleById(String scheduleId) async {
     try {
-      final doc = await _firestore
-          .collection(_collection)
-          .doc(scheduleId)
-          .get();
+      final doc =
+          await _firestore.collection(_collection).doc(scheduleId).get();
 
       if (doc.exists && doc.data() != null) {
         return Schedule.fromFirestore(doc);
       }
-      
+
       return null;
     } catch (e) {
       print('❌ 時間割取得エラー: $e');
-      return null;
+      rethrow;
     }
   }
 
@@ -351,60 +363,33 @@ class ScheduleService {
     required String scheduleId,
     required String weekdayKey,
     required int period,
+    ScheduleClass? expectedClass,
   }) async {
-    try {
-      final schedule = await getScheduleById(scheduleId);
-      if (schedule == null) {
-        throw Exception('時間割が見つかりません: $scheduleId');
+    final document = _firestore.collection(_collection).doc(scheduleId);
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(document);
+      if (!snapshot.exists) throw StateError('対象の時間割が見つかりません');
+      final schedule = Schedule.fromFirestore(snapshot);
+      final day = schedule.timetable[weekdayKey] ?? {};
+      final target = day[period];
+      if (expectedClass != null &&
+          (target == null || !mapEquals(target.toJson(), expectedClass.toJson()))) {
+        throw StateError('この科目は別の操作で変更されました。時間割を更新してください');
       }
-
-      final updatedTimetable = Map<String, Map<int, ScheduleClass?>>.from(schedule.timetable);
-      
-      // 指定された曜日の時間割が存在しない場合は初期化
-      if (updatedTimetable[weekdayKey] == null) {
-        updatedTimetable[weekdayKey] = <int, ScheduleClass?>{};
-      }
-
-      final targetClass = updatedTimetable[weekdayKey]![period];
-      if (targetClass == null) {
-        print('指定された時限に科目がありません: $weekdayKey ${period}限');
-        return; // エラーではなく正常終了
-      }
-
-      // 連続講義の場合、同じIDの全ての時限を削除
-      final classId = targetClass.id;
-      final className = targetClass.subjectName;
-      
-      // 安全に削除を実行
-      await _removeExistingContinuousClass(updatedTimetable, weekdayKey, classId);
-
-      final updatedSchedule = Schedule(
-        id: schedule.id,
-        userId: schedule.userId,
-        name: schedule.name,
-        semester: schedule.semester,
-        timetable: updatedTimetable,
-        timeSlots: schedule.timeSlots,
-        createdAt: schedule.createdAt,
-        updatedAt: DateTime.now(),
-      );
-
-      await updateSchedule(updatedSchedule);
-      print('✅ 科目を削除しました: $className ($weekdayKey ${period}限)');
-    } catch (e) {
-      print('❌ 科目削除エラー: $e');
-      rethrow;
-    }
+      if (target == null) return;
+      transaction.update(document, {
+        for (final slot in day.entries)
+          if (slot.value?.id == target.id) 'timetable.$weekdayKey.${slot.key}': null,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
   }
 
   /// 時間割を削除
   static Future<void> deleteSchedule(String scheduleId) async {
     try {
-      await _firestore
-          .collection(_collection)
-          .doc(scheduleId)
-          .delete();
-      
+      await _firestore.collection(_collection).doc(scheduleId).delete();
+
       print('✅ 時間割を削除しました: $scheduleId');
     } catch (e) {
       print('❌ 時間割削除エラー: $e');
@@ -417,11 +402,11 @@ class ScheduleService {
     try {
       final schedule = await getScheduleByUserId(userId);
       if (schedule == null) return [];
-      
+
       return ScheduleUtils.getTodayClasses(schedule);
     } catch (e) {
       print('❌ 今日の時間割取得エラー: $e');
-      return [];
+      rethrow;
     }
   }
 
@@ -435,7 +420,7 @@ class ScheduleService {
       return ScheduleUtils.getTodayClasses(schedule);
     } catch (e) {
       print('❌ 指定時間割の今日の時間割取得エラー: $e');
-      return [];
+      rethrow;
     }
   }
 
@@ -444,11 +429,11 @@ class ScheduleService {
     try {
       final schedule = await getScheduleByUserId(userId);
       if (schedule == null) return null;
-      
+
       return ScheduleUtils.getNextClass(schedule);
     } catch (e) {
       print('❌ 次の授業取得エラー: $e');
-      return null;
+      rethrow;
     }
   }
 
@@ -457,11 +442,11 @@ class ScheduleService {
     try {
       final schedule = await getScheduleByUserId(userId);
       if (schedule == null) return null;
-      
+
       return ScheduleUtils.getCurrentPeriod(schedule.timeSlots);
     } catch (e) {
       print('❌ 現在時限取得エラー: $e');
-      return null;
+      rethrow;
     }
   }
 

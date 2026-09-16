@@ -7,7 +7,7 @@ class SelectiveConsumer<T, R> extends ConsumerWidget {
   final R Function(T) selector;
   final Widget Function(BuildContext context, R value, Widget? child) builder;
   final Widget? child;
-  
+
   const SelectiveConsumer({
     super.key,
     required this.provider,
@@ -29,7 +29,7 @@ class SelectiveAsyncConsumer<T, R> extends ConsumerWidget {
   final R Function(AsyncValue<T>) selector;
   final Widget Function(BuildContext context, R value, Widget? child) builder;
   final Widget? child;
-  
+
   const SelectiveAsyncConsumer({
     super.key,
     required this.provider,
@@ -48,9 +48,14 @@ class SelectiveAsyncConsumer<T, R> extends ConsumerWidget {
 /// 複数の値を監視する最適化Consumer
 class MultiSelectiveConsumer extends ConsumerWidget {
   final Map<String, ProviderListenable> providers;
-  final Widget Function(BuildContext context, Map<String, dynamic> values, Widget? child) builder;
+  final Widget Function(
+    BuildContext context,
+    Map<String, dynamic> values,
+    Widget? child,
+  )
+  builder;
   final Widget? child;
-  
+
   const MultiSelectiveConsumer({
     super.key,
     required this.providers,
@@ -61,11 +66,11 @@ class MultiSelectiveConsumer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final values = <String, dynamic>{};
-    
+
     for (final entry in providers.entries) {
       values[entry.key] = ref.watch(entry.value);
     }
-    
+
     return builder(context, values, child);
   }
 }
@@ -76,7 +81,7 @@ class ConditionalRebuildConsumer<T> extends ConsumerWidget {
   final bool Function(T? previous, T current) shouldRebuild;
   final Widget Function(BuildContext context, T value, Widget? child) builder;
   final Widget? child;
-  
+
   const ConditionalRebuildConsumer({
     super.key,
     required this.provider,
@@ -98,7 +103,7 @@ class DebouncedConsumer<T> extends ConsumerStatefulWidget {
   final Duration debounceDuration;
   final Widget Function(BuildContext context, T value, Widget? child) builder;
   final Widget? child;
-  
+
   const DebouncedConsumer({
     super.key,
     required this.provider,
@@ -108,7 +113,8 @@ class DebouncedConsumer<T> extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<DebouncedConsumer<T>> createState() => _DebouncedConsumerState<T>();
+  ConsumerState<DebouncedConsumer<T>> createState() =>
+      _DebouncedConsumerState<T>();
 }
 
 class _DebouncedConsumerState<T> extends ConsumerState<DebouncedConsumer<T>> {
@@ -118,7 +124,7 @@ class _DebouncedConsumerState<T> extends ConsumerState<DebouncedConsumer<T>> {
   @override
   Widget build(BuildContext context) {
     final currentValue = ref.watch(widget.provider);
-    
+
     if (_lastValue != currentValue) {
       if (!_isDebouncing) {
         _isDebouncing = true;
@@ -132,7 +138,7 @@ class _DebouncedConsumerState<T> extends ConsumerState<DebouncedConsumer<T>> {
         });
       }
     }
-    
+
     final valueToUse = _lastValue ?? currentValue;
     return widget.builder(context, valueToUse, widget.child);
   }
@@ -145,7 +151,7 @@ class OptimizedListConsumer<T> extends ConsumerWidget {
   final Widget? separator;
   final ScrollPhysics? physics;
   final bool shrinkWrap;
-  
+
   const OptimizedListConsumer({
     super.key,
     required this.provider,
@@ -158,11 +164,11 @@ class OptimizedListConsumer<T> extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final items = ref.watch(provider);
-    
+
     if (items.isEmpty) {
       return const SizedBox.shrink();
     }
-    
+
     return ListView.separated(
       physics: physics,
       shrinkWrap: shrinkWrap,
@@ -171,9 +177,10 @@ class OptimizedListConsumer<T> extends ConsumerWidget {
         final item = items[index];
         return itemBuilder(context, item, index);
       },
-      separatorBuilder: separator != null 
-          ? (context, index) => separator!
-          : (context, index) => const SizedBox.shrink(),
+      separatorBuilder:
+          separator != null
+              ? (context, index) => separator!
+              : (context, index) => const SizedBox.shrink(),
     );
   }
 }
@@ -185,7 +192,7 @@ class OptimizedGridConsumer<T> extends ConsumerWidget {
   final SliverGridDelegate gridDelegate;
   final ScrollPhysics? physics;
   final bool shrinkWrap;
-  
+
   const OptimizedGridConsumer({
     super.key,
     required this.provider,
@@ -198,11 +205,11 @@ class OptimizedGridConsumer<T> extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final items = ref.watch(provider);
-    
+
     if (items.isEmpty) {
       return const SizedBox.shrink();
     }
-    
+
     return GridView.builder(
       physics: physics,
       shrinkWrap: shrinkWrap,
@@ -222,7 +229,7 @@ class PerformanceMonitorConsumer<T> extends ConsumerWidget {
   final Widget Function(BuildContext context, T value, Widget? child) builder;
   final void Function(Duration buildTime)? onBuildTimeChanged;
   final Widget? child;
-  
+
   const PerformanceMonitorConsumer({
     super.key,
     required this.provider,
@@ -235,12 +242,12 @@ class PerformanceMonitorConsumer<T> extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final stopwatch = Stopwatch()..start();
     final value = ref.watch(provider);
-    
+
     final widget = builder(context, value, child);
-    
+
     stopwatch.stop();
     onBuildTimeChanged?.call(stopwatch.elapsed);
-    
+
     return widget;
   }
 }

@@ -1,11 +1,9 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/admin/admin_model.dart';
 import '../../models/schedule/lecture_period_model.dart';
-import '../../core/providers/bulletin_provider.dart';
-import '../../core/providers/comment_provider.dart';
-import '../../core/providers/user_provider.dart';
 import '../../core/providers/admin_provider.dart';
 import '../../core/providers/notification_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -19,7 +17,8 @@ class AdminManagementScreen extends ConsumerStatefulWidget {
   const AdminManagementScreen({super.key});
 
   @override
-  ConsumerState<AdminManagementScreen> createState() => _AdminManagementScreenState();
+  ConsumerState<AdminManagementScreen> createState() =>
+      _AdminManagementScreenState();
 }
 
 class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
@@ -47,20 +46,20 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
   @override
   Widget build(BuildContext context) {
     final adminPermissions = ref.watch(currentUserAdminProvider);
-    
+
     return adminPermissions.when(
       data: (permissions) {
         if (permissions?.isAdmin != true) {
           return Scaffold(
             appBar: AppBar(
               title: const Text('アクセス拒否'),
-              backgroundColor: Colors.red.shade50,
+              backgroundColor: AppColors.tintedSurface(context, Colors.red),
             ),
-            body: const Center(
+            body: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.block, size: 64, color: Colors.red),
+                  Icon(Icons.block, size: 64, color: AppColors.accent(context, Colors.red)),
                   SizedBox(height: 16),
                   Text(
                     '管理者権限が必要です',
@@ -69,18 +68,18 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                   SizedBox(height: 8),
                   Text(
                     'この画面にアクセスする権限がありません',
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ],
               ),
             ),
           );
         }
-        
+
         return Scaffold(
           appBar: AppBar(
             title: const Text('管理者ダッシュボード'),
-            backgroundColor: Colors.red.shade50,
+            backgroundColor: AppColors.tintedSurface(context, Colors.red),
             bottom: TabBar(
               controller: _tabController,
               isScrollable: true,
@@ -111,34 +110,36 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
           ),
         );
       },
-      loading: () => Scaffold(
-        appBar: AppBar(
-          title: const Text('読み込み中...'),
-          backgroundColor: Colors.red.shade50,
-        ),
-        body: const Center(child: CircularProgressIndicator()),
-      ),
-      error: (error, stack) => Scaffold(
-        appBar: AppBar(
-          title: const Text('エラー'),
-          backgroundColor: Colors.red.shade50,
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error, size: 64, color: Colors.red),
-              const SizedBox(height: 16),
-              Text('エラーが発生しました: $error'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('戻る'),
-              ),
-            ],
+      loading:
+          () => Scaffold(
+            appBar: AppBar(
+              title: const Text('読み込み中...'),
+              backgroundColor: AppColors.tintedSurface(context, Colors.red),
+            ),
+            body: const Center(child: CircularProgressIndicator()),
           ),
-        ),
-      ),
+      error:
+          (error, stack) => Scaffold(
+            appBar: AppBar(
+              title: const Text('エラー'),
+              backgroundColor: AppColors.tintedSurface(context, Colors.red),
+            ),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                   Icon(Icons.error, size: 64, color: AppColors.accent(context, Colors.red)),
+                  const SizedBox(height: 16),
+                  Text('エラーが発生しました: $error'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('戻る'),
+                  ),
+                ],
+              ),
+            ),
+          ),
     );
   }
 
@@ -152,11 +153,11 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
           // システム統計カード
           _buildSystemStatsCard(),
           const SizedBox(height: 16),
-          
+
           // 最近のアクティビティ
           _buildRecentActivityCard(),
           const SizedBox(height: 16),
-          
+
           // クイックアクション
           _buildQuickActionsCard(),
         ],
@@ -234,7 +235,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -255,10 +256,12 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
   // 投稿数取得
   Widget _getPostsCount() {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('bulletin_posts').snapshots(),
+      stream:
+          FirebaseFirestore.instance.collection('bulletin_posts').snapshots(),
       builder: (context, snapshot) {
         final count = snapshot.data?.docs.length ?? 0;
-        if (snapshot.connectionState == ConnectionState.active || snapshot.connectionState == ConnectionState.done) {
+        if (snapshot.connectionState == ConnectionState.active ||
+            snapshot.connectionState == ConnectionState.done) {
           return Text(
             '$count',
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
@@ -272,10 +275,14 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
   // コメント数取得
   Widget _getCommentsCount() {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('bulletin_comments').snapshots(),
+      stream:
+          FirebaseFirestore.instance
+              .collection('bulletin_comments')
+              .snapshots(),
       builder: (context, snapshot) {
         final count = snapshot.data?.docs.length ?? 0;
-        if (snapshot.connectionState == ConnectionState.active || snapshot.connectionState == ConnectionState.done) {
+        if (snapshot.connectionState == ConnectionState.active ||
+            snapshot.connectionState == ConnectionState.done) {
           return Text(
             '$count',
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
@@ -292,7 +299,8 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
       stream: FirebaseFirestore.instance.collection('users').snapshots(),
       builder: (context, snapshot) {
         final count = snapshot.data?.docs.length ?? 0;
-        if (snapshot.connectionState == ConnectionState.active || snapshot.connectionState == ConnectionState.done) {
+        if (snapshot.connectionState == ConnectionState.active ||
+            snapshot.connectionState == ConnectionState.done) {
           return Text(
             '$count',
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
@@ -306,13 +314,15 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
   // 管理者数取得
   Widget _getAdminsCount() {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('admin_permissions')
-          .where('isAdmin', isEqualTo: true)
-          .snapshots(),
+      stream:
+          FirebaseFirestore.instance
+              .collection('admin_permissions')
+              .where('isAdmin', isEqualTo: true)
+              .snapshots(),
       builder: (context, snapshot) {
         final count = snapshot.data?.docs.length ?? 0;
-        if (snapshot.connectionState == ConnectionState.active || snapshot.connectionState == ConnectionState.done) {
+        if (snapshot.connectionState == ConnectionState.active ||
+            snapshot.connectionState == ConnectionState.done) {
           return Text(
             '$count',
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
@@ -337,11 +347,12 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
             ),
             const SizedBox(height: 16),
             StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('bulletin_posts')
-                  .orderBy('createdAt', descending: true)
-                  .limit(5)
-                  .snapshots(),
+              stream:
+                  FirebaseFirestore.instance
+                      .collection('bulletin_posts')
+                      .orderBy('createdAt', descending: true)
+                      .limit(5)
+                      .snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
@@ -353,28 +364,29 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                 }
 
                 return Column(
-                  children: posts.map((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    return ListTile(
-                      dense: true,
-                      leading: const Icon(Icons.article, size: 20),
-                      title: Text(
-                        data['title'] ?? 'タイトルなし',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        '${data['authorName'] ?? '不明'} • ${_formatTimestamp(data['createdAt'])}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.arrow_forward_ios, size: 16),
-                        onPressed: () {
-                          // TODO: 投稿詳細に遷移
-                        },
-                      ),
-                    );
-                  }).toList(),
+                  children:
+                      posts.map((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        return ListTile(
+                          dense: true,
+                          leading: const Icon(Icons.article, size: 20),
+                          title: Text(
+                            data['title'] ?? 'タイトルなし',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            '${data['authorName'] ?? '不明'} • ${_formatTimestamp(data['createdAt'])}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.arrow_forward_ios, size: 16),
+                            onPressed: () {
+                              // TODO: 投稿詳細に遷移
+                            },
+                          ),
+                        );
+                      }).toList(),
                 );
               },
             ),
@@ -437,9 +449,9 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                   label: 'データ更新',
                   onPressed: () {
                     setState(() {});
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('データを更新しました')),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(const SnackBar(content: Text('データを更新しました')));
                   },
                 ),
               ],
@@ -457,9 +469,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
   }) {
     return ElevatedButton(
       onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.all(12),
-      ),
+      style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(12)),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -513,11 +523,12 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('bulletin_posts')
-            .where('approvalStatus', isEqualTo: 'pending')
-            .orderBy('submittedAt', descending: true)
-            .snapshots(),
+        stream:
+            FirebaseFirestore.instance
+                .collection('bulletin_posts')
+                .where('approvalStatus', isEqualTo: 'pending')
+                .orderBy('submittedAt', descending: true)
+                .snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
@@ -525,10 +536,10 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
 
           final posts = snapshot.data?.docs ?? [];
           if (posts.isEmpty) {
-            return const Center(
+            return  Center(
               child: Column(
                 children: [
-                  Icon(Icons.pending, size: 64, color: Colors.grey),
+                  Icon(Icons.pending, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   SizedBox(height: 16),
                   Text('承認待ちの投稿はありません'),
                 ],
@@ -543,7 +554,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
             itemBuilder: (context, index) {
               final doc = posts[index];
               final data = doc.data() as Map<String, dynamic>;
-              
+
               return _buildPendingPostCard(doc.id, data);
             },
           );
@@ -556,11 +567,12 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('bulletin_posts')
-            .where('approvalStatus', isEqualTo: 'approved')
-            .orderBy('approvedAt', descending: true)
-            .snapshots(),
+        stream:
+            FirebaseFirestore.instance
+                .collection('bulletin_posts')
+                .where('approvalStatus', isEqualTo: 'approved')
+                .orderBy('approvedAt', descending: true)
+                .snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
@@ -568,10 +580,10 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
 
           final posts = snapshot.data?.docs ?? [];
           if (posts.isEmpty) {
-            return const Center(
+            return  Center(
               child: Column(
                 children: [
-                  Icon(Icons.check_circle, size: 64, color: Colors.grey),
+                  Icon(Icons.check_circle, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   SizedBox(height: 16),
                   Text('承認済みの投稿はありません'),
                 ],
@@ -588,7 +600,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
               final data = doc.data() as Map<String, dynamic>;
               final isPinned = data['isPinned'] == true;
               final pinRequested = data['pinRequested'] == true;
-              
+
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
@@ -596,9 +608,9 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       if (isPinned)
-                        const Icon(Icons.push_pin, color: Colors.orange),
+                         Icon(Icons.push_pin, color: AppColors.accent(context, Colors.orange)),
                       if (pinRequested && !isPinned)
-                        const Icon(Icons.push_pin_outlined, color: Colors.blue),
+                         Icon(Icons.push_pin_outlined, color: AppColors.accent(context, Colors.blue)),
                     ],
                   ),
                   title: Text(
@@ -618,22 +630,28 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                         children: [
                           Text(
                             '投稿者: ${data['authorName'] ?? '不明'} • ${_formatTimestamp(data['createdAt'])}',
-                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
                           ),
                           if (pinRequested && !isPinned) ...[
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
-                                color: Colors.blue.withOpacity(0.1),
+                                color: Colors.blue.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border.all(color: Colors.blue),
                               ),
-                              child: const Text(
+                              child: Text(
                                 'ピン申請',
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: Colors.blue,
+                                  color: AppColors.accent(context, Colors.blue),
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -655,52 +673,65 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                         await _unpinPost(doc.id);
                       }
                     },
-                    itemBuilder: (context) => [
-                      if (pinRequested && !isPinned) ...[
-                        const PopupMenuItem(
-                          value: 'approve_pin',
-                          child: Row(
-                            children: [
-                              Icon(Icons.check, color: Colors.green),
-                              SizedBox(width: 8),
-                              Text('ピン留め承認', style: TextStyle(color: Colors.green)),
-                            ],
-                          ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'reject_pin',
-                          child: Row(
-                            children: [
-                              Icon(Icons.close, color: Colors.orange),
-                              SizedBox(width: 8),
-                              Text('ピン留め却下', style: TextStyle(color: Colors.orange)),
-                            ],
-                          ),
-                        ),
-                      ],
-                      if (isPinned) ...[
-                        const PopupMenuItem(
-                          value: 'unpin',
-                          child: Row(
-                            children: [
-                              Icon(Icons.push_pin_outlined, color: Colors.orange),
-                              SizedBox(width: 8),
-                              Text('ピン留め解除', style: TextStyle(color: Colors.orange)),
-                            ],
-                          ),
-                        ),
-                      ],
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('削除', style: TextStyle(color: Colors.red)),
+                    itemBuilder:
+                        (context) => [
+                          if (pinRequested && !isPinned) ...[
+                             PopupMenuItem(
+                              value: 'approve_pin',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.check, color: AppColors.accent(context, Colors.green)),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'ピン留め承認',
+                                    style: TextStyle(color: AppColors.accent(context, Colors.green)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                             PopupMenuItem(
+                              value: 'reject_pin',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.close, color: AppColors.accent(context, Colors.orange)),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'ピン留め却下',
+                                    style: TextStyle(color: AppColors.accent(context, Colors.orange)),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
-                        ),
-                      ),
-                    ],
+                          if (isPinned) ...[
+                             PopupMenuItem(
+                              value: 'unpin',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.push_pin_outlined,
+                                    color: AppColors.accent(context, Colors.orange),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'ピン留め解除',
+                                    style: TextStyle(color: AppColors.accent(context, Colors.orange)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                           PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, color: AppColors.accent(context, Colors.red)),
+                                SizedBox(width: 8),
+                                Text('削除', style: TextStyle(color: AppColors.accent(context, Colors.red))),
+                              ],
+                            ),
+                          ),
+                        ],
                   ),
                 ),
               );
@@ -715,12 +746,13 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('bulletin_posts')
-            .where('pinRequested', isEqualTo: true)
-            .where('isPinned', isEqualTo: false)
-            .orderBy('pinRequestedAt', descending: true)
-            .snapshots(),
+        stream:
+            FirebaseFirestore.instance
+                .collection('bulletin_posts')
+                .where('pinRequested', isEqualTo: true)
+                .where('isPinned', isEqualTo: false)
+                .orderBy('pinRequestedAt', descending: true)
+                .snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
@@ -728,10 +760,10 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
 
           final posts = snapshot.data?.docs ?? [];
           if (posts.isEmpty) {
-            return const Center(
+            return  Center(
               child: Column(
                 children: [
-                  Icon(Icons.push_pin_outlined, size: 64, color: Colors.grey),
+                  Icon(Icons.push_pin_outlined, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   SizedBox(height: 16),
                   Text('ピン留め申請はありません'),
                 ],
@@ -746,12 +778,15 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
             itemBuilder: (context, index) {
               final doc = posts[index];
               final data = doc.data() as Map<String, dynamic>;
-              
+
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
-                color: Colors.blue.withOpacity(0.05),
+                color: Colors.blue.withValues(alpha: 0.05),
                 child: ListTile(
-                  leading: const Icon(Icons.push_pin_outlined, color: Colors.blue),
+                  leading: Icon(
+                    Icons.push_pin_outlined,
+                    color: AppColors.accent(context, Colors.blue),
+                  ),
                   title: Text(
                     data['title'] ?? 'タイトルなし',
                     maxLines: 1,
@@ -769,11 +804,17 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                       const SizedBox(height: 4),
                       Text(
                         '投稿者: ${data['authorName'] ?? '不明'}',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       Text(
                         '申請日: ${_formatTimestamp(data['pinRequestedAt'])}',
-                        style: const TextStyle(fontSize: 12, color: Colors.blue),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.accent(context, Colors.blue),
+                        ),
                       ),
                     ],
                   ),
@@ -781,12 +822,15 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.check_circle, color: Colors.green),
+                        icon: Icon(
+                          Icons.check_circle,
+                          color: AppColors.accent(context, Colors.green),
+                        ),
                         onPressed: () => _approvePinRequest(doc.id),
                         tooltip: 'ピン留め承認',
                       ),
                       IconButton(
-                        icon: const Icon(Icons.cancel, color: Colors.red),
+                        icon: Icon(Icons.cancel, color: AppColors.accent(context, Colors.red)),
                         onPressed: () => _rejectPinRequest(doc.id),
                         tooltip: 'ピン留め却下',
                       ),
@@ -807,16 +851,16 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.people, size: 80, color: Colors.blue),
+           Icon(Icons.people, size: 80, color: AppColors.accent(context, Colors.blue)),
           const SizedBox(height: 24),
           const Text(
             'ユーザー管理',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          const Text(
+           Text(
             '詳細なユーザー管理は専用画面で行えます',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
+            style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
@@ -850,16 +894,20 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.notification_important, size: 80, color: Colors.orange),
+           Icon(
+            Icons.notification_important,
+            size: 80,
+            color: AppColors.accent(context, Colors.orange),
+          ),
           const SizedBox(height: 24),
           const Text(
             '通知管理',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          const Text(
+           Text(
             '全体通知の作成・管理機能\n（実装予定）',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
+            style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
@@ -867,7 +915,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
             onPressed: null, // 実装予定
             icon: const Icon(Icons.notification_important),
             label: const Text('実装予定'),
-            style: ElevatedButton.styleFrom(
+            style: ElevatedButton.styleFrom(foregroundColor: AppColors.onColor(Colors.grey),
               backgroundColor: Colors.grey,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
@@ -891,12 +939,12 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
         children: [
           // 警告カード
           Card(
-            color: Colors.orange.shade50,
+            color: AppColors.tintedSurface(context, Colors.orange),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  Icon(Icons.warning, color: Colors.orange.shade700),
+                  Icon(Icons.warning, color: AppColors.accent(context, Colors.orange.shade700)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -906,7 +954,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                           '注意',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.orange.shade700,
+                            color: AppColors.accent(context, Colors.orange.shade700),
                           ),
                         ),
                         const Text(
@@ -954,22 +1002,28 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                       onPressed: _isLoading ? null : _grantAdminPermissions,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
+                        foregroundColor: AppColors.onColor(Colors.red),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      child:
+                          _isLoading
+                              ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
+                              : const Text(
+                                '管理者権限を付与',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            )
-                          : const Text(
-                              '管理者権限を付与',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
                     ),
                   ),
                 ],
@@ -990,10 +1044,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
-                  SizedBox(
-                    height: 300,
-                    child: _buildAdminList(),
-                  ),
+                  SizedBox(height: 300, child: _buildAdminList()),
                 ],
               ),
             ),
@@ -1023,14 +1074,17 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                     SizedBox(width: 8),
                     Text(
                       '講義期間設定',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                 Text(
                   '講義開始日と講義終了日を設定すると、ホーム時間割カードに第何週かを表示できます。',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -1064,19 +1118,21 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: _isSavingLecturePeriod
-                        ? null
-                        : () => _saveLecturePeriod(
+                    onPressed:
+                        _isSavingLecturePeriod
+                            ? null
+                            : () => _saveLecturePeriod(
                               effectiveStart: effectiveStart,
                               effectiveEnd: effectiveEnd,
                             ),
-                    icon: _isSavingLecturePeriod
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.save),
+                    icon:
+                        _isSavingLecturePeriod
+                            ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                            : const Icon(Icons.save),
                     label: const Text('講義期間を保存'),
                   ),
                 ),
@@ -1091,7 +1147,8 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
   Future<void> _pickLectureDate({required bool isStart}) async {
     final now = DateTime.now();
     final initial =
-        (isStart ? _lectureStartDate : _lectureEndDate) ?? DateTime(now.year, now.month, now.day);
+        (isStart ? _lectureStartDate : _lectureEndDate) ??
+        DateTime(now.year, now.month, now.day);
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
@@ -1114,15 +1171,15 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
     required DateTime? effectiveEnd,
   }) async {
     if (effectiveStart == null || effectiveEnd == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('開始日と終了日の両方を設定してください')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('開始日と終了日の両方を設定してください')));
       return;
     }
     if (effectiveEnd.isBefore(effectiveStart)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('終了日は開始日以降を設定してください')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('終了日は開始日以降を設定してください')));
       return;
     }
     setState(() => _isSavingLecturePeriod = true);
@@ -1137,14 +1194,14 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
         _lectureStartDate = effectiveStart;
         _lectureEndDate = effectiveEnd;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('講義期間を保存しました')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('講義期間を保存しました')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存に失敗しました: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
     } finally {
       if (mounted) {
         setState(() => _isSavingLecturePeriod = false);
@@ -1158,29 +1215,28 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
 
   Widget _buildAdminList() {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('admin_permissions')
-          .where('isAdmin', isEqualTo: true)
-          .snapshots(),
+      stream:
+          FirebaseFirestore.instance
+              .collection('admin_permissions')
+              .where('isAdmin', isEqualTo: true)
+              .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
         if (snapshot.hasError) {
-          return Center(
-            child: Text('エラー: ${snapshot.error}'),
-          );
+          return Center(child: Text('エラー: ${snapshot.error}'));
         }
 
         final admins = snapshot.data?.docs ?? [];
 
         if (admins.isEmpty) {
-          return const Center(
+          return  Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.admin_panel_settings, size: 64, color: Colors.grey),
+                Icon(Icons.admin_panel_settings, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 SizedBox(height: 16),
                 Text('管理者が登録されていません'),
               ],
@@ -1200,27 +1256,36 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
             return Card(
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
-                leading: const Icon(Icons.admin_panel_settings, color: Colors.red),
+                leading: Icon(
+                  Icons.admin_panel_settings,
+                  color: AppColors.accent(context, Colors.red),
+                ),
                 title: Text(admin.userId),
-                subtitle: Text('付与日: ${admin.grantedAt.year}/${admin.grantedAt.month.toString().padLeft(2, '0')}/${admin.grantedAt.day.toString().padLeft(2, '0')}'),
+                subtitle: Text(
+                  '付与日: ${admin.grantedAt.year}/${admin.grantedAt.month.toString().padLeft(2, '0')}/${admin.grantedAt.day.toString().padLeft(2, '0')}',
+                ),
                 trailing: PopupMenuButton<String>(
                   onSelected: (value) {
                     if (value == 'revoke') {
                       _showRevokeDialog(admin);
                     }
                   },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'revoke',
-                      child: Row(
-                        children: [
-                          Icon(Icons.remove_circle, color: Colors.red),
-                          SizedBox(width: 8),
-                          Text('権限を取り消す', style: TextStyle(color: Colors.red)),
-                        ],
-                      ),
-                    ),
-                  ],
+                  itemBuilder:
+                      (context) => [
+                         PopupMenuItem(
+                          value: 'revoke',
+                          child: Row(
+                            children: [
+                              Icon(Icons.remove_circle, color: AppColors.accent(context, Colors.red)),
+                              SizedBox(width: 8),
+                              Text(
+                                '権限を取り消す',
+                                style: TextStyle(color: AppColors.accent(context, Colors.red)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                 ),
               ),
             );
@@ -1234,15 +1299,15 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
   Widget _buildPendingPostCard(String postId, Map<String, dynamic> data) {
     final imageUrl = data['imageUrl'] as String?;
     final hasImage = imageUrl != null && imageUrl.isNotEmpty;
-    
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      color: Colors.orange.withOpacity(0.05),
+      color: Colors.orange.withValues(alpha: 0.05),
       child: Column(
         children: [
           // メインコンテンツ
           ListTile(
-            leading: const Icon(Icons.pending, color: Colors.orange),
+            leading: Icon(Icons.pending, color: AppColors.accent(context, Colors.orange)),
             title: Text(
               data['title'] ?? 'タイトルなし',
               maxLines: 1,
@@ -1262,27 +1327,30 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                   children: [
                     Text(
                       '投稿者: ${data['authorName'] ?? '不明'}',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                     ),
                     if (hasImage) ...[
                       const SizedBox(width: 12),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
+                          color: Colors.blue.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                           border: Border.all(color: Colors.blue),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.image, size: 12, color: Colors.blue),
+                            Icon(Icons.image, size: 12, color: AppColors.accent(context, Colors.blue)),
                             SizedBox(width: 2),
                             Text(
                               '画像あり',
                               style: TextStyle(
                                 fontSize: 10,
-                                color: Colors.blue,
+                                color: AppColors.accent(context, Colors.blue),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -1294,7 +1362,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                 ),
                 Text(
                   '申請日: ${_formatTimestamp(data['submittedAt'])}',
-                  style: const TextStyle(fontSize: 12, color: Colors.orange),
+                  style: TextStyle(fontSize: 12, color: AppColors.accent(context, Colors.orange)),
                 ),
               ],
             ),
@@ -1302,25 +1370,25 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.check_circle, color: Colors.green),
+                  icon: Icon(Icons.check_circle, color: AppColors.accent(context, Colors.green)),
                   onPressed: () => _approvePost(postId),
                   tooltip: '投稿承認',
                 ),
                 IconButton(
-                  icon: const Icon(Icons.cancel, color: Colors.red),
+                  icon: Icon(Icons.cancel, color: AppColors.accent(context, Colors.red)),
                   onPressed: () => _rejectPost(postId),
                   tooltip: '投稿却下',
                 ),
                 if (hasImage)
                   IconButton(
-                    icon: const Icon(Icons.visibility, color: Colors.blue),
-                    onPressed: () => _showImagePreview(context, imageUrl!),
+                    icon: Icon(Icons.visibility, color: AppColors.accent(context, Colors.blue)),
+                    onPressed: () => _showImagePreview(context, imageUrl),
                     tooltip: '画像を表示',
                   ),
               ],
             ),
           ),
-          
+
           // 画像がある場合のプレビュー
           if (hasImage)
             Padding(
@@ -1333,7 +1401,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                   height: 120,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
@@ -1343,28 +1411,36 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
                         return Container(
-                          color: Colors.grey.shade100,
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
                           child: Center(
                             child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
-                                  : null,
+                              value:
+                                  loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                      : null,
                             ),
                           ),
                         );
                       },
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
-                          color: Colors.grey.shade100,
-                          child: const Column(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.broken_image, size: 32, color: Colors.grey),
+                              Icon(
+                                Icons.broken_image,
+                                size: 32,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
                               SizedBox(height: 4),
                               Text(
                                 '画像の読み込みに失敗しました',
-                                style: TextStyle(fontSize: 12, color: Colors.grey),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
                               ),
                             ],
                           ),
@@ -1384,118 +1460,136 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
   void _showImagePreview(BuildContext context, String imageUrl) {
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Stack(
-          children: [
-            // タップで閉じるための透明なオーバーレイ
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-            // 画像表示
-            Center(
-              child: Container(
-                margin: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 10,
-                      spreadRadius: 2,
-                    ),
-                  ],
+      builder:
+          (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: Stack(
+              children: [
+                // タップで閉じるための透明なオーバーレイ
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(color: Colors.transparent),
+                  ),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // ヘッダー
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: const BoxDecoration(
-                        color: Colors.orange,
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.image, color: Colors.white),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text(
-                              '投稿画像プレビュー',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                // 画像表示
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // ヘッダー
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: const BoxDecoration(
+                            color: Colors.orange,
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(12),
                             ),
                           ),
-                          IconButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            icon: const Icon(Icons.close, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // 画像
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.of(context).size.height * 0.7,
-                        maxWidth: MediaQuery.of(context).size.width * 0.9,
-                      ),
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          bottom: Radius.circular(12),
-                        ),
-                        child: Image.network(
-                          imageUrl,
-                          fit: BoxFit.contain,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              height: 200,
-                              color: Colors.grey.shade100,
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  value: loadingProgress.expectedTotalBytes != null
-                                      ? loadingProgress.cumulativeBytesLoaded /
-                                          loadingProgress.expectedTotalBytes!
-                                      : null,
+                          child: Row(
+                            children: [
+                              const Icon(Icons.image, color: Colors.white),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  '投稿画像プレビュー',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              height: 200,
-                              color: Colors.grey.shade100,
-                              child: const Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.broken_image, size: 48, color: Colors.grey),
-                                  SizedBox(height: 8),
-                                  Text(
-                                    '画像の読み込みに失敗しました',
-                                    style: TextStyle(color: Colors.grey),
-                                  ),
-                                ],
+                              IconButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                icon: const Icon(
+                                  Icons.close,
+                                  color: Colors.white,
+                                ),
                               ),
-                            );
-                          },
+                            ],
+                          ),
                         ),
-                      ),
+                        // 画像
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxHeight: MediaQuery.of(context).size.height * 0.7,
+                            maxWidth: MediaQuery.of(context).size.width * 0.9,
+                          ),
+                          child: ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                              bottom: Radius.circular(12),
+                            ),
+                            child: Image.network(
+                              imageUrl,
+                              fit: BoxFit.contain,
+                              loadingBuilder: (
+                                context,
+                                child,
+                                loadingProgress,
+                              ) {
+                                if (loadingProgress == null) return child;
+                                return Container(
+                                  height: 200,
+                                  color: Colors.grey.shade100,
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      value:
+                                          loadingProgress.expectedTotalBytes !=
+                                                  null
+                                              ? loadingProgress
+                                                      .cumulativeBytesLoaded /
+                                                  loadingProgress
+                                                      .expectedTotalBytes!
+                                              : null,
+                                    ),
+                                  ),
+                                );
+                              },
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  height: 200,
+                                  color: Colors.grey.shade100,
+                                  child: const Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.broken_image,
+                                        size: 48,
+                                        color: Colors.grey,
+                                      ),
+                                      SizedBox(height: 8),
+                                      Text(
+                                        '画像の読み込みに失敗しました',
+                                        style: TextStyle(color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
@@ -1505,7 +1599,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
     final hasImage = imageUrl != null && imageUrl.isNotEmpty;
     final isPinned = data['isPinned'] == true;
     final pinRequested = data['pinRequested'] == true;
-    
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Column(
@@ -1515,12 +1609,11 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
             leading: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (isPinned)
-                  const Icon(Icons.push_pin, color: Colors.orange),
+                if (isPinned)  Icon(Icons.push_pin, color: AppColors.accent(context, Colors.orange)),
                 if (pinRequested && !isPinned)
-                  const Icon(Icons.push_pin_outlined, color: Colors.blue),
+                   Icon(Icons.push_pin_outlined, color: AppColors.accent(context, Colors.blue)),
                 if (!isPinned && !pinRequested)
-                  const Icon(Icons.check_circle, color: Colors.green),
+                   Icon(Icons.check_circle, color: AppColors.accent(context, Colors.green)),
               ],
             ),
             title: Text(
@@ -1541,26 +1634,29 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                   children: [
                     Text(
                       '投稿者: ${data['authorName'] ?? '不明'} • ${_formatTimestamp(data['createdAt'])}',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                     ),
                     if (hasImage) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.1),
+                          color: Colors.green.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(3),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.image, size: 10, color: Colors.green),
+                            Icon(Icons.image, size: 10, color: AppColors.accent(context, Colors.green)),
                             SizedBox(width: 2),
                             Text(
                               '画像',
                               style: TextStyle(
                                 fontSize: 9,
-                                color: Colors.green,
+                                color: AppColors.accent(context, Colors.green),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -1571,17 +1667,20 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                     if (pinRequested && !isPinned) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
+                          color: Colors.blue.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                           border: Border.all(color: Colors.blue),
                         ),
-                        child: const Text(
+                        child: Text(
                           'ピン申請',
                           style: TextStyle(
                             fontSize: 10,
-                            color: Colors.blue,
+                            color: AppColors.accent(context, Colors.blue),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -1596,8 +1695,12 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
               children: [
                 if (hasImage)
                   IconButton(
-                    icon: const Icon(Icons.visibility, color: Colors.blue, size: 20),
-                    onPressed: () => _showImagePreview(context, imageUrl!),
+                    icon: Icon(
+                      Icons.visibility,
+                      color: AppColors.accent(context, Colors.blue),
+                      size: 20,
+                    ),
+                    onPressed: () => _showImagePreview(context, imageUrl),
                     tooltip: '画像を表示',
                   ),
                 PopupMenuButton<String>(
@@ -1614,63 +1717,76 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
                       _showImagePreview(context, imageUrl!);
                     }
                   },
-                  itemBuilder: (context) => [
-                    if (hasImage)
-                      const PopupMenuItem(
-                        value: 'view_image',
-                        child: Row(
-                          children: [
-                            Icon(Icons.image, color: Colors.blue),
-                            SizedBox(width: 8),
-                            Text('画像を表示'),
-                          ],
-                        ),
-                      ),
-                    if (pinRequested && !isPinned) ...[
-                      const PopupMenuItem(
-                        value: 'approve_pin',
-                        child: Row(
-                          children: [
-                            Icon(Icons.check, color: Colors.green),
-                            SizedBox(width: 8),
-                            Text('ピン留め承認', style: TextStyle(color: Colors.green)),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'reject_pin',
-                        child: Row(
-                          children: [
-                            Icon(Icons.close, color: Colors.orange),
-                            SizedBox(width: 8),
-                            Text('ピン留め却下', style: TextStyle(color: Colors.orange)),
-                          ],
-                        ),
-                      ),
-                    ],
-                    if (isPinned) ...[
-                      const PopupMenuItem(
-                        value: 'unpin',
-                        child: Row(
-                          children: [
-                            Icon(Icons.push_pin_outlined, color: Colors.orange),
-                            SizedBox(width: 8),
-                            Text('ピン留め解除', style: TextStyle(color: Colors.orange)),
-                          ],
-                        ),
-                      ),
-                    ],
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete, color: Colors.red),
-                          SizedBox(width: 8),
-                          Text('削除', style: TextStyle(color: Colors.red)),
+                  itemBuilder:
+                      (context) => [
+                        if (hasImage)
+                           PopupMenuItem(
+                            value: 'view_image',
+                            child: Row(
+                              children: [
+                                Icon(Icons.image, color: AppColors.accent(context, Colors.blue)),
+                                SizedBox(width: 8),
+                                Text('画像を表示'),
+                              ],
+                            ),
+                          ),
+                        if (pinRequested && !isPinned) ...[
+                           PopupMenuItem(
+                            value: 'approve_pin',
+                            child: Row(
+                              children: [
+                                Icon(Icons.check, color: AppColors.accent(context, Colors.green)),
+                                SizedBox(width: 8),
+                                Text(
+                                  'ピン留め承認',
+                                  style: TextStyle(color: AppColors.accent(context, Colors.green)),
+                                ),
+                              ],
+                            ),
+                          ),
+                           PopupMenuItem(
+                            value: 'reject_pin',
+                            child: Row(
+                              children: [
+                                Icon(Icons.close, color: AppColors.accent(context, Colors.orange)),
+                                SizedBox(width: 8),
+                                Text(
+                                  'ピン留め却下',
+                                  style: TextStyle(color: AppColors.accent(context, Colors.orange)),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
-                      ),
-                    ),
-                  ],
+                        if (isPinned) ...[
+                           PopupMenuItem(
+                            value: 'unpin',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.push_pin_outlined,
+                                  color: AppColors.accent(context, Colors.orange),
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'ピン留め解除',
+                                  style: TextStyle(color: AppColors.accent(context, Colors.orange)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                         PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete, color: AppColors.accent(context, Colors.red)),
+                              SizedBox(width: 8),
+                              Text('削除', style: TextStyle(color: AppColors.accent(context, Colors.red))),
+                            ],
+                          ),
+                        ),
+                      ],
                 ),
               ],
             ),
@@ -1683,7 +1799,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
   // ユーティリティメソッド
   String _formatTimestamp(dynamic timestamp) {
     if (timestamp == null) return '不明';
-    
+
     DateTime dateTime;
     if (timestamp is Timestamp) {
       dateTime = timestamp.toDate();
@@ -1692,7 +1808,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
     } else {
       return '不明';
     }
-    
+
     return '${dateTime.year}/${dateTime.month.toString().padLeft(2, '0')}/${dateTime.day.toString().padLeft(2, '0')}';
   }
 
@@ -1700,21 +1816,22 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
   Future<void> _deletePost(String postId) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('投稿を削除'),
-        content: const Text('この投稿を削除しますか？この操作は元に戻せません。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('投稿を削除'),
+            content: const Text('この投稿を削除しますか？この操作は元に戻せません。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('キャンセル'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(foregroundColor: AppColors.onColor(Colors.red), backgroundColor: Colors.red),
+                child: Text('削除', style: TextStyle(color: AppColors.onColor(Colors.red))),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('削除', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
     );
 
     if (confirmed == true) {
@@ -1723,12 +1840,12 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
             .collection('bulletin_posts')
             .doc(postId)
             .delete();
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+             SnackBar(
               content: Text('投稿を削除しました'),
-              backgroundColor: Colors.green,
+              backgroundColor: AppColors.snackBarSurface(context, Colors.green),
             ),
           );
         }
@@ -1737,7 +1854,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('投稿の削除に失敗しました: $e'),
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.snackBarSurface(context, Colors.red),
             ),
           );
         }
@@ -1749,9 +1866,9 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
     final userId = _userIdController.text.trim();
     if (userId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+         SnackBar(
           content: Text('ユーザーIDを入力してください'),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppColors.snackBarSurface(context, Colors.orange),
         ),
       );
       return;
@@ -1767,21 +1884,23 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
       }
 
       // 指定されたユーザーIDが存在するかチェック
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
-      
+      final userDoc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userId)
+              .get();
+
       if (!userDoc.exists) {
         throw Exception('指定されたユーザーIDが見つかりません: $userId');
       }
 
       // 既に管理者権限があるかチェック
-      final existingAdmin = await FirebaseFirestore.instance
-          .collection('admin_permissions')
-          .doc(userId)
-          .get();
-      
+      final existingAdmin =
+          await FirebaseFirestore.instance
+              .collection('admin_permissions')
+              .doc(userId)
+              .get();
+
       if (existingAdmin.exists) {
         final data = existingAdmin.data()!;
         if (data['isAdmin'] == true) {
@@ -1813,7 +1932,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$displayName ($userId) に管理者権限を付与しました'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.green),
           ),
         );
       }
@@ -1822,7 +1941,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('権限付与に失敗しました: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
           ),
         );
       }
@@ -1834,45 +1953,46 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
   void _showRevokeDialog(AdminPermissions admin) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('管理者権限の取り消し'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${admin.userId} の管理者権限を取り消しますか？'),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                '⚠️ この操作は元に戻せません。\n該当ユーザーは管理機能を使用できなくなります。',
-                style: TextStyle(fontSize: 12),
-              ),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('管理者権限の取り消し'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${admin.userId} の管理者権限を取り消しますか？'),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.tintedSurface(context, Colors.red),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    '⚠️ この操作は元に戻せません。\n該当ユーザーは管理機能を使用できなくなります。',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('キャンセル'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('キャンセル'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await _revokeAdminPermissions(admin.userId);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: AppColors.onColor(Colors.red),
+                ),
+                child: const Text('取り消す'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await _revokeAdminPermissions(admin.userId);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('取り消す'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1887,7 +2007,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$userId の管理者権限を取り消しました'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.green),
           ),
         );
       }
@@ -1896,7 +2016,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('権限取り消しに失敗しました: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
           ),
         );
       }
@@ -1907,13 +2027,14 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
   Future<void> _approvePinRequest(String postId) async {
     try {
       // 投稿データを取得
-      final postDoc = await FirebaseFirestore.instance
-          .collection('bulletin_posts')
-          .doc(postId)
-          .get();
-      
+      final postDoc =
+          await FirebaseFirestore.instance
+              .collection('bulletin_posts')
+              .doc(postId)
+              .get();
+
       if (!postDoc.exists) throw Exception('投稿が見つかりません');
-      
+
       final postData = postDoc.data()!;
       final postTitle = postData['title'] as String;
       final postAuthorId = postData['authorId'] as String;
@@ -1922,12 +2043,12 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
           .collection('bulletin_posts')
           .doc(postId)
           .update({
-        'isPinned': true,
-        'pinRequested': false,
-        'pinRequestedAt': null,
-        'pinnedAt': FieldValue.serverTimestamp(),
-        'pinnedBy': FirebaseAuth.instance.currentUser?.uid,
-      });
+            'isPinned': true,
+            'pinRequested': false,
+            'pinRequestedAt': null,
+            'pinnedAt': FieldValue.serverTimestamp(),
+            'pinnedBy': FirebaseAuth.instance.currentUser?.uid,
+          });
 
       // ピン留め承認通知を送信
       try {
@@ -1942,9 +2063,9 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+           SnackBar(
             content: Text('ピン留めを承認しました'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.green),
           ),
         );
       }
@@ -1953,7 +2074,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('ピン留め承認に失敗しました: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
           ),
         );
       }
@@ -1964,13 +2085,14 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
   Future<void> _rejectPinRequest(String postId) async {
     try {
       // 投稿データを取得
-      final postDoc = await FirebaseFirestore.instance
-          .collection('bulletin_posts')
-          .doc(postId)
-          .get();
-      
+      final postDoc =
+          await FirebaseFirestore.instance
+              .collection('bulletin_posts')
+              .doc(postId)
+              .get();
+
       if (!postDoc.exists) throw Exception('投稿が見つかりません');
-      
+
       final postData = postDoc.data()!;
       final postTitle = postData['title'] as String;
       final postAuthorId = postData['authorId'] as String;
@@ -1978,10 +2100,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
       await FirebaseFirestore.instance
           .collection('bulletin_posts')
           .doc(postId)
-          .update({
-        'pinRequested': false,
-        'pinRequestedAt': null,
-      });
+          .update({'pinRequested': false, 'pinRequestedAt': null});
 
       // ピン留め却下通知を送信
       try {
@@ -1997,9 +2116,9 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+           SnackBar(
             content: Text('ピン留め申請を却下しました'),
-            backgroundColor: Colors.orange,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.orange),
           ),
         );
       }
@@ -2008,7 +2127,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('ピン留め申請却下に失敗しました: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
           ),
         );
       }
@@ -2021,17 +2140,13 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
       await FirebaseFirestore.instance
           .collection('bulletin_posts')
           .doc(postId)
-          .update({
-        'isPinned': false,
-        'pinnedAt': null,
-        'pinnedBy': null,
-      });
+          .update({'isPinned': false, 'pinnedAt': null, 'pinnedBy': null});
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+           SnackBar(
             content: Text('ピン留めを解除しました'),
-            backgroundColor: Colors.orange,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.orange),
           ),
         );
       }
@@ -2040,7 +2155,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('ピン留め解除に失敗しました: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
           ),
         );
       }
@@ -2051,13 +2166,14 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
   Future<void> _approvePost(String postId) async {
     try {
       // 投稿データを取得
-      final postDoc = await FirebaseFirestore.instance
-          .collection('bulletin_posts')
-          .doc(postId)
-          .get();
-      
+      final postDoc =
+          await FirebaseFirestore.instance
+              .collection('bulletin_posts')
+              .doc(postId)
+              .get();
+
       if (!postDoc.exists) throw Exception('投稿が見つかりません');
-      
+
       final postData = postDoc.data()!;
       final postTitle = postData['title'] as String;
       final postAuthorId = postData['authorId'] as String;
@@ -2066,11 +2182,11 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
           .collection('bulletin_posts')
           .doc(postId)
           .update({
-        'approvalStatus': 'approved',
-        'approvedAt': FieldValue.serverTimestamp(),
-        'approvedBy': FirebaseAuth.instance.currentUser?.uid,
-        'createdAt': FieldValue.serverTimestamp(), // 承認時に表示順用の日時を設定
-      });
+            'approvalStatus': 'approved',
+            'approvedAt': FieldValue.serverTimestamp(),
+            'approvedBy': FirebaseAuth.instance.currentUser?.uid,
+            'createdAt': FieldValue.serverTimestamp(), // 承認時に表示順用の日時を設定
+          });
 
       // 投稿承認通知を送信
       try {
@@ -2085,9 +2201,9 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+           SnackBar(
             content: Text('投稿を承認しました'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.green),
           ),
         );
       }
@@ -2096,7 +2212,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('投稿承認に失敗しました: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
           ),
         );
       }
@@ -2107,33 +2223,35 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
   Future<void> _rejectPost(String postId) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('投稿却下'),
-        content: const Text('この投稿を却下しますか？却下された投稿は削除されます。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('投稿却下'),
+            content: const Text('この投稿を却下しますか？却下された投稿は削除されます。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('キャンセル'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(foregroundColor: AppColors.onColor(Colors.red), backgroundColor: Colors.red),
+                child: Text('却下', style: TextStyle(color: AppColors.onColor(Colors.red))),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('却下', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
     );
 
     if (confirmed == true) {
       try {
         // 投稿データを取得
-        final postDoc = await FirebaseFirestore.instance
-            .collection('bulletin_posts')
-            .doc(postId)
-            .get();
-        
+        final postDoc =
+            await FirebaseFirestore.instance
+                .collection('bulletin_posts')
+                .doc(postId)
+                .get();
+
         if (!postDoc.exists) throw Exception('投稿が見つかりません');
-        
+
         final postData = postDoc.data()!;
         final postTitle = postData['title'] as String;
         final postAuthorId = postData['authorId'] as String;
@@ -2141,9 +2259,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
         await FirebaseFirestore.instance
             .collection('bulletin_posts')
             .doc(postId)
-            .update({
-          'approvalStatus': 'rejected',
-        });
+            .update({'approvalStatus': 'rejected'});
 
         // 投稿却下通知を送信
         try {
@@ -2159,9 +2275,9 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+             SnackBar(
               content: Text('投稿を却下しました'),
-              backgroundColor: Colors.orange,
+              backgroundColor: AppColors.snackBarSurface(context, Colors.orange),
             ),
           );
         }
@@ -2170,7 +2286,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('投稿却下に失敗しました: $e'),
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.snackBarSurface(context, Colors.red),
             ),
           );
         }

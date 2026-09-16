@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -9,10 +10,12 @@ class CafeteriaCameraInfoScreen extends ConsumerStatefulWidget {
   const CafeteriaCameraInfoScreen({super.key});
 
   @override
-  ConsumerState<CafeteriaCameraInfoScreen> createState() => _CafeteriaCameraInfoScreenState();
+  ConsumerState<CafeteriaCameraInfoScreen> createState() =>
+      _CafeteriaCameraInfoScreenState();
 }
 
-class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoScreen> {
+class _CafeteriaCameraInfoScreenState
+    extends ConsumerState<CafeteriaCameraInfoScreen> {
   Timer? _refreshTimer;
   DateTime _lastUpdate = DateTime.now();
 
@@ -38,44 +41,20 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
   // カメラの表示順序を取得（メインキャンパスに基づく）
   List<Map<String, String>> _getCameraOrder() {
     final preferredCampus = ref.watch(preferredBusCampusProvider);
-    
+
     if (preferredCampus == 'narashino') {
       // 新習志野がメインキャンパスの場合：新習志野1F → 新習志野2F → 津田沼
       return [
-        {
-          'key': 'narashino1',
-          'name': '新習志野1F',
-          'hours': '月〜土 11:00〜14:00',
-        },
-        {
-          'key': 'narashino2',
-          'name': '新習志野2F',
-          'hours': '月〜金 11:00〜14:00',
-        },
-        {
-          'key': 'tsudanuma',
-          'name': '津田沼',
-          'hours': '月〜土 11:00〜14:00',
-        },
+        {'key': 'narashino1', 'name': '新習志野1F', 'hours': '月〜土 11:00〜14:00'},
+        {'key': 'narashino2', 'name': '新習志野2F', 'hours': '月〜金 11:00〜14:00'},
+        {'key': 'tsudanuma', 'name': '津田沼', 'hours': '月〜土 11:00〜14:00'},
       ];
     } else {
       // 津田沼がメインキャンパスの場合（デフォルト）：津田沼 → 新習志野1F → 新習志野2F
       return [
-        {
-          'key': 'tsudanuma',
-          'name': '津田沼',
-          'hours': '月〜土 11:00〜14:00',
-        },
-        {
-          'key': 'narashino1',
-          'name': '新習志野1F',
-          'hours': '月〜土 11:00〜14:00',
-        },
-        {
-          'key': 'narashino2',
-          'name': '新習志野2F',
-          'hours': '月〜金 11:00〜14:00',
-        },
+        {'key': 'tsudanuma', 'name': '津田沼', 'hours': '月〜土 11:00〜14:00'},
+        {'key': 'narashino1', 'name': '新習志野1F', 'hours': '月〜土 11:00〜14:00'},
+        {'key': 'narashino2', 'name': '新習志野2F', 'hours': '月〜金 11:00〜14:00'},
       ];
     }
   }
@@ -84,9 +63,7 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
   Widget build(BuildContext context) {
     final cameraOrder = _getCameraOrder();
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('食堂カメラ稼働時間'),
-      ),
+      appBar: AppBar(title: const Text('食堂カメラ稼働時間')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -110,16 +87,14 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
                         children: [
                           Text(
                             '食堂カメラについて',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             '各食堂の混雑状況をカメラで確認できます。',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.grey[600],
-                            ),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                           ),
                         ],
                       ),
@@ -134,9 +109,9 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
             // 稼働時間テーブル
             Text(
               'カメラ稼働時間',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
 
@@ -166,7 +141,10 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
-                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimaryContainer,
                             ),
                           ),
                         ),
@@ -177,7 +155,10 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
-                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimaryContainer,
                             ),
                           ),
                         ),
@@ -195,16 +176,13 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
 
             // 注意事項
             Card(
-              color: Colors.grey.shade100,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: Colors.grey.shade700,
-                    ),
+                    Icon(Icons.info_outline, color: Theme.of(context).colorScheme.onSurfaceVariant),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -214,7 +192,7 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
                             '注意事項',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.grey.shade800,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -222,7 +200,7 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
                             '• カメラは稼働時間内のみ利用可能です\n• 混雑状況により映像が遅延する場合があります\n• メンテナンス等で利用できない場合があります\n• 画像は5分毎に自動更新されます',
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.grey.shade700,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
@@ -238,9 +216,9 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
             // カメラ画像セクション
             Text(
               'ライブカメラ',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
 
@@ -256,10 +234,11 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
                     camera['name']!,
                     camera['hours']!,
                   ),
-                  if (index < cameraOrder.length - 1) const SizedBox(height: 16),
+                  if (index < cameraOrder.length - 1)
+                    const SizedBox(height: 16),
                 ],
               );
-            }).toList(),
+            }),
           ],
         ),
       ),
@@ -277,9 +256,8 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
       cafeteria: cafeteriaKey,
       now: now,
     );
-    final imageUrl = isActive
-        ? CafeteriaCameraService.getCameraUrl(cafeteriaKey)
-        : null;
+    final imageUrl =
+        isActive ? CafeteriaCameraService.getCameraUrl(cafeteriaKey) : null;
 
     return Card(
       child: Column(
@@ -311,31 +289,36 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          color:
+                              Theme.of(context).colorScheme.onPrimaryContainer,
                         ),
                       ),
                       Text(
                         operatingHours,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onPrimaryContainer
+                              .withValues(alpha: 0.8),
                         ),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: isActive
-                        ? Colors.green
-                        : Colors.grey,
+                    color: isActive ? Colors.green : Colors.grey,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     isActive ? '稼働中' : '停止中',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AppColors.onColor(isActive ? Colors.green : Colors.grey),
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
@@ -351,20 +334,22 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
             child: Container(
               width: double.infinity,
               color: Colors.black,
-              child: isActive && imageUrl != null
-                  ? _CafeteriaCameraImage(
-                      cafeteriaKey: cafeteriaKey,
-                      cafeteriaName: cafeteriaName,
-                      imageUrl: imageUrl,
-                      // 5分単位のバケット。自動更新時にリセットされる。
-                      refreshBucket:
-                          _lastUpdate.millisecondsSinceEpoch ~/ (1000 * 60 * 5),
-                    )
-                  : _buildPlaceholderImage(
-                      context,
-                      cafeteriaName,
-                      'カメラは稼働時間外です',
-                    ),
+              child:
+                  isActive && imageUrl != null
+                      ? _CafeteriaCameraImage(
+                        cafeteriaKey: cafeteriaKey,
+                        cafeteriaName: cafeteriaName,
+                        imageUrl: imageUrl,
+                        // 5分単位のバケット。自動更新時にリセットされる。
+                        refreshBucket:
+                            _lastUpdate.millisecondsSinceEpoch ~/
+                            (1000 * 60 * 5),
+                      )
+                      : _buildPlaceholderImage(
+                        context,
+                        cafeteriaName,
+                        'カメラは稼働時間外です',
+                      ),
             ),
           ),
         ],
@@ -383,11 +368,7 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.videocam_off,
-              size: 64,
-              color: Colors.grey.shade600,
-            ),
+            Icon(Icons.videocam_off, size: 64, color: Colors.grey.shade600),
             const SizedBox(height: 16),
             Text(
               cafeteriaName,
@@ -400,10 +381,7 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
             const SizedBox(height: 8),
             Text(
               message,
-              style: TextStyle(
-                color: Colors.grey.shade500,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
               textAlign: TextAlign.center,
             ),
           ],
@@ -417,17 +395,11 @@ class _CafeteriaCameraInfoScreenState extends ConsumerState<CafeteriaCameraInfoS
       children: [
         Padding(
           padding: const EdgeInsets.all(12),
-          child: Text(
-            name,
-            style: const TextStyle(fontSize: 15),
-          ),
+          child: Text(name, style: const TextStyle(fontSize: 15)),
         ),
         Padding(
           padding: const EdgeInsets.all(12),
-          child: Text(
-            time,
-            style: const TextStyle(fontSize: 15),
-          ),
+          child: Text(time, style: const TextStyle(fontSize: 15)),
         ),
       ],
     );
@@ -531,12 +503,13 @@ class _CafeteriaCameraImageState extends State<_CafeteriaCameraImage> {
           width: double.infinity,
         );
       },
-      placeholder: (context, _) => Container(
-        color: Colors.grey.shade900,
-        child: const Center(
-          child: CircularProgressIndicator(color: Colors.white),
-        ),
-      ),
+      placeholder:
+          (context, _) => Container(
+            color: Colors.grey.shade900,
+            child: const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+          ),
       errorWidget: (context, errorUrl, error) {
         debugPrint('カメラ画像読み込みエラー: $errorUrl, error: $error');
         _stopTimeout();

@@ -51,13 +51,7 @@ const List<CampusClassroomLocation> pilotNarashinoBuilding12Floor7 = [
     buildingDisplayName: '12号館',
     floor: 7,
     roomCode: 'スカッシュコート',
-    searchTerms: [
-      'スカッシュコート',
-      'スカッシュ',
-      'squash',
-      '12号館7階スカッシュ',
-      'スカッシュ コート',
-    ],
+    searchTerms: ['スカッシュコート', 'スカッシュ', 'squash', '12号館7階スカッシュ', 'スカッシュ コート'],
     pinX: 0.30,
     pinY: 0.76,
     description: '12号館7階・スカッシュコート',
@@ -68,13 +62,7 @@ const List<CampusClassroomLocation> pilotNarashinoBuilding12Floor7 = [
     buildingDisplayName: '12号館',
     floor: 7,
     roomCode: 'ミニバスケット',
-    searchTerms: [
-      'ミニバスケット',
-      'ミニ バスケット',
-      'ミニバスケ',
-      'バスケ',
-      '12号館7階ミニバスケ',
-    ],
+    searchTerms: ['ミニバスケット', 'ミニ バスケット', 'ミニバスケ', 'バスケ', '12号館7階ミニバスケ'],
     pinX: 0.55,
     pinY: 0.73,
     description: '12号館7階・ミニバスケットコート',
@@ -86,12 +74,7 @@ const List<CampusClassroomLocation> pilotNarashinoBuilding12Floor7 = [
     buildingDisplayName: '12号館',
     floor: 7,
     roomCode: '卓球コート',
-    searchTerms: [
-      '卓球コート',
-      '卓球',
-      '12号館7階卓球',
-      'ピンポン',
-    ],
+    searchTerms: ['卓球コート', '卓球', '12号館7階卓球', 'ピンポン'],
     pinX: 0.79,
     pinY: 0.83,
     description: '12号館7階・卓球コート',
@@ -101,7 +84,6 @@ const List<CampusClassroomLocation> pilotNarashinoBuilding12Floor7 = [
 List<CampusClassroomLocation> searchPilotNarashino12f7(String query) {
   final q = query.trim().toLowerCase();
   if (q.isEmpty) return const [];
-  bool matches(CampusClassroomLocation r) =>
-      pilotLocationMatchesQuery(r, q);
+  bool matches(CampusClassroomLocation r) => pilotLocationMatchesQuery(r, q);
   return pilotNarashinoBuilding12Floor7.where(matches).toList();
 }

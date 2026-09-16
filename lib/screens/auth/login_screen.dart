@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -45,10 +46,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-        ),
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
       );
   }
 
@@ -65,9 +63,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'メールアドレスの変更が完了しました。新しいメールアドレスでログインしてください。',
-            ),
+            content: Text('メールアドレスの変更が完了しました。新しいメールアドレスでログインしてください。'),
             duration: Duration(seconds: 5),
           ),
         );
@@ -157,8 +153,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _showForgotPasswordDialog() async {
-    final emailController =
-        TextEditingController(text: _emailController.text.trim());
+    final emailController = TextEditingController(
+      text: _emailController.text.trim(),
+    );
     String? errorText;
     bool sending = false;
 
@@ -196,47 +193,49 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: const Text('キャンセル'),
                 ),
                 FilledButton(
-                  onPressed: sending
-                      ? null
-                      : () async {
-                          setDialogState(() {
-                            sending = true;
-                            errorText = null;
-                          });
-                          try {
-                            await ref
-                                .read(authServiceProvider)
-                                .sendPasswordResetEmail(
-                                  email: emailController.text,
-                                );
-                            if (!dialogContext.mounted) return;
-                            Navigator.of(dialogContext).pop();
-                            ScaffoldMessenger.of(this.context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  '再設定メールを送信しました（迷惑メールフォルダも確認してください）',
+                  onPressed:
+                      sending
+                          ? null
+                          : () async {
+                            setDialogState(() {
+                              sending = true;
+                              errorText = null;
+                            });
+                            try {
+                              await ref
+                                  .read(authServiceProvider)
+                                  .sendPasswordResetEmail(
+                                    email: emailController.text,
+                                  );
+                              if (!dialogContext.mounted) return;
+                              Navigator.of(dialogContext).pop();
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    '再設定メールを送信しました（迷惑メールフォルダも確認してください）',
+                                  ),
                                 ),
-                              ),
-                            );
-                          } on FirebaseAuthException catch (e) {
-                            setDialogState(() {
-                              sending = false;
-                              errorText = e.message ?? '送信に失敗しました';
-                            });
-                          } catch (_) {
-                            setDialogState(() {
-                              sending = false;
-                              errorText = '送信に失敗しました';
-                            });
-                          }
-                        },
-                  child: sending
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('送信'),
+                              );
+                            } on FirebaseAuthException catch (e) {
+                              setDialogState(() {
+                                sending = false;
+                                errorText = e.message ?? '送信に失敗しました';
+                              });
+                            } catch (_) {
+                              setDialogState(() {
+                                sending = false;
+                                errorText = '送信に失敗しました';
+                              });
+                            }
+                          },
+                  child:
+                      sending
+                          ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : const Text('送信'),
                 ),
               ],
             );
@@ -369,8 +368,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ? Icons.visibility_outlined
                       : Icons.visibility_off_outlined,
                 ),
-                onPressed: () =>
-                    setState(() => _obscurePassword = !_obscurePassword),
+                onPressed:
+                    () => setState(() => _obscurePassword = !_obscurePassword),
               ),
             ),
             const SizedBox(height: 4),
@@ -379,7 +378,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: TextButton(
                 onPressed: _isLoading ? null : _showForgotPasswordDialog,
                 style: TextButton.styleFrom(
-                  foregroundColor: AuthPalette.forgotLink,
+                  foregroundColor: AppColors.accent(context, AuthPalette.forgotLink),
                 ),
                 child: const Text('パスワードを忘れた方'),
               ),
@@ -387,9 +386,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             const SizedBox(height: 4),
             _RememberLoginRow(
               value: _rememberMe,
-              onChanged: _isLoading
-                  ? null
-                  : (v) => setState(() => _rememberMe = v),
+              onChanged:
+                  _isLoading ? null : (v) => setState(() => _rememberMe = v),
             ),
             const SizedBox(height: 22),
             if (_loginErrorText != null) ...[
@@ -419,10 +417,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
 /// 「ログイン状態を保持する」行（広いタップ領域）。
 class _RememberLoginRow extends StatelessWidget {
-  const _RememberLoginRow({
-    required this.value,
-    required this.onChanged,
-  });
+  const _RememberLoginRow({required this.value, required this.onChanged});
 
   final bool value;
   final ValueChanged<bool>? onChanged;
@@ -445,7 +440,7 @@ class _RememberLoginRow extends StatelessWidget {
               child: Checkbox(
                 value: value,
                 onChanged: enabled ? (v) => onChanged!(v ?? true) : null,
-                activeColor: AuthPalette.green,
+                activeColor: AuthPalette.greenDark,
                 checkColor: Colors.white,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 shape: RoundedRectangleBorder(

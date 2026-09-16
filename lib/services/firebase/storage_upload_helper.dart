@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -29,9 +28,7 @@ class StorageUploadHelper {
       throw StateError('画像ファイルが空です');
     }
     if (bytes.length > maxUploadBytes) {
-      throw ArgumentError(
-        '画像が大きすぎます（最大${maxUploadBytes ~/ (1024 * 1024)}MB）',
-      );
+      throw ArgumentError('画像が大きすぎます（最大${maxUploadBytes ~/ (1024 * 1024)}MB）');
     }
     return bytes;
   }
@@ -45,11 +42,7 @@ class StorageUploadHelper {
   }) async {
     await ensureAuthenticatedUploadUser(userId);
     final bytes = await readValidatedXFileBytes(file);
-    return _uploadBytes(
-      ref: ref,
-      bytes: bytes,
-      contentType: contentType,
-    );
+    return _uploadBytes(ref: ref, bytes: bytes, contentType: contentType);
   }
 
   /// [File] 向け。掲示板など既存の putFile 呼び出しを置き換える。
@@ -65,15 +58,9 @@ class StorageUploadHelper {
       throw StateError('画像ファイルが空です');
     }
     if (bytes.length > maxUploadBytes) {
-      throw ArgumentError(
-        '画像が大きすぎます（最大${maxUploadBytes ~/ (1024 * 1024)}MB）',
-      );
+      throw ArgumentError('画像が大きすぎます（最大${maxUploadBytes ~/ (1024 * 1024)}MB）');
     }
-    return _uploadBytes(
-      ref: ref,
-      bytes: bytes,
-      contentType: contentType,
-    );
+    return _uploadBytes(ref: ref, bytes: bytes, contentType: contentType);
   }
 
   static Future<String> _uploadBytes({

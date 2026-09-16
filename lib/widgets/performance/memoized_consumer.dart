@@ -7,7 +7,7 @@ class MemoizedConsumer<T> extends ConsumerWidget {
   final ProviderListenable<T> provider;
   final Widget Function(BuildContext context, T value, Widget? child) builder;
   final Widget? child;
-  
+
   const MemoizedConsumer({
     super.key,
     required this.provider,
@@ -25,9 +25,14 @@ class MemoizedConsumer<T> extends ConsumerWidget {
 /// 非同期プロバイダー用のメモ化Consumerウィジェット
 class MemoizedAsyncConsumer<T> extends ConsumerWidget {
   final ProviderListenable<AsyncValue<T>> provider;
-  final Widget Function(BuildContext context, AsyncValue<T> value, Widget? child) builder;
+  final Widget Function(
+    BuildContext context,
+    AsyncValue<T> value,
+    Widget? child,
+  )
+  builder;
   final Widget? child;
-  
+
   const MemoizedAsyncConsumer({
     super.key,
     required this.provider,
@@ -48,7 +53,7 @@ class ConditionalConsumer<T> extends ConsumerWidget {
   final bool Function(T? previous, T current) shouldRebuild;
   final Widget Function(BuildContext context, T value, Widget? child) builder;
   final Widget? child;
-  
+
   const ConditionalConsumer({
     super.key,
     required this.provider,

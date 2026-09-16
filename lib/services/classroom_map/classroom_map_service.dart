@@ -34,13 +34,15 @@ class ClassroomMapService {
       for (final b in (campusJson['buildings'] as List<dynamic>)) {
         buildings.add(BuildingMarker.fromJson(b as Map<String, dynamic>));
       }
-      campuses.add(CampusMapItem(
-        id: campusJson['id'] as String,
-        displayName: campusJson['displayName'] as String,
-        centerLat: (campusJson['centerLat'] as num).toDouble(),
-        centerLng: (campusJson['centerLng'] as num).toDouble(),
-        buildings: buildings,
-      ));
+      campuses.add(
+        CampusMapItem(
+          id: campusJson['id'] as String,
+          displayName: campusJson['displayName'] as String,
+          centerLat: (campusJson['centerLat'] as num).toDouble(),
+          centerLng: (campusJson['centerLng'] as num).toDouble(),
+          buildings: buildings,
+        ),
+      );
     }
     return CampusMapData(campuses: campuses);
   }
@@ -56,7 +58,9 @@ class ClassroomMapService {
   }
 
   /// 指定キャンパスの校舎マーカーを取得
-  static Future<List<BuildingMarker>> getBuildingMarkers(String campusId) async {
+  static Future<List<BuildingMarker>> getBuildingMarkers(
+    String campusId,
+  ) async {
     final mapData = await getCampusMapData();
     final campus = mapData.campuses.firstWhere(
       (c) => c.id == campusId,

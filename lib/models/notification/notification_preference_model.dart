@@ -2,31 +2,11 @@ import '../../models/notification/notification_model.dart';
 
 /// ユーザーがオン/オフできる通知カテゴリ（実際に送信されうる種別）
 enum NotificationPreferenceKey {
-  bulletinComment(
-    'bulletin_comment',
-    '掲示板のコメント',
-    '自分の投稿にコメントが付いたときのプッシュ通知',
-  ),
-  bulletinReply(
-    'bulletin_reply',
-    '掲示板の返信',
-    '自分のコメントに返信が付いたときのプッシュ通知',
-  ),
-  cwitterReply(
-    'cwitter_reply',
-    'Cwitterの返信',
-    '自分のCweetに返信が付いたときのプッシュ通知',
-  ),
-  cwitterLike(
-    'cwitter_like',
-    'Cwitterのいいね',
-    '自分のCweetにいいねが付いたときのプッシュ通知',
-  ),
-  cwitterFollow(
-    'cwitter_follow',
-    'Cwitterのフォロー',
-    '自分がフォローされたときのプッシュ通知',
-  ),
+  bulletinComment('bulletin_comment', '掲示板のコメント', '自分の投稿にコメントが付いたときのプッシュ通知'),
+  bulletinReply('bulletin_reply', '掲示板の返信', '自分のコメントに返信が付いたときのプッシュ通知'),
+  cwitterReply('cwitter_reply', 'Cwitterの返信', '自分のCweetに返信が付いたときのプッシュ通知'),
+  cwitterLike('cwitter_like', 'Cwitterのいいね', '自分のCweetにいいねが付いたときのプッシュ通知'),
+  cwitterFollow('cwitter_follow', 'Cwitterのフォロー', '自分がフォローされたときのプッシュ通知'),
   chibaChannelThreadReply(
     'chiba_channel_thread',
     'ちばちゃんねる（スレへのレス）',
@@ -37,21 +17,9 @@ enum NotificationPreferenceKey {
     'ちばちゃんねる（返信）',
     '自分のレスに返信が付いたときのプッシュ通知',
   ),
-  bulletinModeration(
-    'bulletin_moderation',
-    '掲示板の審査結果',
-    '投稿・ピン留めの承認・却下のプッシュ通知',
-  ),
-  contactReply(
-    'contact_reply',
-    'お問い合わせへの返信',
-    '管理者から返信が届いたときのプッシュ通知',
-  ),
-  scheduleClass(
-    'schedule_class',
-    '講義開始前',
-    '講義開始まもなくのリマインダー（端末のローカル通知）',
-  ),
+  bulletinModeration('bulletin_moderation', '掲示板の審査結果', '投稿・ピン留めの承認・却下のプッシュ通知'),
+  contactReply('contact_reply', 'お問い合わせへの返信', '管理者から返信が届いたときのプッシュ通知'),
+  scheduleClass('schedule_class', '講義開始前', '講義開始まもなくのリマインダー（端末のローカル通知）'),
   globalAnnouncement(
     'global_announcement',
     '運営からのお知らせ',
@@ -64,7 +32,9 @@ enum NotificationPreferenceKey {
   final String title;
   final String description;
 
-  static NotificationPreferenceKey? fromNotification(AppNotification notification) {
+  static NotificationPreferenceKey? fromNotification(
+    AppNotification notification,
+  ) {
     switch (notification.type) {
       case NotificationType.comment:
         if (notification.data?['source'] == 'chiba_channel') {
@@ -153,7 +123,10 @@ class NotificationPreferences {
 
   bool isEnabled(NotificationPreferenceKey key) => values[key] ?? true;
 
-  NotificationPreferences copyWithKey(NotificationPreferenceKey key, bool enabled) {
+  NotificationPreferences copyWithKey(
+    NotificationPreferenceKey key,
+    bool enabled,
+  ) {
     return NotificationPreferences({...values, key: enabled});
   }
 }

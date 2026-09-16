@@ -5,9 +5,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// ストアレビュー管理サービス
 class AppReviewService {
   static const String _keyLaunchCount = 'app_review_launch_count';
-  static const String _keyLastReviewRequestDate = 'app_review_last_request_date';
+  static const String _keyLastReviewRequestDate =
+      'app_review_last_request_date';
   static const String _keyReviewCompleted = 'app_review_completed';
-  
+
   // レビューを促す起動回数の閾値
   static const int _launchCountThreshold = 5;
   // レビューを再表示するまでの日数（90日）
@@ -19,7 +20,7 @@ class AppReviewService {
       final prefs = await SharedPreferences.getInstance();
       final currentCount = prefs.getInt(_keyLaunchCount) ?? 0;
       await prefs.setInt(_keyLaunchCount, currentCount + 1);
-      
+
       if (kDebugMode) {
         debugPrint('📱 アプリ起動回数: ${currentCount + 1}');
       }
@@ -34,7 +35,7 @@ class AppReviewService {
   static Future<bool> shouldRequestReview() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // レビューを完了済みの場合は表示しない
       final reviewCompleted = prefs.getBool(_keyReviewCompleted) ?? false;
       if (reviewCompleted) {
@@ -57,11 +58,14 @@ class AppReviewService {
       final lastRequestDateString = prefs.getString(_keyLastReviewRequestDate);
       if (lastRequestDateString != null) {
         final lastRequestDate = DateTime.parse(lastRequestDateString);
-        final daysSinceLastRequest = DateTime.now().difference(lastRequestDate).inDays;
-        
+        final daysSinceLastRequest =
+            DateTime.now().difference(lastRequestDate).inDays;
+
         if (daysSinceLastRequest < _daysUntilNextRequest) {
           if (kDebugMode) {
-            debugPrint('⏰ 前回のレビューリクエストから${daysSinceLastRequest}日経過（${_daysUntilNextRequest}日必要）');
+            debugPrint(
+              '⏰ 前回のレビューリクエストから$daysSinceLastRequest日経過（$_daysUntilNextRequest日必要）',
+            );
           }
           return false;
         }
@@ -83,7 +87,7 @@ class AppReviewService {
   static Future<void> requestReview() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // レビュー機能が利用可能か確認
       final InAppReview inAppReview = InAppReview.instance;
       if (await inAppReview.isAvailable()) {
@@ -99,7 +103,7 @@ class AppReviewService {
 
         // レビューを表示
         await inAppReview.requestReview();
-        
+
         if (kDebugMode) {
           debugPrint('✅ ストアレビュー表示完了');
         }
@@ -120,7 +124,7 @@ class AppReviewService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_keyReviewCompleted, true);
-      
+
       if (kDebugMode) {
         debugPrint('✅ レビュー完了を記録しました');
       }
@@ -138,7 +142,7 @@ class AppReviewService {
       await prefs.remove(_keyLaunchCount);
       await prefs.remove(_keyLastReviewRequestDate);
       await prefs.remove(_keyReviewCompleted);
-      
+
       if (kDebugMode) {
         debugPrint('🔄 レビュー状態をリセットしました');
       }
@@ -149,4 +153,3 @@ class AppReviewService {
     }
   }
 }
-

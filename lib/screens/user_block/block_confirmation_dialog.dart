@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../core/constants/app_constants.dart';
@@ -73,7 +74,7 @@ class _BlockConfirmationDialogState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${widget.blockedUserName}をブロックしました'),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.snackBarSurface(context, Colors.green),
         ),
       );
 
@@ -93,7 +94,7 @@ class _BlockConfirmationDialogState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('ブロックに失敗しました: $message'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.snackBarSurface(context, Colors.red),
         ),
       );
     } finally {
@@ -132,7 +133,7 @@ class _BlockConfirmationDialogState
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.block, color: Colors.red, size: 28),
+                         Icon(Icons.block, color: AppColors.accent(context, Colors.red), size: 28),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -149,7 +150,7 @@ class _BlockConfirmationDialogState
                                 widget.blockedUserName,
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Colors.grey[600],
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -166,7 +167,7 @@ class _BlockConfirmationDialogState
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.red[50],
+                        color: AppColors.tintedSurface(context, Colors.red),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.red[200]!),
                       ),
@@ -175,14 +176,14 @@ class _BlockConfirmationDialogState
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.info_outline, color: Colors.red[700]),
+                              Icon(Icons.info_outline, color: AppColors.accent(context, Colors.red[700])),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   'ブロックすると以下の効果があります',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.red[900],
+                                    color: AppColors.accent(context, Colors.red[900]),
                                   ),
                                 ),
                               ),
@@ -197,7 +198,7 @@ class _BlockConfirmationDialogState
                             '• いつでもブロックを解除できます',
                             style: TextStyle(
                               fontSize: 13,
-                              color: Colors.red[900],
+                              color: AppColors.accent(context, Colors.red[900]),
                             ),
                           ),
                         ],
@@ -247,7 +248,7 @@ class _BlockConfirmationDialogState
                         dense: true,
                         contentPadding: EdgeInsets.zero,
                       );
-                    }).toList(),
+                    }),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _notesController,
@@ -283,16 +284,16 @@ class _BlockConfirmationDialogState
             onPressed: _isLoading ? null : _blockUser,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+              foregroundColor: AppColors.onColor(Colors.red),
             ),
             child:
                 _isLoading
-                    ? const SizedBox(
+                    ?  SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: AppColors.onColor(Colors.red),
                       ),
                     )
                     : const Text('ブロックする'),
@@ -307,16 +308,17 @@ class _BlockConfirmationDialogState
 Future<void> showOfficialAccountBlockDeniedDialog(BuildContext context) {
   return showDialog<void>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('ブロックできません'),
-      content: const Text(AppConstants.errorOfficialAccountBlockDenied),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('OK'),
+    builder:
+        (context) => AlertDialog(
+          title: const Text('ブロックできません'),
+          content: const Text(AppConstants.errorOfficialAccountBlockDenied),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
         ),
-      ],
-    ),
   );
 }
 

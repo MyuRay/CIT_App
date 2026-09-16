@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:characters/characters.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,6 +6,7 @@ import '../../core/providers/firebase_menu_provider.dart';
 import '../../models/cafeteria/cafeteria_menu_item_model.dart';
 import '../../models/cafeteria/cafeteria_review_model.dart';
 import '../../services/cafeteria/cafeteria_menu_item_service.dart';
+import '../../services/cafeteria/cafeteria_image_preparer.dart';
 import 'cafeteria_review_form_screen.dart';
 
 String? _campusCodeFromCafeteriaId(String cafeteriaId) {
@@ -38,10 +38,7 @@ class _FullScreenMenuImagePage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          placeholder,
-          style: const TextStyle(color: Colors.white),
-        ),
+        title: Text(placeholder, style: const TextStyle(color: Colors.white)),
       ),
       body: Center(
         child: InteractiveViewer(
@@ -60,7 +57,7 @@ class _FullScreenMenuImagePage extends StatelessWidget {
               return Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -85,25 +82,26 @@ class _FullScreenMenuImagePage extends StatelessWidget {
 }
 
 class CafeteriaMenuItemFormScreen extends ConsumerStatefulWidget {
-  const CafeteriaMenuItemFormScreen({
-    super.key,
-    required this.cafeteriaId,
-  });
-  
+  const CafeteriaMenuItemFormScreen({super.key, required this.cafeteriaId});
+
   final String cafeteriaId;
 
   @override
-  ConsumerState<CafeteriaMenuItemFormScreen> createState() => _CafeteriaMenuItemFormScreenState();
+  ConsumerState<CafeteriaMenuItemFormScreen> createState() =>
+      _CafeteriaMenuItemFormScreenState();
 }
 
-class _CafeteriaMenuItemFormScreenState extends ConsumerState<CafeteriaMenuItemFormScreen> {
+class _CafeteriaMenuItemFormScreenState
+    extends ConsumerState<CafeteriaMenuItemFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _menuNameController = TextEditingController();
   final _priceController = TextEditingController();
-  
+
   File? _selectedImage;
+  String? _uploadedPhotoUrl;
+  bool _isPickingImage = false;
   bool _isSubmitting = false;
-  
+
   @override
   void dispose() {
     _menuNameController.dispose();
@@ -112,24 +110,40 @@ class _CafeteriaMenuItemFormScreenState extends ConsumerState<CafeteriaMenuItemF
   }
 
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    
-    if (pickedFile != null) {
+    if (_isPickingImage || _isSubmitting) return;
+    setState(() => _isPickingImage = true);
+    try {
+      final pickedFile = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: CafeteriaImagePreparer.maxDimension.toDouble(),
+        maxHeight: CafeteriaImagePreparer.maxDimension.toDouble(),
+        imageQuality: CafeteriaImagePreparer.jpegQuality,
+      );
+      if (!mounted || pickedFile == null) return;
       setState(() {
         _selectedImage = File(pickedFile.path);
+        _uploadedPhotoUrl = null;
       });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('写真を選択できませんでした。もう一度お試しください。')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPickingImage = false);
     }
   }
 
   Future<void> _submit() async {
+    if (_isSubmitting || _isPickingImage) return;
     if (!_formKey.currentState!.validate()) return;
-    
+
     final menuName = _menuNameController.text.trim();
     if (menuName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('メニュー名を入力してください')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('メニュー名を入力してください')));
       return;
     }
 
@@ -143,20 +157,19 @@ class _CafeteriaMenuItemFormScreenState extends ConsumerState<CafeteriaMenuItemF
         widget.cafeteriaId,
         menuName,
       );
-      
+
       if (isDuplicate) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('同じ名前のメニューが既に存在します')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('同じ名前のメニューが既に存在します')));
         }
         return;
       }
 
       // 画像をFirebase Storageにアップロード
-      String? photoUrl;
-      if (_selectedImage != null) {
-        photoUrl = await CafeteriaMenuItemService.uploadImage(
+      if (_selectedImage != null && _uploadedPhotoUrl == null) {
+        _uploadedPhotoUrl = await CafeteriaMenuItemService.uploadImage(
           _selectedImage!,
           widget.cafeteriaId,
           menuName,
@@ -170,9 +183,9 @@ class _CafeteriaMenuItemFormScreenState extends ConsumerState<CafeteriaMenuItemF
         price = int.tryParse(priceText);
         if (price == null) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('価格は数字で入力してください')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('価格は数字で入力してください')));
           }
           return;
         }
@@ -184,44 +197,46 @@ class _CafeteriaMenuItemFormScreenState extends ConsumerState<CafeteriaMenuItemF
         cafeteriaId: widget.cafeteriaId,
         menuName: menuName,
         price: price,
-        photoUrl: photoUrl,
+        photoUrl: _uploadedPhotoUrl,
         createdAt: DateTime.now(),
       );
 
       await CafeteriaMenuItemService.addMenuItem(menuItem);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('メニューを追加しました')),
-        );
-        
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('メニューを追加しました')));
+
         // メニュー追加後にレビュー画面に遷移
         final shouldNavigateToReview = await showDialog<bool>(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('レビューを書く'),
-            content: Text('「$menuName」のレビューを書きますか？'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('後で'),
+          builder:
+              (context) => AlertDialog(
+                title: const Text('レビューを書く'),
+                content: Text('「$menuName」のレビューを書きますか？'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('後で'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('レビューを書く'),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('レビューを書く'),
-              ),
-            ],
-          ),
         );
-
-        if (shouldNavigateToReview == true && mounted) {
+        if (!mounted) return;
+        if (shouldNavigateToReview == true) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (context) => CafeteriaReviewFormScreen(
-                initialCafeteriaId: widget.cafeteriaId,
-                initialMenuName: menuName,
-                fixed: true,
-              ),
+              builder:
+                  (context) => CafeteriaReviewFormScreen(
+                    initialCafeteriaId: widget.cafeteriaId,
+                    initialMenuName: menuName,
+                    fixed: true,
+                  ),
             ),
           );
         } else {
@@ -230,9 +245,9 @@ class _CafeteriaMenuItemFormScreenState extends ConsumerState<CafeteriaMenuItemF
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラーが発生しました: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('エラーが発生しました: $e')));
       }
     } finally {
       if (mounted) {
@@ -243,7 +258,10 @@ class _CafeteriaMenuItemFormScreenState extends ConsumerState<CafeteriaMenuItemF
     }
   }
 
-  Future<void> _showCampusMenuImage(String campusCode, String campusName) async {
+  Future<void> _showCampusMenuImage(
+    String campusCode,
+    String campusName,
+  ) async {
     if (!mounted) return;
     showDialog<void>(
       context: context,
@@ -252,7 +270,9 @@ class _CafeteriaMenuItemFormScreenState extends ConsumerState<CafeteriaMenuItemF
     );
 
     try {
-      final imageUrl = await ref.read(firebaseTodayMenuProvider(campusCode).future);
+      final imageUrl = await ref.read(
+        firebaseTodayMenuProvider(campusCode).future,
+      );
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
 
@@ -264,7 +284,9 @@ class _CafeteriaMenuItemFormScreenState extends ConsumerState<CafeteriaMenuItemF
       }
 
       final placeholder =
-          campusName.characters.isNotEmpty ? campusName.characters.first : campusName;
+          campusName.characters.isNotEmpty
+              ? campusName.characters.first
+              : campusName;
 
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -278,9 +300,9 @@ class _CafeteriaMenuItemFormScreenState extends ConsumerState<CafeteriaMenuItemF
     } catch (e) {
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('メニュー画像の取得に失敗しました: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('メニュー画像の取得に失敗しました: $e')));
     }
   }
 
@@ -293,9 +315,7 @@ class _CafeteriaMenuItemFormScreenState extends ConsumerState<CafeteriaMenuItemF
     final buttonColor = isDark ? Colors.white : Colors.black;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('メニューを追加'),
-      ),
+      appBar: AppBar(title: const Text('メニューを追加')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -324,14 +344,16 @@ class _CafeteriaMenuItemFormScreenState extends ConsumerState<CafeteriaMenuItemF
                         'メニューを確認',
                         style: TextStyle(fontSize: 12, color: buttonColor),
                       ),
-                      onPressed: () => _showCampusMenuImage(campusCode, campusName),
+                      onPressed:
+                          () => _showCampusMenuImage(campusCode, campusName),
                     ),
                 ],
               ),
               const SizedBox(height: 16),
-              
+
               TextFormField(
                 controller: _menuNameController,
+                enabled: !_isSubmitting,
                 decoration: const InputDecoration(
                   labelText: 'メニュー名 *(なるべくメニュー表通りの名前でご登録ください)',
                   hintText: '例: 唐揚げ定食、カレーライス',
@@ -345,9 +367,10 @@ class _CafeteriaMenuItemFormScreenState extends ConsumerState<CafeteriaMenuItemF
                 },
               ),
               const SizedBox(height: 16),
-              
+
               TextFormField(
                 controller: _priceController,
+                enabled: !_isSubmitting,
                 decoration: const InputDecoration(
                   labelText: '価格（任意）',
                   hintText: '例: 500',
@@ -365,66 +388,82 @@ class _CafeteriaMenuItemFormScreenState extends ConsumerState<CafeteriaMenuItemF
                 },
               ),
               const SizedBox(height: 16),
-              
+
               const Text(
                 '写真（任意）',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 8),
-              
+
               GestureDetector(
-                onTap: _pickImage,
+                onTap: _isSubmitting || _isPickingImage ? null : _pickImage,
                 child: Container(
                   width: double.infinity,
                   height: 200,
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: _selectedImage != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.file(
-                            _selectedImage!,
-                            fit: BoxFit.cover,
-                          ),
-                        )
-                      : const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.add_a_photo,
-                              size: 48,
-                              color: Colors.grey,
+                  child:
+                      _selectedImage != null
+                          ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              _selectedImage!,
+                              fit: BoxFit.cover,
+                              cacheWidth: 800,
+                              errorBuilder:
+                                  (_, __, ___) =>
+                                      const Center(child: Text('写真を選択済みです')),
                             ),
-                            SizedBox(height: 8),
-                            Text(
-                              'タップして写真を選択',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 16,
+                          )
+                          : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.add_a_photo,
+                                size: 48,
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                               ),
-                            ),
-                          ],
-                        ),
+                              SizedBox(height: 8),
+                              Text(
+                                _isPickingImage ? '写真を選択中…' : 'タップして写真を選択',
+                                style: TextStyle(
+                                  color:
+                                      Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
                 ),
               ),
+              const SizedBox(height: 8),
+              Text(
+                '大きな写真は自動で縮小して登録します。',
+                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+              ),
               const SizedBox(height: 24),
-              
+
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: _isSubmitting ? null : _submit,
-                  icon: _isSubmitting 
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.add),
+                  onPressed: _isSubmitting || _isPickingImage ? null : _submit,
+                  icon:
+                      _isSubmitting
+                          ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : const Icon(Icons.add),
                   label: Text(_isSubmitting ? '追加中...' : 'メニューを追加'),
                 ),
               ),

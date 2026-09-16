@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -6,11 +7,8 @@ import '../../core/providers/global_notification_provider.dart';
 
 class GlobalNotificationListScreen extends ConsumerWidget {
   final bool showAppBar;
-  
-  const GlobalNotificationListScreen({
-    super.key, 
-    this.showAppBar = true,
-  });
+
+  const GlobalNotificationListScreen({super.key, this.showAppBar = true});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -18,32 +16,32 @@ class GlobalNotificationListScreen extends ConsumerWidget {
     final unviewedCount = ref.watch(unviewedNotificationCountProvider);
 
     return Scaffold(
-      appBar: showAppBar ? AppBar(
-        title: const Text('お知らせ'),
-        actions: [
-          if (unviewedCount > 0)
-            IconButton(
-              tooltip: 'すべて既読',
-              icon: const Icon(Icons.done_all),
-              onPressed: () => _markAllAsViewed(ref),
-            ),
-        ],
-      ) : null,
+      appBar:
+          showAppBar
+              ? AppBar(
+                title: const Text('お知らせ'),
+                actions: [
+                  if (unviewedCount > 0)
+                    IconButton(
+                      tooltip: 'すべて既読',
+                      icon: const Icon(Icons.done_all),
+                      onPressed: () => _markAllAsViewed(ref),
+                    ),
+                ],
+              )
+              : null,
       body: notificationsAsync.when(
         data: (notifications) {
           if (notifications.isEmpty) {
-            return const Center(
+            return  Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.notifications_off, size: 64, color: Colors.grey),
+                  Icon(Icons.notifications_off, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   SizedBox(height: 16),
                   Text(
                     'お知らせはありません',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
+                    style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -60,26 +58,32 @@ class GlobalNotificationListScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error, size: 64, color: Colors.red),
-              const SizedBox(height: 16),
-              Text('エラーが発生しました: $error'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref.invalidate(globalNotificationsProvider),
-                child: const Text('再読み込み'),
+        error:
+            (error, _) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                   Icon(Icons.error, size: 64, color: AppColors.accent(context, Colors.red)),
+                  const SizedBox(height: 16),
+                  Text('エラーが発生しました: $error'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed:
+                        () => ref.invalidate(globalNotificationsProvider),
+                    child: const Text('再読み込み'),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
       ),
     );
   }
 
-  Widget _buildNotificationCard(BuildContext context, WidgetRef ref, GlobalNotification notification) {
+  Widget _buildNotificationCard(
+    BuildContext context,
+    WidgetRef ref,
+    GlobalNotification notification,
+  ) {
     final bool isImportant = [
       NotificationType.appUpdate,
       NotificationType.important,
@@ -105,10 +109,14 @@ class GlobalNotificationListScreen extends ConsumerWidget {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: _getNotificationColor(notification.type).withOpacity(0.1),
+                      color: _getNotificationColor(
+                        notification.type,
+                      ).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(22),
                       border: Border.all(
-                        color: _getNotificationColor(notification.type).withOpacity(0.3),
+                        color: _getNotificationColor(
+                          notification.type,
+                        ).withValues(alpha: 0.3),
                       ),
                     ),
                     child: Center(
@@ -118,97 +126,112 @@ class GlobalNotificationListScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(width: 12),
-                  
+
                   // 通知内容
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // タイトルと重要度バッジ
-                        Row(
+                        Column(
+ crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (isImportant)
                               Container(
                                 margin: const EdgeInsets.only(right: 8),
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: _getNotificationColor(notification.type),
+                                  color: _getNotificationColor(
+                                    notification.type,
+                                  ),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   notification.type.displayName,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
+                                  style: TextStyle(
+ color: AppColors.onColor(_getNotificationColor(notification.type)),
+ fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
-                            Expanded(
+                            Padding(
+ padding: const EdgeInsets.only(top: 4),
                               child: Text(
                                 notification.title,
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.bold),
                               ),
                             ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 8),
-                        
+
                         // メッセージ
                         Text(
                           notification.message,
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
-                        
+
                         // アプリアップデートの場合はバージョン表示
-                        if (notification.type == NotificationType.appUpdate && 
+                        if (notification.type == NotificationType.appUpdate &&
                             notification.version != null) ...[
                           const SizedBox(height: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.primaryContainer,
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.primaryContainer,
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               'v${notification.version!}',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              style: Theme.of(
+                                context,
+                              ).textTheme.bodySmall?.copyWith(
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onPrimaryContainer,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                           ),
                         ],
-                        
+
                         const SizedBox(height: 12),
-                        
+
                         // フッター（日付と状態）
                         Row(
                           children: [
                             Text(
                               _formatDate(notification.createdAt),
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[600],
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                             ),
                             const Spacer(),
                             if (notification.expiresAt != null) ...[
                               Icon(
                                 Icons.schedule,
                                 size: 14,
-                                color: Colors.grey[600],
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 '${notification.expiresAt!.month}/${notification.expiresAt!.day}まで',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Colors.grey[600],
-                                ),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                               ),
                             ],
                           ],
@@ -216,13 +239,13 @@ class GlobalNotificationListScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  
+
                   // 矢印アイコン（重要通知のみ）
                   if (isImportant || notification.url != null)
                     Icon(
                       Icons.arrow_forward_ios,
                       size: 16,
-                      color: Colors.grey[400],
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                 ],
               ),
@@ -254,7 +277,7 @@ class GlobalNotificationListScreen extends ConsumerWidget {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final targetDate = DateTime(date.year, date.month, date.day);
-    
+
     if (targetDate == today) {
       return '今日 ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
     } else if (targetDate == today.subtract(const Duration(days: 1))) {
@@ -267,7 +290,11 @@ class GlobalNotificationListScreen extends ConsumerWidget {
     }
   }
 
-  void _handleNotificationTap(BuildContext context, WidgetRef ref, GlobalNotification notification) {
+  void _handleNotificationTap(
+    BuildContext context,
+    WidgetRef ref,
+    GlobalNotification notification,
+  ) {
     // 通知を既読にマーク
     ref.read(notificationActionsProvider).markAsViewed(notification.id);
 
@@ -293,83 +320,89 @@ class GlobalNotificationListScreen extends ConsumerWidget {
     }
   }
 
-  void _showAppUpdateDialog(BuildContext context, GlobalNotification notification) {
+  void _showAppUpdateDialog(
+    BuildContext context,
+    GlobalNotification notification,
+  ) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Text(notification.emoji, style: const TextStyle(fontSize: 24)),
-            const SizedBox(width: 8),
-            Expanded(child: Text(notification.title)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (notification.version != null) ...[
-              Text(
-                '最新バージョン: ${notification.version!}',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-            Text(notification.message),
-            const SizedBox(height: 16),
-            const Text(
-              'App Store または Google Play Store からアップデートしてください。',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+      builder:
+          (context) => AlertDialog(
+            title: Row(
+              children: [
+                Text(notification.emoji, style: const TextStyle(fontSize: 24)),
+                const SizedBox(width: 8),
+                Expanded(child: Text(notification.title)),
+              ],
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('後で'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('ストア連携機能は近日実装予定です'),
-                  backgroundColor: Colors.orange,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (notification.version != null) ...[
+                  Text(
+                    '最新バージョン: ${notification.version!}',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                Text(notification.message),
+                const SizedBox(height: 16),
+                 Text(
+                  'App Store または Google Play Store からアップデートしてください。',
+                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
-              );
-            },
-            icon: const Icon(Icons.system_update),
-            label: const Text('アップデート'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('後で'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                     SnackBar(
+                      content: Text('ストア連携機能は近日実装予定です'),
+                      backgroundColor: AppColors.snackBarSurface(context, Colors.orange),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.system_update),
+                label: const Text('アップデート'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
-  void _showNotificationDialog(BuildContext context, GlobalNotification notification) {
+  void _showNotificationDialog(
+    BuildContext context,
+    GlobalNotification notification,
+  ) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Text(notification.emoji, style: const TextStyle(fontSize: 24)),
-            const SizedBox(width: 8),
-            Expanded(child: Text(notification.title)),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Text(notification.message),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('閉じる'),
+      builder:
+          (context) => AlertDialog(
+            title: Row(
+              children: [
+                Text(notification.emoji, style: const TextStyle(fontSize: 24)),
+                const SizedBox(width: 8),
+                Expanded(child: Text(notification.title)),
+              ],
+            ),
+            content: SingleChildScrollView(child: Text(notification.message)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('閉じる'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -386,7 +419,7 @@ class GlobalNotificationListScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('リンクを開けませんでした: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
           ),
         );
       }
@@ -396,9 +429,9 @@ class GlobalNotificationListScreen extends ConsumerWidget {
   void _markAllAsViewed(WidgetRef ref) {
     ref.read(notificationActionsProvider).markAllAsViewed();
     ScaffoldMessenger.of(ref.context).showSnackBar(
-      const SnackBar(
+       SnackBar(
         content: Text('すべてのお知らせを既読にしました'),
-        backgroundColor: Colors.green,
+        backgroundColor: AppColors.snackBarSurface(ref.context, Colors.green),
       ),
     );
   }

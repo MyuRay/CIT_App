@@ -7,10 +7,7 @@ bool usesTsudanuma4F5AppFloorMap(CampusClassroomLocation room) {
       room.floor == 5;
 }
 
-const List<String> _kHenkakuSearchTerms = [
-  '変革センター',
-  '変革',
-];
+const List<String> _kHenkakuSearchTerms = ['変革センター', '変革'];
 
 const List<String> _kUchuHandotaiSearchTerms = [
   '宇宙・半導体工学科',
@@ -313,14 +310,7 @@ List<CampusClassroomLocation> get pilotTsudanumaBuilding4Floor5 => [
     buildingDisplayName: '4号館',
     floor: 5,
     roomCode: '040516',
-    searchTerms: [
-      '040516',
-      '40516',
-      '０４０５１６',
-      '040516号室',
-      '040516号',
-      '事務室',
-    ],
+    searchTerms: ['040516', '40516', '０４０５１６', '040516号室', '040516号', '事務室'],
     pinX: 0.63,
     pinY: 0.735,
     description: '5階・事務室',

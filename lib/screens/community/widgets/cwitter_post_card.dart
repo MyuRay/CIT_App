@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-
-
 import '../../../core/providers/user_provider.dart';
 
 import '../../../core/providers/schedule_provider.dart';
@@ -45,32 +43,15 @@ import 'cwitter_reply_sheet.dart';
 
 import '../../../screens/user_block/block_confirmation_dialog.dart';
 
-
-
 class CwitterPostCard extends ConsumerWidget {
-
-  const CwitterPostCard({
-
-    super.key,
-
-    required this.post,
-
-    this.recweet,
-
-  });
-
-
+  const CwitterPostCard({super.key, required this.post, this.recweet});
 
   final CwitterPost post;
 
   final CwitterRecweet? recweet;
 
-
-
   @override
-
   Widget build(BuildContext context, WidgetRef ref) {
-
     final theme = Theme.of(context);
 
     final colorScheme = theme.colorScheme;
@@ -89,22 +70,22 @@ class CwitterPostCard extends ConsumerWidget {
 
     final recweetOverride = ref.watch(cwitterRecweetOverrideProvider)[post.id];
 
-    final streamIsRecweeted = uid == null
-        ? false
-        : ref
-                .watch(
-                  cwitterIsRecweetedProvider(
-                    (userId: uid, postId: post.id),
-                  ),
-                )
-                .valueOrNull ??
-            false;
+    final streamIsRecweeted =
+        uid == null
+            ? false
+            : ref
+                    .watch(
+                      cwitterIsRecweetedProvider((
+                        userId: uid,
+                        postId: post.id,
+                      )),
+                    )
+                    .valueOrNull ??
+                false;
 
-    final isRecweeted =
-        recweetOverride?.isRecweeted ?? streamIsRecweeted;
+    final isRecweeted = recweetOverride?.isRecweeted ?? streamIsRecweeted;
 
-    final recweetCount =
-        recweetOverride?.recweetCount ?? post.recweetCount;
+    final recweetCount = recweetOverride?.recweetCount ?? post.recweetCount;
 
     final replyOverride = ref.watch(cwitterReplyCountOverrideProvider)[post.id];
     final streamReplyCount =
@@ -115,125 +96,93 @@ class CwitterPostCard extends ConsumerWidget {
       streamCount: streamReplyCount,
     );
 
-    ref.listen<AsyncValue<int>>(
-      cwitterPostReplyCountProvider(post.id),
-      (_, next) {
-        next.whenData((count) {
-          ref
-              .read(cwitterReplyCountOverrideProvider.notifier)
-              .syncWithCount(post.id, count);
-        });
-      },
-    );
+    ref.listen<AsyncValue<int>>(cwitterPostReplyCountProvider(post.id), (
+      _,
+      next,
+    ) {
+      next.whenData((count) {
+        ref
+            .read(cwitterReplyCountOverrideProvider.notifier)
+            .syncWithCount(post.id, count);
+      });
+    });
 
     final isOwner = uid != null && uid == post.authorId;
 
     final isAdmin = ref.watch(isAdminProvider);
 
-
-
     return Card(
-
       margin: const EdgeInsets.only(bottom: 12),
 
       elevation: 0,
 
       shape: RoundedRectangleBorder(
-
         borderRadius: BorderRadius.circular(12),
 
         side: BorderSide(
-
           color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-
         ),
-
       ),
 
       child: Padding(
-
         padding: const EdgeInsets.all(14),
 
         child: Column(
-
           crossAxisAlignment: CrossAxisAlignment.start,
 
           children: [
-
             if (recweet != null) ...[
-
               _RecweetBanner(recweet: recweet!),
 
               const SizedBox(height: 10),
-
             ],
 
             CwitterAuthorHeader.fromPost(
-
               post,
 
               trailing: Row(
-
                 mainAxisSize: MainAxisSize.min,
 
                 children: [
-
                   Text(
-
                     formatCommunityRelativeTime(post.createdAt),
 
                     style: theme.textTheme.bodySmall?.copyWith(
-
                       color: mutedColor,
-
                     ),
-
                   ),
 
                   CwitterMoreMenu(
-
                     isOwner: isOwner,
 
-                    onDeletePost: isOwner
+                    onDeletePost:
+                        isOwner
+                            ? () async {
+                              await CwitterService.deletePost(
+                                postId: post.id,
 
-                        ? () async {
+                                userId: uid,
+                              );
 
-                            await CwitterService.deletePost(
+                              ref
+                                  .read(cwitterFeedProvider.notifier)
+                                  .removePost(post.id);
+                            }
+                            : null,
 
-                              postId: post.id,
-
-                              userId: uid,
-
-                            );
-
-                            ref
-
-                                .read(cwitterFeedProvider.notifier)
-
-                                .removePost(post.id);
-
-                          }
-
-                        : null,
-
-                    onReport: isOwner
-
-                        ? null
-
-                        : () => showCwitterPostReportDialog(
-
+                    onReport:
+                        isOwner
+                            ? null
+                            : () => showCwitterPostReportDialog(
                               context,
 
                               post: post,
-
                             ),
 
-                    onBlock: isOwner
-
-                        ? null
-
-                        : () => showBlockConfirmationDialog(
-
+                    onBlock:
+                        isOwner
+                            ? null
+                            : () => showBlockConfirmationDialog(
                               context,
 
                               blockedUserId: post.authorId,
@@ -241,15 +190,12 @@ class CwitterPostCard extends ConsumerWidget {
                               blockedUserName: post.displayName,
 
                               blockedUserCwitterId: post.cwitterId,
-
                             ),
 
-                    onBan: (!isAdmin || isOwner || uid == null)
-
-                        ? null
-
-                        : () => showAdminBanDialog(
-
+                    onBan:
+                        (!isAdmin || isOwner || uid == null)
+                            ? null
+                            : () => showAdminBanDialog(
                               context,
 
                               targetUserId: post.authorId,
@@ -257,68 +203,47 @@ class CwitterPostCard extends ConsumerWidget {
                               targetLabel: '@${post.cwitterId}',
 
                               adminId: uid,
-
                             ),
-
                   ),
-
                 ],
-
               ),
-
             ),
 
             if (post.body.isNotEmpty) ...[
-
               const SizedBox(height: 12),
 
               CwitterBodyText(
                 text: post.body,
                 style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
               ),
-
             ],
 
             if (post.hasImages) ...[
-
               SizedBox(height: post.body.isNotEmpty ? 12 : 8),
 
               CwitterPostImagesGrid(
-
                 imageUrls: post.imageUrls,
 
                 heroTagPrefix: 'cwitterPost_${post.id}',
-
               ),
-
             ],
 
             if (post.hasPoll) ...[
-
-              SizedBox(
-
-                height: post.body.isNotEmpty || post.hasImages ? 12 : 8,
-
-              ),
+              SizedBox(height: post.body.isNotEmpty || post.hasImages ? 12 : 8),
 
               CwitterPollWidget(post: post),
-
             ],
 
             const SizedBox(height: 10),
 
             Align(
-
               alignment: Alignment.centerRight,
 
               child: Row(
-
                 mainAxisSize: MainAxisSize.min,
 
                 children: [
-
                   _ActionButton(
-
                     icon: Icons.chat_bubble_outline,
 
                     activeIcon: Icons.chat_bubble,
@@ -330,13 +255,11 @@ class CwitterPostCard extends ConsumerWidget {
                     activeColor: const Color(0xFF4CAF50),
 
                     onTap: () => CwitterReplySheet.show(context, post),
-
                   ),
 
                   const SizedBox(width: 16),
 
                   _ActionButton(
-
                     icon: Icons.repeat,
 
                     activeIcon: Icons.repeat,
@@ -349,77 +272,70 @@ class CwitterPostCard extends ConsumerWidget {
 
                     isActive: isRecweeted,
 
-                    onLongPress: recweetCount > 0
-
-                        ? () => CwitterReactionListSheet.show(
-
+                    onLongPress:
+                        recweetCount > 0
+                            ? () => CwitterReactionListSheet.show(
                               context,
 
                               postId: post.id,
 
                               kind: CwitterReactionListKind.recweets,
-
                             )
+                            : null,
 
-                        : null,
-
-                    onTap: uid == null ||
-
-                            appUser == null ||
-
-                            !appUser.hasCwitterId
-
-                        ? null
-
-                        : () async {
-                            final notifier = ref.read(
-                              cwitterRecweetOverrideProvider.notifier,
-                            );
-                            final nextRecweeted = !isRecweeted;
-                            final nextCount = nextRecweeted
-                                ? recweetCount + 1
-                                : (recweetCount > 0 ? recweetCount - 1 : 0);
-
-                            if (!isRecweeted) {
-                              final confirmed =
-                                  await showCwitterRecweetConfirmationDialog(
-                                context,
-                                post: post,
+                    onTap:
+                        uid == null || appUser == null || !appUser.hasCwitterId
+                            ? null
+                            : () async {
+                              final notifier = ref.read(
+                                cwitterRecweetOverrideProvider.notifier,
                               );
-                              if (!confirmed || !context.mounted) return;
-                            }
+                              final nextRecweeted = !isRecweeted;
+                              final nextCount =
+                                  nextRecweeted
+                                      ? recweetCount + 1
+                                      : (recweetCount > 0
+                                          ? recweetCount - 1
+                                          : 0);
 
-                            notifier.apply(
-                              postId: post.id,
-                              isRecweeted: nextRecweeted,
-                              recweetCount: nextCount,
-                            );
+                              if (!isRecweeted) {
+                                final confirmed =
+                                    await showCwitterRecweetConfirmationDialog(
+                                      context,
+                                      post: post,
+                                    );
+                                if (!confirmed || !context.mounted) return;
+                              }
 
-                            try {
-                              await CwitterService.toggleRecweet(
+                              notifier.apply(
                                 postId: post.id,
-                                userId: uid,
-                                displayName: appUser.displayName,
-                                cwitterId: appUser.cwitterId!,
-                                originalAuthorId: post.authorId,
-                                profileImageUrl: appUser.profileImageUrl,
+                                isRecweeted: nextRecweeted,
+                                recweetCount: nextCount,
                               );
-                            } catch (e) {
-                              notifier.revert(post.id);
-                              if (!context.mounted) return;
-                              if (maybeShowBanNotice(context, e)) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('$e')),
-                              );
-                            }
-                          },
 
+                              try {
+                                await CwitterService.toggleRecweet(
+                                  postId: post.id,
+                                  userId: uid,
+                                  displayName: appUser.displayName,
+                                  cwitterId: appUser.cwitterId!,
+                                  originalAuthorId: post.authorId,
+                                  profileImageUrl: appUser.profileImageUrl,
+                                );
+                              } catch (e) {
+                                notifier.revert(post.id);
+                                if (!context.mounted) return;
+                                if (maybeShowBanNotice(context, e)) return;
+                                ScaffoldMessenger.of(
+                                  context,
+                                ).showSnackBar(SnackBar(content: Text('$e')));
+                              }
+                            },
                   ),
 
                   const SizedBox(width: 16),
 
                   _ActionButton(
-
                     icon: Icons.favorite_border,
 
                     activeIcon: Icons.favorite,
@@ -432,145 +348,93 @@ class CwitterPostCard extends ConsumerWidget {
 
                     isActive: isLiked,
 
-                    onLongPress: likeCount > 0
-
-                        ? () => CwitterReactionListSheet.show(
-
+                    onLongPress:
+                        likeCount > 0
+                            ? () => CwitterReactionListSheet.show(
                               context,
 
                               postId: post.id,
 
                               kind: CwitterReactionListKind.likes,
-
                             )
+                            : null,
 
-                        : null,
+                    onTap:
+                        uid == null || appUser == null || !appUser.hasCwitterId
+                            ? null
+                            : () async {
+                              final notifier = ref.read(
+                                cwitterLikeOverrideProvider.notifier,
+                              );
 
-                    onTap: uid == null ||
+                              final nextLiked = !isLiked;
 
-                            appUser == null ||
+                              final nextCount =
+                                  nextLiked
+                                      ? likeCount + 1
+                                      : (likeCount > 0 ? likeCount - 1 : 0);
 
-                            !appUser.hasCwitterId
-
-                        ? null
-
-                        : () async {
-
-                            final notifier =
-
-                                ref.read(cwitterLikeOverrideProvider.notifier);
-
-                            final nextLiked = !isLiked;
-
-                            final nextCount = nextLiked
-
-                                ? likeCount + 1
-
-                                : (likeCount > 0 ? likeCount - 1 : 0);
-
-
-
-                            notifier.apply(
-
-                              postId: post.id,
-
-                              isLiked: nextLiked,
-
-                              likeCount: nextCount,
-
-                            );
-
-
-
-                            try {
-
-                              await CwitterService.toggleLike(
-
+                              notifier.apply(
                                 postId: post.id,
 
-                                userId: uid,
+                                isLiked: nextLiked,
 
-                                likerDisplayName: appUser.displayName,
-
-                                likerCwitterId: appUser.cwitterId!,
-
+                                likeCount: nextCount,
                               );
 
-                            } catch (e) {
+                              try {
+                                await CwitterService.toggleLike(
+                                  postId: post.id,
 
-                              notifier.revert(post.id);
+                                  userId: uid,
 
-                              if (!context.mounted) return;
+                                  likerDisplayName: appUser.displayName,
 
-                              ScaffoldMessenger.of(context).showSnackBar(
+                                  likerCwitterId: appUser.cwitterId!,
+                                );
+                              } catch (e) {
+                                notifier.revert(post.id);
 
-                                SnackBar(
+                                if (!context.mounted) return;
 
-                                  content: Text('いいねに失敗しました: $e'),
-
-                                ),
-
-                              );
-
-                            }
-
-                          },
-
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('いいねに失敗しました: $e')),
+                                );
+                              }
+                            },
                   ),
-
                 ],
-
               ),
-
             ),
-
           ],
-
         ),
-
       ),
-
     );
-
   }
-
 }
 
-
-
 class _RecweetBanner extends ConsumerWidget {
-
   const _RecweetBanner({required this.recweet});
-
-
 
   final CwitterRecweet recweet;
 
-
-
   @override
-
   Widget build(BuildContext context, WidgetRef ref) {
-
     final theme = Theme.of(context);
 
-    final mutedColor =
-
-        theme.colorScheme.onSurface.withValues(alpha: 0.65);
+    final mutedColor = theme.colorScheme.onSurface.withValues(alpha: 0.65);
 
     final resolvedName = resolveAuthorDisplayName(
       ref.watch(
-        authorDisplayNameProvider(
-          (authorId: recweet.userId, fallback: recweet.displayName),
-        ),
+        authorDisplayNameProvider((
+          authorId: recweet.userId,
+          fallback: recweet.displayName,
+        )),
       ),
       recweet.displayName,
     );
 
-
-
     return CwitterAuthorHeader(
-
       authorId: recweet.userId,
 
       displayName: recweet.displayName,
@@ -582,43 +446,30 @@ class _RecweetBanner extends ConsumerWidget {
       avatarRadius: 18,
 
       nameColumn: Text(
-
         '$resolvedNameさんがrecweetしました',
 
         style: theme.textTheme.bodySmall?.copyWith(
-
           color: mutedColor,
 
           fontWeight: FontWeight.w600,
-
         ),
 
         maxLines: 2,
 
         overflow: TextOverflow.ellipsis,
-
       ),
 
       trailing: Text(
-
         formatCommunityRelativeTime(recweet.recweetedAt),
 
         style: theme.textTheme.bodySmall?.copyWith(color: mutedColor),
-
       ),
-
     );
-
   }
-
 }
 
-
-
 class _ActionButton extends StatelessWidget {
-
   const _ActionButton({
-
     required this.icon,
 
     required this.activeIcon,
@@ -634,10 +485,7 @@ class _ActionButton extends StatelessWidget {
     this.onTap,
 
     this.onLongPress,
-
   });
-
-
 
   final IconData icon;
 
@@ -655,22 +503,14 @@ class _ActionButton extends StatelessWidget {
 
   final VoidCallback? onLongPress;
 
-
-
   @override
-
   Widget build(BuildContext context) {
-
     final displayColor = isActive ? activeColor : color;
 
-
-
     return Material(
-
       color: Colors.transparent,
 
       child: InkWell(
-
         onTap: onTap,
 
         onLongPress: onLongPress,
@@ -678,43 +518,27 @@ class _ActionButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
 
         child: Padding(
-
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
 
           child: Row(
-
             mainAxisSize: MainAxisSize.min,
 
             children: [
-
               Icon(isActive ? activeIcon : icon, size: 20, color: displayColor),
 
               if (count != null) ...[
-
                 const SizedBox(width: 4),
 
                 Text(
-
                   '$count',
 
                   style: TextStyle(fontSize: 13, color: displayColor),
-
                 ),
-
               ],
-
             ],
-
           ),
-
         ),
-
       ),
-
     );
-
   }
-
 }
-
-

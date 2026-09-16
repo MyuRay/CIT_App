@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -14,10 +15,7 @@ import 'cwitter_tags_row.dart';
 
 /// 指定ハッシュタグを設定しているユーザー一覧
 class CwitterHashtagUsersScreen extends ConsumerStatefulWidget {
-  const CwitterHashtagUsersScreen({
-    super.key,
-    required this.tag,
-  });
+  const CwitterHashtagUsersScreen({super.key, required this.tag});
 
   final String tag;
 
@@ -47,9 +45,10 @@ class _CwitterHashtagUsersScreenState
     try {
       final hiddenUserIds =
           ref.read(hiddenUserIdsProvider).valueOrNull ?? const {};
-      final users = (await CwitterService.fetchUsersWithHashtag(widget.tag))
-          .where((user) => !hiddenUserIds.contains(user.authorId))
-          .toList();
+      final users =
+          (await CwitterService.fetchUsersWithHashtag(
+            widget.tag,
+          )).where((user) => !hiddenUserIds.contains(user.authorId)).toList();
 
       if (!mounted) return;
       setState(() {
@@ -72,57 +71,53 @@ class _CwitterHashtagUsersScreenState
     final currentUid = ref.watch(currentUserIdProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('#${widget.tag}'),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
+      appBar: AppBar(title: Text('#${widget.tag}')),
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _errorMessage != null
               ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('読み込みに失敗しました: $_errorMessage'),
-                        const SizedBox(height: 12),
-                        FilledButton(
-                          onPressed: _loadUsers,
-                          child: const Text('再読み込み'),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : _users.isEmpty
-                  ? Center(
-                      child: Text(
-                        'このタグを設定しているユーザーはいません',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurface.withValues(alpha: 0.6),
-                        ),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('読み込みに失敗しました: $_errorMessage'),
+                      const SizedBox(height: 12),
+                      FilledButton(
+                        onPressed: _loadUsers,
+                        child: const Text('再読み込み'),
                       ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                      itemCount: _users.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        return _HashtagUserTile(
-                          user: _users[index],
-                          currentUid: currentUid,
-                        );
-                      },
-                    ),
+                    ],
+                  ),
+                ),
+              )
+              : _users.isEmpty
+              ? Center(
+                child: Text(
+                  'このタグを設定しているユーザーはいません',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              )
+              : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                itemCount: _users.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  return _HashtagUserTile(
+                    user: _users[index],
+                    currentUid: currentUid,
+                  );
+                },
+              ),
     );
   }
 }
 
 class _HashtagUserTile extends ConsumerWidget {
-  const _HashtagUserTile({
-    required this.user,
-    required this.currentUid,
-  });
+  const _HashtagUserTile({required this.user, required this.currentUid});
 
   final CwitterFollowUser user;
   final String? currentUid;
@@ -135,7 +130,7 @@ class _HashtagUserTile extends ConsumerWidget {
     final showFollowButton = !isSelf && currentUid != null;
     final tags =
         ref.watch(cwitterUserTagsProvider(user.authorId)).valueOrNull ??
-            user.tags;
+        user.tags;
 
     return Card(
       elevation: 0,
@@ -191,7 +186,7 @@ class _HashtagUserTile extends ConsumerWidget {
                     CwitterHandleText(
                       cwitterId: user.cwitterId,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF2E7D32),
+                        color: AppColors.accent(context, const Color(0xFF2E7D32)),
                       ),
                     ),
                     if (tags.isNotEmpty) ...[

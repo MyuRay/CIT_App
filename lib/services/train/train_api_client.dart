@@ -15,10 +15,8 @@ import '../../models/train/train_snapshot.dart';
 /// **APIキーが必要な場合**は、必ず自前のサーバー（Cloud Functions / Cloud Run 等）を
 /// プロキシとして置き、クライアントにはその HTTPS URL だけを設定すること。
 class TrainApiClient {
-  TrainApiClient({
-    required this.client,
-    String? baseUrl,
-  }) : baseUrl = (baseUrl ?? AppConstants.trainInfoApiBaseUrl).trim();
+  TrainApiClient({required this.client, String? baseUrl})
+    : baseUrl = (baseUrl ?? AppConstants.trainInfoApiBaseUrl).trim();
 
   final http.Client client;
   final String baseUrl;

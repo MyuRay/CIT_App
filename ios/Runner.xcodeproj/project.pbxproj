@@ -17,6 +17,11 @@
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		A1B2C3D4E5F60718293A4B5C /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5061728394A5B6C /* GoogleService-Info.plist */; };
 		F01EE702767FDD381D40E06E /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D494F7BA12D83A95399C4647 /* Pods_RunnerTests.framework */; };
+		95D17874B8A74F25A175D402 /* WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B18F840BA37C47DAB845A590 /* WidgetData.swift */; };
+		FDC53CF53E6A4BD8A072A914 /* CITWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C5B90B1EFCC45A6BEFD3106 /* CITWidgets.swift */; };
+		F1492128A9184FB5B2B11797 /* CITWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = CCB2F717A6DD4D01B0213D75 /* CITWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		E8D46E792AE8460B97C82FE1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = CDB7849232D54A828FF909D3 /* PrivacyInfo.xcprivacy */; };
+		EC0CB73A02ED46B9A815DB6E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 52996C7EED584DEBBB201017 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -26,6 +31,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
 			remoteInfo = Runner;
+		};
+		3CE35A18FF9E4E2B9F33FA19 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B7A2D01D492A4DDA94FA87D6;
+			remoteInfo = CITWidgets;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -38,6 +50,17 @@
 			files = (
 			);
 			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		28FEFAACE60144D29B94EE5E /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				F1492128A9184FB5B2B11797 /* CITWidgets.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -67,6 +90,15 @@
 		BE81480B8FCB3370F044A643 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 		D494F7BA12D83A95399C4647 /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD604B558641293E7196A570 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
+		B18F840BA37C47DAB845A590 /* WidgetData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetData.swift; sourceTree = "<group>"; };
+		5C5B90B1EFCC45A6BEFD3106 /* CITWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CITWidgets.swift; sourceTree = "<group>"; };
+		047E50E419C74235A49323C0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E68FCF5298C648C5944C710F /* CITWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CITWidgets.entitlements; sourceTree = "<group>"; };
+		8480817E79E645A7BC2A7A7F /* WidgetConfig.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = WidgetConfig.xcconfig; sourceTree = "<group>"; };
+		DCFF325070D4418981F0D10D /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
+		CCB2F717A6DD4D01B0213D75 /* CITWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CITWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		CDB7849232D54A828FF909D3 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		52996C7EED584DEBBB201017 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -83,6 +115,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				4C4271D18234F25A4A8F3537 /* Pods_Runner.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8BAF0C61167845CAB5A9E3C5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -140,6 +179,7 @@
 				331C8082294A63A400263BE5 /* RunnerTests */,
 				878B84DA5BE2E36F1B1E2AFE /* Pods */,
 				8B6CAE45CC9F46727DA74BC9 /* Frameworks */,
+				BCEE8D3DE07C43C19F0581EC /* CITWidgets */,
 			);
 			sourceTree = "<group>";
 		};
@@ -148,6 +188,7 @@
 			children = (
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
+				CCB2F717A6DD4D01B0213D75 /* CITWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -164,8 +205,23 @@
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
+				DCFF325070D4418981F0D10D /* Runner.entitlements */,
+				CDB7849232D54A828FF909D3 /* PrivacyInfo.xcprivacy */,
 			);
 			path = Runner;
+			sourceTree = "<group>";
+		};
+		BCEE8D3DE07C43C19F0581EC /* CITWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				B18F840BA37C47DAB845A590 /* WidgetData.swift */,
+				5C5B90B1EFCC45A6BEFD3106 /* CITWidgets.swift */,
+				047E50E419C74235A49323C0 /* Info.plist */,
+				E68FCF5298C648C5944C710F /* CITWidgets.entitlements */,
+				8480817E79E645A7BC2A7A7F /* WidgetConfig.xcconfig */,
+				52996C7EED584DEBBB201017 /* PrivacyInfo.xcprivacy */,
+			);
+			path = CITWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -194,6 +250,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
+				28FEFAACE60144D29B94EE5E /* Embed App Extensions */,
 				04976D4BF16984DE3C0FE259 /* [CP] Check Pods Manifest.lock */,
 				9740EEB61CF901F6004384FC /* Run Script */,
 				97C146EA1CF9000F007C117D /* Sources */,
@@ -206,11 +263,29 @@
 			buildRules = (
 			);
 			dependencies = (
+				A45CA42D39A04FC6A41995B0 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			productName = Runner;
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
 			productType = "com.apple.product-type.application";
+		};
+		B7A2D01D492A4DDA94FA87D6 /* CITWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9D5E85AEC5E142009ACAC689 /* Build configuration list for PBXNativeTarget "CITWidgets" */;
+			buildPhases = (
+				F549A3FFCC62475FB7C986D9 /* Sources */,
+				8BAF0C61167845CAB5A9E3C5 /* Frameworks */,
+				39C83C3446374DC3968362E6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CITWidgets;
+			productName = CITWidgets;
+			productReference = CCB2F717A6DD4D01B0213D75 /* CITWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -229,6 +304,19 @@
 					97C146ED1CF9000F007C117D = {
 						CreatedOnToolsVersion = 7.3.1;
 						LastSwiftMigration = 1100;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
+								enabled = 1;
+							};
+						};
+					};
+					B7A2D01D492A4DDA94FA87D6 = {
+						CreatedOnToolsVersion = 15.0;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
+								enabled = 1;
+							};
+						};
 					};
 				};
 			};
@@ -247,6 +335,7 @@
 			targets = (
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
+				B7A2D01D492A4DDA94FA87D6 /* CITWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -268,6 +357,15 @@
 				A1B2C3D4E5F60718293A4B5C /* GoogleService-Info.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
+				E8D46E792AE8460B97C82FE1 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		39C83C3446374DC3968362E6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EC0CB73A02ED46B9A815DB6E /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -386,6 +484,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F549A3FFCC62475FB7C986D9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				95D17874B8A74F25A175D402 /* WidgetData.swift in Sources */,
+				FDC53CF53E6A4BD8A072A914 /* CITWidgets.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -393,6 +500,11 @@
 			isa = PBXTargetDependency;
 			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
+		};
+		A45CA42D39A04FC6A41995B0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B7A2D01D492A4DDA94FA87D6 /* CITWidgets */;
+			targetProxy = 3CE35A18FF9E4E2B9F33FA19 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -494,6 +606,7 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 			};
 			name = Profile;
 		};
@@ -685,6 +798,7 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 			};
 			name = Debug;
 		};
@@ -714,8 +828,96 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 			};
 			name = Release;
+		};
+		B7394CA3F8AD4496A25280A3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8480817E79E645A7BC2A7A7F /* WidgetConfig.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = CITWidgets/CITWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 7D772NSCDY;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				INFOPLIST_FILE = CITWidgets/Info.plist;
+				GENERATE_INFOPLIST_FILE = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.masatomurai.citapp.CITWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		7E60B331F6534EA0A1CDDD26 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8480817E79E645A7BC2A7A7F /* WidgetConfig.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = CITWidgets/CITWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 7D772NSCDY;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				INFOPLIST_FILE = CITWidgets/Info.plist;
+				GENERATE_INFOPLIST_FILE = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.masatomurai.citapp.CITWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		C8121D7C6A154D01870EB330 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8480817E79E645A7BC2A7A7F /* WidgetConfig.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = CITWidgets/CITWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 7D772NSCDY;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				INFOPLIST_FILE = CITWidgets/Info.plist;
+				GENERATE_INFOPLIST_FILE = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.masatomurai.citapp.CITWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Profile;
 		};
 /* End XCBuildConfiguration section */
 
@@ -746,6 +948,16 @@
 				97C147061CF9000F007C117D /* Debug */,
 				97C147071CF9000F007C117D /* Release */,
 				249021D4217E4FDB00AE95B9 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9D5E85AEC5E142009ACAC689 /* Build configuration list for PBXNativeTarget "CITWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B7394CA3F8AD4496A25280A3 /* Debug */,
+				7E60B331F6534EA0A1CDDD26 /* Release */,
+				C8121D7C6A154D01870EB330 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

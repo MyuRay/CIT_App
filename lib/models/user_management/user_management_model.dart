@@ -28,8 +28,11 @@ class AppUser {
       email: json['email'] as String? ?? '',
       displayName: json['displayName'] as String?,
       // profileImageUrlとphotoURLの両方に対応
-      photoURL: json['photoURL'] as String? ?? json['profileImageUrl'] as String?,
-      lastLoginAt: _parseDateTime(json['lastLoginAt']) ?? _parseDateTime(json['updatedAt']),
+      photoURL:
+          json['photoURL'] as String? ?? json['profileImageUrl'] as String?,
+      lastLoginAt:
+          _parseDateTime(json['lastLoginAt']) ??
+          _parseDateTime(json['updatedAt']),
       createdAt: _parseDateTime(json['createdAt']) ?? DateTime.now(),
       isActive: json['isActive'] as bool? ?? true,
       metadata: json['metadata'] as Map<String, dynamic>?,
@@ -38,17 +41,17 @@ class AppUser {
 
   static DateTime? _parseDateTime(dynamic dateTime) {
     if (dateTime == null) return null;
-    
+
     // Firestore Timestamp型の場合
     if (dateTime is Timestamp) {
       return dateTime.toDate();
     }
-    
+
     // DateTime型の場合
     if (dateTime is DateTime) {
       return dateTime;
     }
-    
+
     // String型の場合
     if (dateTime is String) {
       try {
@@ -57,7 +60,7 @@ class AppUser {
         return null;
       }
     }
-    
+
     return null;
   }
 
@@ -67,7 +70,8 @@ class AppUser {
       'email': email,
       'displayName': displayName,
       'photoURL': photoURL,
-      'lastLoginAt': lastLoginAt != null ? Timestamp.fromDate(lastLoginAt!) : null,
+      'lastLoginAt':
+          lastLoginAt != null ? Timestamp.fromDate(lastLoginAt!) : null,
       'createdAt': Timestamp.fromDate(createdAt),
       'isActive': isActive,
       'metadata': metadata,
@@ -88,10 +92,10 @@ class AppUser {
   // 最終ログイン時間の表示用文字列
   String get lastLoginDisplay {
     if (lastLoginAt == null) return '未ログイン';
-    
+
     final now = DateTime.now();
     final difference = now.difference(lastLoginAt!);
-    
+
     if (difference.inMinutes < 60) {
       return '${difference.inMinutes}分前';
     } else if (difference.inHours < 24) {

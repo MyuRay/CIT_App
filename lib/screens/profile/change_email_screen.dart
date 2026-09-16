@@ -53,7 +53,9 @@ class _ChangeEmailScreenState extends ConsumerState<ChangeEmailScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final pendingEmail = await ref.read(authServiceProvider).requestEmailChange(
+      final pendingEmail = await ref
+          .read(authServiceProvider)
+          .requestEmailChange(
             currentPassword: _passwordController.text,
             newEmail: _newEmailController.text,
           );
@@ -65,14 +67,14 @@ class _ChangeEmailScreenState extends ConsumerState<ChangeEmailScreen> {
       context.go('/change-email-verification');
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_mapAuthError(e))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_mapAuthError(e))));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('メール変更の申請に失敗しました: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('メール変更の申請に失敗しました: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -129,50 +131,55 @@ class _ChangeEmailScreenState extends ConsumerState<ChangeEmailScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: sending ? null : () => Navigator.of(dialogContext).pop(),
+                  onPressed:
+                      sending ? null : () => Navigator.of(dialogContext).pop(),
                   child: const Text('キャンセル'),
                 ),
                 FilledButton(
-                  onPressed: sending
-                      ? null
-                      : () async {
-                          setDialogState(() {
-                            sending = true;
-                            errorText = null;
-                          });
-                          try {
-                            await ref.read(authServiceProvider).sendPasswordResetEmail(
-                                  email: emailController.text,
-                                );
-                            if (!dialogContext.mounted) return;
-                            Navigator.of(dialogContext).pop();
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  '再設定メールを送信しました（迷惑メールフォルダも確認してください）',
+                  onPressed:
+                      sending
+                          ? null
+                          : () async {
+                            setDialogState(() {
+                              sending = true;
+                              errorText = null;
+                            });
+                            try {
+                              await ref
+                                  .read(authServiceProvider)
+                                  .sendPasswordResetEmail(
+                                    email: emailController.text,
+                                  );
+                              if (!dialogContext.mounted) return;
+                              Navigator.of(dialogContext).pop();
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    '再設定メールを送信しました（迷惑メールフォルダも確認してください）',
+                                  ),
                                 ),
-                              ),
-                            );
-                          } on FirebaseAuthException catch (e) {
-                            setDialogState(() {
-                              sending = false;
-                              errorText = e.message ?? '送信に失敗しました';
-                            });
-                          } catch (_) {
-                            setDialogState(() {
-                              sending = false;
-                              errorText = '送信に失敗しました';
-                            });
-                          }
-                        },
-                  child: sending
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('送信'),
+                              );
+                            } on FirebaseAuthException catch (e) {
+                              setDialogState(() {
+                                sending = false;
+                                errorText = e.message ?? '送信に失敗しました';
+                              });
+                            } catch (_) {
+                              setDialogState(() {
+                                sending = false;
+                                errorText = '送信に失敗しました';
+                              });
+                            }
+                          },
+                  child:
+                      sending
+                          ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : const Text('送信'),
                 ),
               ],
             );
@@ -201,19 +208,25 @@ class _ChangeEmailScreenState extends ConsumerState<ChangeEmailScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer.withOpacity(0.35),
+                    color: colorScheme.primaryContainer.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.info_outline, size: 20, color: colorScheme.primary),
+                      Icon(
+                        Icons.info_outline,
+                        size: 20,
+                        color: colorScheme.primary,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           '大学メールのドメイン変更に対応するため、新しいCITメールアドレスへ変更できます。\n'
                           '変更には現在のパスワード入力と、新しいメールアドレスの認証が必要です。',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.4),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(height: 1.4),
                         ),
                       ),
                     ],
@@ -227,9 +240,9 @@ class _ChangeEmailScreenState extends ConsumerState<ChangeEmailScreen> {
                 const SizedBox(height: 4),
                 Text(
                   currentEmail.isEmpty ? '（取得できません）' : currentEmail,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 20),
                 TextFormField(
@@ -243,9 +256,14 @@ class _ChangeEmailScreenState extends ConsumerState<ChangeEmailScreen> {
                     suffixIcon: IconButton(
                       tooltip: _obscurePassword ? 'パスワードを表示' : 'パスワードを非表示',
                       icon: Icon(
-                        _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                        _obscurePassword
+                            ? Icons.visibility
+                            : Icons.visibility_off,
                       ),
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      onPressed:
+                          () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
                     ),
                   ),
                   validator: (value) {
@@ -288,7 +306,8 @@ class _ChangeEmailScreenState extends ConsumerState<ChangeEmailScreen> {
                           ? '新しいメールアドレスを入力してください'
                           : baseError;
                     }
-                    if (value!.trim().toLowerCase() == currentEmail.trim().toLowerCase()) {
+                    if (value!.trim().toLowerCase() ==
+                        currentEmail.trim().toLowerCase()) {
                       return '現在と同じメールアドレスです';
                     }
                     return null;
@@ -299,13 +318,14 @@ class _ChangeEmailScreenState extends ConsumerState<ChangeEmailScreen> {
                   height: 48,
                   child: FilledButton(
                     onPressed: _isLoading ? null : _submit,
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 22,
-                            width: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('確認メールを送信'),
+                    child:
+                        _isLoading
+                            ? const SizedBox(
+                              height: 22,
+                              width: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                            : const Text('確認メールを送信'),
                   ),
                 ),
               ],

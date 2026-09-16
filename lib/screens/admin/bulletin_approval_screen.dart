@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,28 +11,28 @@ class BulletinApprovalScreen extends ConsumerStatefulWidget {
   const BulletinApprovalScreen({super.key});
 
   @override
-  ConsumerState<BulletinApprovalScreen> createState() => _BulletinApprovalScreenState();
+  ConsumerState<BulletinApprovalScreen> createState() =>
+      _BulletinApprovalScreenState();
 }
 
-class _BulletinApprovalScreenState extends ConsumerState<BulletinApprovalScreen> {
+class _BulletinApprovalScreenState
+    extends ConsumerState<BulletinApprovalScreen> {
   String _selectedStatus = 'pending';
 
   @override
   Widget build(BuildContext context) {
     final adminPermissions = ref.watch(currentUserAdminProvider);
-    
+
     return adminPermissions.when(
       data: (permissions) {
         if (permissions?.isAdmin != true) {
           return Scaffold(
-            appBar: AppBar(
-              title: const Text('アクセス拒否'),
-            ),
-            body: const Center(
+            appBar: AppBar(title: const Text('アクセス拒否')),
+            body: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.block, size: 64, color: Colors.red),
+                  Icon(Icons.block, size: 64, color: AppColors.accent(context, Colors.red)),
                   SizedBox(height: 16),
                   Text(
                     '管理者権限が必要です',
@@ -40,18 +41,18 @@ class _BulletinApprovalScreenState extends ConsumerState<BulletinApprovalScreen>
                   SizedBox(height: 8),
                   Text(
                     'この画面にアクセスする権限がありません',
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ],
               ),
             ),
           );
         }
-        
+
         return Scaffold(
           appBar: AppBar(
             title: const Text('投稿申請管理'),
-            backgroundColor: Colors.orange.shade50,
+            backgroundColor: AppColors.tintedSurface(context, Colors.orange),
             actions: [
               IconButton(
                 icon: const Icon(Icons.refresh),
@@ -67,7 +68,10 @@ class _BulletinApprovalScreenState extends ConsumerState<BulletinApprovalScreen>
                 padding: const EdgeInsets.all(8.0),
                 child: Row(
                   children: [
-                    const Text('状態: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text(
+                      '状態: ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     Expanded(
                       child: SegmentedButton<String>(
                         segments: const [
@@ -103,46 +107,49 @@ class _BulletinApprovalScreenState extends ConsumerState<BulletinApprovalScreen>
           body: _buildApplicationsList(),
         );
       },
-      loading: () => Scaffold(
-        appBar: AppBar(
-          title: const Text('読み込み中...'),
-          backgroundColor: Colors.orange.shade50,
-        ),
-        body: const Center(child: CircularProgressIndicator()),
-      ),
-      error: (error, stack) => Scaffold(
-        appBar: AppBar(
-          title: const Text('エラー'),
-          backgroundColor: Colors.red.shade50,
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error, size: 64, color: Colors.red),
-              const SizedBox(height: 16),
-              Text('エラーが発生しました: $error'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  ref.invalidate(currentUserAdminProvider);
-                },
-                child: const Text('再試行'),
-              ),
-            ],
+      loading:
+          () => Scaffold(
+            appBar: AppBar(
+              title: const Text('読み込み中...'),
+              backgroundColor: AppColors.tintedSurface(context, Colors.orange),
+            ),
+            body: const Center(child: CircularProgressIndicator()),
           ),
-        ),
-      ),
+      error:
+          (error, stack) => Scaffold(
+            appBar: AppBar(
+              title: const Text('エラー'),
+              backgroundColor: AppColors.tintedSurface(context, Colors.red),
+            ),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                   Icon(Icons.error, size: 64, color: AppColors.accent(context, Colors.red)),
+                  const SizedBox(height: 16),
+                  Text('エラーが発生しました: $error'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      ref.invalidate(currentUserAdminProvider);
+                    },
+                    child: const Text('再試行'),
+                  ),
+                ],
+              ),
+            ),
+          ),
     );
   }
 
   Widget _buildApplicationsList() {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('bulletin_posts')
-          .where('approvalStatus', isEqualTo: _selectedStatus)
-          .orderBy('submittedAt', descending: true)
-          .snapshots(),
+      stream:
+          FirebaseFirestore.instance
+              .collection('bulletin_posts')
+              .where('approvalStatus', isEqualTo: _selectedStatus)
+              .orderBy('submittedAt', descending: true)
+              .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -153,7 +160,7 @@ class _BulletinApprovalScreenState extends ConsumerState<BulletinApprovalScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error, size: 64, color: Colors.red),
+                 Icon(Icons.error, size: 64, color: AppColors.accent(context, Colors.red)),
                 const SizedBox(height: 16),
                 Text('エラーが発生しました: ${snapshot.error}'),
                 const SizedBox(height: 16),
@@ -169,29 +176,29 @@ class _BulletinApprovalScreenState extends ConsumerState<BulletinApprovalScreen>
         }
 
         final docs = snapshot.data?.docs ?? [];
-        
+
         if (docs.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  _selectedStatus == 'pending' 
-                    ? Icons.pending_actions_outlined
-                    : _selectedStatus == 'approved'
-                    ? Icons.check_circle_outline
-                    : Icons.cancel_outlined,
-                  size: 64, 
-                  color: Colors.grey,
+                  _selectedStatus == 'pending'
+                      ? Icons.pending_actions_outlined
+                      : _selectedStatus == 'approved'
+                      ? Icons.check_circle_outline
+                      : Icons.cancel_outlined,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  _selectedStatus == 'pending' 
-                    ? '承認待ちの申請はありません'
-                    : _selectedStatus == 'approved'
-                    ? '承認済みの申請はありません'
-                    : '却下済みの申請はありません',
-                  style: const TextStyle(fontSize: 18, color: Colors.grey),
+                  _selectedStatus == 'pending'
+                      ? '承認待ちの申請はありません'
+                      : _selectedStatus == 'approved'
+                      ? '承認済みの申請はありません'
+                      : '却下済みの申請はありません',
+                  style: TextStyle(fontSize: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -220,7 +227,7 @@ class _BulletinApprovalScreenState extends ConsumerState<BulletinApprovalScreen>
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       children: [
-                        const Icon(Icons.error, color: Colors.red),
+                         Icon(Icons.error, color: AppColors.accent(context, Colors.red)),
                         Text('データ読み込みエラー: $e'),
                       ],
                     ),
@@ -267,11 +274,16 @@ class _BulletinApprovalScreenState extends ConsumerState<BulletinApprovalScreen>
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
+                    color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: statusColor.withOpacity(0.3)),
+                    border: Border.all(
+                      color: statusColor.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -293,38 +305,43 @@ class _BulletinApprovalScreenState extends ConsumerState<BulletinApprovalScreen>
                 if (post.approvalStatus == 'pending')
                   PopupMenuButton<String>(
                     onSelected: (value) => _handleAction(value, post),
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'approve',
-                        child: Row(
-                          children: [
-                            Icon(Icons.check, size: 16, color: Colors.green),
-                            SizedBox(width: 8),
-                            Text('承認'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'reject',
-                        child: Row(
-                          children: [
-                            Icon(Icons.close, size: 16, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('却下'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'detail',
-                        child: Row(
-                          children: [
-                            Icon(Icons.visibility, size: 16),
-                            SizedBox(width: 8),
-                            Text('詳細'),
-                          ],
-                        ),
-                      ),
-                    ],
+                    itemBuilder:
+                        (context) => [
+                           PopupMenuItem(
+                            value: 'approve',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.check,
+                                  size: 16,
+                                  color: AppColors.accent(context, Colors.green),
+                                ),
+                                SizedBox(width: 8),
+                                Text('承認'),
+                              ],
+                            ),
+                          ),
+                           PopupMenuItem(
+                            value: 'reject',
+                            child: Row(
+                              children: [
+                                Icon(Icons.close, size: 16, color: AppColors.accent(context, Colors.red)),
+                                SizedBox(width: 8),
+                                Text('却下'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'detail',
+                            child: Row(
+                              children: [
+                                Icon(Icons.visibility, size: 16),
+                                SizedBox(width: 8),
+                                Text('詳細'),
+                              ],
+                            ),
+                          ),
+                        ],
                   )
                 else
                   IconButton(
@@ -337,50 +354,56 @@ class _BulletinApprovalScreenState extends ConsumerState<BulletinApprovalScreen>
             const SizedBox(height: 12),
             Text(
               post.title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
               post.description,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.grey),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                Icon(Icons.person, size: 16, color: Colors.grey[600]),
+                Icon(Icons.person, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 const SizedBox(width: 4),
                 Text(
                   post.authorName,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
                 const SizedBox(width: 16),
-                Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                Icon(Icons.access_time, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 const SizedBox(width: 4),
                 Text(
                   '申請: ${_formatDate(post.submittedAt ?? post.createdAt)}',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                 ),
               ],
             ),
-            if (post.approvalStatus != 'pending' && post.approvedAt != null) ...[
+            if (post.approvalStatus != 'pending' &&
+                post.approvedAt != null) ...[
               const SizedBox(height: 4),
               Row(
                 children: [
                   Icon(
-                    post.approvalStatus == 'approved' ? Icons.check : Icons.close,
-                    size: 16, 
-                    color: post.approvalStatus == 'approved' ? Colors.green : Colors.red,
+                    post.approvalStatus == 'approved'
+                        ? Icons.check
+                        : Icons.close,
+                    size: 16,
+                    color:
+                        post.approvalStatus == 'approved'
+                            ? Colors.green
+                            : Colors.red,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     '${post.approvalStatus == 'approved' ? '承認' : '却下'}: ${_formatDate(post.approvedAt!)}',
                     style: TextStyle(
-                      color: post.approvalStatus == 'approved' ? Colors.green : Colors.red, 
+                      color:
+                          post.approvalStatus == 'approved'
+                              ? Colors.green
+                              : Colors.red,
                       fontSize: 12,
                     ),
                   ),
@@ -410,58 +433,59 @@ class _BulletinApprovalScreenState extends ConsumerState<BulletinApprovalScreen>
   void _showApprovalConfirmation(BulletinPost post, bool approve) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(
-              approve ? Icons.check_circle : Icons.cancel,
-              color: approve ? Colors.green : Colors.red,
+      builder:
+          (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(
+                  approve ? Icons.check_circle : Icons.cancel,
+                  color: approve ? Colors.green : Colors.red,
+                ),
+                const SizedBox(width: 8),
+                Text(approve ? '投稿を承認' : '投稿を却下'),
+              ],
             ),
-            const SizedBox(width: 8),
-            Text(approve ? '投稿を承認' : '投稿を却下'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              approve 
-                ? '「${post.title}」を承認しますか？\n承認すると投稿が公開されます。'
-                : '「${post.title}」を却下しますか？\n却下すると投稿者に通知されます。',
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  approve
+                      ? '「${post.title}」を承認しますか？\n承認すると投稿が公開されます。'
+                      : '「${post.title}」を却下しますか？\n却下すると投稿者に通知されます。',
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '投稿内容:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  post.description,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            const Text(
-              '投稿内容:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              post.description,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.grey),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('キャンセル'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('キャンセル'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _processApproval(post, approve);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: approve ? Colors.green : Colors.red,
+                  foregroundColor: AppColors.onColor(approve ? Colors.green : Colors.red),
+                ),
+                child: Text(approve ? '承認' : '却下'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _processApproval(post, approve);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: approve ? Colors.green : Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: Text(approve ? '承認' : '却下'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -491,20 +515,17 @@ class _BulletinApprovalScreenState extends ConsumerState<BulletinApprovalScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(approve ? '投稿を承認しました' : '投稿を却下しました'),
-            backgroundColor: approve ? Colors.green : Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, approve ? Colors.green : Colors.red),
           ),
         );
-        
+
         // プロバイダーを更新
         await ref.read(bulletinFeedProvider.notifier).refresh();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('処理に失敗しました: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('処理に失敗しました: $e'), backgroundColor: AppColors.snackBarSurface(context, Colors.red)),
         );
       }
     }
@@ -513,75 +534,79 @@ class _BulletinApprovalScreenState extends ConsumerState<BulletinApprovalScreen>
   void _showPostDetails(BulletinPost post) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(post.title),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildDetailRow('投稿者', post.authorName),
-              _buildDetailRow('申請日', _formatDate(post.submittedAt ?? post.createdAt)),
-              _buildDetailRow('状態', _getStatusText(post.approvalStatus)),
-              if (post.approvedAt != null)
-                _buildDetailRow(
-                  post.approvalStatus == 'approved' ? '承認日' : '却下日',
-                  _formatDate(post.approvedAt!),
-                ),
-              _buildDetailRow('カテゴリー', post.category.name),
-              if (post.expiresAt != null)
-                _buildDetailRow('有効期限', _formatDate(post.expiresAt!)),
-              _buildDetailRow('コメント許可', post.allowComments ? 'はい' : 'いいえ'),
-              if (post.pinRequested)
-                _buildDetailRow('ピン留め申請', 'あり'),
-              const SizedBox(height: 16),
-              const Text(
-                '内容:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(post.description),
-              if (post.externalUrl != null && post.externalUrl!.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                const Text(
-                  '外部リンク:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  post.externalUrl!,
-                  style: const TextStyle(
-                    color: Colors.blue,
-                    decoration: TextDecoration.underline,
+      builder:
+          (context) => AlertDialog(
+            title: Text(post.title),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildDetailRow('投稿者', post.authorName),
+                  _buildDetailRow(
+                    '申請日',
+                    _formatDate(post.submittedAt ?? post.createdAt),
                   ),
+                  _buildDetailRow('状態', _getStatusText(post.approvalStatus)),
+                  if (post.approvedAt != null)
+                    _buildDetailRow(
+                      post.approvalStatus == 'approved' ? '承認日' : '却下日',
+                      _formatDate(post.approvedAt!),
+                    ),
+                  _buildDetailRow('カテゴリー', post.category.name),
+                  if (post.expiresAt != null)
+                    _buildDetailRow('有効期限', _formatDate(post.expiresAt!)),
+                  _buildDetailRow('コメント許可', post.allowComments ? 'はい' : 'いいえ'),
+                  if (post.pinRequested) _buildDetailRow('ピン留め申請', 'あり'),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '内容:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(post.description),
+                  if (post.externalUrl != null &&
+                      post.externalUrl!.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      '外部リンク:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      post.externalUrl!,
+                      style: TextStyle(
+                        color: AppColors.accent(context, Colors.blue),
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('閉じる'),
+              ),
+              if (post.approvalStatus == 'pending') ...[
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showApprovalConfirmation(post, false);
+                  },
+                  child: Text('却下', style: TextStyle(color: AppColors.accent(context, Colors.red))),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showApprovalConfirmation(post, true);
+                  },
+                  child: const Text('承認'),
                 ),
               ],
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('閉じる'),
-          ),
-          if (post.approvalStatus == 'pending') ...[
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _showApprovalConfirmation(post, false);
-              },
-              child: const Text('却下', style: TextStyle(color: Colors.red)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _showApprovalConfirmation(post, true);
-              },
-              child: const Text('承認'),
-            ),
-          ],
-        ],
-      ),
     );
   }
 
@@ -598,9 +623,7 @@ class _BulletinApprovalScreenState extends ConsumerState<BulletinApprovalScreen>
               style: const TextStyle(fontWeight: FontWeight.w500),
             ),
           ),
-          Expanded(
-            child: Text(value),
-          ),
+          Expanded(child: Text(value)),
         ],
       ),
     );

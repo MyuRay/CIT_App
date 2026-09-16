@@ -36,6 +36,6 @@ class CwitterTagsOverrideNotifier
 }
 
 final cwitterTagsOverrideProvider = StateNotifierProvider<
-    CwitterTagsOverrideNotifier, Map<String, List<String>>>(
-  (ref) => CwitterTagsOverrideNotifier(),
-);
+  CwitterTagsOverrideNotifier,
+  Map<String, List<String>>
+>((ref) => CwitterTagsOverrideNotifier());

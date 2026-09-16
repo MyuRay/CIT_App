@@ -28,13 +28,13 @@ class CafeteriaMenuItemImage extends StatelessWidget {
       return Container(
         width: width,
         height: height,
-        color: Colors.grey.shade200,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         child: Center(
           child: Text(
             placeholder,
             style: TextStyle(
               fontSize: fontSize,
-              color: Colors.grey.shade500,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -60,12 +60,12 @@ class CafeteriaMenuItemImage extends StatelessWidget {
       errorWidget: Container(
         width: width,
         height: height,
-        color: Colors.grey.shade200,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         child: Center(
           child: Icon(
             Icons.image_not_supported,
             size: fontSize + 4,
-            color: Colors.grey,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
       ),

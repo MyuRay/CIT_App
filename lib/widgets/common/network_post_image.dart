@@ -35,8 +35,9 @@ class NetworkPostImage extends StatelessWidget {
           if (loadingProgress == null) return child;
           return placeholder ?? _defaultPlaceholder();
         },
-        errorBuilder: (context, error, stackTrace) =>
-            errorWidget ?? _defaultErrorWidget(),
+        errorBuilder:
+            (context, error, stackTrace) =>
+                errorWidget ?? _defaultErrorWidget(),
       );
     }
 
@@ -111,9 +112,10 @@ class NetworkPostImageFullscreen extends StatelessWidget {
             borderColor: Colors.white24,
           );
         },
-        errorBuilder: (context, error, stackTrace) =>
-            errorWidget ??
-            const Icon(Icons.broken_image_outlined, color: Colors.white54),
+        errorBuilder:
+            (context, error, stackTrace) =>
+                errorWidget ??
+                const Icon(Icons.broken_image_outlined, color: Colors.white54),
       );
     }
 
@@ -128,7 +130,8 @@ class NetworkPostImageFullscreen extends StatelessWidget {
         borderRadius: 12,
         borderColor: Colors.white24,
       ),
-      errorWidget: errorWidget ??
+      errorWidget:
+          errorWidget ??
           const Icon(Icons.broken_image_outlined, color: Colors.white54),
     );
   }

@@ -8,6 +8,7 @@ class NarashinoAssetFloorPlanImage extends StatelessWidget {
   const NarashinoAssetFloorPlanImage({
     super.key,
     required this.assetPath,
+
     /// 全画面など：与えられた幅・高さの矩形内に図全体が収まる（`contain`）。
     this.fitWholeInViewport = false,
   });
@@ -86,7 +87,11 @@ class _NarashinoFloorPlanLoadError extends StatelessWidget {
         '$assetPath\n'
         'を配置し、`flutter pub get` のあとアプリを再起動してください。'
         '$detail',
-        style: TextStyle(color: Colors.grey.shade900, fontSize: 13, height: 1.35),
+        style: TextStyle(
+          color: Colors.grey.shade900,
+          fontSize: 13,
+          height: 1.35,
+        ),
       ),
     );
   }
@@ -151,9 +156,7 @@ class NarashinoAssetFloorMapThumbnail extends StatelessWidget {
                   alignment: Alignment.center,
                   child: SizedBox(
                     width: 400,
-                    child: NarashinoAssetFloorPlanImage(
-                      assetPath: assetPath,
-                    ),
+                    child: NarashinoAssetFloorPlanImage(assetPath: assetPath),
                   ),
                 ),
               ),
@@ -184,11 +187,12 @@ void showNarashinoAssetFloorPlanFullScreen(
 /// `fullScreenTitle` が「キャンパス名 · …」形式のとき、上部に複数行で表示する用。
 Widget _fullscreenFloorTitleColumn(String fullScreenTitle) {
   final sep = RegExp(r'\s*[·•･]\s*');
-  final parts = fullScreenTitle
-      .split(sep)
-      .map((s) => s.trim())
-      .where((s) => s.isNotEmpty)
-      .toList();
+  final parts =
+      fullScreenTitle
+          .split(sep)
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
 
   if (parts.length < 2) {
     return Text(fullScreenTitle, maxLines: 3, overflow: TextOverflow.ellipsis);
@@ -261,8 +265,10 @@ class _NarashinoAssetFloorPlanFullscreen extends StatelessWidget {
                 minScale: 0.55,
                 maxScale: 4.0,
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   child: NarashinoAssetFloorPlanImage(
                     assetPath: assetPath,
                     fitWholeInViewport: true,

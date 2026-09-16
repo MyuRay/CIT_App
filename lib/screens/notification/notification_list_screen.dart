@@ -1,3 +1,6 @@
+import '../../widgets/notification/notification_card.dart';
+import '../../core/theme/app_colors.dart';
+import 'package:cit_app/core/utils/logger.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -14,29 +17,26 @@ import '../../core/providers/auth_provider.dart';
 
 class NotificationListScreen extends ConsumerWidget {
   final bool showAppBar;
-  
-  const NotificationListScreen({
-    super.key, 
-    this.showAppBar = true,
-  });
+
+  const NotificationListScreen({super.key, this.showAppBar = true});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    print('📱 NotificationListScreen build開始');
+    SecureLogger.debug('📱 NotificationListScreen build開始');
     final authState = ref.watch(authStateProvider);
-    
+
     return authState.when(
       data: (user) {
-        print('👤 認証データ取得: ${user?.uid ?? "null"}');
+        SecureLogger.debug('👤 認証データ取得: ${user?.uid ?? "null"}');
         if (user == null) {
-          print('⚠️ ユーザーがログインしていません');
+          SecureLogger.debug('⚠️ ユーザーがログインしていません');
           return Scaffold(
             appBar: showAppBar ? AppBar(title: const Text('通知')) : null,
-            body: const Center(
+            body: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.login, size: 64, color: Colors.grey),
+                  Icon(Icons.login, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   SizedBox(height: 16),
                   Text('ログインが必要です'),
                 ],
@@ -44,12 +44,12 @@ class NotificationListScreen extends ConsumerWidget {
             ),
           );
         }
-        
-        print('✅ 通知画面を構築中 - ユーザーID: ${user.uid}');
+
+        SecureLogger.debug('✅ 通知画面を構築中 - ユーザーID: ${user.uid}');
         return _buildNotificationScreen(context, ref, user.uid);
       },
       loading: () {
-        print('⏳ 認証データを読み込み中...');
+        SecureLogger.debug('⏳ 認証データを読み込み中...');
         return Scaffold(
           appBar: showAppBar ? AppBar(title: const Text('通知')) : null,
           body: const Center(
@@ -65,20 +65,20 @@ class NotificationListScreen extends ConsumerWidget {
         );
       },
       error: (error, stack) {
-        print('❌ 認証エラー: $error');
+        SecureLogger.debug('❌ 認証エラー: $error');
         return Scaffold(
           appBar: showAppBar ? AppBar(title: const Text('通知')) : null,
           body: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error, size: 64, color: Colors.red),
+                 Icon(Icons.error, size: 64, color: AppColors.accent(context, Colors.red)),
                 const SizedBox(height: 16),
                 Text('認証エラー: $error'),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () {
-                    print('🔄 認証プロバイダーを再読み込み');
+                    SecureLogger.debug('🔄 認証プロバイダーを再読み込み');
                     ref.invalidate(authStateProvider);
                   },
                   child: const Text('再試行'),
@@ -90,41 +90,49 @@ class NotificationListScreen extends ConsumerWidget {
       },
     );
   }
-  
-  Widget _buildNotificationScreen(BuildContext context, WidgetRef ref, String userId) {
-    print('🔔 _buildNotificationScreen開始 - ユーザーID: $userId');
-    
+
+  Widget _buildNotificationScreen(
+    BuildContext context,
+    WidgetRef ref,
+    String userId,
+  ) {
+    SecureLogger.debug('🔔 _buildNotificationScreen開始 - ユーザーID: $userId');
+
     try {
       final notificationsAsync = ref.watch(userNotificationsProvider(userId));
-      print('📋 通知プロバイダーを監視中...');
+      SecureLogger.debug('📋 通知プロバイダーを監視中...');
 
       return Scaffold(
-        appBar: showAppBar ? AppBar(
-          title: const Text('通知'),
-          actions: [
-            // テスト用ボタン
-            IconButton(
-              icon: const Icon(Icons.add_alert),
-              onPressed: () => _createTestNotification(context, ref, userId),
-              tooltip: 'テスト通知作成',
-            ),
-            IconButton(
-              tooltip: '全て既読',
-              icon: const Icon(Icons.done_all),
-              onPressed: () => _markAllAsRead(context, ref, userId),
-            ),
-          ],
-        ) : null,
+        appBar:
+            showAppBar
+                ? AppBar(
+                  title: const Text('通知'),
+                  actions: [
+                    // テスト用ボタン
+                    IconButton(
+                      icon: const Icon(Icons.add_alert),
+                      onPressed:
+                          () => _createTestNotification(context, ref, userId),
+                      tooltip: 'テスト通知作成',
+                    ),
+                    IconButton(
+                      tooltip: '全て既読',
+                      icon: const Icon(Icons.done_all),
+                      onPressed: () => _markAllAsRead(context, ref, userId),
+                    ),
+                  ],
+                )
+                : null,
         body: notificationsAsync.when(
           data: (notifications) {
-            print('📋 通知データ受信成功: ${notifications.length}件');
+            SecureLogger.debug('📋 通知データ受信成功: ${notifications.length}件');
             if (notifications.isNotEmpty) {
-              print('📝 最初の通知: ${notifications.first.title}');
+              SecureLogger.debug('📝 最初の通知: ${notifications.first.title}');
             }
             return _buildNotificationsList(context, ref, notifications);
           },
           loading: () {
-            print('⏳ 通知データ読み込み中... (ユーザーID: $userId)');
+            SecureLogger.debug('⏳ 通知データ読み込み中... (ユーザーID: $userId)');
             return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -137,13 +145,13 @@ class NotificationListScreen extends ConsumerWidget {
             );
           },
           error: (error, stack) {
-            print('❌ 通知読み込みエラー: $error');
-            print('❌ エラースタック: $stack');
+            SecureLogger.debug('❌ 通知読み込みエラー: $error');
+            SecureLogger.debug('❌ エラースタック: $stack');
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error, size: 64, color: Colors.red),
+                   Icon(Icons.error, size: 64, color: AppColors.accent(context, Colors.red)),
                   const SizedBox(height: 16),
                   const Text('通知の読み込みに失敗しました'),
                   const SizedBox(height: 8),
@@ -151,7 +159,7 @@ class NotificationListScreen extends ConsumerWidget {
                     padding: const EdgeInsets.all(12),
                     margin: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
+                      color: Colors.red.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -162,7 +170,7 @@ class NotificationListScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {
-                      print('🔄 通知プロバイダーを再読み込み');
+                      SecureLogger.debug('🔄 通知プロバイダーを再読み込み');
                       ref.invalidate(userNotificationsProvider(userId));
                     },
                     child: const Text('再読み込み'),
@@ -174,15 +182,15 @@ class NotificationListScreen extends ConsumerWidget {
         ),
       );
     } catch (e, stackTrace) {
-      print('❌ _buildNotificationScreenで例外発生: $e');
-      print('❌ スタックトレース: $stackTrace');
+      SecureLogger.debug('❌ _buildNotificationScreenで例外発生: $e');
+      SecureLogger.debug('❌ スタックトレース: $stackTrace');
       return Scaffold(
         appBar: AppBar(title: const Text('通知')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error, size: 64, color: Colors.red),
+               Icon(Icons.error, size: 64, color: AppColors.accent(context, Colors.red)),
               const SizedBox(height: 16),
               const Text('通知画面の読み込みでエラーが発生しました'),
               const SizedBox(height: 8),
@@ -190,7 +198,7 @@ class NotificationListScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(12),
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -205,13 +213,17 @@ class NotificationListScreen extends ConsumerWidget {
     }
   }
 
-  Widget _buildNotificationsList(BuildContext context, WidgetRef ref, List<AppNotification> notifications) {
+  Widget _buildNotificationsList(
+    BuildContext context,
+    WidgetRef ref,
+    List<AppNotification> notifications,
+  ) {
     if (notifications.isEmpty) {
-      return const Center(
+      return  Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.notifications_none, size: 64, color: Colors.grey),
+            Icon(Icons.notifications_none, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
             SizedBox(height: 16),
             Text('通知はありません'),
           ],
@@ -229,142 +241,29 @@ class NotificationListScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildNotificationCard(BuildContext context, WidgetRef ref, AppNotification notification) {
-    return Card(
-      color: notification.isRead ? null : Colors.blue.shade50,
-      child: ListTile(
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: _getNotificationColor(notification.type).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Icon(
-            _getNotificationIcon(notification.type),
-            color: _getNotificationColor(notification.type),
-            size: 20,
-          ),
-        ),
-        title: Text(
-          notification.title,
-          style: TextStyle(
-            fontWeight: notification.isRead ? FontWeight.normal : FontWeight.bold,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(
-              notification.message,
-              style: TextStyle(
-                color: notification.isRead ? Colors.grey[600] : Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              notification.timeAgo,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[500],
-              ),
-            ),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 既読/未読切り替えボタン
-            if (!notification.isRead)
-              IconButton(
-                icon: const Icon(Icons.mark_email_read, color: Colors.blue),
-                onPressed: () => _markAsRead(context, ref, notification.id),
-                tooltip: '既読にする',
-              ),
-            // 削除ボタン
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: () => _showDeleteConfirmDialog(context, ref, notification),
-              tooltip: '通知を削除',
-            ),
-          ],
-        ),
-        onTap: () => _handleNotificationTap(context, ref, notification),
-      ),
+  Widget _buildNotificationCard(
+    BuildContext context,
+    WidgetRef ref,
+    AppNotification notification,
+  ) {
+    return NotificationCard(
+      notification: notification,
+      onTap: () => _handleNotificationTap(context, ref, notification),
+      onMarkRead: () => _markAsRead(context, ref, notification.id),
+      onDelete: () => _showDeleteConfirmDialog(context, ref, notification),
     );
   }
 
-  IconData _getNotificationIcon(NotificationType type) {
-    switch (type) {
-      case NotificationType.comment:
-        return Icons.comment;
-      case NotificationType.reply:
-        return Icons.reply;
-      case NotificationType.like:
-        return Icons.thumb_up;
-      case NotificationType.follow:
-        return Icons.person_add;
-      case NotificationType.postApproved:
-        return Icons.check_circle;
-      case NotificationType.postRejected:
-        return Icons.cancel;
-      case NotificationType.pinApproved:
-        return Icons.push_pin;
-      case NotificationType.pinRejected:
-        return Icons.push_pin_outlined;
-      case NotificationType.system:
-        return Icons.info;
-      case NotificationType.appUpdate:
-        return Icons.system_update;
-      case NotificationType.maintenance:
-        return Icons.build;
-      case NotificationType.important:
-        return Icons.priority_high;
-      case NotificationType.general:
-        return Icons.campaign;
-      case NotificationType.feature:
-        return Icons.new_releases;
-    }
-  }
-
-  Color _getNotificationColor(NotificationType type) {
-    switch (type) {
-      case NotificationType.comment:
-        return Colors.blue;
-      case NotificationType.reply:
-        return Colors.green;
-      case NotificationType.like:
-        return Colors.red;
-      case NotificationType.follow:
-        return const Color(0xFF4CAF50);
-      case NotificationType.postApproved:
-        return Colors.green;
-      case NotificationType.postRejected:
-        return Colors.red;
-      case NotificationType.pinApproved:
-        return Colors.blue;
-      case NotificationType.pinRejected:
-        return Colors.orange;
-      case NotificationType.system:
-        return Colors.orange;
-      case NotificationType.appUpdate:
-        return Colors.purple;
-      case NotificationType.maintenance:
-        return Colors.amber;
-      case NotificationType.important:
-        return Colors.red;
-      case NotificationType.general:
-        return Colors.blue;
-      case NotificationType.feature:
-        return Colors.teal;
-    }
-  }
-
-  Future<void> _handleNotificationTap(BuildContext context, WidgetRef ref, AppNotification notification) async {
+  Future<void> _handleNotificationTap(
+    BuildContext context,
+    WidgetRef ref,
+    AppNotification notification,
+  ) async {
     // 未読の場合は既読にする
     if (!notification.isRead) {
-      await ref.read(notificationNotifierProvider.notifier).markAsRead(notification.id);
+      await ref
+          .read(notificationNotifierProvider.notifier)
+          .markAsRead(notification.id);
     }
 
     final source = notification.data?['source'] as String?;
@@ -397,10 +296,11 @@ class NotificationListScreen extends ConsumerWidget {
     String threadId,
   ) async {
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('chiba_channel_threads')
-          .doc(threadId)
-          .get();
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('chiba_channel_threads')
+              .doc(threadId)
+              .get();
       if (!doc.exists) {
         if (context.mounted) {
           context.go('/home?tab=community');
@@ -446,28 +346,34 @@ class NotificationListScreen extends ConsumerWidget {
     if (!context.mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => CwitterProfileScreen(
-          user: CwitterProfileUser(
-            authorId: fromUserId,
-            displayName: notification.fromUserName ?? 'Unknown',
-            cwitterId: cwitterId,
-          ),
-        ),
+        builder:
+            (_) => CwitterProfileScreen(
+              user: CwitterProfileUser(
+                authorId: fromUserId,
+                displayName: notification.fromUserName ?? 'Unknown',
+                cwitterId: cwitterId,
+              ),
+            ),
       ),
     );
   }
 
-  Future<void> _navigateToPost(BuildContext context, WidgetRef ref, String postId) async {
+  Future<void> _navigateToPost(
+    BuildContext context,
+    WidgetRef ref,
+    String postId,
+  ) async {
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('bulletin_posts')
-          .doc(postId)
-          .get();
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('bulletin_posts')
+              .doc(postId)
+              .get();
       if (!doc.exists || doc.data() == null) {
         throw StateError('投稿が見つかりません');
       }
       final post = BulletinPost.fromJson({'id': doc.id, ...doc.data()!});
-      
+
       if (context.mounted) {
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -480,127 +386,132 @@ class NotificationListScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('投稿の表示に失敗しました: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
           ),
         );
       }
     }
   }
 
-  Future<void> _markAsRead(BuildContext context, WidgetRef ref, String notificationId) async {
+  Future<void> _markAsRead(
+    BuildContext context,
+    WidgetRef ref,
+    String notificationId,
+  ) async {
     try {
-      print('📝 通知を既読にします: $notificationId');
-      await ref.read(notificationNotifierProvider.notifier).markAsRead(notificationId);
-      
+      SecureLogger.debug('📝 通知を既読にします: $notificationId');
+      await ref
+          .read(notificationNotifierProvider.notifier)
+          .markAsRead(notificationId);
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+           SnackBar(
             content: Text('通知を既読にしました'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.green),
             duration: Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
-      print('❌ 通知既読化エラー: $e');
+      SecureLogger.debug('❌ 通知既読化エラー: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('既読化に失敗しました: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
           ),
         );
       }
     }
   }
 
-  Future<void> _showDeleteConfirmDialog(BuildContext context, WidgetRef ref, AppNotification notification) async {
+  Future<void> _showDeleteConfirmDialog(
+    BuildContext context,
+    WidgetRef ref,
+    AppNotification notification,
+  ) async {
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.delete, color: Colors.red),
-            SizedBox(width: 8),
-            Text('通知を削除'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('この通知を削除しますか？'),
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+      builder:
+          (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.delete, color: AppColors.accent(context, Colors.red)),
+                SizedBox(width: 8),
+                Text('通知を削除'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('この通知を削除しますか？'),
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        _getNotificationIcon(notification.type),
-                        size: 16,
-                        color: _getNotificationColor(notification.type),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          notification.title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                      Row(
+                        children: [
+                          Icon(
+                            NotificationCard.iconFor(notification.type),
+                            size: 16,
+                            color: AppColors.accent(context, NotificationCard.colorFor(notification.type)),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              notification.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        notification.message,
+                        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        notification.timeAgo,
+                        style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    notification.message,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    notification.timeAgo,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey[500],
-                    ),
-                  ),
-                ],
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('キャンセル'),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: AppColors.onColor(Colors.red),
+                ),
+                child: const Text('削除'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('削除'),
-          ),
-        ],
-      ),
     );
 
     if (result == true) {
@@ -608,50 +519,59 @@ class NotificationListScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _deleteNotification(BuildContext context, WidgetRef ref, String notificationId) async {
+  Future<void> _deleteNotification(
+    BuildContext context,
+    WidgetRef ref,
+    String notificationId,
+  ) async {
     try {
-      print('🗑️ 通知を削除します: $notificationId');
-      
+      SecureLogger.debug('🗑️ 通知を削除します: $notificationId');
+
       // ローディング表示
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+           SnackBar(
             content: Row(
               children: [
                 SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 ),
                 SizedBox(width: 12),
                 Text('通知を削除中...'),
               ],
             ),
-            backgroundColor: Colors.blue,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.blue),
             duration: Duration(seconds: 2),
           ),
         );
       }
-      
-      await ref.read(notificationNotifierProvider.notifier).deleteNotification(notificationId);
-      
+
+      await ref
+          .read(notificationNotifierProvider.notifier)
+          .deleteNotification(notificationId);
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+           SnackBar(
             content: Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.white),
+                Icon(Icons.check_circle, color: Theme.of(context).colorScheme.onInverseSurface),
                 SizedBox(width: 8),
                 Text('通知を削除しました'),
               ],
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.green),
             duration: Duration(seconds: 3),
           ),
         );
       }
     } catch (e) {
-      print('❌ 通知削除エラー: $e');
+      SecureLogger.debug('❌ 通知削除エラー: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -659,9 +579,9 @@ class NotificationListScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                 Row(
                   children: [
-                    Icon(Icons.error_outline, color: Colors.white),
+                    Icon(Icons.error_outline, color: Theme.of(context).colorScheme.onInverseSurface),
                     SizedBox(width: 8),
                     Text('通知の削除に失敗しました'),
                   ],
@@ -669,16 +589,17 @@ class NotificationListScreen extends ConsumerWidget {
                 const SizedBox(height: 4),
                 Text(
                   'エラー: $e',
-                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onInverseSurface),
                 ),
               ],
             ),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
             duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: '再試行',
-              textColor: Colors.white,
-              onPressed: () => _deleteNotification(context, ref, notificationId),
+              textColor: Theme.of(context).colorScheme.onInverseSurface,
+              onPressed:
+                  () => _deleteNotification(context, ref, notificationId),
             ),
           ),
         );
@@ -686,68 +607,80 @@ class NotificationListScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _markAllAsRead(BuildContext context, WidgetRef ref, String userId) async {
+  Future<void> _markAllAsRead(
+    BuildContext context,
+    WidgetRef ref,
+    String userId,
+  ) async {
     try {
-      await ref.read(notificationNotifierProvider.notifier).markAllAsRead(userId);
+      await ref
+          .read(notificationNotifierProvider.notifier)
+          .markAllAsRead(userId);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+           SnackBar(
             content: Text('全ての通知を既読にしました'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.green),
           ),
         );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('操作に失敗しました: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('操作に失敗しました: $e'), backgroundColor: AppColors.snackBarSurface(context, Colors.red)),
         );
       }
     }
   }
-  
-  Future<void> _createTestNotification(BuildContext context, WidgetRef ref, String userId) async {
+
+  Future<void> _createTestNotification(
+    BuildContext context,
+    WidgetRef ref,
+    String userId,
+  ) async {
     try {
-      print('🧪 テスト通知作成ボタンが押されました - ユーザー: $userId');
-      
+      SecureLogger.debug('🧪 テスト通知作成ボタンが押されました - ユーザー: $userId');
+
       // ローディング表示
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+           SnackBar(
             content: Text('テスト通知を作成中...'),
-            backgroundColor: Colors.blue,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.blue),
             duration: Duration(seconds: 2),
           ),
         );
       }
-      
+
       await ref.read(createTestNotificationProvider(userId).future);
-      
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('テスト通知を作成しました！'),
-            backgroundColor: Colors.green,
+           SnackBar(
+            content: Text('テスト通知を作成しました'),
+            backgroundColor: AppColors.snackBarSurface(context, Colors.green),
           ),
         );
       }
     } catch (e) {
-      print('❌ テスト通知作成エラー: $e');
+      SecureLogger.debug('❌ テスト通知作成エラー: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('テスト通知の作成に失敗しました: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
           ),
         );
       }
     }
   }
 
-  Future<void> _handleAppBarAction(BuildContext context, WidgetRef ref, String userId, String action) async {
+  Future<void> _handleAppBarAction(
+    BuildContext context,
+    WidgetRef ref,
+    String userId,
+    String action,
+  ) async {
     switch (action) {
       case 'mark_all_read':
         await _markAllAsRead(context, ref, userId);
@@ -758,60 +691,55 @@ class NotificationListScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _showDeleteAllConfirmDialog(BuildContext context, WidgetRef ref, String userId) async {
+  Future<void> _showDeleteAllConfirmDialog(
+    BuildContext context,
+    WidgetRef ref,
+    String userId,
+  ) async {
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.delete_sweep, color: Colors.red),
-            SizedBox(width: 8),
-            Text('全通知を削除'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.warning,
-              size: 48,
-              color: Colors.orange,
+      builder:
+          (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.delete_sweep, color: AppColors.accent(context, Colors.red)),
+                SizedBox(width: 8),
+                Text('全通知を削除'),
+              ],
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'すべての通知を削除しますか？',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                 Icon(Icons.warning, size: 48, color: AppColors.accent(context, Colors.orange)),
+                const SizedBox(height: 16),
+                const Text(
+                  'すべての通知を削除しますか？',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'この操作は元に戻せません。\n既読・未読を問わず、すべての通知が削除されます。',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('キャンセル'),
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'この操作は元に戻せません。\n既読・未読を問わず、すべての通知が削除されます。',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 14,
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: AppColors.onColor(Colors.red),
+                ),
+                child: const Text('全て削除'),
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('全て削除'),
-          ),
-        ],
-      ),
     );
 
     if (result == true) {
@@ -819,50 +747,57 @@ class NotificationListScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _deleteAllNotifications(BuildContext context, WidgetRef ref, String userId) async {
+  Future<void> _deleteAllNotifications(
+    BuildContext context,
+    WidgetRef ref,
+    String userId,
+  ) async {
     try {
-      print('🗑️ 全通知を削除します: $userId');
-      
+      SecureLogger.debug('🗑️ 全通知を削除します: $userId');
+
       // ローディング表示
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+           SnackBar(
             content: Row(
               children: [
                 SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 ),
                 SizedBox(width: 12),
                 Text('全通知を削除中...'),
               ],
             ),
-            backgroundColor: Colors.blue,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.blue),
             duration: Duration(seconds: 5),
           ),
         );
       }
-      
+
       await ref.read(deleteAllNotificationsProvider(userId).future);
-      
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+           SnackBar(
             content: Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.white),
+                Icon(Icons.check_circle, color: Theme.of(context).colorScheme.onInverseSurface),
                 SizedBox(width: 8),
                 Text('全ての通知を削除しました'),
               ],
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.green),
             duration: Duration(seconds: 3),
           ),
         );
       }
     } catch (e) {
-      print('❌ 全通知削除エラー: $e');
+      SecureLogger.debug('❌ 全通知削除エラー: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -870,9 +805,9 @@ class NotificationListScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                 Row(
                   children: [
-                    Icon(Icons.error_outline, color: Colors.white),
+                    Icon(Icons.error_outline, color: Theme.of(context).colorScheme.onInverseSurface),
                     SizedBox(width: 8),
                     Text('全通知の削除に失敗しました'),
                   ],
@@ -880,15 +815,15 @@ class NotificationListScreen extends ConsumerWidget {
                 const SizedBox(height: 4),
                 Text(
                   'エラー: $e',
-                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onInverseSurface),
                 ),
               ],
             ),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
             duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: '再試行',
-              textColor: Colors.white,
+              textColor: Theme.of(context).colorScheme.onInverseSurface,
               onPressed: () => _deleteAllNotifications(context, ref, userId),
             ),
           ),

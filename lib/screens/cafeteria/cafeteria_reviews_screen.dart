@@ -1,4 +1,5 @@
-import 'package:characters/characters.dart';
+import '../../widgets/cafeteria/cafeteria_rating_star.dart';
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../widgets/common/interactive_viewer_double_tap_zoom.dart';
@@ -7,8 +8,8 @@ import '../../widgets/cafeteria/cafeteria_menu_item_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/providers/cafeteria_review_provider.dart';
 import '../../models/cafeteria/cafeteria_review_model.dart';
-import 'cafeteria_review_form_screen.dart';
 import '../../core/providers/cafeteria_menu_provider.dart';
+import '../../core/providers/cafeteria_popularity_provider.dart';
 import '../../models/cafeteria/cafeteria_menu_item_model.dart';
 import '../../core/providers/firebase_menu_provider.dart';
 import 'cafeteria_menu_reviews_screen.dart';
@@ -17,13 +18,9 @@ import '../../core/providers/in_app_ad_provider.dart';
 import '../../models/ads/in_app_ad_model.dart';
 import '../../widgets/ads/in_app_ad_card.dart';
 import '../../core/providers/settings_provider.dart';
-import '../../core/providers/cafeteria_favorite_provider.dart';
-import '../../services/cafeteria/cafeteria_favorite_service.dart';
 
-final _menuFavoriteUserCountProvider =
-    FutureProvider.family<int, String>((ref, menuItemId) async {
-  return CafeteriaFavoriteService.getMenuFavoriteUserCount(menuItemId);
-});
+import '../../models/cafeteria/cafeteria_favorite_target.dart';
+import '../../widgets/cafeteria/cafeteria_favorite_button.dart';
 
 String? _campusCodeFromCafeteriaId(String cafeteriaId) {
   switch (cafeteriaId) {
@@ -303,7 +300,7 @@ class _ReviewsListState extends ConsumerState<_ReviewsList> {
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: 'メニュー名で検索（${campusName}のみ）',
+                  hintText: 'メニュー名で検索（$campusNameのみ）',
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon:
                       _query.isNotEmpty
@@ -372,12 +369,18 @@ class _MenuCardsList extends ConsumerStatefulWidget {
 class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
   final _searchController = TextEditingController();
   String _query = '';
-  String _sortOption = 'popular_desc';
+  String _sortOption = 'recommend_desc';
+  String _popularityKeys = '';
+
+  bool get _sortByFavorites =>
+      _sortOption == 'popular_desc' || _sortOption == 'popular_asc';
 
   Future<void> _refresh() async {
     await Future.wait([
       ref.refresh(cafeteriaReviewsProvider(widget.cafeteriaId).future),
       ref.refresh(cafeteriaMenuItemsListProvider(widget.cafeteriaId).future),
+      if (_sortByFavorites && _popularityKeys.isNotEmpty)
+        ref.refresh(cafeteriaPopularityProvider(_popularityKeys).future),
     ]);
   }
 
@@ -434,40 +437,42 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
 
     final aggregated = <String, _MenuAgg>{};
 
-    Widget? buildAdTile() {
-      return adAsync.maybeWhen(
-        data:
-            (ad) =>
-                ad == null
-                    ? null
-                    : InAppAdCard(
-                      ad: ad,
-                      placement: AdPlacement.cafeteria,
-                      margin: EdgeInsets.zero,
-                    ),
-        orElse: () => null,
-      );
-    }
-
-    List<Widget> buildMenuRows(List<_MenuAgg> menus) {
-      final widgets = <Widget>[];
+    Widget buildMenuRows(List<_MenuAgg> menus) {
+      final ad = adAsync.valueOrNull;
+      final rows = <({String key, _MenuAgg? menu})>[];
       for (var i = 0; i < menus.length; i++) {
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _MenuRowCard(cafeteriaId: widget.cafeteriaId, agg: menus[i]),
-          ),
-        );
-        if ((i + 1) % 7 == 0) {
-          final adTile = buildAdTile();
-          if (adTile != null) {
-            widgets.add(
-              Padding(padding: const EdgeInsets.only(bottom: 8), child: adTile),
-            );
-          }
+        final key = menus[i].menuName.trim().toLowerCase();
+        rows.add((key: 'menu:$key', menu: menus[i]));
+        if (ad != null && (i + 1) % 7 == 0) {
+          rows.add((key: 'ad:$key', menu: null));
         }
       }
-      return widgets;
+      final indices = {for (var i = 0; i < rows.length; i++) rows[i].key: i};
+      return SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final row = rows[index];
+            return Padding(
+              key: ValueKey(row.key),
+              padding: const EdgeInsets.only(bottom: 8),
+              child:
+                  row.menu != null
+                      ? _MenuRowCard(
+                        cafeteriaId: widget.cafeteriaId,
+                        agg: row.menu!,
+                      )
+                      : InAppAdCard(
+                        ad: ad!,
+                        placement: AdPlacement.cafeteria,
+                        margin: EdgeInsets.zero,
+                      ),
+            );
+          },
+          childCount: rows.length,
+          findChildIndexCallback:
+              (key) => key is ValueKey<String> ? indices[key.value] : null,
+        ),
+      );
     }
 
     for (final entry in menuMap.entries) {
@@ -495,30 +500,73 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
       agg.addReview(review);
 
       // 今日のレビューかどうかをチェック
-      if (review.createdAt.isAfter(todayStart) &&
+      if (!review.createdAt.isBefore(todayStart) &&
           review.createdAt.isBefore(todayEnd)) {
         agg.hasReviewToday = true;
       }
     }
 
     final q = _query.trim().toLowerCase();
+    final favoriteKeys = <_MenuAgg, String>{
+      if (_sortByFavorites)
+        for (final menu in aggregated.values)
+          menu:
+              CafeteriaFavoriteTarget.menu(
+                cafeteriaId: widget.cafeteriaId,
+                menuItemId: menu.menuItem?.id,
+                menuName: menu.menuName,
+              ).key,
+    };
+    final keys = favoriteKeys.values.toSet().toList()..sort();
+    _popularityKeys = keys.join(',');
+    final popularity =
+        _sortByFavorites
+            ? ref.watch(cafeteriaPopularityProvider(_popularityKeys))
+            : const AsyncData<Map<String, int>>({});
+    final favoriteCounts = popularity.valueOrNull ?? const <String, int>{};
     final filtered =
         aggregated.values
             .where((agg) => q.isEmpty || agg.menuName.toLowerCase().contains(q))
             .toList();
 
-    // 今日レビューされたメニューとその他のメニューに分離
-    final todayReviewed = filtered.where((agg) => agg.hasReviewToday).toList();
-    final others = filtered.where((agg) => !agg.hasReviewToday).toList();
+    // Apply the selected ordering to the entire list. Today's reviews remain
+    // visible on each card instead of overriding the selected ranking.
+    final sortByReviewCount = _sortOption == 'review_count_desc';
+    final others = filtered.toList();
 
     // ソートロジック
     int compareMenus(_MenuAgg a, _MenuAgg b) {
+      if (_sortOption == 'recommend_desc' || _sortOption == 'recommend_asc') {
+        if (a.count == 0 && b.count > 0) return 1;
+        if (b.count == 0 && a.count > 0) return -1;
+      }
       final aDate =
           a.menuItem?.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       final bDate =
           b.menuItem?.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
 
       switch (_sortOption) {
+        case 'popular_desc':
+        case 'popular_asc':
+          final aCount = favoriteCounts[favoriteKeys[a]];
+          final bCount = favoriteCounts[favoriteKeys[b]];
+          // Missing aggregate documents are uncounted, not zero favorites.
+          if (aCount == null && bCount != null) return 1;
+          if (bCount == null && aCount != null) return -1;
+          if (aCount != null && bCount != null) {
+            final countCmp =
+                _sortOption == 'popular_desc'
+                    ? bCount.compareTo(aCount)
+                    : aCount.compareTo(bCount);
+            if (countCmp != 0) return countCmp;
+          }
+          break;
+        case 'review_count_desc':
+          final countCmp = b.count.compareTo(a.count);
+          if (countCmp != 0) return countCmp;
+          final ratingCmp = b.avgRecommend.compareTo(a.avgRecommend);
+          if (ratingCmp != 0) return ratingCmp;
+          break;
         case 'created_asc':
           final cmp = aDate.compareTo(bDate);
           if (cmp != 0) return cmp;
@@ -527,13 +575,13 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
           final cmp = bDate.compareTo(aDate);
           if (cmp != 0) return cmp;
           return a.menuName.toLowerCase().compareTo(b.menuName.toLowerCase());
-        case 'popular_asc':
+        case 'recommend_asc':
           final ratingCmpAsc = a.avgRecommend.compareTo(b.avgRecommend);
           if (ratingCmpAsc != 0) return ratingCmpAsc;
           final countCmpAsc = a.count.compareTo(b.count);
           if (countCmpAsc != 0) return countCmpAsc;
           break;
-        case 'popular_desc':
+        case 'recommend_desc':
         default:
           final ratingCmpDesc = b.avgRecommend.compareTo(a.avgRecommend);
           if (ratingCmpDesc != 0) return ratingCmpDesc;
@@ -551,7 +599,6 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
       menus.sort(compareMenus);
     }
 
-    sortMenus(todayReviewed);
     sortMenus(others);
 
     return Column(
@@ -561,7 +608,7 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
           child: TextField(
             controller: _searchController,
             decoration: InputDecoration(
-              hintText: 'メニュー名で検索（${campusName}のみ）',
+              hintText: 'メニュー名で検索（$campusNameのみ）',
               prefixIcon: const Icon(Icons.search),
               suffixIcon:
                   _query.isNotEmpty
@@ -604,7 +651,11 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Row(
             children: [
-              Icon(Icons.sort, size: 16, color: Colors.grey.shade600),
+              Icon(
+                Icons.sort,
+                size: 16,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: DropdownButtonHideUnderline(
@@ -613,20 +664,32 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
                     isExpanded: true,
                     items: const [
                       DropdownMenuItem(
-                        value: 'created_asc',
-                        child: Text('メニュー追加順 (昇順)'),
+                        value: 'recommend_desc',
+                        child: Text('おすすめ順（評価が高い順）'),
                       ),
                       DropdownMenuItem(
-                        value: 'created_desc',
-                        child: Text('メニュー追加順 (降順)'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'popular_asc',
-                        child: Text('人気順 (昇順)'),
+                        value: 'recommend_asc',
+                        child: Text('おすすめ評価が低い順'),
                       ),
                       DropdownMenuItem(
                         value: 'popular_desc',
-                        child: Text('人気順 (降順)'),
+                        child: Text('人気順（お気に入りが多い順）'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'popular_asc',
+                        child: Text('お気に入りが少ない順'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'review_count_desc',
+                        child: Text('レビューの多い順'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'created_asc',
+                        child: Text('追加日の古い順'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'created_desc',
+                        child: Text('追加日の新しい順'),
                       ),
                     ],
                     onChanged: (value) {
@@ -640,6 +703,41 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
           ),
         ),
         const SizedBox(height: 8),
+        if (_sortByFavorites) ...[
+          if (popularity.isLoading) const LinearProgressIndicator(minHeight: 2),
+          if (popularity.hasError)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                children: [
+                  const Text('お気に入り人数を取得できませんでした'),
+                  TextButton(
+                    onPressed:
+                        () => ref.invalidate(
+                          cafeteriaPopularityProvider(_popularityKeys),
+                        ),
+                    child: const Text('再試行'),
+                  ),
+                ],
+              ),
+            )
+          else if (!popularity.isLoading &&
+              filtered.any(
+                (menu) => !favoriteCounts.containsKey(favoriteKeys[menu]),
+              ))
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                '集計待ちのメニューは最後に表示しています',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+        ],
         Expanded(
           child: RefreshIndicator(
             onRefresh: _refresh,
@@ -658,91 +756,80 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
                         ),
                       ],
                     )
-                    : SingleChildScrollView(
+                    : CustomScrollView(
+                      key: const ValueKey('cafeteria-menu-list'),
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // 本日レビューされたメニューセクション
-                          if (todayReviewed.isNotEmpty) ...[
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: Colors.green.shade200,
+                      slivers: [
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          sliver: SliverMainAxisGroup(
+                            slivers: [
+                              // その他のメニューセクション
+                              if (others.isNotEmpty) ...[
+                                SliverToBoxAdapter(
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceContainerHighest,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.outlineVariant,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.restaurant_menu,
+                                          size: 18,
+                                          color:
+                                              Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Flexible(
+                                          child: Text(
+                                            sortByReviewCount
+                                                ? 'レビュー件数順 (${others.length}件)'
+                                                : _sortByFavorites
+                                                ? 'お気に入り人数順 (${others.length}件)'
+                                                : 'メニュー (${others.length}件)',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color:
+                                                  Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.today,
-                                    size: 18,
-                                    color: Colors.green.shade700,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    '本日レビューされたメニュー (${todayReviewed.length}件)',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green.shade700,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            ...buildMenuRows(todayReviewed),
-                            const SizedBox(height: 16),
-                          ],
-
-                          // その他のメニューセクション
-                          if (others.isNotEmpty) ...[
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.restaurant_menu,
-                                    size: 18,
-                                    color: Colors.grey.shade700,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'その他のメニュー (${others.length}件)',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.grey.shade700,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            ...buildMenuRows(others),
-                          ],
-                        ],
-                      ),
+                                const SliverToBoxAdapter(
+                                  child: SizedBox(height: 8),
+                                ),
+                                buildMenuRows(others),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
           ),
         ),
@@ -755,7 +842,6 @@ class _FullScreenImagePage extends StatefulWidget {
   const _FullScreenImagePage({
     required this.imageUrl,
     required this.placeholder,
-    super.key,
   });
 
   final String? imageUrl;
@@ -843,7 +929,7 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
     // 拡大中（スケール > 1.0）の場合は画面を閉じない
     final bool canDismiss = _currentScale <= 1.0;
     return Scaffold(
-      backgroundColor: Colors.black.withOpacity(opacity),
+      backgroundColor: Colors.black.withValues(alpha: opacity),
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: canDismiss ? () => Navigator.of(context).pop() : null,
@@ -855,7 +941,8 @@ class _FullScreenImagePageState extends State<_FullScreenImagePage> {
             child: Hero(
               // Hero タグ衝突を避けるため、URL が未設定でも一意性を保つ
               // プレフィックスを付ける
-              tag: 'cafeteria_full_image:'
+              tag:
+                  'cafeteria_full_image:'
                   '${widget.imageUrl ?? widget.placeholder}',
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
@@ -895,85 +982,96 @@ void _openFullScreenImage(
   showDialog<void>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.82),
-    builder: (_) => StatefulBuilder(
-      builder: (dialogContext, setState) {
-        final dismissProgress = (dragOffsetY / 220).clamp(0.0, 1.0);
-        return GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onVerticalDragUpdate: (details) {
-            if (details.delta.dy <= 0) {
-              return;
-            }
-            setState(() {
-              dragOffsetY = (dragOffsetY + details.delta.dy).clamp(0.0, 320.0);
-            });
-          },
-          onVerticalDragEnd: (details) {
-            final velocity = details.primaryVelocity ?? 0;
-            if (dragOffsetY > 120 || velocity > 950) {
-              Navigator.of(dialogContext).pop();
-              return;
-            }
-            setState(() {
-              dragOffsetY = 0;
-            });
-          },
-          child: Transform.translate(
-            offset: Offset(0, dragOffsetY),
-            child: Opacity(
-              opacity: 1 - (dismissProgress * 0.35),
-              child: Dialog(
-                backgroundColor: Colors.transparent,
-                insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                child: Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: InteractiveViewer(
-                        minScale: 1.0,
-                        maxScale: 4.0,
-                        child: SafeCachedNetworkImage(
-                          imageUrl: imageUrl,
-                          fit: BoxFit.contain,
-                          placeholder: Container(
-                            color: Colors.black,
-                            alignment: Alignment.center,
-                            child: const SizedBox(
-                              width: 28,
-                              height: 28,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
-                          errorWidget: Container(
-                            color: Colors.black,
-                            alignment: Alignment.center,
-                            child: const Icon(
-                              Icons.broken_image_outlined,
-                              color: Colors.white70,
-                              size: 40,
+    builder:
+        (_) => StatefulBuilder(
+          builder: (dialogContext, setState) {
+            final dismissProgress = (dragOffsetY / 220).clamp(0.0, 1.0);
+            return GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onVerticalDragUpdate: (details) {
+                if (details.delta.dy <= 0) {
+                  return;
+                }
+                setState(() {
+                  dragOffsetY = (dragOffsetY + details.delta.dy).clamp(
+                    0.0,
+                    320.0,
+                  );
+                });
+              },
+              onVerticalDragEnd: (details) {
+                final velocity = details.primaryVelocity ?? 0;
+                if (dragOffsetY > 120 || velocity > 950) {
+                  Navigator.of(dialogContext).pop();
+                  return;
+                }
+                setState(() {
+                  dragOffsetY = 0;
+                });
+              },
+              child: Transform.translate(
+                offset: Offset(0, dragOffsetY),
+                child: Opacity(
+                  opacity: 1 - (dismissProgress * 0.35),
+                  child: Dialog(
+                    backgroundColor: Colors.transparent,
+                    insetPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 24,
+                    ),
+                    child: Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: InteractiveViewer(
+                            minScale: 1.0,
+                            maxScale: 4.0,
+                            child: SafeCachedNetworkImage(
+                              imageUrl: imageUrl,
+                              fit: BoxFit.contain,
+                              placeholder: Container(
+                                color: Colors.black,
+                                alignment: Alignment.center,
+                                child: const SizedBox(
+                                  width: 28,
+                                  height: 28,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                              errorWidget: Container(
+                                color: Colors.black,
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  Icons.broken_image_outlined,
+                                  color: Colors.white70,
+                                  size: 40,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: IconButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            icon: const Icon(Icons.close),
+                            color: Colors.white,
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.black45,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: IconButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                        icon: const Icon(Icons.close),
-                        color: Colors.white,
-                        style: IconButton.styleFrom(backgroundColor: Colors.black45),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
-        );
-      },
-    ),
+            );
+          },
+        ),
   );
 }
 
@@ -1011,99 +1109,6 @@ class _MenuRowCardState extends ConsumerState<_MenuRowCard> {
     return '¥${price.toString()}';
   }
 
-  Future<void> _toggleFavorite() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ログインが必要です')),
-        );
-      }
-      return;
-    }
-
-    final menuItem = widget.agg.menuItem;
-    try {
-      if (menuItem != null && menuItem.id.isNotEmpty) {
-        final isFavorite = await CafeteriaFavoriteService.isFavorite(
-          userId: uid,
-          type: 'menu',
-          menuItemId: menuItem.id,
-        );
-        if (isFavorite) {
-          await CafeteriaFavoriteService.removeFavorite(
-            userId: uid,
-            type: 'menu',
-            menuItemId: menuItem.id,
-          );
-          if (mounted) {
-            ref.invalidate(isMenuFavoriteProvider(menuItem.id));
-            ref.invalidate(_menuFavoriteUserCountProvider(menuItem.id));
-            ref.invalidate(userCafeteriaFavoritesProvider);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('お気に入りから削除しました')),
-            );
-          }
-        } else {
-          await CafeteriaFavoriteService.addFavorite(
-            userId: uid,
-            type: 'menu',
-            cafeteriaId: widget.cafeteriaId,
-            menuItemId: menuItem.id,
-            menuName: widget.agg.menuName,
-          );
-          if (mounted) {
-            ref.invalidate(isMenuFavoriteProvider(menuItem.id));
-            ref.invalidate(_menuFavoriteUserCountProvider(menuItem.id));
-            ref.invalidate(userCafeteriaFavoritesProvider);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('お気に入りに追加しました')),
-            );
-          }
-        }
-      } else {
-        // メニューアイテムが存在しない場合は、メニュー名のみで保存
-        final isFavorite = await CafeteriaFavoriteService.isFavorite(
-          userId: uid,
-          type: 'menu',
-          menuItemId: null,
-        );
-        if (isFavorite) {
-          await CafeteriaFavoriteService.removeFavorite(
-            userId: uid,
-            type: 'menu',
-            menuItemId: null,
-          );
-          if (mounted) {
-            ref.invalidate(userCafeteriaFavoritesProvider);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('お気に入りから削除しました')),
-            );
-          }
-        } else {
-          await CafeteriaFavoriteService.addFavorite(
-            userId: uid,
-            type: 'menu',
-            cafeteriaId: widget.cafeteriaId,
-            menuName: widget.agg.menuName,
-          );
-          if (mounted) {
-            ref.invalidate(userCafeteriaFavoritesProvider);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('お気に入りに追加しました')),
-            );
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラー: $e')),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final menuItem = widget.agg.menuItem;
@@ -1111,19 +1116,14 @@ class _MenuRowCardState extends ConsumerState<_MenuRowCard> {
     // 絵文字や合字などサロゲートペアを含むメニュー名でも安全に1文字取り出すため
     // String.substring ではなく characters パッケージの first を使用する。
     // （iOS のテキストレンダリングが lone surrogate でクラッシュするのを防ぐ）
-    final placeholder = widget.agg.menuName.characters.isNotEmpty
-        ? widget.agg.menuName.characters.first
-        : '?';
+    final placeholder =
+        widget.agg.menuName.characters.isNotEmpty
+            ? widget.agg.menuName.characters.first
+            : '?';
     // Hero タグは画面間で一意になるよう cafeteriaId + menuName から生成する
     // （photoUrl が null かつ placeholder が同じメニューが複数あると Hero タグが衝突するため）
     final heroTag =
         'cafeteria_menu_image:${widget.cafeteriaId}:${widget.agg.menuName}';
-    final viewCount = menuItem?.viewCount ?? 0;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    final isFavoriteAsync = menuItem != null && menuItem.id.isNotEmpty && uid != null
-        ? ref.watch(isMenuFavoriteProvider(menuItem.id))
-        : null;
-
     return Card(
       child: InkWell(
         onTap: () {
@@ -1189,38 +1189,40 @@ class _MenuRowCardState extends ConsumerState<_MenuRowCard> {
                         _Stars(rating: widget.agg.avgRecommend),
                         const SizedBox(width: 6),
                         if (widget.agg.count == 0)
-                          const Text(
+                          Text(
                             'レビューなし',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                            ),
                           )
                         else
                           Text(
                             '(${widget.agg.count}件)',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey,
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                             ),
                           ),
                       ],
                     ),
-                    if (menuItem != null) ...[
+                    if (widget.agg.hasReviewToday) ...[
                       const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.visibility,
-                            size: 14,
-                            color: Colors.grey.shade600,
+                      Text(
+                        '今日のレビューあり',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.accent(
+                            context,
+                            Colors.green.shade700,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$viewCount',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ],
@@ -1234,40 +1236,14 @@ class _MenuRowCardState extends ConsumerState<_MenuRowCard> {
                     priceText,
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  if (uid != null) ...[
-                    const SizedBox(height: 4),
-                    IconButton(
-                      iconSize: 20,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      icon: isFavoriteAsync != null
-                          ? isFavoriteAsync.when(
-                              data: (isFavorite) => Icon(
-                                isFavorite ? Icons.favorite : Icons.favorite_border,
-                                color: isFavorite ? Colors.red : Colors.grey,
-                                size: 20,
-                              ),
-                              loading: () => const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                              error: (_, __) => const Icon(
-                                Icons.favorite_border,
-                                color: Colors.grey,
-                                size: 20,
-                              ),
-                            )
-                          : const Icon(
-                              Icons.favorite_border,
-                              color: Colors.grey,
-                              size: 20,
-                            ),
-                      onPressed: () {
-                        _toggleFavorite();
-                      },
+                  CafeteriaFavoriteButton(
+                    compact: true,
+                    target: CafeteriaFavoriteTarget.menu(
+                      cafeteriaId: widget.cafeteriaId,
+                      menuName: widget.agg.menuName,
+                      menuItemId: menuItem?.id,
                     ),
-                  ],
+                  ),
                 ],
               ),
             ],
@@ -1291,14 +1267,14 @@ class _Stars extends StatelessWidget {
       children: [
         ...List.generate(5, (i) {
           if (i < full) {
-            return const Icon(Icons.star, size: 16, color: Colors.amber);
+            return const CafeteriaRatingStar(size: 16);
           } else if (i == full && hasHalf) {
-            return const Icon(Icons.star_half, size: 16, color: Colors.amber);
+            return const CafeteriaRatingStar(size: 16, half: true);
           } else {
             return Icon(
               Icons.star_border,
               size: 16,
-              color: Colors.grey.shade400,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             );
           }
         }),
@@ -1334,7 +1310,7 @@ class _ReviewCard extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: Theme.of(
                       context,
-                    ).colorScheme.primary.withOpacity(0.1),
+                    ).colorScheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -1359,14 +1335,17 @@ class _ReviewCard extends ConsumerWidget {
                 ),
                 if (campusCode != null)
                   TextButton.icon(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.photo_library_outlined,
                       size: 18,
-                      color: Colors.black,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
-                    label: const Text(
+                    label: Text(
                       'メニューを確認',
-                      style: TextStyle(fontSize: 12, color: Colors.black),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                     ),
                     onPressed:
                         () => _showCampusMenuImage(
@@ -1379,7 +1358,10 @@ class _ReviewCard extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Text(
                   _formatDate(review.createdAt),
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 // 編集/削除メニューは表示しない
               ],
@@ -1389,14 +1371,21 @@ class _ReviewCard extends ConsumerWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.person, size: 14, color: Colors.grey),
+                Icon(
+                  Icons.person,
+                  size: 14,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     review.userName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ],
@@ -1439,7 +1428,9 @@ class _ReviewLikeRow extends ConsumerWidget {
     final isLiked = uid != null && (review.likedBy?[uid] == true);
     final likeCount = review.likeCount;
 
-    return Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         IconButton(
           icon: Icon(
@@ -1465,8 +1456,9 @@ class _ReviewLikeRow extends ConsumerWidget {
         ),
         Text(
           likeCount.toString(),
+          textAlign: TextAlign.center,
           style: TextStyle(
-            color: Colors.grey.shade600,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -1563,36 +1555,23 @@ class _RatingRow extends StatelessWidget {
           width: 60,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
         ...List.generate(5, (i) {
           final on = i < value;
-          Color starColor;
-
-          if (label == '量') {
-            // 量の場合：星3が適量（緑）、星1-2が少ない（オレンジ）、星4-5が多い（青）
-            if (i == 2) {
-              // 星3（適量）
-              starColor = on ? Colors.green : Colors.grey.shade400;
-            } else if (i < 2) {
-              // 星1-2（少ない）
-              starColor = on ? Colors.orange : Colors.grey.shade400;
-            } else {
-              // 星4-5（多い）
-              starColor = on ? Colors.blue : Colors.grey.shade400;
-            }
-          } else {
-            // 他の評価は通常の色
-            starColor = on ? Colors.amber : Colors.grey.shade400;
-          }
-
-          return Icon(Icons.star, color: starColor, size: 18);
+          return CafeteriaRatingStar(filled: on);
         }),
         const SizedBox(width: 8),
         Text(
           '$value/5',
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         if (description.isNotEmpty) ...[
           const SizedBox(width: 8),

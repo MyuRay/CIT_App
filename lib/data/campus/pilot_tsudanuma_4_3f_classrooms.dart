@@ -13,10 +13,7 @@ const List<String> _kAiSoftSearchTerms = [
   '人工知能・ソフトウェア技術研究センター',
 ];
 
-const List<String> _kHenkakuSearchTerms = [
-  '変革センター',
-  '変革',
-];
+const List<String> _kHenkakuSearchTerms = ['変革センター', '変革'];
 
 /// 津田沼4号館3階（アプリ同梱フロア図、正規化座標 0〜1・左上原点）。
 /// 倉庫・物品庫・トイレ・名称のない区画（040316）は検索に含めない。
@@ -131,14 +128,7 @@ List<CampusClassroomLocation> get pilotTsudanumaBuilding4Floor3 => [
     buildingDisplayName: '4号館',
     floor: 3,
     roomCode: '040309',
-    searchTerms: [
-      '040309',
-      '40309',
-      '０４０３０９',
-      '040309号室',
-      '040309号',
-      '施設部',
-    ],
+    searchTerms: ['040309', '40309', '０４０３０９', '040309号室', '040309号', '施設部'],
     pinX: 0.24,
     pinY: 0.45,
     description: '3階・施設部',

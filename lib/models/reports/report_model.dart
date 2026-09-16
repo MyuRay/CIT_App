@@ -234,7 +234,10 @@ class Report {
         detail: json['detail'] as String?,
         status: ReportStatus.fromString(json['status'] as String? ?? 'pending'),
         createdAt: _parseDateTime(json['createdAt']),
-        updatedAt: json['updatedAt'] != null ? _parseDateTime(json['updatedAt']) : null,
+        updatedAt:
+            json['updatedAt'] != null
+                ? _parseDateTime(json['updatedAt'])
+                : null,
         resolutionNote: json['resolutionNote'] as String?,
         reporterEmail: json['reporterEmail'] as String?,
         targetContent: json['targetContent'] as String?,
@@ -310,7 +313,10 @@ class Report {
   String get targetAuthorLabel {
     final name = targetAuthorName?.trim();
     final cwitterId = targetAuthorCwitterId?.trim();
-    if (name != null && name.isNotEmpty && cwitterId != null && cwitterId.isNotEmpty) {
+    if (name != null &&
+        name.isNotEmpty &&
+        cwitterId != null &&
+        cwitterId.isNotEmpty) {
       return '$name (@$cwitterId)';
     }
     if (name != null && name.isNotEmpty) return name;

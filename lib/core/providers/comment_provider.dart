@@ -1,3 +1,4 @@
+import 'package:cit_app/core/utils/logger.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -13,7 +14,11 @@ final commentSortOrderProvider = StateProvider.family<CommentSortOrder, String>(
   (ref, postId) => CommentSortOrder.newest,
 );
 
-int _compareComments(BulletinComment a, BulletinComment b, CommentSortOrder order) {
+int _compareComments(
+  BulletinComment a,
+  BulletinComment b,
+  CommentSortOrder order,
+) {
   switch (order) {
     case CommentSortOrder.popular:
       final likeCmp = b.likeCount.compareTo(a.likeCount);
@@ -31,39 +36,38 @@ List<CommentThread> sortCommentThreads(
   List<CommentThread> threads,
   CommentSortOrder order,
 ) {
-  return threads
-      .map((thread) {
-        final replies = List<BulletinComment>.from(thread.replies)
-          ..sort((a, b) => _compareComments(a, b, order));
-        return CommentThread(comment: thread.comment, replies: replies);
-      })
-      .toList()
+  return threads.map((thread) {
+      final replies = List<BulletinComment>.from(thread.replies)
+        ..sort((a, b) => _compareComments(a, b, order));
+      return CommentThread(comment: thread.comment, replies: replies);
+    }).toList()
     ..sort((a, b) => _compareComments(a.comment, b.comment, order));
 }
 
 /// 表示順適用済みのコメント一覧（ブロックユーザーを除外）
 final sortedPostCommentsProvider =
     Provider.family<AsyncValue<List<CommentThread>>, String>((ref, postId) {
-  final sortOrder = ref.watch(commentSortOrderProvider(postId));
-  final commentsAsync = ref.watch(postCommentsProvider(postId));
-  final hiddenAsync = ref.watch(hiddenUserIdsProvider);
+      final sortOrder = ref.watch(commentSortOrderProvider(postId));
+      final commentsAsync = ref.watch(postCommentsProvider(postId));
+      final hiddenAsync = ref.watch(hiddenUserIdsProvider);
 
-  return hiddenAsync.when(
-    loading: () => const AsyncValue.loading(),
-    error: (error, stack) => AsyncValue.error(error, stack),
-    data: (hiddenUserIds) => commentsAsync.when(
-      data: (threads) {
-        final filtered = ContentFilterService.filterCommentThreads(
-          threads,
-          hiddenUserIds,
-        );
-        return AsyncValue.data(sortCommentThreads(filtered, sortOrder));
-      },
-      loading: () => const AsyncValue.loading(),
-      error: (error, stack) => AsyncValue.error(error, stack),
-    ),
-  );
-});
+      return hiddenAsync.when(
+        loading: () => const AsyncValue.loading(),
+        error: (error, stack) => AsyncValue.error(error, stack),
+        data:
+            (hiddenUserIds) => commentsAsync.when(
+              data: (threads) {
+                final filtered = ContentFilterService.filterCommentThreads(
+                  threads,
+                  hiddenUserIds,
+                );
+                return AsyncValue.data(sortCommentThreads(filtered, sortOrder));
+              },
+              loading: () => const AsyncValue.loading(),
+              error: (error, stack) => AsyncValue.error(error, stack),
+            ),
+      );
+    });
 
 // コメント所有権チェックプロバイダー
 final commentOwnershipProvider = Provider.family<bool, String>((ref, authorId) {
@@ -76,103 +80,123 @@ final commentOwnershipProvider = Provider.family<bool, String>((ref, authorId) {
 });
 
 // 投稿のコメント一覧プロバイダー（リアルタイム対応）
-final postCommentsProvider = StreamProvider.family<List<CommentThread>, String>((ref, postId) {
-  print('📝 リアルタイムコメント監視開始: $postId');
-  
-  return FirebaseFirestore.instance
-      .collection('bulletin_comments')
-      .where('postId', isEqualTo: postId)
-      .snapshots()
-      .map((snapshot) {
-    try {
-      print('📝 リアルタイム更新受信: ${snapshot.docs.length} 件のコメント');
+final postCommentsProvider = StreamProvider.family<List<CommentThread>, String>(
+  (ref, postId) {
+    SecureLogger.debug('📝 リアルタイムコメント監視開始: $postId');
 
-      final allComments = snapshot.docs.map((doc) {
-        final data = Map<String, dynamic>.from(doc.data());
-        data['id'] = doc.id;
-        return BulletinComment.fromJson(data);
-      }).where((comment) => !comment.isDeleted).toList();
-      
-      // Dartコード側でソート
-      allComments.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      print('📝 コメントソート完了: ${allComments.length} 件');
-
-      // 親コメントとその返信をグループ化
-      final Map<String, List<BulletinComment>> commentGroups = {};
-      final List<BulletinComment> parentComments = [];
-
-      // まず親コメントを分離
-      for (final comment in allComments) {
-        if (comment.parentCommentId == null) {
-          parentComments.add(comment);
-          commentGroups[comment.id] = [];
-        }
-      }
-
-      // 返信を各親コメントにグループ化
-      for (final comment in allComments) {
-        if (comment.parentCommentId != null) {
-          if (commentGroups.containsKey(comment.parentCommentId!)) {
-            commentGroups[comment.parentCommentId!]!.add(comment);
-          }
-        }
-      }
-
-      // CommentThreadとして構築
-      final commentThreads = parentComments.map((parentComment) {
-        final replies = commentGroups[parentComment.id] ?? [];
-        replies.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-        return CommentThread(
-          comment: parentComment,
-          replies: replies,
-        );
-      }).toList();
-
-      print('📝 リアルタイムコメントスレッド構築完了: ${commentThreads.length} スレッド');
-      return commentThreads;
-    } catch (e, stackTrace) {
-      print('❌ リアルタイムコメント取得エラー: $e');
-      print('❌ スタックトレース: $stackTrace');
-      return <CommentThread>[];
-    }
-  }).handleError((error) {
-    print('❌ リアルタイムストリームエラー: $error');
-    return <CommentThread>[];
-  });
-});
-
-// コメント統計プロバイダー
-final commentStatsProvider = FutureProvider.family<CommentStats, String>((ref, postId) async {
-  try {
-    print('📊 コメント統計取得開始: $postId');
-    
-    final querySnapshot = await FirebaseFirestore.instance
+    return FirebaseFirestore.instance
         .collection('bulletin_comments')
         .where('postId', isEqualTo: postId)
-        .get();
-    
-    print('📊 統計用クエリ実行完了: ${querySnapshot.docs.length} 件');
+        .snapshots()
+        .map((snapshot) {
+          try {
+            SecureLogger.debug('📝 リアルタイム更新受信: ${snapshot.docs.length} 件のコメント');
 
-    final comments = querySnapshot.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      return BulletinComment.fromJson(data);
-    }).where((comment) => !comment.isDeleted).toList(); // Dartコード側で削除フラグをチェック
+            final allComments =
+                snapshot.docs
+                    .map((doc) {
+                      final data = Map<String, dynamic>.from(doc.data());
+                      data['id'] = doc.id;
+                      return BulletinComment.fromJson(data);
+                    })
+                    .where((comment) => !comment.isDeleted)
+                    .toList();
 
-    final directComments = comments.where((c) => c.parentCommentId == null).length;
-    final repliesCount = comments.where((c) => c.parentCommentId != null).length;
+            // Dartコード側でソート
+            allComments.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+            SecureLogger.debug('📝 コメントソート完了: ${allComments.length} 件');
+
+            // 親コメントとその返信をグループ化
+            final Map<String, List<BulletinComment>> commentGroups = {};
+            final List<BulletinComment> parentComments = [];
+
+            // まず親コメントを分離
+            for (final comment in allComments) {
+              if (comment.parentCommentId == null) {
+                parentComments.add(comment);
+                commentGroups[comment.id] = [];
+              }
+            }
+
+            // 返信を各親コメントにグループ化
+            for (final comment in allComments) {
+              if (comment.parentCommentId != null) {
+                if (commentGroups.containsKey(comment.parentCommentId!)) {
+                  commentGroups[comment.parentCommentId!]!.add(comment);
+                }
+              }
+            }
+
+            // CommentThreadとして構築
+            final commentThreads =
+                parentComments.map((parentComment) {
+                  final replies = commentGroups[parentComment.id] ?? [];
+                  replies.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+                  return CommentThread(
+                    comment: parentComment,
+                    replies: replies,
+                  );
+                }).toList();
+
+            SecureLogger.debug('📝 リアルタイムコメントスレッド構築完了: ${commentThreads.length} スレッド');
+            return commentThreads;
+          } catch (e, stackTrace) {
+            SecureLogger.debug('❌ リアルタイムコメント取得エラー: $e');
+            SecureLogger.debug('❌ スタックトレース: $stackTrace');
+            return <CommentThread>[];
+          }
+        })
+        .handleError((error) {
+          SecureLogger.debug('❌ リアルタイムストリームエラー: $error');
+          return <CommentThread>[];
+        });
+  },
+);
+
+// コメント統計プロバイダー
+final commentStatsProvider = FutureProvider.family<CommentStats, String>((
+  ref,
+  postId,
+) async {
+  try {
+    SecureLogger.debug('📊 コメント統計取得開始: $postId');
+
+    final querySnapshot =
+        await FirebaseFirestore.instance
+            .collection('bulletin_comments')
+            .where('postId', isEqualTo: postId)
+            .get();
+
+    SecureLogger.debug('📊 統計用クエリ実行完了: ${querySnapshot.docs.length} 件');
+
+    final comments =
+        querySnapshot.docs
+            .map((doc) {
+              final data = doc.data();
+              data['id'] = doc.id;
+              return BulletinComment.fromJson(data);
+            })
+            .where((comment) => !comment.isDeleted)
+            .toList(); // Dartコード側で削除フラグをチェック
+
+    final directComments =
+        comments.where((c) => c.parentCommentId == null).length;
+    final repliesCount =
+        comments.where((c) => c.parentCommentId != null).length;
 
     final stats = CommentStats(
       totalComments: comments.length,
       directComments: directComments,
       repliesCount: repliesCount,
     );
-    
-    print('📊 統計計算完了: 合計${stats.totalComments}, 直接${stats.directComments}, 返信${stats.repliesCount}');
+
+    SecureLogger.debug(
+      '📊 統計計算完了: 合計${stats.totalComments}, 直接${stats.directComments}, 返信${stats.repliesCount}',
+    );
     return stats;
   } catch (e, stackTrace) {
-    print('❌ コメント統計取得エラー: $e');
-    print('❌ スタックトレース: $stackTrace');
+    SecureLogger.debug('❌ コメント統計取得エラー: $e');
+    SecureLogger.debug('❌ スタックトレース: $stackTrace');
     return CommentStats(totalComments: 0, directComments: 0, repliesCount: 0);
   }
 });
@@ -192,10 +216,8 @@ class CommentService {
         throw Exception('ユーザーが認証されていません');
       }
 
-      final commentId = FirebaseFirestore.instance
-          .collection('bulletin_comments')
-          .doc()
-          .id;
+      final commentId =
+          FirebaseFirestore.instance.collection('bulletin_comments').doc().id;
 
       final comment = BulletinComment(
         id: commentId,
@@ -208,77 +230,83 @@ class CommentService {
       );
 
       final commentData = comment.toJson();
-      print('📝 投稿するコメントデータ:');
-      print('  - postId: ${commentData['postId']}');
-      print('  - authorId: ${commentData['authorId']}');
-      print('  - authorName: ${commentData['authorName']}');
-      print('  - content: ${commentData['content']}');
-      print('  - createdAt: ${commentData['createdAt']}');
-      print('  - parentCommentId: ${commentData['parentCommentId']}');
+      SecureLogger.debug('📝 投稿するコメントデータ:');
+      SecureLogger.debug('  - postId: ${commentData['postId']}');
+      SecureLogger.debug('  - authorId: ${commentData['authorId']}');
+      SecureLogger.debug('  - authorName: ${commentData['authorName']}');
+      SecureLogger.debug('  - content: ${commentData['content']}');
+      SecureLogger.debug('  - createdAt: ${commentData['createdAt']}');
+      SecureLogger.debug('  - parentCommentId: ${commentData['parentCommentId']}');
 
       await FirebaseFirestore.instance
           .collection('bulletin_comments')
           .doc(commentId)
           .set(commentData);
 
-      print('✅ Firestore書き込み完了: $commentId');
-      
+      SecureLogger.debug('✅ Firestore書き込み完了: $commentId');
+
       // 書き込み確認のため短時間待機
       await Future.delayed(const Duration(milliseconds: 200));
-      
+
       // 書き込みが実際に完了したかドキュメントを確認
-      final verifyDoc = await FirebaseFirestore.instance
-          .collection('bulletin_comments')
-          .doc(commentId)
-          .get();
-      
+      final verifyDoc =
+          await FirebaseFirestore.instance
+              .collection('bulletin_comments')
+              .doc(commentId)
+              .get();
+
       if (verifyDoc.exists) {
-        print('✅ コメント投稿確認完了: $commentId');
+        SecureLogger.debug('✅ コメント投稿確認完了: $commentId');
       } else {
-        print('⚠️  コメント確認できず: $commentId');
+        SecureLogger.debug('⚠️  コメント確認できず: $commentId');
         throw Exception('コメントの書き込み確認に失敗しました');
       }
 
       // 通知を送信
-      print('🔔 通知送信処理開始...');
-      await _sendNotificationForComment(postId, commentId, authorName, parentCommentId, user.uid);
-      print('🔔 通知送信処理完了');
-
+      SecureLogger.debug('🔔 通知送信処理開始...');
+      await _sendNotificationForComment(
+        postId,
+        commentId,
+        authorName,
+        parentCommentId,
+        user.uid,
+      );
+      SecureLogger.debug('🔔 通知送信処理完了');
     } catch (e) {
-      print('❌ コメント投稿エラー詳細: $e');
-      print('❌ エラータイプ: ${e.runtimeType}');
-      
+      SecureLogger.debug('❌ コメント投稿エラー詳細: $e');
+      SecureLogger.debug('❌ エラータイプ: ${e.runtimeType}');
+
       // Firebase Auth の状態確認
       final currentUser = FirebaseAuth.instance.currentUser;
-      print('🔐 認証状態: ${currentUser != null ? "認証済み" : "未認証"}');
+      SecureLogger.debug('🔐 認証状態: ${currentUser != null ? "認証済み" : "未認証"}');
       if (currentUser != null) {
-        print('🔐 ユーザーID: ${currentUser.uid}');
-        print('🔐 メールアドレス: ${currentUser.email}');
-        print('🔐 メール確認: ${currentUser.emailVerified}');
-        
+        SecureLogger.debug('🔐 ユーザーID: ${currentUser.uid}');
+        SecureLogger.debug('🔐 メールアドレス: ${currentUser.email}');
+        SecureLogger.debug('🔐 メール確認: ${currentUser.emailVerified}');
+
         // IDトークンの取得を試行
         try {
           final idToken = await currentUser.getIdToken();
-          print('🔐 IDトークン取得: 成功');
+          SecureLogger.debug('🔐 IDトークン取得: 成功');
         } catch (tokenError) {
-          print('❌ IDトークン取得失敗: $tokenError');
+          SecureLogger.debug('❌ IDトークン取得失敗: $tokenError');
         }
       }
-      
+
       // permission-deniedエラーの場合の詳細情報
       if (e.toString().contains('permission-denied')) {
-        print('🚨 【権限エラー】以下を確認してください:');
-        print('  1. Firestoreルールで bulletin_comments コレクションが設定されているか');
-        print('  2. ユーザーのメールアドレスが @s.chibakoudai.jp ドメインか');
-        print('  3. Firebase Authの認証状態が有効か');
-        print('');
-        print('📋 暫定解決策: 以下のFirestoreルールを適用してください:');
-        print('  Firebase Console → Firestore → Rules に以下を追加:');
-        print('  match /bulletin_comments/{commentId} {');
-        print('    allow read, write: if request.auth != null;');
-        print('  }');
+        SecureLogger.debug('🚨 【権限エラー】以下を確認してください:');
+        SecureLogger.debug('  1. Firestoreルールで bulletin_comments コレクションが設定されているか');
+        SecureLogger.debug('  2. ユーザーのメールアドレスが @s.chibakoudai.jp ドメインか');
+        SecureLogger.debug('  3. Firebase Authの認証状態が有効か');
+        SecureLogger.debug('');
+        SecureLogger.debug('📋 暫定解決策: 以下のFirestoreルールを適用してください:');
+        SecureLogger.debug('  Firebase Console → Firestore → Rules に以下を追加:');
+        SecureLogger.debug('  match /bulletin_comments/{commentId} {');
+        SecureLogger.debug('    allow read, write: if request.auth != null;');
+        SecureLogger.debug('  }');
       }
-      
+
       rethrow;
     }
   }
@@ -291,59 +319,61 @@ class CommentService {
     String? parentCommentId,
     String fromUserId,
   ) async {
-    print('🔔 通知送信メソッド開始');
-    print('  - postId: $postId');
-    print('  - commentId: $commentId');
-    print('  - authorName: $authorName');
-    print('  - parentCommentId: $parentCommentId');
-    print('  - fromUserId: $fromUserId');
-    
+    SecureLogger.debug('🔔 通知送信メソッド開始');
+    SecureLogger.debug('  - postId: $postId');
+    SecureLogger.debug('  - commentId: $commentId');
+    SecureLogger.debug('  - authorName: $authorName');
+    SecureLogger.debug('  - parentCommentId: $parentCommentId');
+    SecureLogger.debug('  - fromUserId: $fromUserId');
+
     try {
       // 投稿情報を取得
-      print('📄 投稿情報を取得中: $postId');
-      final postDoc = await FirebaseFirestore.instance
-          .collection('bulletin_posts')
-          .doc(postId)
-          .get();
+      SecureLogger.debug('📄 投稿情報を取得中: $postId');
+      final postDoc =
+          await FirebaseFirestore.instance
+              .collection('bulletin_posts')
+              .doc(postId)
+              .get();
 
       if (!postDoc.exists) {
-        print('⚠️ 投稿が見つかりません: $postId');
+        SecureLogger.debug('⚠️ 投稿が見つかりません: $postId');
         return;
       }
 
-      print('✅ 投稿情報取得成功: ${postDoc.id}');
+      SecureLogger.debug('✅ 投稿情報取得成功: ${postDoc.id}');
       final postData = postDoc.data()!;
       postData['id'] = postDoc.id;
       final post = BulletinPost.fromJson(postData);
-      print('📝 投稿タイトル: ${post.title}');
-      print('👤 投稿作者ID: ${post.authorId}');
+      SecureLogger.debug('📝 投稿タイトル: ${post.title}');
+      SecureLogger.debug('👤 投稿作者ID: ${post.authorId}');
 
       if (parentCommentId != null) {
-        print('💬 返信通知の送信処理開始');
-        print('📍 親コメントID: $parentCommentId');
-        
+        SecureLogger.debug('💬 返信通知の送信処理開始');
+        SecureLogger.debug('📍 親コメントID: $parentCommentId');
+
         // 返信の場合：元のコメント作者に通知
-        final parentCommentDoc = await FirebaseFirestore.instance
-            .collection('bulletin_comments')
-            .doc(parentCommentId)
-            .get();
+        final parentCommentDoc =
+            await FirebaseFirestore.instance
+                .collection('bulletin_comments')
+                .doc(parentCommentId)
+                .get();
 
         if (!parentCommentDoc.exists) {
-          print('⚠️ 親コメントが見つかりません: $parentCommentId');
+          SecureLogger.debug('⚠️ 親コメントが見つかりません: $parentCommentId');
           return;
         }
 
         final parentCommentData = parentCommentDoc.data()!;
         final parentAuthorId = parentCommentData['authorId'] as String;
-        print('👤 親コメント作者ID: $parentAuthorId');
-        
+        SecureLogger.debug('👤 親コメント作者ID: $parentAuthorId');
+
         // 自分自身への通知かチェック
         if (fromUserId == parentAuthorId) {
-          print('🚫 自分自身への返信通知はスキップします');
+          SecureLogger.debug('🚫 自分自身への返信通知はスキップします');
           return;
         }
 
-        print('🔔 返信通知送信中...');
+        SecureLogger.debug('🔔 返信通知送信中...');
         await NotificationService.sendReplyNotification(
           commentAuthorId: parentAuthorId,
           replyAuthorName: authorName,
@@ -353,18 +383,18 @@ class CommentService {
           replyId: commentId,
           fromUserId: fromUserId,
         );
-        print('✅ 返信通知送信完了');
+        SecureLogger.debug('✅ 返信通知送信完了');
       } else {
-        print('💬 新規コメント通知の送信処理開始');
-        
+        SecureLogger.debug('💬 新規コメント通知の送信処理開始');
+
         // 自分自身への通知かチェック
         if (fromUserId == post.authorId) {
-          print('🚫 自分自身への新規コメント通知はスキップします');
+          SecureLogger.debug('🚫 自分自身への新規コメント通知はスキップします');
           return;
         }
 
         // 新しいコメントの場合：投稿作者に通知
-        print('🔔 新規コメント通知送信中...');
+        SecureLogger.debug('🔔 新規コメント通知送信中...');
         await NotificationService.sendCommentNotification(
           postAuthorId: post.authorId,
           postTitle: post.title,
@@ -373,11 +403,11 @@ class CommentService {
           commentId: commentId,
           fromUserId: fromUserId,
         );
-        print('✅ 新規コメント通知送信完了');
+        SecureLogger.debug('✅ 新規コメント通知送信完了');
       }
     } catch (e, stackTrace) {
-      print('❌ コメント通知送信エラー: $e');
-      print('❌ スタックトレース: $stackTrace');
+      SecureLogger.debug('❌ コメント通知送信エラー: $e');
+      SecureLogger.debug('❌ スタックトレース: $stackTrace');
       // 通知送信エラーでもコメント投稿は成功させる
     }
   }
@@ -390,14 +420,11 @@ class CommentService {
       await FirebaseFirestore.instance
           .collection('bulletin_comments')
           .doc(commentId)
-          .update({
-        'content': newContent,
-        'updatedAt': Timestamp.now(),
-      });
+          .update({'content': newContent, 'updatedAt': Timestamp.now()});
 
-      print('コメント更新完了: $commentId');
+      SecureLogger.debug('コメント更新完了: $commentId');
     } catch (e) {
-      print('コメント更新エラー: $e');
+      SecureLogger.debug('コメント更新エラー: $e');
       rethrow;
     }
   }
@@ -409,14 +436,14 @@ class CommentService {
           .collection('bulletin_comments')
           .doc(commentId)
           .update({
-        'isDeleted': true,
-        'content': '[削除されたコメント]',
-        'updatedAt': Timestamp.now(),
-      });
+            'isDeleted': true,
+            'content': '[削除されたコメント]',
+            'updatedAt': Timestamp.now(),
+          });
 
-      print('コメント削除完了: $commentId');
+      SecureLogger.debug('コメント削除完了: $commentId');
     } catch (e) {
-      print('コメント削除エラー: $e');
+      SecureLogger.debug('コメント削除エラー: $e');
       rethrow;
     }
   }
@@ -439,7 +466,9 @@ class CommentService {
         }
         final data = snap.data() as Map<String, dynamic>;
         final currentCount = (data['likeCount'] as int?) ?? 0;
-        final currentLikedBy = Map<String, dynamic>.from(data['likedBy'] as Map<String, dynamic>? ?? {});
+        final currentLikedBy = Map<String, dynamic>.from(
+          data['likedBy'] as Map<String, dynamic>? ?? {},
+        );
 
         // 既にいいね済みなら何もしない（多重いいね防止）
         if (currentLikedBy[uid] == true) {
@@ -453,9 +482,9 @@ class CommentService {
         });
       });
 
-      print('コメントいいね完了: $commentId');
+      SecureLogger.debug('コメントいいね完了: $commentId');
     } catch (e) {
-      print('コメントいいねエラー: $e');
+      SecureLogger.debug('コメントいいねエラー: $e');
       rethrow;
     }
   }
@@ -478,7 +507,9 @@ class CommentService {
         }
         final data = snap.data() as Map<String, dynamic>;
         final currentCount = (data['likeCount'] as int?) ?? 0;
-        final currentLikedBy = Map<String, dynamic>.from(data['likedBy'] as Map<String, dynamic>? ?? {});
+        final currentLikedBy = Map<String, dynamic>.from(
+          data['likedBy'] as Map<String, dynamic>? ?? {},
+        );
 
         // いいねしていない場合は何もしない
         if (currentLikedBy[uid] == true) {
@@ -490,13 +521,12 @@ class CommentService {
         }
       });
 
-      print('コメントいいね取り消し完了: $commentId');
+      SecureLogger.debug('コメントいいね取り消し完了: $commentId');
     } catch (e) {
-      print('コメントいいね取り消しエラー: $e');
+      SecureLogger.debug('コメントいいね取り消しエラー: $e');
       rethrow;
     }
   }
-
 }
 
 // コメント投稿用StateNotifier
@@ -510,19 +540,19 @@ class CommentNotifier extends StateNotifier<AsyncValue<void>> {
     String? parentCommentId,
   }) async {
     state = const AsyncValue.loading();
-    
+
     try {
-      print('🔄 CommentNotifier: 投稿処理開始');
+      SecureLogger.debug('🔄 CommentNotifier: 投稿処理開始');
       await CommentService.addComment(
         postId: postId,
         content: content,
         authorName: authorName,
         parentCommentId: parentCommentId,
       );
-      print('✅ CommentNotifier: 投稿処理完了');
+      SecureLogger.debug('✅ CommentNotifier: 投稿処理完了');
       state = const AsyncValue.data(null);
     } catch (e, stackTrace) {
-      print('❌ CommentNotifier: 投稿エラー: $e');
+      SecureLogger.debug('❌ CommentNotifier: 投稿エラー: $e');
       state = AsyncValue.error(e, stackTrace);
       rethrow; // エラーを上位に再throw
     }
@@ -533,7 +563,7 @@ class CommentNotifier extends StateNotifier<AsyncValue<void>> {
     required String newContent,
   }) async {
     state = const AsyncValue.loading();
-    
+
     try {
       await CommentService.updateComment(
         commentId: commentId,
@@ -547,7 +577,7 @@ class CommentNotifier extends StateNotifier<AsyncValue<void>> {
 
   Future<void> deleteComment(String commentId) async {
     state = const AsyncValue.loading();
-    
+
     try {
       await CommentService.deleteComment(commentId);
       state = const AsyncValue.data(null);
@@ -558,6 +588,7 @@ class CommentNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 // CommentNotifierプロバイダー
-final commentNotifierProvider = StateNotifierProvider<CommentNotifier, AsyncValue<void>>((ref) {
-  return CommentNotifier();
-});
+final commentNotifierProvider =
+    StateNotifierProvider<CommentNotifier, AsyncValue<void>>((ref) {
+      return CommentNotifier();
+    });

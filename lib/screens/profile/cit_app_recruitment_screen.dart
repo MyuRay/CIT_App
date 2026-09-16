@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -41,9 +42,9 @@ class CitAppRecruitmentScreen extends StatelessWidget {
     }
 
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('リンクを開けませんでした')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('リンクを開けませんでした')));
   }
 
   @override
@@ -52,9 +53,7 @@ class CitAppRecruitmentScreen extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('変な所を連打するあなたへ'),
-      ),
+      appBar: AppBar(title: const Text('開発メンバー募集')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
@@ -76,12 +75,14 @@ class CitAppRecruitmentScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF4CAF50).withValues(alpha: 0.12),
+                          color: const Color(
+                            0xFF4CAF50,
+                          ).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.groups_outlined,
-                          color: Color(0xFF2E7D32),
+                          color: AppColors.accent(context, Color(0xFF2E7D32)),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -97,8 +98,7 @@ class CitAppRecruitmentScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'CIT App は学生主導で開発・運営している ${AppConstants.appDescriptionTitle} です。\n'
-                    '千葉工業大学の学生生活をもっと便利にするアプリを、一緒につくりませんか？',
+                    'CIT Appは千葉工業大学の学生が開発・運営しています。',
                     style: theme.textTheme.bodyMedium?.copyWith(height: 1.6),
                   ),
                 ],
@@ -107,7 +107,7 @@ class CitAppRecruitmentScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _Section(
-            title: 'こんな活動をしています',
+            title: '活動内容',
             items: const [
               'Flutter / Firebase を使ったモバイルアプリ開発',
               '時間割・掲示板・学食・Cwitter などの機能改善',
@@ -116,7 +116,7 @@ class CitAppRecruitmentScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _Section(
-            title: 'こんな人を歓迎します',
+            title: '応募対象',
             items: const [
               'プログラミングに興味がある（未経験でも OK）',
               'UI / UX やデザインが好き',
@@ -140,7 +140,7 @@ class CitAppRecruitmentScreen extends StatelessWidget {
             label: const Text('メールで応募する'),
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF4CAF50),
-              foregroundColor: Colors.white,
+              foregroundColor: AppColors.onColor(const Color(0xFF4CAF50)),
               minimumSize: const Size(double.infinity, 48),
             ),
           ),
@@ -153,45 +153,6 @@ class CitAppRecruitmentScreen extends StatelessWidget {
               minimumSize: const Size(double.infinity, 48),
             ),
           ),
-          const SizedBox(height: 28),
-          Card(
-            elevation: 0,
-            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '開発者からのメッセージ',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '押してみたくなるボタンを50回も連打してくれたのですから、さぞエンジニアに適正がある方だと思います。'
-                    'ここまで見つけてくれて本当にありがとうございます。\n\n'
-                    'CIT App は、少数の学生が授業やバイトの合間に続けてきたプロジェクトです。'
-                    '「大学のためのアプリを、学生の手で」—— その想いに共感してくれる人がいたら、'
-                    'ぜひメールを待っています。一緒に大学生活をもっと便利にしませんか？\n\n'
-                    'この画面を見つけても他の人には教えず、どうぞ自分の好奇心の手柄にしてください。\n\n'
-                    '—— CIT App 運代表:村井雅斗',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      height: 1.65,
-                      color: colorScheme.onSurface.withValues(alpha: 0.85),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -199,10 +160,7 @@ class CitAppRecruitmentScreen extends StatelessWidget {
 }
 
 class _Section extends StatelessWidget {
-  const _Section({
-    required this.title,
-    required this.items,
-  });
+  const _Section({required this.title, required this.items});
 
   final String title;
   final List<String> items;

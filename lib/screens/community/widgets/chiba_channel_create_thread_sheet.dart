@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -19,12 +20,13 @@ class ChibaChannelCreateThreadSheet extends ConsumerStatefulWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: const ChibaChannelCreateThreadSheet(),
-      ),
+      builder:
+          (context) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(context).bottom,
+            ),
+            child: const ChibaChannelCreateThreadSheet(),
+          ),
     );
   }
 
@@ -52,9 +54,9 @@ class _ChibaChannelCreateThreadSheetState
     final appUser = ref.read(currentAppUserStreamProvider).valueOrNull;
     if (uid == null || appUser == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ログインが必要です')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ログインが必要です')));
       return;
     }
 
@@ -69,14 +71,16 @@ class _ChibaChannelCreateThreadSheetState
       if (!mounted) return;
       ref.invalidate(chibaChannelThreadsProvider);
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('スレッドを作成しました')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('スレッドを作成しました')));
     } catch (error) {
       if (!mounted) return;
       if (maybeShowBanNotice(context, error)) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString().replaceFirst('ArgumentError: ', ''))),
+        SnackBar(
+          content: Text(error.toString().replaceFirst('ArgumentError: ', '')),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -106,19 +110,21 @@ class _ChibaChannelCreateThreadSheetState
               labelText: 'カテゴリ',
               border: OutlineInputBorder(),
             ),
-            items: ChibaChannelThread.categories
-                .map(
-                  (category) => DropdownMenuItem(
-                    value: category,
-                    child: Text(category),
-                  ),
-                )
-                .toList(),
-            onChanged: _isSubmitting
-                ? null
-                : (value) {
-                    if (value != null) setState(() => _category = value);
-                  },
+            items:
+                ChibaChannelThread.categories
+                    .map(
+                      (category) => DropdownMenuItem(
+                        value: category,
+                        child: Text(category),
+                      ),
+                    )
+                    .toList(),
+            onChanged:
+                _isSubmitting
+                    ? null
+                    : (value) {
+                      if (value != null) setState(() => _category = value);
+                    },
           ),
           const SizedBox(height: 12),
           TextField(
@@ -139,16 +145,17 @@ class _ChibaChannelCreateThreadSheetState
             onPressed: _isSubmitting ? null : _submit,
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF4CAF50),
-              foregroundColor: Colors.white,
+              foregroundColor: AppColors.onColor(const Color(0xFF4CAF50)),
               minimumSize: const Size(double.infinity, 48),
             ),
-            child: _isSubmitting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('作成する'),
+            child:
+                _isSubmitting
+                    ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : const Text('作成する'),
           ),
         ],
       ),

@@ -4,27 +4,42 @@ import 'package:firebase_storage/firebase_storage.dart';
 import '../firebase/storage_direct_url.dart';
 import 'dart:io';
 import '../../models/cafeteria/cafeteria_menu_item_model.dart';
+import 'cafeteria_image_preparer.dart';
 
 class CafeteriaMenuItemService {
-  static final _col = FirebaseFirestore.instance.collection('cafeteria_menu_items');
+  static final _col = FirebaseFirestore.instance.collection(
+    'cafeteria_menu_items',
+  );
 
   static Stream<List<CafeteriaMenuItem>> streamItems(String cafeteriaId) {
     return _col
         .where('cafeteriaId', isEqualTo: cafeteriaId)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => CafeteriaMenuItem.fromJson({'id': d.id, ...d.data()}))
-            .toList());
+        .map(
+          (snap) =>
+              snap.docs
+                  .map(
+                    (d) =>
+                        CafeteriaMenuItem.fromJson({'id': d.id, ...d.data()}),
+                  )
+                  .toList(),
+        );
   }
 
   static Stream<List<CafeteriaMenuItem>> streamAllItems() {
     return _col
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => CafeteriaMenuItem.fromJson({'id': d.id, ...d.data()}))
-            .toList());
+        .map(
+          (snap) =>
+              snap.docs
+                  .map(
+                    (d) =>
+                        CafeteriaMenuItem.fromJson({'id': d.id, ...d.data()}),
+                  )
+                  .toList(),
+        );
   }
 
   static Future<String> addMenuItem(CafeteriaMenuItem item) async {
@@ -32,7 +47,10 @@ class CafeteriaMenuItemService {
     return docRef.id;
   }
 
-  static Future<void> updateMenuItem(String id, Map<String, dynamic> data) async {
+  static Future<void> updateMenuItem(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
     final updateData = Map<String, dynamic>.from(data);
     updateData.removeWhere((key, value) => value == null);
     await _col.doc(id).update(updateData);
@@ -53,31 +71,46 @@ class CafeteriaMenuItemService {
   }
 
   static Future<bool> menuExists(String cafeteriaId, String menuName) async {
-    final querySnapshot = await _col
-        .where('cafeteriaId', isEqualTo: cafeteriaId)
-        .where('menuName', isEqualTo: menuName.trim())
-        .limit(1)
-        .get();
+    final querySnapshot =
+        await _col
+            .where('cafeteriaId', isEqualTo: cafeteriaId)
+            .where('menuName', isEqualTo: menuName.trim())
+            .limit(1)
+            .get();
     return querySnapshot.docs.isNotEmpty;
   }
 
-  static Future<bool> checkDuplicate(String cafeteriaId, String menuName) async {
+  static Future<bool> checkDuplicate(
+    String cafeteriaId,
+    String menuName,
+  ) async {
     return await menuExists(cafeteriaId, menuName);
   }
 
-  static Future<String?> uploadImage(File imageFile, String cafeteriaId, String menuName) async {
+  static Future<String?> uploadImage(
+    File imageFile,
+    String cafeteriaId,
+    String menuName,
+  ) async {
     try {
+      final prepared = await CafeteriaImagePreparer.prepare(
+        await imageFile.readAsBytes(),
+        filename: imageFile.path,
+      );
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final fileName = '${cafeteriaId}_${menuName}_$timestamp.jpg';
+      final safeMenuName = menuName.replaceAll(RegExp(r'[/\\]'), '_');
+      final fileName =
+          '${cafeteriaId}_${safeMenuName}_$timestamp.${prepared.extension}';
       final ref = FirebaseStorage.instance
           .ref()
           .child('cafeteria_menu_images')
           .child(fileName);
-      
+
       final token = StorageDirectUrl.newDownloadToken();
-      final uploadTask = ref.putFile(
-        imageFile,
+      final uploadTask = ref.putData(
+        prepared.bytes,
         SettableMetadata(
+          contentType: prepared.contentType,
           customMetadata: {'firebaseStorageDownloadTokens': token},
         ),
       );

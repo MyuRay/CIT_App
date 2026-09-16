@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 /// 時間割講義詳細ダイアログ下部の共通フォントサイズ。
@@ -15,8 +16,7 @@ TextStyle scheduleClassDetailDialogActionTextStyle(
   BuildContext context, {
   Color? foreground,
 }) {
-  final base =
-      Theme.of(context).textTheme.labelLarge ?? const TextStyle();
+  final base = Theme.of(context).textTheme.labelLarge ?? const TextStyle();
   return base.copyWith(
     fontSize: scheduleClassDetailDialogActionFontSize,
     fontWeight: FontWeight.w600,
@@ -62,7 +62,7 @@ Widget scheduleClassDetailDialogActionLabel(
 ButtonStyle scheduleClassLookupRoomButtonStyle(BuildContext context) {
   final blue = Colors.blue.shade700;
   return FilledButton.styleFrom(
-    foregroundColor: Colors.white,
+    foregroundColor: AppColors.onColor(blue),
     backgroundColor: blue,
     elevation: 0,
     shadowColor: Colors.transparent,

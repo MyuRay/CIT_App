@@ -196,3 +196,43 @@ Create `CafeteriaReview` class with:
 - `firestore.rules`
 
 Follow this specification precisely to reproduce the cafeteria review feature.
+
+## 9. Menu image loading (2026-09-16)
+
+- The menu screen uses a lazy SliverList. Previously, a SingleChildScrollView with a Column mounted every menu image immediately. In a 40-menu widget test, the old screen mounted all 40 images; the new screen mounts fewer than 12 near the viewport. This verifies bounded image-widget creation, not network download time.
+- Keep all sorting modes, pull-to-refresh, and one advertisement per seven menus. Today's reviews are indicated on their menu cards. Stable row keys preserve the menu-to-card association when sorting changes.
+- Newly selected menu photos are constrained to 1600 x 1600 pixels while preserving aspect ratio, with imageQuality set to 85. Actual compression support depends on the source format and platform. Existing uploaded photos are unchanged.
+- Upload also verifies the selected file in lib/services/cafeteria/cafeteria_image_preparer.dart. A dimension above 1600px triggers a scaled decode; a file larger than 2MiB triggers JPEG compression at quality 85 even when the dimensions already fit. These are optimization thresholds, not upload rejection limits. Suitable images retain their bytes at this stage. JPEG encoding runs outside the UI isolate on mobile, and transparent pixels are composited onto white.
+- If local decoding or conversion is unsupported or fails, upload continues with the original bytes and the corresponding MIME type/extension. Empty or unreadable files and actual network/permission failures still report errors; the code does not silently save a menu without its selected photo. No Storage rules were changed.
+- The form retains input and the selected photo after a failed save. If image upload succeeded before the menu save failed, retry reuses that uploaded URL. Selecting another photo clears the saved URL. Duplicate submissions and photo selection during submission are disabled.
+- Further cold-load optimization should generate a separate thumbnail for each existing menu photo and use its URL in the list, while keeping the larger image for detail/zoom. The current decode-size settings reduce decoded memory, not the bytes of the original download: https://api.flutter.dev/flutter/widgets/Image/Image.network.html
+- SafeCachedNetworkImage still bypasses disk caching on Web and release builds due to its existing Android PathUtils workaround. Restoring persistent caching requires checking that workaround with a release build on a device; it was not changed here.
+- Validation: both tests in test/widgets/cafeteria_review_sort_test.dart pass, including global review-count sorting and scrolling through all 40 menus. Scoped analysis reports no errors, with existing warnings remaining. Real-device load times and production image sizes have not been measured.
+- Upload verification: nine tests in test/services/cafeteria/cafeteria_image_preparer_test.dart cover portrait/landscape resizing, a source above 10MiB, file-size-only compression, transparency, preserving small images, MIME detection, conversion fallback, and empty files. All 11 upload/list tests pass; upload-related scoped analysis has no issues. Production Firebase test uploads were not performed.
+- Android arm64 debug APK build succeeded. Real-device registration against production Firebase remains unverified.
+
+## 10. Favorites and My食堂 (2026-09-16)
+
+See [CAFETERIA_FAVORITES.md](CAFETERIA_FAVORITES.md) for deterministic favorite IDs, legacy deduplication, server-only unique-user counts, the redesigned My食堂, validation, and required backend deployment/backfill. Favorite counts are shown in the menu list, menu detail, and My食堂 without exposing private favorite records.
+
+## 10. メニューの並び替え（2026-09-16）
+
+| 表示名 | 主な比較基準 |
+| --- | --- |
+| おすすめ順（評価が高い順） | レビューの「おすすめ」平均点が高い順。初期選択 |
+| おすすめ評価が低い順 | 同じ平均点が低い順。レビューのないメニューは最後 |
+| 人気順（お気に入りが多い順） | お気に入りにしている人数が多い順 |
+| お気に入りが少ない順 | 同じ人数が少ない順 |
+| レビューの多い順 | レビュー件数が多い順 |
+| 追加日の古い順 | メニュー登録日時が古い順 |
+| 追加日の新しい順 | メニュー登録日時が新しい順 |
+
+すべての並び替えを、検索対象のメニュー全体に適用する。「今日レビューされたメニュー」の先頭固定は選択した順序を崩すため行わず、各カードに「今日のレビューあり」を表示する。クリック数の表示は戻さず、計測は維持する。
+
+人気順は cafeteria_favorite_stats の count を使う。メニューIDのある項目はIDの集計キー、レビューだけが存在する項目は食堂とメニュー名の集計キーを使い、お気に入りボタンと同じ対象を参照する。未集計・不正な集計値を0人と扱わず、人数の分かっている項目の後ろへ置く。同人数では追加日時の新しい順、名前順で安定させる。読込失敗時はメニューを残して再試行を表示する。
+
+対象メニューの集計だけを最大30件ずつまとめて取得する。人気順を選んでいない間は追加の集計一覧購読を行わない。検索や件数更新で対象メニューが変わらない場合は購読を作り直さない。個人のお気に入り一覧を他ユーザーへ公開する変更はない。
+
+本番で継続的に集計するには、既存の syncCafeteriaFavoriteCounts / syncCafeteriaMenuFavoriteCounts、関連Firestoreルール・インデックスの反映と、既存データの初期集計が必要。2026-09-16に本番の関数一覧を確認した時点では、この2関数は未公開だった。この並び替え変更ではFirebaseへのデプロイや初期集計を実行していない。
+
+検証: 一覧・並び替え・集計取得の11テストとAndroid arm64 debugビルドが成功。評価とお気に入り数の区別、両方向の並び替え、未集計と0人の区別、件数変更時の更新、読込失敗からの再試行、検索時の購読維持、30件を超える集計取得を含む。静的解析はエラーなしで、既存の警告2件が残る。

@@ -6,7 +6,7 @@ import 'auth_provider.dart';
 // 現在のユーザー情報プロバイダー
 final currentUserProvider = FutureProvider<AppUser?>((ref) async {
   final authState = ref.watch(authStateProvider);
-  
+
   return authState.when(
     data: (firebaseUser) async {
       if (firebaseUser == null) return null;
@@ -23,10 +23,11 @@ final userProvider = FutureProvider.family<AppUser?, String>((ref, uid) async {
 });
 
 /// ユーザーの現在のプロフィール画像（変更後も過去の投稿・コメントに反映）
-final authorProfileImageUrlProvider =
-    StreamProvider.family<String?, String>((ref, authorId) {
-  return UserService.watchUser(authorId)
-      .map((user) => user?.profileImageUrl);
+final authorProfileImageUrlProvider = StreamProvider.family<String?, String>((
+  ref,
+  authorId,
+) {
+  return UserService.watchUser(authorId).map((user) => user?.profileImageUrl);
 });
 
 typedef AuthorDisplayNameQuery = ({String authorId, String fallback});
@@ -34,12 +35,12 @@ typedef AuthorDisplayNameQuery = ({String authorId, String fallback});
 /// 作者の最新表示名（変更後も過去の投稿・コメントに反映）
 final authorDisplayNameProvider =
     StreamProvider.family<String, AuthorDisplayNameQuery>((ref, query) {
-  return UserService.watchUser(query.authorId).map((user) {
-    final name = user?.displayName.trim();
-    if (name != null && name.isNotEmpty) return name;
-    return query.fallback;
-  });
-});
+      return UserService.watchUser(query.authorId).map((user) {
+        final name = user?.displayName.trim();
+        if (name != null && name.isNotEmpty) return name;
+        return query.fallback;
+      });
+    });
 
 String resolveAuthorDisplayName(AsyncValue<String> async, String fallback) {
   return async.when(
@@ -99,6 +100,7 @@ class UserNotifier extends StateNotifier<AsyncValue<AppUser?>> {
 }
 
 // UserNotifierプロバイダー
-final userNotifierProvider = StateNotifierProvider<UserNotifier, AsyncValue<AppUser?>>((ref) {
-  return UserNotifier();
-});
+final userNotifierProvider =
+    StateNotifierProvider<UserNotifier, AsyncValue<AppUser?>>((ref) {
+      return UserNotifier();
+    });

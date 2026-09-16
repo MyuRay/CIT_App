@@ -41,9 +41,7 @@ class _CwitterPollWidgetState extends ConsumerState<CwitterPollWidget> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isVoting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
   }
 
@@ -76,9 +74,12 @@ class _CwitterPollWidgetState extends ConsumerState<CwitterPollWidget> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFF4CAF50)
-                          : colorScheme.outlineVariant.withValues(alpha: 0.6),
+                      color:
+                          isSelected
+                              ? const Color(0xFF4CAF50)
+                              : colorScheme.outlineVariant.withValues(
+                                alpha: 0.6,
+                              ),
                       width: isSelected ? 1.5 : 1,
                     ),
                   ),
@@ -113,9 +114,10 @@ class _CwitterPollWidgetState extends ConsumerState<CwitterPollWidget> {
                               child: Text(
                                 option.text,
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: isSelected
-                                      ? FontWeight.w600
-                                      : FontWeight.normal,
+                                  fontWeight:
+                                      isSelected
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
                                 ),
                               ),
                             ),
@@ -124,8 +126,9 @@ class _CwitterPollWidgetState extends ConsumerState<CwitterPollWidget> {
                               Text(
                                 '${(ratio * 100).round()}%',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurface
-                                      .withValues(alpha: 0.7),
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.7,
+                                  ),
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -144,10 +147,10 @@ class _CwitterPollWidgetState extends ConsumerState<CwitterPollWidget> {
           poll.totalVotes > 0
               ? '${poll.totalVotes}票'
               : hasVoted
-                  ? '0票'
-                  : 'タップして投票',
+              ? '0票'
+              : 'タップして投票',
           style: theme.textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurface.withValues(alpha: 0.6),
+            color: colorScheme.onSurfaceVariant,
           ),
         ),
       ],

@@ -1,3 +1,5 @@
+import 'auth_provider.dart' show AuthService;
+import '../utils/logger.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,104 +27,103 @@ class PersistentAuthNotifier extends StateNotifier<AsyncValue<User?>> {
 
   Future<void> _initializeAuth() async {
     try {
-      print('🔐 PersistentAuth: 認証初期化開始');
-      
+      SecureLogger.debug('🔐 PersistentAuth: 認証初期化開始');
+
       // Firebase Authの永続化設定を確認・強化
       await _configurePersistence();
-      
+
       // SharedPreferencesから永続化データを確認
       final prefs = await SharedPreferences.getInstance();
       bool wasLoggedIn = prefs.getBool(_keyUserLoggedIn) ?? false;
       final lastAuthTime = prefs.getString(_keyLastAuthTime);
       final savedUID = prefs.getString(_keyUserUID);
       final savedEmail = prefs.getString(_keyUserEmail);
-      
-      print('🔐 SharedPreferences状態:');
-      print('  - wasLoggedIn: $wasLoggedIn');
-      print('  - savedUID: $savedUID');
-      print('  - savedEmail: $savedEmail');
-      
+
+      SecureLogger.debug('🔐 SharedPreferences状態:');
+      SecureLogger.debug('  - wasLoggedIn: $wasLoggedIn');
+      SecureLogger.debug('  - savedUID: $savedUID');
+      SecureLogger.debug('  - savedEmail: $savedEmail');
+
       if (lastAuthTime != null) {
         final lastAuth = DateTime.parse(lastAuthTime);
         final timeSinceLastAuth = DateTime.now().difference(lastAuth);
-        print('  - 前回認証からの経過時間: ${timeSinceLastAuth.inMinutes}分');
-        
+        SecureLogger.debug('  - 前回認証からの経過時間: ${timeSinceLastAuth.inMinutes}分');
+
         // 認証データが古すぎる場合はクリア
         if (timeSinceLastAuth > _maxAuthAge) {
-          print('⚠️ 認証データが古すぎるためクリア (${timeSinceLastAuth.inDays}日経過)');
+          SecureLogger.debug('⚠️ 認証データが古すぎるためクリア (${timeSinceLastAuth.inDays}日経過)');
           await _clearPersistentData();
           wasLoggedIn = false;
         }
       }
-      
+
       // Firebase Authの現在のユーザーを確認
       final currentUser = FirebaseAuth.instance.currentUser;
-      print('🔐 Firebase Auth currentUser: ${currentUser?.uid ?? "null"}');
-      
+      SecureLogger.debug('🔐 Firebase Auth currentUser: ${currentUser?.uid ?? "null"}');
+
       // より長い待機時間でFirebase Authの初期化を待つ
       if (currentUser == null && wasLoggedIn) {
-        print('⏳ Firebase Auth初期化をより長く待機中...');
-        
+        SecureLogger.debug('⏳ Firebase Auth初期化をより長く待機中...');
+
         for (int i = 0; i < 15; i++) {
           await Future.delayed(const Duration(milliseconds: 800));
           final retryUser = FirebaseAuth.instance.currentUser;
           if (retryUser != null) {
-            print('✅ Firebase Auth遅延初期化成功 (${(i + 1) * 800}ms後)');
+            SecureLogger.debug('✅ Firebase Auth遅延初期化成功 (${(i + 1) * 800}ms後)');
             await _updatePersistentData(retryUser, true);
             state = AsyncValue.data(retryUser);
             _startAuthStateMonitoring();
             return;
           }
-          print('  ⏳ 待機中... ${i + 1}/15');
+          SecureLogger.debug('  ⏳ 待機中... ${i + 1}/15');
         }
-        
+
         // 最後の試行でauthStateChangesストリームから確認
-        print('⏳ authStateChangesストリームから確認中...');
-        final streamUser = await FirebaseAuth.instance.authStateChanges().first.timeout(
-          const Duration(seconds: 3),
-          onTimeout: () => null,
-        );
-        
+        SecureLogger.debug('⏳ authStateChangesストリームから確認中...');
+        final streamUser = await FirebaseAuth.instance
+            .authStateChanges()
+            .first
+            .timeout(const Duration(seconds: 3), onTimeout: () => null);
+
         if (streamUser != null) {
-          print('✅ authStateChangesストリームから認証復元成功');
+          SecureLogger.debug('✅ authStateChangesストリームから認証復元成功');
           await _updatePersistentData(streamUser, true);
           state = AsyncValue.data(streamUser);
           _startAuthStateMonitoring();
           return;
         }
       }
-      
+
       // 認証状態ストリームの監視を開始
       _startAuthStateMonitoring();
-      
+
       // 初期状態の設定
       if (currentUser != null) {
-        print('✅ 既存の認証セッション検出');
+        SecureLogger.debug('✅ 既存の認証セッション検出');
         await _updatePersistentData(currentUser, true);
         state = AsyncValue.data(currentUser);
       } else if (wasLoggedIn) {
-        print('⚠️ 認証状態復元に時間がかかっています（端末依存の初期化遅延の可能性）');
-        print('⚠️ いったん待機（loading）としてストリームの更新を待ちます');
+        SecureLogger.debug('⚠️ 認証状態復元に時間がかかっています（端末依存の初期化遅延の可能性）');
+        SecureLogger.debug('⚠️ いったん待機（loading）としてストリームの更新を待ちます');
         // ここではクリアしない。authStateChanges からの復帰を待つ
         state = const AsyncValue.loading();
 
         // タイムアウト設定: 5秒経過しても復元できない場合は未ログイン扱い
         Future.delayed(const Duration(seconds: 5), () async {
           if (state is AsyncLoading) {
-            print('❌ 認証状態復元タイムアウト (5秒経過)');
-            print('❌ SharedPreferencesをクリアして未ログイン状態にします');
+            SecureLogger.debug('❌ 認証状態復元タイムアウト (5秒経過)');
+            SecureLogger.debug('❌ SharedPreferencesをクリアして未ログイン状態にします');
             await _clearPersistentData();
             state = const AsyncValue.data(null);
           }
         });
       } else {
-        print('ℹ️ 未認証状態で開始');
+        SecureLogger.debug('ℹ️ 未認証状態で開始');
         state = const AsyncValue.data(null);
       }
-      
     } catch (e, stackTrace) {
-      print('❌ PersistentAuth初期化エラー: $e');
-      print('❌ StackTrace: $stackTrace');
+      SecureLogger.debug('❌ PersistentAuth初期化エラー: $e');
+      SecureLogger.debug('❌ StackTrace: $stackTrace');
       state = AsyncValue.error(e, stackTrace);
     }
   }
@@ -130,36 +131,37 @@ class PersistentAuthNotifier extends StateNotifier<AsyncValue<User?>> {
   /// Firebase Auth永続化設定を強化
   Future<void> _configurePersistence() async {
     try {
-      print('🔧 Firebase Auth永続化設定を確認中...');
-      
+      SecureLogger.debug('🔧 Firebase Auth永続化設定を確認中...');
+
       // Firebase Authインスタンスの設定確認
       final auth = FirebaseAuth.instance;
       final prefs = await SharedPreferences.getInstance();
       final rememberMe = prefs.getBool(_keyRememberMe) ?? true;
-      
+
       // アプリの永続化設定をユーザー選択に合わせて設定（Web）
       try {
-        await auth.setPersistence(rememberMe ? Persistence.LOCAL : Persistence.SESSION);
-        print('✅ Firebase Auth永続化を ${rememberMe ? 'LOCAL' : 'SESSION'} に設定');
+        await auth.setPersistence(
+          rememberMe ? Persistence.LOCAL : Persistence.SESSION,
+        );
+        SecureLogger.debug('✅ Firebase Auth永続化を ${rememberMe ? 'LOCAL' : 'SESSION'} に設定');
       } catch (e) {
         // モバイルでは未対応のため継続
-        print('ℹ️ setPersistence未対応プラットフォーム（継続）: $e');
+        SecureLogger.debug('ℹ️ setPersistence未対応プラットフォーム（継続）: $e');
       }
-      
+
       // 追加の設定: authDomain や他の設定を確認
-      print('🔧 Firebase App設定確認:');
-      print('  - App名: ${auth.app.name}');
-      print('  - Project ID: ${auth.app.options.projectId}');
-      
+      SecureLogger.debug('🔧 Firebase App設定確認:');
+      SecureLogger.debug('  - App名: ${auth.app.name}');
+      SecureLogger.debug('  - Project ID: ${auth.app.options.projectId}');
+
       // セッション維持のための追加設定
       await auth.setSettings(
         appVerificationDisabledForTesting: false,
         userAccessGroup: null, // iOSでのキーチェーン共有（nullで既定値）
       );
-      print('✅ Firebase Auth追加設定完了');
-      
+      SecureLogger.debug('✅ Firebase Auth追加設定完了');
     } catch (e) {
-      print('⚠️ 永続化設定エラー（継続）: $e');
+      SecureLogger.debug('⚠️ 永続化設定エラー（継続）: $e');
     }
   }
 
@@ -168,73 +170,82 @@ class PersistentAuthNotifier extends StateNotifier<AsyncValue<User?>> {
     try {
       final auth = FirebaseAuth.instance;
       final prefs = await SharedPreferences.getInstance();
-      
-      print('🔍 詳細認証状態デバッグ:');
-      print('  - Firebase App初期化済み: ${auth.app.name}');
-      print('  - currentUser null: ${auth.currentUser == null}');
-      
+
+      SecureLogger.debug('🔍 詳細認証状態デバッグ:');
+      SecureLogger.debug('  - Firebase App初期化済み: ${auth.app.name}');
+      SecureLogger.debug('  - currentUser null: ${auth.currentUser == null}');
+
       // SharedPreferencesの全認証関連キーを確認
-      final allKeys = prefs.getKeys().where((key) => 
-        key.contains('user_') || key.contains('auth_') || key.contains('firebase_')).toList();
-      print('  - SharedPreferences認証関連キー: $allKeys');
-      
+      final allKeys =
+          prefs
+              .getKeys()
+              .where(
+                (key) =>
+                    key.contains('user_') ||
+                    key.contains('auth_') ||
+                    key.contains('firebase_'),
+              )
+              .toList();
+      SecureLogger.debug('  - SharedPreferences認証関連キー: $allKeys');
+
       for (final key in allKeys) {
         final value = prefs.get(key);
-        print('    $key: $value');
+        SecureLogger.debug('    $key: $value');
       }
-      
     } catch (e) {
-      print('⚠️ デバッグ情報取得エラー: $e');
+      SecureLogger.debug('⚠️ デバッグ情報取得エラー: $e');
     }
   }
 
   void _startAuthStateMonitoring() {
     _authSubscription?.cancel();
-    
+
     _authSubscription = FirebaseAuth.instance
         .authStateChanges()
         .distinct() // 重複する状態変更を無視
         .listen(
-      (user) async {
-        print('🔐 Auth状態変更検出: ${user?.uid ?? "ログアウト"}');
-        
-        // 再接続の試行をリセット
-        _reconnectAttempts = 0;
-        _reconnectTimer?.cancel();
-        
-        if (user != null) {
-          print('✅ ユーザー認証確認済み: ${user.email}');
-          await _updatePersistentData(user, true);
-          state = AsyncValue.data(user);
-        } else {
-          print('❌ ユーザーログアウト検出');
-          await _updatePersistentData(null, false);
-          state = const AsyncValue.data(null);
-        }
-      },
-      onError: (error) async {
-        print('❌ Auth状態監視エラー: $error');
-        state = AsyncValue.error(error, StackTrace.current);
-        
-        // エラー発生時は再接続を試行
-        _scheduleReconnect();
-      },
-    );
+          (user) async {
+            SecureLogger.debug('🔐 Auth状態変更検出: ${user?.uid ?? "ログアウト"}');
+
+            // 再接続の試行をリセット
+            _reconnectAttempts = 0;
+            _reconnectTimer?.cancel();
+
+            if (user != null) {
+              SecureLogger.debug('✅ ユーザー認証確認済み: ${user.email}');
+              await _updatePersistentData(user, true);
+              state = AsyncValue.data(user);
+            } else {
+              SecureLogger.debug('❌ ユーザーログアウト検出');
+              await _updatePersistentData(null, false);
+              state = const AsyncValue.data(null);
+            }
+          },
+          onError: (error) async {
+            SecureLogger.debug('❌ Auth状態監視エラー: $error');
+            state = AsyncValue.error(error, StackTrace.current);
+
+            // エラー発生時は再接続を試行
+            _scheduleReconnect();
+          },
+        );
   }
 
   void _scheduleReconnect() {
     if (_reconnectAttempts >= _maxReconnectAttempts) {
-      print('❌ 最大再接続試行回数に達しました');
+      SecureLogger.debug('❌ 最大再接続試行回数に達しました');
       return;
     }
-    
+
     _reconnectAttempts++;
     final delay = Duration(seconds: _reconnectAttempts * 2); // 指数バックオフ
-    
-    print('🔄 Auth再接続を${delay.inSeconds}秒後に試行 (${_reconnectAttempts}/$_maxReconnectAttempts)');
-    
+
+    SecureLogger.debug(
+      '🔄 Auth再接続を${delay.inSeconds}秒後に試行 ($_reconnectAttempts/$_maxReconnectAttempts)',
+    );
+
     _reconnectTimer = Timer(delay, () {
-      print('🔄 Auth再接続試行中...');
+      SecureLogger.debug('🔄 Auth再接続試行中...');
       _startAuthStateMonitoring();
     });
   }
@@ -242,37 +253,37 @@ class PersistentAuthNotifier extends StateNotifier<AsyncValue<User?>> {
   Future<void> _updatePersistentData(User? user, bool isLoggedIn) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       if (isLoggedIn && user != null) {
         final now = DateTime.now();
-        
+
         await prefs.setBool(_keyUserLoggedIn, true);
         await prefs.setString(_keyUserUID, user.uid);
         await prefs.setString(_keyUserEmail, user.email ?? '');
         await prefs.setString(_keyLastAuthTime, now.toIso8601String());
         await prefs.setString(_keyLastAccessTime, now.toIso8601String());
-        
+
         // 認証トークンも保存（可能であれば）
         try {
           final token = await user.getIdToken();
           if (token != null && token.isNotEmpty) {
             await prefs.setString(_keyAuthToken, token);
-            print('✅ 認証トークンを保存');
+            SecureLogger.debug('✅ 認証トークンを保存');
           }
         } catch (tokenError) {
-          print('⚠️ トークン保存エラー: $tokenError');
+          SecureLogger.debug('⚠️ トークン保存エラー: $tokenError');
         }
-        
-        print('✅ 認証データをSharedPreferencesに保存');
-        print('  - UID: ${user.uid}');
-        print('  - Email: ${user.email}');
-        print('  - 保存時刻: ${now.toIso8601String()}');
+
+        SecureLogger.debug('✅ 認証データをSharedPreferencesに保存');
+        SecureLogger.debug('  - UID: ${user.uid}');
+        SecureLogger.debug('  - Email: ${user.email}');
+        SecureLogger.debug('  - 保存時刻: ${now.toIso8601String()}');
       } else {
         await _clearPersistentData();
-        print('✅ 認証データをSharedPreferencesから削除');
+        SecureLogger.debug('✅ 認証データをSharedPreferencesから削除');
       }
     } catch (e) {
-      print('⚠️ SharedPreferences更新エラー: $e');
+      SecureLogger.debug('⚠️ SharedPreferences更新エラー: $e');
     }
   }
 
@@ -285,47 +296,50 @@ class PersistentAuthNotifier extends StateNotifier<AsyncValue<User?>> {
       await prefs.remove(_keyLastAuthTime);
       await prefs.remove(_keyLastAccessTime);
       await prefs.remove(_keyAuthToken);
-      print('✅ 全認証データをSharedPreferencesからクリア');
+      SecureLogger.debug('✅ 全認証データをSharedPreferencesからクリア');
     } catch (e) {
-      print('⚠️ SharedPreferencesクリアエラー: $e');
+      SecureLogger.debug('⚠️ SharedPreferencesクリアエラー: $e');
     }
   }
 
   /// 手動でリフレッシュ（デバッグ用）
   Future<void> refresh() async {
-    print('🔄 手動認証リフレッシュ');
+    SecureLogger.debug('🔄 手動認証リフレッシュ');
     state = const AsyncValue.loading();
     await _initializeAuth();
   }
-  
+
   /// 最後のアクセス時刻を更新（アプリアクティブ時に呼び出し）
   Future<void> updateLastAccess() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final isLoggedIn = prefs.getBool(_keyUserLoggedIn) ?? false;
-      
+
       if (isLoggedIn) {
-        await prefs.setString(_keyLastAccessTime, DateTime.now().toIso8601String());
-        print('🔄 最終アクセス時刻を更新');
+        await prefs.setString(
+          _keyLastAccessTime,
+          DateTime.now().toIso8601String(),
+        );
+        SecureLogger.debug('🔄 最終アクセス時刻を更新');
       }
     } catch (e) {
-      print('⚠️ 最終アクセス時刻更新エラー: $e');
+      SecureLogger.debug('⚠️ 最終アクセス時刻更新エラー: $e');
     }
   }
 
   /// 認証状態の強制チェック
   Future<void> forceCheck() async {
-    print('🔍 認証状態強制チェック');
-    
+    SecureLogger.debug('🔍 認証状態強制チェック');
+
     try {
       // Firebase Auth の現在のユーザーを取得
       final currentUser = FirebaseAuth.instance.currentUser;
-      
+
       if (currentUser != null) {
         try {
           // 強制リフレッシュは行わず、通常のトークン取得で状態を確認
           await currentUser.getIdToken().timeout(const Duration(seconds: 5));
-          print('✅ 認証トークン有効');
+          SecureLogger.debug('✅ 認証トークン有効');
           await _updatePersistentData(currentUser, true);
           state = AsyncValue.data(currentUser);
         } on FirebaseAuthException catch (e) {
@@ -339,53 +353,57 @@ class PersistentAuthNotifier extends StateNotifier<AsyncValue<User?>> {
             'app-check-unexpected-error',
             'app-check-network-error',
           };
-          final isAppCheckRelated = e.code.startsWith('app-check') || e.code == 'invalid-app-check-token';
+          final isAppCheckRelated =
+              e.code.startsWith('app-check') ||
+              e.code == 'invalid-app-check-token';
 
           if (transientCodes.contains(e.code) || isAppCheckRelated) {
-            print('⚠️ 一時的な認証／AppCheckエラー(${e.code})のためサインアウトはしません');
+            SecureLogger.debug('⚠️ 一時的な認証／AppCheckエラー(${e.code})のためサインアウトはしません');
             _scheduleReconnect();
             return;
           }
 
-          if (e.code == 'user-token-expired' || e.code == 'user-disabled' || e.code == 'user-not-found') {
-            print('⚠️ トークンリロードを試行 (${e.code})');
+          if (e.code == 'user-token-expired' ||
+              e.code == 'user-disabled' ||
+              e.code == 'user-not-found') {
+            SecureLogger.debug('⚠️ トークンリロードを試行 (${e.code})');
             try {
               await currentUser.reload();
               final refreshedUser = FirebaseAuth.instance.currentUser;
               if (refreshedUser != null) {
-                print('✅ トークン再取得成功');
+                SecureLogger.debug('✅ トークン再取得成功');
                 await _updatePersistentData(refreshedUser, true);
                 state = AsyncValue.data(refreshedUser);
                 return;
               }
             } catch (reloadError) {
-              print('⚠️ トークン再取得に失敗: $reloadError');
+              SecureLogger.debug('⚠️ トークン再取得に失敗: $reloadError');
             }
 
-            print('❌ 致命的な認証エラーのためサインアウトします (${e.code})');
-            await FirebaseAuth.instance.signOut();
+            SecureLogger.debug('❌ 致命的な認証エラーのためサインアウトします (${e.code})');
+            await AuthService(FirebaseAuth.instance).signOut();
             return;
           }
 
-          print('⚠️ 想定外のトークンエラー(${e.code})。サインアウトせず再試行を予約');
+          SecureLogger.debug('⚠️ 想定外のトークンエラー(${e.code})。サインアウトせず再試行を予約');
           _scheduleReconnect();
           return;
         } on TimeoutException {
-          print('⚠️ トークン取得タイムアウト。サインアウトは行わず再試行を予約');
+          SecureLogger.debug('⚠️ トークン取得タイムアウト。サインアウトは行わず再試行を予約');
           _scheduleReconnect();
           return;
         } catch (tokenError) {
-          print('⚠️ 予期せぬトークン取得エラー（サインアウトせず保持）: $tokenError');
+          SecureLogger.debug('⚠️ 予期せぬトークン取得エラー（サインアウトせず保持）: $tokenError');
           _scheduleReconnect();
           return;
         }
       } else {
-        print('ℹ️ 未認証状態');
+        SecureLogger.debug('ℹ️ 未認証状態');
         // ここで即クリアはしない（端末依存の初期化遅延に配慮）
         state = const AsyncValue.data(null);
       }
     } catch (e) {
-      print('❌ 強制チェックエラー: $e');
+      SecureLogger.debug('❌ 強制チェックエラー: $e');
       state = AsyncValue.error(e, StackTrace.current);
     }
   }
@@ -399,9 +417,10 @@ class PersistentAuthNotifier extends StateNotifier<AsyncValue<User?>> {
 }
 
 /// 永続化された認証プロバイダー
-final persistentAuthProvider = StateNotifierProvider<PersistentAuthNotifier, AsyncValue<User?>>((ref) {
-  return PersistentAuthNotifier();
-});
+final persistentAuthProvider =
+    StateNotifierProvider<PersistentAuthNotifier, AsyncValue<User?>>((ref) {
+      return PersistentAuthNotifier();
+    });
 
 /// 認証状態確認用プロバイダー
 final isLoggedInPersistentProvider = Provider<bool?>((ref) {
@@ -417,7 +436,7 @@ final isLoggedInPersistentProvider = Provider<bool?>((ref) {
 final authDebugInfoProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final prefs = await SharedPreferences.getInstance();
   final firebaseUser = FirebaseAuth.instance.currentUser;
-  
+
   return {
     'firebase_user_uid': firebaseUser?.uid,
     'firebase_user_email': firebaseUser?.email,
@@ -430,4 +449,3 @@ final authDebugInfoProvider = FutureProvider<Map<String, dynamic>>((ref) async {
     'prefs_has_token': prefs.getString('auth_token')?.isNotEmpty ?? false,
   };
 });
-

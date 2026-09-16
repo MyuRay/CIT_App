@@ -1,27 +1,25 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/bulletin/bulletin_model.dart';
-import '../../utils/test_data_helper.dart';
 import '../../core/providers/bulletin_provider.dart';
 
 class BulletinDebugScreen extends ConsumerStatefulWidget {
   const BulletinDebugScreen({super.key});
 
   @override
-  ConsumerState<BulletinDebugScreen> createState() => _BulletinDebugScreenState();
+  ConsumerState<BulletinDebugScreen> createState() =>
+      _BulletinDebugScreenState();
 }
 
 class _BulletinDebugScreenState extends ConsumerState<BulletinDebugScreen> {
-  List<Map<String, dynamic>> _debugLogs = [];
+  final List<Map<String, dynamic>> _debugLogs = [];
   bool _isLoading = false;
 
   void _addLog(String message) {
     setState(() {
-      _debugLogs.insert(0, {
-        'time': DateTime.now(),
-        'message': message,
-      });
+      _debugLogs.insert(0, {'time': DateTime.now(), 'message': message});
     });
   }
 
@@ -69,7 +67,9 @@ class _BulletinDebugScreenState extends ConsumerState<BulletinDebugScreen> {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _deleteTestPosts,
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                        style: ElevatedButton.styleFrom(foregroundColor: AppColors.onColor(Colors.red),
+                          backgroundColor: Colors.red,
+                        ),
                         child: const Text('テスト投稿削除'),
                       ),
                     ),
@@ -81,7 +81,9 @@ class _BulletinDebugScreenState extends ConsumerState<BulletinDebugScreen> {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _testBulletinProvider,
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
+                        style: ElevatedButton.styleFrom(foregroundColor: AppColors.onColor(Colors.purple),
+                          backgroundColor: Colors.purple,
+                        ),
                         child: const Text('プロバイダーテスト'),
                       ),
                     ),
@@ -93,7 +95,9 @@ class _BulletinDebugScreenState extends ConsumerState<BulletinDebugScreen> {
                             _debugLogs.clear();
                           });
                         },
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
+                        style: ElevatedButton.styleFrom(foregroundColor: AppColors.onColor(Colors.grey),
+                          backgroundColor: Colors.grey,
+                        ),
                         child: const Text('ログクリア'),
                       ),
                     ),
@@ -102,13 +106,12 @@ class _BulletinDebugScreenState extends ConsumerState<BulletinDebugScreen> {
               ],
             ),
           ),
-          
+
           const Divider(),
-          
+
           // ローディングインジケーター
-          if (_isLoading)
-            const LinearProgressIndicator(),
-            
+          if (_isLoading) const LinearProgressIndicator(),
+
           // ログ表示
           Expanded(
             child: ListView.builder(
@@ -118,7 +121,7 @@ class _BulletinDebugScreenState extends ConsumerState<BulletinDebugScreen> {
                 final log = _debugLogs[index];
                 final time = log['time'] as DateTime;
                 final message = log['message'] as String;
-                
+
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   child: Padding(
@@ -130,14 +133,11 @@ class _BulletinDebugScreenState extends ConsumerState<BulletinDebugScreen> {
                           '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}:${time.second.toString().padLeft(2, '0')}',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[600],
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          message,
-                          style: const TextStyle(fontSize: 14),
-                        ),
+                        Text(message, style: const TextStyle(fontSize: 14)),
                       ],
                     ),
                   ),
@@ -156,22 +156,23 @@ class _BulletinDebugScreenState extends ConsumerState<BulletinDebugScreen> {
 
     try {
       final firestore = FirebaseFirestore.instance;
-      
+
       // 設定情報の確認
       _addLog('Firestore インスタンス取得: 成功');
       _addLog('App ID: ${firestore.app.name}');
-      
+
       // 簡単な読み取りテスト
-      final testDoc = await firestore.collection('test').doc('connection').get();
+      final testDoc =
+          await firestore.collection('test').doc('connection').get();
       _addLog('テスト読み取り: 成功 (exists: ${testDoc.exists})');
-      
+
       // 簡単な書き込みテスト
       await firestore.collection('test').doc('connection').set({
         'timestamp': FieldValue.serverTimestamp(),
         'test': true,
       });
       _addLog('テスト書き込み: 成功');
-      
+
       _addLog('✅ Firebase接続テスト: 全て成功');
     } catch (e) {
       _addLog('❌ Firebase接続エラー: $e');
@@ -186,7 +187,7 @@ class _BulletinDebugScreenState extends ConsumerState<BulletinDebugScreen> {
 
     try {
       final firestore = FirebaseFirestore.instance;
-      
+
       final testPost = BulletinPost(
         id: '',
         title: 'テスト投稿 - ${DateTime.now().millisecondsSinceEpoch}',
@@ -202,7 +203,9 @@ class _BulletinDebugScreenState extends ConsumerState<BulletinDebugScreen> {
         isActive: true,
       );
 
-      final docRef = await firestore.collection('bulletin_posts').add(testPost.toJson());
+      final docRef = await firestore
+          .collection('bulletin_posts')
+          .add(testPost.toJson());
       _addLog('✅ テスト投稿作成成功: ${docRef.id}');
       _addLog('投稿タイトル: ${testPost.title}');
     } catch (e) {
@@ -218,23 +221,24 @@ class _BulletinDebugScreenState extends ConsumerState<BulletinDebugScreen> {
 
     try {
       final firestore = FirebaseFirestore.instance;
-      final snapshot = await firestore
-          .collection('bulletin_posts')
-          .orderBy('createdAt', descending: true)
-          .get();
+      final snapshot =
+          await firestore
+              .collection('bulletin_posts')
+              .orderBy('createdAt', descending: true)
+              .get();
 
       _addLog('取得した投稿数: ${snapshot.docs.length}');
-      
+
       for (final doc in snapshot.docs) {
         final data = doc.data();
         _addLog('📝 ID: ${doc.id}');
         _addLog('   タイトル: ${data['title']}');
         _addLog('   アクティブ: ${data['isActive']}');
-        
+
         // 詳細な型情報をログ出力
         _addLog('   作成日時の型: ${data['createdAt']?.runtimeType}');
         _addLog('   作成日時の値: ${data['createdAt']}');
-        
+
         try {
           if (data['createdAt'] != null) {
             final createdAt = data['createdAt'];
@@ -245,28 +249,26 @@ class _BulletinDebugScreenState extends ConsumerState<BulletinDebugScreen> {
         } catch (e) {
           _addLog('   ❌ 日付変換エラー: $e');
         }
-        
+
         // 全データの構造を確認
         _addLog('   全データキー: ${data.keys.toList()}');
         _addLog('   category型: ${data['category']?.runtimeType}');
         _addLog('   category値: ${data['category']}');
-        
+
         _addLog('   ---');
       }
-      
+
       if (snapshot.docs.isEmpty) {
         _addLog('⚠️ 投稿が見つかりませんでした');
       } else {
         _addLog('✅ 投稿リスト表示完了');
-        
+
         // 実際のBulletinPost.fromJson()を試行
         _addLog('BulletinPost.fromJson()テスト開始...');
         try {
-          for (final doc in snapshot.docs.take(1)) { // 最初の1件のみテスト
-            final data = {
-              'id': doc.id,
-              ...doc.data(),
-            };
+          for (final doc in snapshot.docs.take(1)) {
+            // 最初の1件のみテスト
+            final data = {'id': doc.id, ...doc.data()};
             _addLog('fromJson用データ: $data');
             final post = BulletinPost.fromJson(data);
             _addLog('✅ fromJson成功: ${post.title}');
@@ -290,10 +292,11 @@ class _BulletinDebugScreenState extends ConsumerState<BulletinDebugScreen> {
 
     try {
       final firestore = FirebaseFirestore.instance;
-      final snapshot = await firestore
-          .collection('bulletin_posts')
-          .where('authorId', isEqualTo: 'debug_user')
-          .get();
+      final snapshot =
+          await firestore
+              .collection('bulletin_posts')
+              .where('authorId', isEqualTo: 'debug_user')
+              .get();
 
       _addLog('削除対象: ${snapshot.docs.length}件');
 
@@ -323,11 +326,10 @@ class _BulletinDebugScreenState extends ConsumerState<BulletinDebugScreen> {
       final posts = ref.read(bulletinPostsProvider).valueOrNull ?? const [];
       _addLog('✅ プロバイダー呼び出し成功');
       _addLog('取得した投稿数: ${posts.length}');
-      
+
       for (final post in posts) {
         _addLog('- ${post.title} (${post.authorName})');
       }
-      
     } catch (e, stackTrace) {
       _addLog('❌ プロバイダーエラー: $e');
       _addLog('スタックトレース: ${stackTrace.toString().substring(0, 500)}...');

@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../core/providers/auth_provider.dart';
@@ -11,10 +12,12 @@ class UnifiedNotificationScreen extends ConsumerStatefulWidget {
   const UnifiedNotificationScreen({super.key});
 
   @override
-  ConsumerState<UnifiedNotificationScreen> createState() => _UnifiedNotificationScreenState();
+  ConsumerState<UnifiedNotificationScreen> createState() =>
+      _UnifiedNotificationScreenState();
 }
 
-class _UnifiedNotificationScreenState extends ConsumerState<UnifiedNotificationScreen>
+class _UnifiedNotificationScreenState
+    extends ConsumerState<UnifiedNotificationScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
@@ -66,22 +69,29 @@ class _UnifiedNotificationScreenState extends ConsumerState<UnifiedNotificationS
                 onPressed: () async {
                   try {
                     if (_tabController.index == 0) {
-                      await ref.read(notificationActionsProvider).markAllAsViewed();
+                      await ref
+                          .read(notificationActionsProvider)
+                          .markAllAsViewed();
                     } else {
-                      await ref.read(notificationNotifierProvider.notifier).markAllAsRead(user.uid);
+                      await ref
+                          .read(notificationNotifierProvider.notifier)
+                          .markAllAsRead(user.uid);
                     }
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                         SnackBar(
                           content: Text('全ての通知を既読にしました'),
-                          backgroundColor: Colors.green,
+                          backgroundColor: AppColors.snackBarSurface(context, Colors.green),
                         ),
                       );
                     }
                   } catch (e) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('操作に失敗しました: $e'), backgroundColor: Colors.red),
+                        SnackBar(
+                          content: Text('操作に失敗しました: $e'),
+                          backgroundColor: AppColors.snackBarSurface(context, Colors.red),
+                        ),
                       );
                     }
                   }
@@ -105,10 +115,11 @@ class _UnifiedNotificationScreenState extends ConsumerState<UnifiedNotificationS
           ),
         );
       },
-      loading: () => Scaffold(
-        appBar: AppBar(title: const Text('通知')),
-        body: const Center(child: CircularProgressIndicator()),
-      ),
+      loading:
+          () => Scaffold(
+            appBar: AppBar(title: const Text('通知')),
+            body: const Center(child: CircularProgressIndicator()),
+          ),
       error: (_, __) => const GlobalNotificationListScreen(),
     );
   }

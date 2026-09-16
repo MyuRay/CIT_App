@@ -32,19 +32,15 @@ class _PulsingDotBadgeState extends State<PulsingDotBadge>
       vsync: this,
     )..repeat();
 
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 2.5).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOut,
-      ),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 2.5,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
-    _opacityAnimation = Tween<double>(begin: 0.8, end: 0.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOut,
-      ),
-    );
+    _opacityAnimation = Tween<double>(
+      begin: 0.8,
+      end: 0.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
   }
 
   @override
@@ -72,7 +68,9 @@ class _PulsingDotBadgeState extends State<PulsingDotBadge>
                 height: widget.size * _scaleAnimation.value,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: dotColor.withOpacity(_opacityAnimation.value * 0.6),
+                  color: dotColor.withValues(
+                    alpha: _opacityAnimation.value * 0.6,
+                  ),
                 ),
               );
             },
@@ -86,7 +84,7 @@ class _PulsingDotBadgeState extends State<PulsingDotBadge>
               color: dotColor,
               boxShadow: [
                 BoxShadow(
-                  color: dotColor.withOpacity(0.5),
+                  color: dotColor.withValues(alpha: 0.5),
                   blurRadius: 4,
                   spreadRadius: 1,
                 ),

@@ -8,7 +8,8 @@ const String kNarashino7F1FloorPlanAsset =
 const String kNarashino7F2FloorPlanAsset =
     'assets/images/classroom_map/narashino_7_2f.png';
 
-bool narashinoBuilding7FloorUsesLocalAsset(int floor) => floor == 1 || floor == 2;
+bool narashinoBuilding7FloorUsesLocalAsset(int floor) =>
+    floor == 1 || floor == 2;
 
 /// 新習志野7号館1階のフロア図（アセット画像）。
 class Narashino7F1SchematicMap extends StatelessWidget {

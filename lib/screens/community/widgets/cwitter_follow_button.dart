@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -28,22 +29,25 @@ class _CwitterFollowButtonState extends ConsumerState<CwitterFollowButton> {
   bool? _optimisticFollowing;
 
   ({String followerId, String followeeId}) get _followTarget => (
-        followerId: widget.followerId,
-        followeeId: widget.followeeId,
-      );
+    followerId: widget.followerId,
+    followeeId: widget.followeeId,
+  );
 
   Future<void> _toggleFollow(bool currentlyFollowing) async {
     if (_isUpdating) return;
 
     final targetFollowing = !currentlyFollowing;
-    final countsNotifier =
-        ref.read(cwitterFollowCountsOverrideProvider.notifier);
+    final countsNotifier = ref.read(
+      cwitterFollowCountsOverrideProvider.notifier,
+    );
     final delta = targetFollowing ? 1 : -1;
 
-    final followeeAsync =
-        ref.read(cwitterFollowCountsProvider(widget.followeeId));
-    final followerAsync =
-        ref.read(cwitterFollowCountsProvider(widget.followerId));
+    final followeeAsync = ref.read(
+      cwitterFollowCountsProvider(widget.followeeId),
+    );
+    final followerAsync = ref.read(
+      cwitterFollowCountsProvider(widget.followerId),
+    );
 
     if (followeeAsync.hasValue && followerAsync.hasValue) {
       final followeeCounts = followeeAsync.requireValue;
@@ -64,15 +68,17 @@ class _CwitterFollowButtonState extends ConsumerState<CwitterFollowButton> {
 
       countsNotifier.apply(
         userId: widget.followeeId,
-        followerCount: followeeBase.followerCount + delta < 0
-            ? 0
-            : followeeBase.followerCount + delta,
+        followerCount:
+            followeeBase.followerCount + delta < 0
+                ? 0
+                : followeeBase.followerCount + delta,
       );
       countsNotifier.apply(
         userId: widget.followerId,
-        followingCount: followerBase.followingCount + delta < 0
-            ? 0
-            : followerBase.followingCount + delta,
+        followingCount:
+            followerBase.followingCount + delta < 0
+                ? 0
+                : followerBase.followingCount + delta,
       );
     }
 
@@ -100,10 +106,7 @@ class _CwitterFollowButtonState extends ConsumerState<CwitterFollowButton> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            cwitterFollowActionErrorMessage(
-              e,
-              unfollow: currentlyFollowing,
-            ),
+            cwitterFollowActionErrorMessage(e, unfollow: currentlyFollowing),
           ),
         ),
       );
@@ -120,29 +123,31 @@ class _CwitterFollowButtonState extends ConsumerState<CwitterFollowButton> {
       cwitterIsFollowingProvider(_followTarget),
     );
 
-    ref.listen<AsyncValue<bool>>(
-      cwitterIsFollowingProvider(_followTarget),
-      (previous, next) {
-        next.whenData((streamValue) {
-          if (!mounted || _optimisticFollowing == null || _isUpdating) return;
-          if (streamValue == _optimisticFollowing) {
-            setState(() => _optimisticFollowing = null);
-          }
-        });
-      },
-    );
+    ref.listen<AsyncValue<bool>>(cwitterIsFollowingProvider(_followTarget), (
+      previous,
+      next,
+    ) {
+      next.whenData((streamValue) {
+        if (!mounted || _optimisticFollowing == null || _isUpdating) return;
+        if (streamValue == _optimisticFollowing) {
+          setState(() => _optimisticFollowing = null);
+        }
+      });
+    });
 
     return isFollowingAsync.when(
-      loading: () => SizedBox(
-        width: widget.compact ? 20 : 24,
-        height: widget.compact ? 20 : 24,
-        child: const CircularProgressIndicator(strokeWidth: 2),
-      ),
+      loading:
+          () => SizedBox(
+            width: widget.compact ? 20 : 24,
+            height: widget.compact ? 20 : 24,
+            child: const CircularProgressIndicator(strokeWidth: 2),
+          ),
       error: (_, __) => const SizedBox.shrink(),
       data: (streamFollowing) {
         final isFollowing = _optimisticFollowing ?? streamFollowing;
-        final mutedColor =
-            Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75);
+        final mutedColor = Theme.of(
+          context,
+        ).colorScheme.onSurface.withValues(alpha: 0.75);
 
         if (isFollowing) {
           return OutlinedButton(
@@ -154,11 +159,7 @@ class _CwitterFollowButtonState extends ConsumerState<CwitterFollowButton> {
 
         return FilledButton(
           onPressed: _isUpdating ? null : () => _toggleFollow(false),
-          style: _buttonStyle(
-            context,
-            Colors.white,
-            filled: true,
-          ),
+          style: _buttonStyle(context, Colors.white, filled: true),
           child: Text(widget.compact ? 'フォロー' : 'フォローする'),
         );
       },
@@ -171,35 +172,41 @@ class _CwitterFollowButtonState extends ConsumerState<CwitterFollowButton> {
     required bool filled,
   }) {
     if (widget.compact) {
-      final base = filled
-          ? FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF4CAF50),
-              foregroundColor: foregroundColor,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              minimumSize: const Size(0, 32),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              textStyle: Theme.of(context).textTheme.labelMedium,
-            )
-          : OutlinedButton.styleFrom(
-              foregroundColor: foregroundColor,
-              side: BorderSide(
-                color: Theme.of(context)
-                    .colorScheme
-                    .outlineVariant
-                    .withValues(alpha: 0.8),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              minimumSize: const Size(0, 32),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              textStyle: Theme.of(context).textTheme.labelMedium,
-            );
+      final base =
+          filled
+              ? FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF4CAF50),
+                foregroundColor: AppColors.onColor(const Color(0xFF4CAF50)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                textStyle: Theme.of(context).textTheme.labelMedium,
+              )
+              : OutlinedButton.styleFrom(
+                foregroundColor: foregroundColor,
+                side: BorderSide(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outlineVariant.withValues(alpha: 0.8),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                textStyle: Theme.of(context).textTheme.labelMedium,
+              );
       return base;
     }
 
     if (filled) {
       return FilledButton.styleFrom(
         backgroundColor: const Color(0xFF4CAF50),
-        foregroundColor: foregroundColor,
+        foregroundColor: AppColors.onColor(const Color(0xFF4CAF50)),
         padding: const EdgeInsets.symmetric(vertical: 10),
       );
     }
@@ -207,10 +214,9 @@ class _CwitterFollowButtonState extends ConsumerState<CwitterFollowButton> {
     return OutlinedButton.styleFrom(
       foregroundColor: foregroundColor,
       side: BorderSide(
-        color: Theme.of(context)
-            .colorScheme
-            .outlineVariant
-            .withValues(alpha: 0.8),
+        color: Theme.of(
+          context,
+        ).colorScheme.outlineVariant.withValues(alpha: 0.8),
       ),
       padding: const EdgeInsets.symmetric(vertical: 10),
     );

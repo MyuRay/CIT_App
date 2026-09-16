@@ -24,6 +24,7 @@ class CwitterPost {
   final String authorId;
   final String cwitterId;
   final String displayName;
+
   /// 投稿時点の登録メールアドレス（管理者・モデレーション用）
   final String? authorEmail;
   final String body;
@@ -41,10 +42,11 @@ class CwitterPost {
   bool get hasImages => imageUrls.isNotEmpty;
   bool get hasPoll => poll?.hasPoll ?? false;
 
-  bool isLikedBy(String? uid) =>
-      uid != null && likedBy[uid] == true;
+  bool isLikedBy(String? uid) => uid != null && likedBy[uid] == true;
 
-  factory CwitterPost.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+  factory CwitterPost.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final data = doc.data()!;
     return CwitterPost(
       id: doc.id,
@@ -56,9 +58,10 @@ class CwitterPost {
       replyCount: (data['replyCount'] as num?)?.toInt() ?? 0,
       likeCount: (data['likeCount'] as num?)?.toInt() ?? 0,
       recweetCount: (data['recweetCount'] as num?)?.toInt() ?? 0,
-      likedBy: data['likedBy'] is Map
-          ? Map<String, dynamic>.from(data['likedBy'] as Map)
-          : {},
+      likedBy:
+          data['likedBy'] is Map
+              ? Map<String, dynamic>.from(data['likedBy'] as Map)
+              : {},
       profileImageUrl: data['profileImageUrl'] as String?,
       authorEmail: data['authorEmail'] as String?,
       imageUrls: _parseImageUrls(data['imageUrls']),

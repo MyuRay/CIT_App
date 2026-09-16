@@ -47,12 +47,13 @@ class CwitterPostImageService {
     return _uploadImages(
       userId: userId,
       files: files,
-      refBuilder: (index, file) => _postImageRef(
-        userId: userId,
-        postId: postId,
-        index: index,
-        extension: imageUploadExtension(file),
-      ),
+      refBuilder:
+          (index, file) => _postImageRef(
+            userId: userId,
+            postId: postId,
+            index: index,
+            extension: imageUploadExtension(file),
+          ),
     );
   }
 
@@ -65,13 +66,14 @@ class CwitterPostImageService {
     return _uploadImages(
       userId: userId,
       files: files,
-      refBuilder: (index, file) => _replyImageRef(
-        userId: userId,
-        postId: postId,
-        replyId: replyId,
-        index: index,
-        extension: imageUploadExtension(file),
-      ),
+      refBuilder:
+          (index, file) => _replyImageRef(
+            userId: userId,
+            postId: postId,
+            replyId: replyId,
+            index: index,
+            extension: imageUploadExtension(file),
+          ),
     );
   }
 

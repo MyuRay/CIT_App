@@ -16,8 +16,9 @@ void interactiveViewerToggleZoomAtFocalPoint(
     return;
   }
   final focal = details.localPosition;
-  controller.value = Matrix4.identity()
-    ..translate(focal.dx, focal.dy)
-    ..scale(zoomScale)
-    ..translate(-focal.dx, -focal.dy);
+  controller.value =
+      Matrix4.identity()
+        ..translate(focal.dx, focal.dy)
+        ..scale(zoomScale)
+        ..translate(-focal.dx, -focal.dy);
 }

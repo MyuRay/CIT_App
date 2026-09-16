@@ -45,9 +45,10 @@ class UserPostRateLimit {
       final rateData = rateSnap.data() ?? <String, dynamic>{};
       final windowStartTs = rateData['windowStart'];
       final currentCount = (rateData['count'] as num?)?.toInt() ?? 0;
-      final windowStart = windowStartTs is Timestamp
-          ? windowStartTs.toDate()
-          : now.subtract(windowDuration);
+      final windowStart =
+          windowStartTs is Timestamp
+              ? windowStartTs.toDate()
+              : now.subtract(windowDuration);
 
       if (now.difference(windowStart) < windowDuration) {
         if (currentCount >= maxPostsPerWindow) {
@@ -89,10 +90,6 @@ class UserPostRateLimit {
       rateLimitException: rateLimitException,
       maxPostsPerWindow: maxPostsPerWindow,
     );
-    commit(
-      transaction: transaction,
-      rateLimitRef: rateLimitRef,
-      data: data,
-    );
+    commit(transaction: transaction, rateLimitRef: rateLimitRef, data: data);
   }
 }

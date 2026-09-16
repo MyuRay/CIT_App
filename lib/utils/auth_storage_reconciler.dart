@@ -23,12 +23,10 @@ class AuthStorageReconciler {
 
       // Firebase Auth のディスク復元を待つ
       User? user = auth.currentUser;
-      if (user == null) {
-        user = await auth
-            .authStateChanges()
-            .first
-            .timeout(const Duration(seconds: 3), onTimeout: () => null);
-      }
+      user ??= await auth.authStateChanges().first.timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => null,
+      );
 
       final wasLoggedIn = prefs.getBool('user_logged_in') ?? false;
       final hasAuthToken = (prefs.getString('auth_token') ?? '').isNotEmpty;

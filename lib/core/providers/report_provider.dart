@@ -33,14 +33,16 @@ class ReportSubmitNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 // 通報送信プロバイダー
-final reportSubmitProvider = StateNotifierProvider<ReportSubmitNotifier, AsyncValue<void>>((ref) {
-  return ReportSubmitNotifier();
-});
+final reportSubmitProvider =
+    StateNotifierProvider<ReportSubmitNotifier, AsyncValue<void>>((ref) {
+      return ReportSubmitNotifier();
+    });
 
 // ステータス別通報一覧プロバイダー（Stream）
-final reportsByStatusProvider = StreamProvider.family<List<Report>, ReportStatus?>((ref, status) {
-  return ReportService.watchReportsByStatus(status);
-});
+final reportsByStatusProvider =
+    StreamProvider.family<List<Report>, ReportStatus?>((ref, status) {
+      return ReportService.watchReportsByStatus(status);
+    });
 
 // 全通報一覧プロバイダー（Stream）
 final allReportsProvider = StreamProvider<List<Report>>((ref) {
@@ -68,15 +70,16 @@ final reportStatisticsProvider = FutureProvider<Map<String, int>>((ref) async {
 });
 
 // 通報済みチェックプロバイダー
-final hasAlreadyReportedProvider = FutureProvider.family<bool, Map<String, dynamic>>((ref, params) async {
-  final targetId = params['targetId'] as String;
-  final type = params['type'] as ReportType;
+final hasAlreadyReportedProvider =
+    FutureProvider.family<bool, Map<String, dynamic>>((ref, params) async {
+      final targetId = params['targetId'] as String;
+      final type = params['type'] as ReportType;
 
-  return await ReportService.hasAlreadyReported(
-    targetId: targetId,
-    type: type,
-  );
-});
+      return await ReportService.hasAlreadyReported(
+        targetId: targetId,
+        type: type,
+      );
+    });
 
 // 通報ステータス更新状態を管理するStateNotifier
 class ReportStatusUpdateNotifier extends StateNotifier<AsyncValue<void>> {
@@ -105,6 +108,7 @@ class ReportStatusUpdateNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 // 通報ステータス更新プロバイダー
-final reportStatusUpdateProvider = StateNotifierProvider<ReportStatusUpdateNotifier, AsyncValue<void>>((ref) {
-  return ReportStatusUpdateNotifier();
-});
+final reportStatusUpdateProvider =
+    StateNotifierProvider<ReportStatusUpdateNotifier, AsyncValue<void>>((ref) {
+      return ReportStatusUpdateNotifier();
+    });

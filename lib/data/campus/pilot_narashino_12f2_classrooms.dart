@@ -36,12 +36,7 @@ const List<CampusClassroomLocation> pilotNarashinoBuilding12Floor2 = [
     buildingDisplayName: '12号館',
     floor: 2,
     roomCode: '講師控室',
-    searchTerms: [
-      '講師控室',
-      'こうしひかえしつ',
-      '控室',
-      '12号館 講師控室',
-    ],
+    searchTerms: ['講師控室', 'こうしひかえしつ', '控室', '12号館 講師控室'],
     pinX: 0.41,
     pinY: 0.73,
     description: '12号館2階・講師控室',
@@ -52,13 +47,7 @@ const List<CampusClassroomLocation> pilotNarashinoBuilding12Floor2 = [
     buildingDisplayName: '12号館',
     floor: 2,
     roomCode: '学習相談室1',
-    searchTerms: [
-      '学習相談室1',
-      '学習相談室１',
-      '学習相談室',
-      '相談室',
-      '12号館 学習相談室',
-    ],
+    searchTerms: ['学習相談室1', '学習相談室１', '学習相談室', '相談室', '12号館 学習相談室'],
     pinX: 0.99,
     pinY: 0.82,
     description: '12号館2階・学習相談室（手前側の区画・目安）',
@@ -69,13 +58,7 @@ const List<CampusClassroomLocation> pilotNarashinoBuilding12Floor2 = [
     buildingDisplayName: '12号館',
     floor: 2,
     roomCode: '学習相談室2',
-    searchTerms: [
-      '学習相談室2',
-      '学習相談室２',
-      '学習相談室',
-      '相談室2',
-      '12号館 学習相談室2',
-    ],
+    searchTerms: ['学習相談室2', '学習相談室２', '学習相談室', '相談室2', '12号館 学習相談室2'],
     pinX: 0.96,
     pinY: 0.94,
     description: '12号館2階・学習相談室（奥側の区画・目安）',
@@ -85,7 +68,6 @@ const List<CampusClassroomLocation> pilotNarashinoBuilding12Floor2 = [
 List<CampusClassroomLocation> searchPilotNarashino12f2(String query) {
   final q = query.trim().toLowerCase();
   if (q.isEmpty) return const [];
-  bool matches(CampusClassroomLocation r) =>
-      pilotLocationMatchesQuery(r, q);
+  bool matches(CampusClassroomLocation r) => pilotLocationMatchesQuery(r, q);
   return pilotNarashinoBuilding12Floor2.where(matches).toList();
 }

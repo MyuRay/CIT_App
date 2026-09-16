@@ -16,7 +16,8 @@ class PanGateInteractiveViewer extends StatefulWidget {
   static const double _panScaleThreshold = 1.015;
 
   @override
-  State<PanGateInteractiveViewer> createState() => _PanGateInteractiveViewerState();
+  State<PanGateInteractiveViewer> createState() =>
+      _PanGateInteractiveViewerState();
 }
 
 class _PanGateInteractiveViewerState extends State<PanGateInteractiveViewer> {

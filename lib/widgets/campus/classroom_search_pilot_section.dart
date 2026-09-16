@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -88,7 +89,9 @@ class _ClassroomSearchPilotSectionState
 
   List<CampusClassroomLocation> _computeResults() {
     final raw = searchClassroomMapPilotLocations(_controller.text);
-    return raw.where((r) => widget.allowedCampusIds.contains(r.campus)).toList();
+    return raw
+        .where((r) => widget.allowedCampusIds.contains(r.campus))
+        .toList();
   }
 
   @override
@@ -130,10 +133,10 @@ class _ClassroomSearchPilotSectionState
     final searchFieldTypography =
         widget.compactToolbarOnly
             ? theme.textTheme.bodyMedium?.copyWith(
-                fontSize: 15,
-                height: 1.35,
-                fontWeight: FontWeight.w500,
-              )
+              fontSize: 15,
+              height: 1.35,
+              fontWeight: FontWeight.w500,
+            )
             : theme.textTheme.bodySmall?.copyWith(fontSize: 11, height: 1.2);
     const searchOutlineRadius = BorderRadius.all(Radius.circular(12));
 
@@ -151,19 +154,20 @@ class _ClassroomSearchPilotSectionState
           size: widget.compactToolbarOnly ? 22 : 18,
         ),
         filled: widget.compactToolbarOnly,
-        fillColor: widget.compactToolbarOnly
-            ? theme.colorScheme.surface.withValues(alpha: 0.93)
-            : null,
+        fillColor:
+            widget.compactToolbarOnly
+                ? theme.colorScheme.surface.withValues(alpha: 0.93)
+                : null,
         border: const OutlineInputBorder(borderRadius: searchOutlineRadius),
         focusedBorder:
             widget.compactToolbarOnly
                 ? OutlineInputBorder(
-                    borderRadius: searchOutlineRadius,
-                    borderSide: BorderSide(
-                      color: theme.colorScheme.primary,
-                      width: 1.5,
-                    ),
-                  )
+                  borderRadius: searchOutlineRadius,
+                  borderSide: BorderSide(
+                    color: theme.colorScheme.primary,
+                    width: 1.5,
+                  ),
+                )
                 : null,
         isDense: true,
         contentPadding: EdgeInsets.symmetric(
@@ -183,9 +187,9 @@ class _ClassroomSearchPilotSectionState
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Text(
             '該当する候補がありません。',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.orange.shade800,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.accent(context, Colors.orange.shade800)),
           ),
         );
       } else {
@@ -201,8 +205,10 @@ class _ClassroomSearchPilotSectionState
               itemBuilder: (context, index) {
                 final room = _results[index];
                 return ListTile(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 0,
+                  ),
                   isThreeLine: room.pinMapLabel.length > 24,
                   title: Text(
                     room.pinMapLabel,
@@ -216,8 +222,8 @@ class _ClassroomSearchPilotSectionState
                     '${room.buildingDisplayName} ${room.floorCaption}',
                   ),
                   trailing: FilledButton.tonal(
-                    onPressed: () =>
-                        showFloorMapWithPinDialog(context, ref, room),
+                    onPressed:
+                        () => showFloorMapWithPinDialog(context, ref, room),
                     child: const Text('教室の詳細'),
                   ),
                 );
@@ -237,55 +243,52 @@ class _ClassroomSearchPilotSectionState
       trailingContent =
           queryTrimmed.isEmpty
               ? Text(
-                  'キーワードを入力すると候補が表示されます。',
-                  style: Theme.of(context).textTheme.bodySmall,
-                )
+                'キーワードを入力すると候補が表示されます。',
+                style: Theme.of(context).textTheme.bodySmall,
+              )
               : _results.isEmpty
-                  ? Text(
-                      '該当する候補がありません。',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.orange.shade800,
-                          ),
-                    )
-                  : Semantics(
-                      label: '検索候補一覧',
-                      child: ConstrainedBox(
-                        constraints:
-                            BoxConstraints(maxHeight: maxResultListHeight),
-                        child: ListView.separated(
-                          padding: EdgeInsets.zero,
-                          shrinkWrap: true,
-                          itemCount: _results.length,
-                          separatorBuilder: (_, __) =>
-                              const Divider(height: 1),
-                          itemBuilder: (context, index) {
-                            final room = _results[index];
-                            return ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              isThreeLine: room.pinMapLabel.length > 24,
-                              title: Text(
-                                room.pinMapLabel,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                maxLines: 6,
-                                softWrap: true,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: Text(
-                                '${room.roomCode} · ${_campusDisplayName(room.campus)} · '
-                                '${room.buildingDisplayName} ${room.floorCaption}',
-                              ),
-                              trailing: FilledButton.tonal(
-                                onPressed: () =>
-                                    showFloorMapWithPinDialog(context, ref, room),
-                                child: const Text('教室の詳細'),
-                              ),
-                            );
-                          },
+              ? Text(
+                '該当する候補がありません。',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.accent(context, Colors.orange.shade800)),
+              )
+              : Semantics(
+                label: '検索候補一覧',
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxResultListHeight),
+                  child: ListView.separated(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    itemCount: _results.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final room = _results[index];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        isThreeLine: room.pinMapLabel.length > 24,
+                        title: Text(
+                          room.pinMapLabel,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          maxLines: 6,
+                          softWrap: true,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                    );
+                        subtitle: Text(
+                          '${room.roomCode} · ${_campusDisplayName(room.campus)} · '
+                          '${room.buildingDisplayName} ${room.floorCaption}',
+                        ),
+                        trailing: FilledButton.tonal(
+                          onPressed:
+                              () =>
+                                  showFloorMapWithPinDialog(context, ref, room),
+                          child: const Text('教室の詳細'),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              );
     }
 
     final innerColumn = Column(
@@ -309,13 +312,15 @@ class _ClassroomSearchPilotSectionState
               ),
             ],
           ),
-          if (_searchCampusFilterSummary(widget.allowedCampusIds).isNotEmpty) ...[
+          if (_searchCampusFilterSummary(
+            widget.allowedCampusIds,
+          ).isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
               _searchCampusFilterSummary(widget.allowedCampusIds),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade700,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade700),
             ),
           ],
           const SizedBox(height: 12),
@@ -351,9 +356,7 @@ class _ClassroomSearchPilotSectionState
             ),
           ),
           if (compactFloatingPanel != null) ...[
-            IgnorePointer(
-              child: SizedBox(height: _kCompactResultsGapBelowBar),
-            ),
+            IgnorePointer(child: SizedBox(height: _kCompactResultsGapBelowBar)),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Material(

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../models/schedule/schedule_model.dart';
+import '../../models/schedule/attendance_session.dart';
 import 'lecture_period_service.dart';
 
 class AttendanceMarkResult {
@@ -139,36 +140,39 @@ class AttendanceService {
     required int startPeriod,
     required int duration,
     required DateTime attendanceDate,
-    required String? status, // present / late / absent / null(未記録)
+    required String? status, // present / late / absent / cancelled / null(未記録)
     String? existingRecordId,
+    FirebaseFirestore? firestore,
   }) async {
+    if (status != null && status.isNotEmpty &&
+        !const ['present', 'late', 'absent', 'cancelled'].contains(status)) {
+      throw ArgumentError.value(status, 'status');
+    }
+    final db = firestore ?? _firestore;
     final docId = _recordDocId(
       userId: userId,
       scheduleId: scheduleId,
       classId: classId,
       date: attendanceDate,
     );
-    final docRef = _firestore.collection(_collection).doc(docId);
+    final docRef = db.collection(_collection).doc(docId);
     final existingRef =
         (existingRecordId != null && existingRecordId.isNotEmpty)
-            ? _firestore.collection(_collection).doc(existingRecordId)
+            ? db.collection(_collection).doc(existingRecordId)
             : null;
 
     if (status == null || status.isEmpty) {
-      final batch = _firestore.batch();
-      if (existingRef != null && existingRecordId != docId) {
-        batch.delete(existingRef);
-      }
-      batch.delete(docRef);
+      final batch = db.batch();
+      // Legacy rows may not have a canonical document yet. Delete the selected
+      // record only; deleting a nonexistent document can fail owner-only rules.
+      batch.delete(existingRef ?? docRef);
       await batch.commit();
       return;
     }
 
-    if (existingRef != null && existingRecordId != docId) {
-      await existingRef.delete();
-    }
-
-    await docRef.set({
+    final batch = db.batch();
+    if (existingRef != null && existingRecordId != docId) batch.delete(existingRef);
+    batch.set(docRef, {
       'userId': userId,
       'scheduleId': scheduleId,
       'classId': classId,
@@ -182,6 +186,37 @@ class AttendanceService {
         DateTime(attendanceDate.year, attendanceDate.month, attendanceDate.day),
       ),
     }, SetOptions(merge: true));
+    await batch.commit();
+  }
+
+  static Future<List<AttendanceSession>> getClassAttendanceSessions({
+    required String userId,
+    required String scheduleId,
+    required String classId,
+    required String weekdayKey,
+    required int startPeriod,
+    required DateTime semesterStartDate,
+    FirebaseFirestore? firestore,
+  }) async {
+    final start = DateTime(semesterStartDate.year, semesterStartDate.month, semesterStartDate.day);
+    final end = DateTime(start.year, start.month, start.day + AttendanceSession.weekCount * 7);
+    final snapshot = await (firestore ?? _firestore).collection(_collection)
+        .where('userId', isEqualTo: userId)
+        .where('scheduleId', isEqualTo: scheduleId)
+        .where('attendanceDate', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('attendanceDate', isLessThan: Timestamp.fromDate(end))
+        .get();
+    return AttendanceSession.fromRecords(
+      semesterStartDate: start,
+      weekdayKey: weekdayKey,
+      startPeriod: startPeriod,
+      classId: classId,
+      records: snapshot.docs.map((doc) {
+        final data = doc.data();
+        final date = data['attendanceDate'];
+        return {...data, 'id': doc.id, 'attendanceDate': date is Timestamp ? date.toDate().toLocal() : null};
+      }).toList(),
+    );
   }
 
   static Stream<List<Map<String, dynamic>>> watchScheduleAttendanceRecords({
@@ -197,7 +232,10 @@ class AttendanceService {
         .collection(_collection)
         .where('userId', isEqualTo: userId)
         .where('scheduleId', isEqualTo: scheduleId)
-        .where('attendanceDate', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where(
+          'attendanceDate',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(start),
+        )
         .where('attendanceDate', isLessThanOrEqualTo: Timestamp.fromDate(end))
         .snapshots()
         .map((snapshot) {
@@ -253,20 +291,25 @@ class AttendanceService {
             .collection(_collection)
             .where('userId', isEqualTo: userId)
             .where('scheduleId', isEqualTo: scheduleId)
-            .where('attendanceDate', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-            .where('attendanceDate', isLessThanOrEqualTo: Timestamp.fromDate(end))
+            .where(
+              'attendanceDate',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(start),
+            )
+            .where(
+              'attendanceDate',
+              isLessThanOrEqualTo: Timestamp.fromDate(end),
+            )
             .get();
 
-    final filtered = snapshot.docs
-        .map((doc) => doc.data())
-        .where((data) {
+    final filtered =
+        snapshot.docs.map((doc) => doc.data()).where((data) {
           final recordClassId = data['classId'] as String? ?? '';
           if (recordClassId == classId) return true;
           final recordWeekday = data['weekdayKey'] as String? ?? '';
           final recordStartPeriod = data['startPeriod'] as int?;
-          return recordWeekday == weekdayKey && recordStartPeriod == startPeriod;
-        })
-        .toList();
+          return recordWeekday == weekdayKey &&
+              recordStartPeriod == startPeriod;
+        }).toList();
     return _summarizeStatuses(filtered);
   }
 

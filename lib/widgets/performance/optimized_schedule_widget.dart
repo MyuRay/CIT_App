@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../core/providers/schedule_provider.dart';
@@ -9,7 +10,7 @@ import 'memoized_consumer.dart';
 class OptimizedScheduleWidget extends ConsumerWidget {
   final String userId;
   final bool compact;
-  
+
   const OptimizedScheduleWidget({
     super.key,
     required this.userId,
@@ -22,16 +23,14 @@ class OptimizedScheduleWidget extends ConsumerWidget {
       provider: todayScheduleProvider(userId),
       builder: (context, asyncValue, child) {
         return asyncValue.when(
-          data: (classes) => _ScheduleContent(
-            classes: classes,
-            userId: userId,
-            compact: compact,
-          ),
+          data:
+              (classes) => _ScheduleContent(
+                classes: classes,
+                userId: userId,
+                compact: compact,
+              ),
           loading: () => _LoadingWidget(compact: compact),
-          error: (error, stack) => _ErrorWidget(
-            error: error,
-            compact: compact,
-          ),
+          error: (error, stack) => _ErrorWidget(error: error, compact: compact),
         );
       },
     );
@@ -43,7 +42,7 @@ class _ScheduleContent extends StatelessWidget {
   final List<ScheduleClass?> classes;
   final String userId;
   final bool compact;
-  
+
   const _ScheduleContent({
     required this.classes,
     required this.userId,
@@ -52,11 +51,8 @@ class _ScheduleContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final validClasses = classes
-        .asMap()
-        .entries
-        .where((entry) => entry.value != null)
-        .toList();
+    final validClasses =
+        classes.asMap().entries.where((entry) => entry.value != null).toList();
 
     if (validClasses.isEmpty) {
       return _EmptyScheduleWidget(compact: compact);
@@ -73,44 +69,40 @@ class _ScheduleContent extends StatelessWidget {
 /// コンパクトなスケジュール表示
 class _CompactScheduleList extends StatelessWidget {
   final List<MapEntry<int, ScheduleClass?>> classes;
-  
+
   const _CompactScheduleList({required this.classes});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
-      children: classes.take(3).map((entry) {
-        final period = entry.key + 1;
-        final classData = entry.value!;
-        
-        return _CompactClassCard(
-          period: period,
-          classData: classData,
-        );
-      }).toList(),
+      children:
+          classes.take(3).map((entry) {
+            final period = entry.key + 1;
+            final classData = entry.value!;
+
+            return _CompactClassCard(period: period, classData: classData);
+          }).toList(),
     );
   }
 }
 
-/// 詳細なスケジュール表示  
+/// 詳細なスケジュール表示
 class _DetailedScheduleList extends StatelessWidget {
   final List<MapEntry<int, ScheduleClass?>> classes;
-  
+
   const _DetailedScheduleList({required this.classes});
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: classes.map((entry) {
-        final period = entry.key + 1;
-        final classData = entry.value!;
-        
-        return _DetailedClassCard(
-          period: period,
-          classData: classData,
-        );
-      }).toList(),
+      children:
+          classes.map((entry) {
+            final period = entry.key + 1;
+            final classData = entry.value!;
+
+            return _DetailedClassCard(period: period, classData: classData);
+          }).toList(),
     );
   }
 }
@@ -119,38 +111,32 @@ class _DetailedScheduleList extends StatelessWidget {
 class _CompactClassCard extends StatelessWidget {
   final int period;
   final ScheduleClass classData;
-  
-  const _CompactClassCard({
-    required this.period,
-    required this.classData,
-  });
+
+  const _CompactClassCard({required this.period, required this.classData});
 
   @override
   Widget build(BuildContext context) {
     final color = Color(int.parse('0xff${classData.color.substring(1)}'));
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
           Container(
             width: 30,
             height: 30,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
             child: Center(
               child: Text(
                 '$period',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppColors.onColor(color),
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                 ),
@@ -173,10 +159,7 @@ class _CompactClassCard extends StatelessWidget {
                 ),
                 Text(
                   '${classData.classroom} - ${classData.instructor}',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -189,22 +172,19 @@ class _CompactClassCard extends StatelessWidget {
   }
 }
 
-/// メモ化された詳細クラスカード  
+/// メモ化された詳細クラスカード
 class _DetailedClassCard extends StatelessWidget {
   final int period;
   final ScheduleClass classData;
-  
-  const _DetailedClassCard({
-    required this.period,
-    required this.classData,
-  });
+
+  const _DetailedClassCard({required this.period, required this.classData});
 
   @override
   Widget build(BuildContext context) {
     final color = Color(int.parse('0xff${classData.color.substring(1)}'));
     final startTime = _getPeriodStartTime(period);
     final endTime = _getPeriodEndTime(period, classData.duration);
-    
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -232,7 +212,7 @@ class _DetailedClassCard extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: color.withOpacity(0.1),
+                          color: color.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -247,10 +227,7 @@ class _DetailedClassCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(
                         '$startTime - $endTime',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                       ),
                     ],
                   ),
@@ -268,29 +245,19 @@ class _DetailedClassCard extends StatelessWidget {
                       Icon(
                         Icons.location_on,
                         size: 16,
-                        color: Colors.grey[600],
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         classData.classroom,
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14),
                       ),
                       const SizedBox(width: 16),
-                      Icon(
-                        Icons.person,
-                        size: 16,
-                        color: Colors.grey[600],
-                      ),
+                      Icon(Icons.person, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
                       const SizedBox(width: 4),
                       Text(
                         classData.instructor,
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14),
                       ),
                     ],
                   ),
@@ -307,7 +274,7 @@ class _DetailedClassCard extends StatelessWidget {
 /// 空のスケジュール表示
 class _EmptyScheduleWidget extends StatelessWidget {
   final bool compact;
-  
+
   const _EmptyScheduleWidget({required this.compact});
 
   @override
@@ -320,13 +287,13 @@ class _EmptyScheduleWidget extends StatelessWidget {
           Icon(
             Icons.event_available,
             size: compact ? 32 : 48,
-            color: Colors.grey[400],
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
           SizedBox(height: compact ? 8 : 16),
           Text(
             '授業がありません',
             style: TextStyle(
-              color: Colors.grey[600],
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: compact ? 14 : 16,
             ),
           ),
@@ -339,7 +306,7 @@ class _EmptyScheduleWidget extends StatelessWidget {
 /// ローディングウィジェット
 class _LoadingWidget extends StatelessWidget {
   final bool compact;
-  
+
   const _LoadingWidget({required this.compact});
 
   @override
@@ -358,7 +325,7 @@ class _LoadingWidget extends StatelessWidget {
           Text(
             'スケジュールを読み込み中...',
             style: TextStyle(
-              color: Colors.grey[600],
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: compact ? 12 : 14,
             ),
           ),
@@ -372,11 +339,8 @@ class _LoadingWidget extends StatelessWidget {
 class _ErrorWidget extends StatelessWidget {
   final Object error;
   final bool compact;
-  
-  const _ErrorWidget({
-    required this.error,
-    required this.compact,
-  });
+
+  const _ErrorWidget({required this.error, required this.compact});
 
   @override
   Widget build(BuildContext context) {
@@ -388,13 +352,13 @@ class _ErrorWidget extends StatelessWidget {
           Icon(
             Icons.error_outline,
             size: compact ? 32 : 48,
-            color: Colors.red[400],
+            color: AppColors.accent(context, Colors.red[400]),
           ),
           SizedBox(height: compact ? 8 : 16),
           Text(
             'スケジュールの読み込みに失敗しました',
             style: TextStyle(
-              color: Colors.red[600],
+              color: AppColors.accent(context, Colors.red[600]),
               fontSize: compact ? 12 : 14,
             ),
             textAlign: TextAlign.center,

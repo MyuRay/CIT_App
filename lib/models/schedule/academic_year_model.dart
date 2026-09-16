@@ -2,13 +2,10 @@ class AcademicYear {
   final int year;
   final AcademicSemester semester;
 
-  const AcademicYear({
-    required this.year,
-    required this.semester,
-  });
+  const AcademicYear({required this.year, required this.semester});
 
   String get displayName => '$year年度${semester.displayName}';
-  
+
   String get key => '${year}_${semester.key}';
 
   factory AcademicYear.fromKey(String key) {
@@ -16,7 +13,7 @@ class AcademicYear {
     if (parts.length != 2) {
       throw ArgumentError('Invalid academic year key: $key');
     }
-    
+
     return AcademicYear(
       year: int.parse(parts[0]),
       semester: AcademicSemester.fromKey(parts[1]),
@@ -27,29 +24,31 @@ class AcademicYear {
     final now = DateTime.now();
     // 日本の学年度は4月始まり
     final academicYear = now.month >= 4 ? now.year : now.year - 1;
-    
+
     // 前期：4-8月、後期：9-1月
-    final semester = now.month >= 4 && now.month <= 8 
-        ? AcademicSemester.firstSemester 
-        : AcademicSemester.secondSemester;
-    
+    final semester =
+        now.month >= 4 && now.month <= 8
+            ? AcademicSemester.firstSemester
+            : AcademicSemester.secondSemester;
+
     return AcademicYear(year: academicYear, semester: semester);
   }
 
-  static List<AcademicYear> generateYearRange({
-    int? startYear,
-    int? endYear,
-  }) {
+  static List<AcademicYear> generateYearRange({int? startYear, int? endYear}) {
     final start = startYear ?? 2023; // 2023年度から
-    final end = endYear ?? 2050;     // 2050年度まで
-    
+    final end = endYear ?? 2050; // 2050年度まで
+
     final years = <AcademicYear>[];
-    
+
     for (int year = start; year <= end; year++) {
-      years.add(AcademicYear(year: year, semester: AcademicSemester.firstSemester));
-      years.add(AcademicYear(year: year, semester: AcademicSemester.secondSemester));
+      years.add(
+        AcademicYear(year: year, semester: AcademicSemester.firstSemester),
+      );
+      years.add(
+        AcademicYear(year: year, semester: AcademicSemester.secondSemester),
+      );
     }
-    
+
     return years;
   }
 

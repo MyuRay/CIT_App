@@ -20,15 +20,17 @@ Future<List<BulletinComment>> filterComments(
 
 /// コメント一覧をフィルタリングして返すプロバイダー
 /// 注意: 既存のコメントプロバイダと組み合わせて使用する
-final filteredCommentsProvider = FutureProvider.family<List<BulletinComment>, List<BulletinComment>>(
-  (ref, comments) async {
-    // ブロックユーザーIDを取得
-    final blockedUserIds = await ref.watch(blockedUserIdsProvider.future);
-
-    // フィルタリングして返す
-    return ContentFilterService.filterCommentsWithCachedIds(
+final filteredCommentsProvider =
+    FutureProvider.family<List<BulletinComment>, List<BulletinComment>>((
+      ref,
       comments,
-      blockedUserIds,
-    );
-  },
-);
+    ) async {
+      // ブロックユーザーIDを取得
+      final blockedUserIds = await ref.watch(blockedUserIdsProvider.future);
+
+      // フィルタリングして返す
+      return ContentFilterService.filterCommentsWithCachedIds(
+        comments,
+        blockedUserIds,
+      );
+    });

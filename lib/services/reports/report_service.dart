@@ -39,9 +39,10 @@ class ReportService {
         detail: detail,
         status: ReportStatus.pending,
         createdAt: DateTime.now(),
-        reporterEmail: snapshot.reporterEmail?.trim().isNotEmpty == true
-            ? snapshot.reporterEmail!.trim().toLowerCase()
-            : (reporterEmail.isNotEmpty ? reporterEmail : null),
+        reporterEmail:
+            snapshot.reporterEmail?.trim().isNotEmpty == true
+                ? snapshot.reporterEmail!.trim().toLowerCase()
+                : (reporterEmail.isNotEmpty ? reporterEmail : null),
         targetContent: snapshot.targetContent,
         targetAuthorId: snapshot.targetAuthorId,
         targetAuthorName: snapshot.targetAuthorName,
@@ -120,10 +121,8 @@ class ReportService {
   /// 特定の通報を取得
   static Future<Report?> getReportById(String reportId) async {
     try {
-      final DocumentSnapshot doc = await _firestore
-          .collection('reports')
-          .doc(reportId)
-          .get();
+      final DocumentSnapshot doc =
+          await _firestore.collection('reports').doc(reportId).get();
 
       if (!doc.exists) {
         return null;
@@ -141,24 +140,26 @@ class ReportService {
   /// 通報統計を取得（管理者向け）
   static Future<Map<String, int>> getReportStatistics() async {
     try {
-      final QuerySnapshot allReports = await _firestore
-          .collection('reports')
-          .get();
+      final QuerySnapshot allReports =
+          await _firestore.collection('reports').get();
 
-      final QuerySnapshot pendingReports = await _firestore
-          .collection('reports')
-          .where('status', isEqualTo: 'pending')
-          .get();
+      final QuerySnapshot pendingReports =
+          await _firestore
+              .collection('reports')
+              .where('status', isEqualTo: 'pending')
+              .get();
 
-      final QuerySnapshot reviewingReports = await _firestore
-          .collection('reports')
-          .where('status', isEqualTo: 'reviewing')
-          .get();
+      final QuerySnapshot reviewingReports =
+          await _firestore
+              .collection('reports')
+              .where('status', isEqualTo: 'reviewing')
+              .get();
 
-      final QuerySnapshot resolvedReports = await _firestore
-          .collection('reports')
-          .where('status', isEqualTo: 'resolved')
-          .get();
+      final QuerySnapshot resolvedReports =
+          await _firestore
+              .collection('reports')
+              .where('status', isEqualTo: 'resolved')
+              .get();
 
       return {
         'total': allReports.docs.length,
@@ -167,12 +168,7 @@ class ReportService {
         'resolved': resolvedReports.docs.length,
       };
     } catch (e) {
-      return {
-        'total': 0,
-        'pending': 0,
-        'reviewing': 0,
-        'resolved': 0,
-      };
+      return {'total': 0, 'pending': 0, 'reviewing': 0, 'resolved': 0};
     }
   }
 
@@ -187,13 +183,14 @@ class ReportService {
         return false;
       }
 
-      final QuerySnapshot snapshot = await _firestore
-          .collection('reports')
-          .where('targetId', isEqualTo: targetId)
-          .where('type', isEqualTo: type.toJson())
-          .where('reporterId', isEqualTo: currentUser.uid)
-          .limit(1)
-          .get();
+      final QuerySnapshot snapshot =
+          await _firestore
+              .collection('reports')
+              .where('targetId', isEqualTo: targetId)
+              .where('type', isEqualTo: type.toJson())
+              .where('reporterId', isEqualTo: currentUser.uid)
+              .limit(1)
+              .get();
 
       return snapshot.docs.isNotEmpty;
     } catch (e) {

@@ -37,52 +37,51 @@ final trainUiTickProvider = StreamProvider<DateTime>((ref) async* {
 });
 
 /// HTTP で定期取得（既定 60 秒）。Firestore は使わない。
-final trainSnapshotStreamProvider =
-    StreamProvider.autoDispose.family<TrainSnapshot?, String>((ref, campusKey) async* {
-  final useMock = ref.watch(trainInfoUseMockProvider);
-  if (useMock) {
-    while (true) {
-      yield TrainMockSnapshot.build(campusKey, DateTime.now());
-      await Future.delayed(const Duration(seconds: 60));
-    }
-  }
-
-  if (campusKey == 'tsudanuma') {
-    await TrainStaticSnapshot.ensureLoaded();
-  }
-
-  final client = ref.watch(trainApiClientProvider);
-  while (true) {
-    final now = DateTime.now();
-    TrainSnapshot? snap;
-
-    if (client.isConfigured) {
-      try {
-        final remote = await client.fetchSnapshot(campusKey);
-        if (remote != null) {
-          snap = trainSnapshotWithValidDirections(remote);
-          if (snap.directions.isEmpty) snap = null;
-        }
-      } catch (e, st) {
-        if (kDebugMode) {
-          debugPrint('train API failed ($campusKey): $e\n$st');
+final trainSnapshotStreamProvider = StreamProvider.autoDispose
+    .family<TrainSnapshot?, String>((ref, campusKey) async* {
+      final useMock = ref.watch(trainInfoUseMockProvider);
+      if (useMock) {
+        while (true) {
+          yield TrainMockSnapshot.build(campusKey, DateTime.now());
+          await Future.delayed(const Duration(seconds: 60));
         }
       }
-    }
 
-    snap ??= TrainStaticSnapshot.build(campusKey, now);
-    yield snap;
-    await Future.delayed(const Duration(seconds: 60));
-  }
-});
+      if (campusKey == 'tsudanuma') {
+        await TrainStaticSnapshot.ensureLoaded();
+      }
+
+      final client = ref.watch(trainApiClientProvider);
+      while (true) {
+        final now = DateTime.now();
+        TrainSnapshot? snap;
+
+        if (client.isConfigured) {
+          try {
+            final remote = await client.fetchSnapshot(campusKey);
+            if (remote != null) {
+              snap = trainSnapshotWithValidDirections(remote);
+              if (snap.directions.isEmpty) snap = null;
+            }
+          } catch (e, st) {
+            if (kDebugMode) {
+              debugPrint('train API failed ($campusKey): $e\n$st');
+            }
+          }
+        }
+
+        snap ??= TrainStaticSnapshot.build(campusKey, now);
+        yield snap;
+        await Future.delayed(const Duration(seconds: 60));
+      }
+    });
 
 TrainDirectionSnapshot? pickTrainDirection({
   required TrainSnapshot snapshot,
   required String preferredDirectionKey,
 }) {
-  final valid = snapshot.directions
-      .where(trainDirectionHasValidDeparture)
-      .toList();
+  final valid =
+      snapshot.directions.where(trainDirectionHasValidDeparture).toList();
   if (valid.isEmpty) return null;
   if (preferredDirectionKey.isNotEmpty) {
     for (final d in valid) {
@@ -93,64 +92,66 @@ TrainDirectionSnapshot? pickTrainDirection({
 }
 
 /// ホーム表示用: 優先キャンパス + スナップショット + 設定 + 現在時刻
-final trainHomeDecisionProvider =
-    Provider.autoDispose<AsyncValue<TrainHomeVm>>((ref) {
-  ref.watch(trainUiTickProvider);
-  final campus = ref.watch(preferredBusCampusProvider);
-  final snapAsync = ref.watch(trainSnapshotStreamProvider(campus));
-  final settings = ref.watch(settingsProvider);
-  final prefKey = campus == 'narashino'
-      ? settings.trainPreferredDirectionNarashino
-      : settings.trainPreferredDirectionTsudanuma;
+final trainHomeDecisionProvider = Provider.autoDispose<AsyncValue<TrainHomeVm>>(
+  (ref) {
+    ref.watch(trainUiTickProvider);
+    final campus = ref.watch(preferredBusCampusProvider);
+    final snapAsync = ref.watch(trainSnapshotStreamProvider(campus));
+    final settings = ref.watch(settingsProvider);
+    final prefKey =
+        campus == 'narashino'
+            ? settings.trainPreferredDirectionNarashino
+            : settings.trainPreferredDirectionTsudanuma;
 
-  return snapAsync.when(
-    data: (snap) {
-      if (snap == null) {
-        return AsyncValue.data(
-          TrainHomeVm(
-            campusKey: campus,
-            snapshot: null,
-            direction: null,
-            decision: TrainDepartureDecision.noData(),
-            delay: null,
-          ),
+    return snapAsync.when(
+      data: (snap) {
+        if (snap == null) {
+          return AsyncValue.data(
+            TrainHomeVm(
+              campusKey: campus,
+              snapshot: null,
+              direction: null,
+              decision: TrainDepartureDecision.noData(),
+              delay: null,
+            ),
+          );
+        }
+        final dir = pickTrainDirection(
+          snapshot: snap,
+          preferredDirectionKey: prefKey,
         );
-      }
-      final dir = pickTrainDirection(
-        snapshot: snap,
-        preferredDirectionKey: prefKey,
-      );
-      if (dir == null) {
+        if (dir == null) {
+          return AsyncValue.data(
+            TrainHomeVm(
+              campusKey: campus,
+              snapshot: snap,
+              direction: null,
+              decision: TrainDepartureDecision.noData(),
+              delay: snap.delay,
+            ),
+          );
+        }
+        final decision = computeTrainDepartureDecision(
+          now: DateTime.now(),
+          walkMinutesToStation: TrainHomeVm.walkMinutesToStation,
+          nextDepartureAt: dir.nextDepartureAt,
+          secondDepartureAt: dir.secondDepartureAt,
+        );
         return AsyncValue.data(
           TrainHomeVm(
             campusKey: campus,
             snapshot: snap,
-            direction: null,
-            decision: TrainDepartureDecision.noData(),
+            direction: dir,
+            decision: decision,
             delay: snap.delay,
           ),
         );
-      }
-      final decision = computeTrainDepartureDecision(
-        now: DateTime.now(),
-        walkMinutesToStation: TrainHomeVm.walkMinutesToStation,
-        nextDepartureAt: dir.nextDepartureAt,
-        secondDepartureAt: dir.secondDepartureAt,
-      );
-      return AsyncValue.data(
-        TrainHomeVm(
-          campusKey: campus,
-          snapshot: snap,
-          direction: dir,
-          decision: decision,
-          delay: snap.delay,
-        ),
-      );
-    },
-    loading: () => const AsyncValue.loading(),
-    error: (e, st) => AsyncValue.error(e, st),
-  );
-});
+      },
+      loading: () => const AsyncValue.loading(),
+      error: (e, st) => AsyncValue.error(e, st),
+    );
+  },
+);
 
 class TrainHomeVm {
   const TrainHomeVm({

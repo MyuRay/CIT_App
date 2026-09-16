@@ -1,107 +1,125 @@
+import 'package:cit_app/core/utils/logger.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/notification/notification_model.dart';
 import '../../models/notification/notification_preference_model.dart';
 
 // ユーザーの通知一覧プロバイダー
-final userNotificationsProvider = StreamProvider.family<List<AppNotification>, String>((ref, userId) {
-  print('🚀 userNotificationsProvider初期化 - ユーザーID: $userId');
-  
+final userNotificationsProvider = StreamProvider.family<
+  List<AppNotification>,
+  String
+>((ref, userId) {
+  SecureLogger.debug('🚀 userNotificationsProvider初期化 - ユーザーID: $userId');
+
   try {
-    print('📢 Firestoreから通知監視開始: $userId');
-    
-    final stream = FirebaseFirestore.instance
-        .collection('notifications')
-        .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .limit(50)
-        .snapshots();
-    
-    print('🔗 Firestoreストリームを作成しました');
-    
-    return stream.map((snapshot) {
-      print('📢 通知データ受信: ${snapshot.docs.length}件 (ユーザー: $userId)');
-      print('🔍 スナップショット情報: metadata=${snapshot.metadata}, fromCache=${snapshot.metadata.isFromCache}');
-      
-      if (snapshot.docs.isEmpty) {
-        print('ℹ️ このユーザーの通知はありません: $userId');
-        print('🔍 Firestoreクエリ確認: collection=notifications, where userId == $userId');
-        return <AppNotification>[];
-      }
-      
-      final notifications = <AppNotification>[];
-      
-      for (int i = 0; i < snapshot.docs.length; i++) {
-        final doc = snapshot.docs[i];
-        try {
-          print('🔍 通知ドキュメント ${i + 1}/${snapshot.docs.length} を処理中: ${doc.id}');
-          final data = doc.data();
-          data['id'] = doc.id;
-          
-          print('📋 通知データ内容: ${data.toString()}');
-          final notification = AppNotification.fromJson(data);
-          notifications.add(notification);
-          print('✅ 通知データ変換成功: ${notification.title}');
-        } catch (e, stackTrace) {
-          print('❌ 通知データ変換エラー (docId: ${doc.id}): $e');
-          print('❌ エラースタック: $stackTrace');
-        }
-      }
-      
-      print('📢 通知データ処理完了: ${notifications.length}件');
-      if (notifications.isNotEmpty) {
-        print('📝 最新通知: ${notifications.first.title}');
-      }
-      
-      return notifications;
-    }).handleError((error, stackTrace) {
-      print('❌ 通知ストリームエラー (ユーザー: $userId): $error');
-      print('❌ エラースタック: $stackTrace');
-      return <AppNotification>[];
-    });
+    SecureLogger.debug('📢 Firestoreから通知監視開始: $userId');
+
+    final stream =
+        FirebaseFirestore.instance
+            .collection('notifications')
+            .where('userId', isEqualTo: userId)
+            .orderBy('createdAt', descending: true)
+            .limit(50)
+            .snapshots();
+
+    SecureLogger.debug('🔗 Firestoreストリームを作成しました');
+
+    return stream
+        .map((snapshot) {
+          SecureLogger.debug('📢 通知データ受信: ${snapshot.docs.length}件 (ユーザー: $userId)');
+          SecureLogger.debug(
+            '🔍 スナップショット情報: metadata=${snapshot.metadata}, fromCache=${snapshot.metadata.isFromCache}',
+          );
+
+          if (snapshot.docs.isEmpty) {
+            SecureLogger.debug('ℹ️ このユーザーの通知はありません: $userId');
+            SecureLogger.debug(
+              '🔍 Firestoreクエリ確認: collection=notifications, where userId == $userId',
+            );
+            return <AppNotification>[];
+          }
+
+          final notifications = <AppNotification>[];
+
+          for (int i = 0; i < snapshot.docs.length; i++) {
+            final doc = snapshot.docs[i];
+            try {
+              SecureLogger.debug(
+                '🔍 通知ドキュメント ${i + 1}/${snapshot.docs.length} を処理中: ${doc.id}',
+              );
+              final data = doc.data();
+              data['id'] = doc.id;
+
+              SecureLogger.debug('📋 通知データ内容: ${data.toString()}');
+              final notification = AppNotification.fromJson(data);
+              notifications.add(notification);
+              SecureLogger.debug('✅ 通知データ変換成功: ${notification.title}');
+            } catch (e, stackTrace) {
+              SecureLogger.debug('❌ 通知データ変換エラー (docId: ${doc.id}): $e');
+              SecureLogger.debug('❌ エラースタック: $stackTrace');
+            }
+          }
+
+          SecureLogger.debug('📢 通知データ処理完了: ${notifications.length}件');
+          if (notifications.isNotEmpty) {
+            SecureLogger.debug('📝 最新通知: ${notifications.first.title}');
+          }
+
+          return notifications;
+        })
+        .handleError((error, stackTrace) {
+          SecureLogger.debug('❌ 通知ストリームエラー (ユーザー: $userId): $error');
+          SecureLogger.debug('❌ エラースタック: $stackTrace');
+          return <AppNotification>[];
+        });
   } catch (e, stackTrace) {
-    print('❌ 通知プロバイダー初期化エラー (ユーザー: $userId): $e');
-    print('❌ 初期化エラースタック: $stackTrace');
+    SecureLogger.debug('❌ 通知プロバイダー初期化エラー (ユーザー: $userId): $e');
+    SecureLogger.debug('❌ 初期化エラースタック: $stackTrace');
     return Stream.value(<AppNotification>[]);
   }
 });
 
 // 未読通知数プロバイダー
-final unreadNotificationCountProvider = StreamProvider.family<int, String>((ref, userId) {
-  print('📊 unreadNotificationCountProvider初期化 - ユーザーID: $userId');
-  
+final unreadNotificationCountProvider = StreamProvider.family<int, String>((
+  ref,
+  userId,
+) {
+  SecureLogger.debug('📊 unreadNotificationCountProvider初期化 - ユーザーID: $userId');
+
   try {
-    print('📊 未読通知数監視開始: $userId');
-    
+    SecureLogger.debug('📊 未読通知数監視開始: $userId');
+
     return FirebaseFirestore.instance
         .collection('notifications')
         .where('userId', isEqualTo: userId)
         .snapshots()
         .map((snapshot) {
-      try {
-        print('📊 未読通知数計算中... (総通知数: ${snapshot.docs.length})');        
-        // Dartコード側で未読をフィルタ
-        final unreadCount = snapshot.docs.where((doc) {
-          final data = doc.data();
-          final isRead = data['isRead'] ?? false;
-          return !isRead; // nullまたはfalseの場合は未読
-        }).length;
-        
-        print('📊 未読通知数計算結果: $unreadCount (ユーザー: $userId)');
-        return unreadCount;
-      } catch (e, stackTrace) {
-        print('❌ 未読通知数計算エラー (ユーザー: $userId): $e');
-        print('❌ エラースタック: $stackTrace');
-        return 0;
-      }
-    }).handleError((error, stackTrace) {
-      print('❌ 未読通知数ストリームエラー (ユーザー: $userId): $error');
-      print('❌ エラースタック: $stackTrace');
-      return 0;
-    });
+          try {
+            SecureLogger.debug('📊 未読通知数計算中... (総通知数: ${snapshot.docs.length})');
+            // Dartコード側で未読をフィルタ
+            final unreadCount =
+                snapshot.docs.where((doc) {
+                  final data = doc.data();
+                  final isRead = data['isRead'] ?? false;
+                  return !isRead; // nullまたはfalseの場合は未読
+                }).length;
+
+            SecureLogger.debug('📊 未読通知数計算結果: $unreadCount (ユーザー: $userId)');
+            return unreadCount;
+          } catch (e, stackTrace) {
+            SecureLogger.debug('❌ 未読通知数計算エラー (ユーザー: $userId): $e');
+            SecureLogger.debug('❌ エラースタック: $stackTrace');
+            return 0;
+          }
+        })
+        .handleError((error, stackTrace) {
+          SecureLogger.debug('❌ 未読通知数ストリームエラー (ユーザー: $userId): $error');
+          SecureLogger.debug('❌ エラースタック: $stackTrace');
+          return 0;
+        });
   } catch (e, stackTrace) {
-    print('❌ 未読通知数プロバイダー初期化エラー (ユーザー: $userId): $e');
-    print('❌ 初期化エラースタック: $stackTrace');
+    SecureLogger.debug('❌ 未読通知数プロバイダー初期化エラー (ユーザー: $userId): $e');
+    SecureLogger.debug('❌ 初期化エラースタック: $stackTrace');
     return Stream.value(0);
   }
 });
@@ -113,40 +131,41 @@ class NotificationService {
     NotificationPreferenceKey? preferenceKey,
   }) async {
     try {
-      print('📢 sendNotification開始: ${notification.type.displayName}');
-      print('🔍 通知送信対象ユーザーID: ${notification.userId}');
-      
-      final docRef = FirebaseFirestore.instance.collection('notifications').doc();
-      print('🆔 生成された通知ID: ${docRef.id}');
-      
+      SecureLogger.debug('📢 sendNotification開始: ${notification.type.displayName}');
+      SecureLogger.debug('🔍 通知送信対象ユーザーID: ${notification.userId}');
+
+      final docRef =
+          FirebaseFirestore.instance.collection('notifications').doc();
+      SecureLogger.debug('🆔 生成された通知ID: ${docRef.id}');
+
       final notificationWithId = notification.copyWith(id: docRef.id);
       final jsonData = notificationWithId.toJson();
-      
-      print('📝 Firestoreに保存する通知データ:');
+
+      SecureLogger.debug('📝 Firestoreに保存する通知データ:');
       jsonData.forEach((key, value) {
-        print('  $key: $value');
+        SecureLogger.debug('  $key: $value');
       });
-      
-      print('💾 Firestoreに通知を保存中...');
+
+      SecureLogger.debug('💾 Firestoreに通知を保存中...');
       await docRef.set(jsonData);
-      
-      print('🔍 保存確認のため通知ドキュメントを読み込み中...');
+
+      SecureLogger.debug('🔍 保存確認のため通知ドキュメントを読み込み中...');
       final savedDoc = await docRef.get();
       if (savedDoc.exists) {
-        print('✅ 通知がFirestoreに正常に保存されました');
+        SecureLogger.debug('✅ 通知がFirestoreに正常に保存されました');
         final savedData = savedDoc.data();
-        print('📋 保存された通知データ確認:');
+        SecureLogger.debug('📋 保存された通知データ確認:');
         savedData?.forEach((key, value) {
-          print('  $key: $value');
+          SecureLogger.debug('  $key: $value');
         });
       } else {
-        print('❌ 通知の保存確認に失敗しました');
+        SecureLogger.debug('❌ 通知の保存確認に失敗しました');
       }
-      
-      print('✅ 通知送信完了: ${notification.title}');
+
+      SecureLogger.debug('✅ 通知送信完了: ${notification.title}');
     } catch (e, stackTrace) {
-      print('❌ 通知送信エラー: $e');
-      print('❌ スタックトレース: $stackTrace');
+      SecureLogger.debug('❌ 通知送信エラー: $e');
+      SecureLogger.debug('❌ スタックトレース: $stackTrace');
       rethrow;
     }
   }
@@ -157,32 +176,33 @@ class NotificationService {
           .collection('notifications')
           .doc(notificationId)
           .update({'isRead': true});
-      
-      print('✅ 通知既読化完了: $notificationId');
+
+      SecureLogger.debug('✅ 通知既読化完了: $notificationId');
     } catch (e) {
-      print('❌ 通知既読化エラー: $e');
+      SecureLogger.debug('❌ 通知既読化エラー: $e');
       rethrow;
     }
   }
 
   static Future<void> markAllAsRead(String userId) async {
     try {
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection('notifications')
-          .where('userId', isEqualTo: userId)
-          .where('isRead', isEqualTo: false)
-          .get();
+      final querySnapshot =
+          await FirebaseFirestore.instance
+              .collection('notifications')
+              .where('userId', isEqualTo: userId)
+              .where('isRead', isEqualTo: false)
+              .get();
 
       final batch = FirebaseFirestore.instance.batch();
       for (final doc in querySnapshot.docs) {
         batch.update(doc.reference, {'isRead': true});
       }
-      
+
       await batch.commit();
-      
-      print('✅ 全通知既読化完了: ${querySnapshot.docs.length}件');
+
+      SecureLogger.debug('✅ 全通知既読化完了: ${querySnapshot.docs.length}件');
     } catch (e) {
-      print('❌ 全通知既読化エラー: $e');
+      SecureLogger.debug('❌ 全通知既読化エラー: $e');
       rethrow;
     }
   }
@@ -193,19 +213,19 @@ class NotificationService {
           .collection('notifications')
           .doc(notificationId)
           .delete();
-      
-      print('✅ 通知削除完了: $notificationId');
+
+      SecureLogger.debug('✅ 通知削除完了: $notificationId');
     } catch (e) {
-      print('❌ 通知削除エラー: $e');
+      SecureLogger.debug('❌ 通知削除エラー: $e');
       rethrow;
     }
   }
-  
+
   // テスト用のダミー通知作成メソッド
   static Future<void> createTestNotification(String userId) async {
     try {
-      print('🧪 テスト通知を作成中... (ユーザー: $userId)');
-      
+      SecureLogger.debug('🧪 テスト通知を作成中... (ユーザー: $userId)');
+
       final notification = AppNotification(
         id: '', // Firestoreで自動生成
         userId: userId,
@@ -214,47 +234,48 @@ class NotificationService {
         message: 'これはテスト用の通知です。通知システムが正常に動作しています。',
         createdAt: DateTime.now(),
       );
-      
+
       await sendNotification(notification);
-      print('✅ テスト通知作成完了');
+      SecureLogger.debug('✅ テスト通知作成完了');
     } catch (e) {
-      print('❌ テスト通知作成エラー: $e');
+      SecureLogger.debug('❌ テスト通知作成エラー: $e');
       rethrow;
     }
   }
-  
+
   // 特定ユーザーの全通知を削除するメソッド
   static Future<void> deleteAllNotifications(String userId) async {
     try {
-      print('🗑️ 全通知削除開始 - ユーザー: $userId');
-      
+      SecureLogger.debug('🗑️ 全通知削除開始 - ユーザー: $userId');
+
       // ユーザーの全通知を取得
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection('notifications')
-          .where('userId', isEqualTo: userId)
-          .get();
-      
-      print('📊 削除対象通知数: ${querySnapshot.docs.length}件');
-      
+      final querySnapshot =
+          await FirebaseFirestore.instance
+              .collection('notifications')
+              .where('userId', isEqualTo: userId)
+              .get();
+
+      SecureLogger.debug('📊 削除対象通知数: ${querySnapshot.docs.length}件');
+
       if (querySnapshot.docs.isEmpty) {
-        print('ℹ️ 削除する通知がありません');
+        SecureLogger.debug('ℹ️ 削除する通知がありません');
         return;
       }
-      
+
       // バッチで一括削除
       final batch = FirebaseFirestore.instance.batch();
       for (final doc in querySnapshot.docs) {
         batch.delete(doc.reference);
-        print('🔄 削除キューに追加: ${doc.id}');
+        SecureLogger.debug('🔄 削除キューに追加: ${doc.id}');
       }
-      
-      print('📦 バッチ削除実行中...');
+
+      SecureLogger.debug('📦 バッチ削除実行中...');
       await batch.commit();
-      
-      print('✅ 全通知削除完了: ${querySnapshot.docs.length}件を削除しました');
+
+      SecureLogger.debug('✅ 全通知削除完了: ${querySnapshot.docs.length}件を削除しました');
     } catch (e, stackTrace) {
-      print('❌ 全通知削除エラー: $e');
-      print('❌ スタックトレース: $stackTrace');
+      SecureLogger.debug('❌ 全通知削除エラー: $e');
+      SecureLogger.debug('❌ スタックトレース: $stackTrace');
       rethrow;
     }
   }
@@ -268,21 +289,21 @@ class NotificationService {
     required String commentId,
     String? fromUserId,
   }) async {
-    print('🔔 sendCommentNotification開始');
-    print('  - postAuthorId: $postAuthorId');
-    print('  - postTitle: $postTitle');
-    print('  - commentAuthorName: $commentAuthorName');
-    print('  - postId: $postId');
-    print('  - commentId: $commentId');
-    print('  - fromUserId: $fromUserId');
-    
+    SecureLogger.debug('🔔 sendCommentNotification開始');
+    SecureLogger.debug('  - postAuthorId: $postAuthorId');
+    SecureLogger.debug('  - postTitle: $postTitle');
+    SecureLogger.debug('  - commentAuthorName: $commentAuthorName');
+    SecureLogger.debug('  - postId: $postId');
+    SecureLogger.debug('  - commentId: $commentId');
+    SecureLogger.debug('  - fromUserId: $fromUserId');
+
     // 自分自身への通知は送らない
     if (fromUserId == postAuthorId) {
-      print('🚫 自分自身への通知はスキップ: $postAuthorId');
+      SecureLogger.debug('🚫 自分自身への通知はスキップ: $postAuthorId');
       return;
     }
 
-    print('🏗️ 通知オブジェクトを作成中...');
+    SecureLogger.debug('🏗️ 通知オブジェクトを作成中...');
     final notification = NotificationFactory.createCommentNotification(
       postAuthorId: postAuthorId,
       postTitle: postTitle,
@@ -291,19 +312,19 @@ class NotificationService {
       commentId: commentId,
       fromUserId: fromUserId,
     );
-    
-    print('📝 作成された通知内容:');
-    print('  - userId: ${notification.userId}');
-    print('  - type: ${notification.type.displayName}');
-    print('  - title: ${notification.title}');
-    print('  - message: ${notification.message}');
 
-    print('📤 通知送信処理開始...');
+    SecureLogger.debug('📝 作成された通知内容:');
+    SecureLogger.debug('  - userId: ${notification.userId}');
+    SecureLogger.debug('  - type: ${notification.type.displayName}');
+    SecureLogger.debug('  - title: ${notification.title}');
+    SecureLogger.debug('  - message: ${notification.message}');
+
+    SecureLogger.debug('📤 通知送信処理開始...');
     await sendNotification(
       notification,
       preferenceKey: NotificationPreferenceKey.bulletinComment,
     );
-    print('✅ sendCommentNotification完了');
+    SecureLogger.debug('✅ sendCommentNotification完了');
   }
 
   // 返信通知を送信
@@ -316,22 +337,22 @@ class NotificationService {
     required String replyId,
     String? fromUserId,
   }) async {
-    print('🔔 sendReplyNotification開始');
-    print('  - commentAuthorId: $commentAuthorId');
-    print('  - replyAuthorName: $replyAuthorName');
-    print('  - postTitle: $postTitle');
-    print('  - postId: $postId');
-    print('  - commentId: $commentId');
-    print('  - replyId: $replyId');
-    print('  - fromUserId: $fromUserId');
-    
+    SecureLogger.debug('🔔 sendReplyNotification開始');
+    SecureLogger.debug('  - commentAuthorId: $commentAuthorId');
+    SecureLogger.debug('  - replyAuthorName: $replyAuthorName');
+    SecureLogger.debug('  - postTitle: $postTitle');
+    SecureLogger.debug('  - postId: $postId');
+    SecureLogger.debug('  - commentId: $commentId');
+    SecureLogger.debug('  - replyId: $replyId');
+    SecureLogger.debug('  - fromUserId: $fromUserId');
+
     // 自分自身への通知は送らない
     if (fromUserId == commentAuthorId) {
-      print('🚫 自分自身への返信通知はスキップ: $commentAuthorId');
+      SecureLogger.debug('🚫 自分自身への返信通知はスキップ: $commentAuthorId');
       return;
     }
 
-    print('🏗️ 返信通知オブジェクトを作成中...');
+    SecureLogger.debug('🏗️ 返信通知オブジェクトを作成中...');
     final notification = NotificationFactory.createReplyNotification(
       commentAuthorId: commentAuthorId,
       replyAuthorName: replyAuthorName,
@@ -341,19 +362,19 @@ class NotificationService {
       replyId: replyId,
       fromUserId: fromUserId,
     );
-    
-    print('📝 作成された返信通知内容:');
-    print('  - userId: ${notification.userId}');
-    print('  - type: ${notification.type.displayName}');
-    print('  - title: ${notification.title}');
-    print('  - message: ${notification.message}');
 
-    print('📤 返信通知送信処理開始...');
+    SecureLogger.debug('📝 作成された返信通知内容:');
+    SecureLogger.debug('  - userId: ${notification.userId}');
+    SecureLogger.debug('  - type: ${notification.type.displayName}');
+    SecureLogger.debug('  - title: ${notification.title}');
+    SecureLogger.debug('  - message: ${notification.message}');
+
+    SecureLogger.debug('📤 返信通知送信処理開始...');
     await sendNotification(
       notification,
       preferenceKey: NotificationPreferenceKey.bulletinReply,
     );
-    print('✅ sendReplyNotification完了');
+    SecureLogger.debug('✅ sendReplyNotification完了');
   }
 
   // 投稿承認通知を送信
@@ -362,10 +383,10 @@ class NotificationService {
     required String postTitle,
     required String postId,
   }) async {
-    print('🔔 sendPostApprovedNotification開始');
-    print('  - postAuthorId: $postAuthorId');
-    print('  - postTitle: $postTitle');
-    print('  - postId: $postId');
+    SecureLogger.debug('🔔 sendPostApprovedNotification開始');
+    SecureLogger.debug('  - postAuthorId: $postAuthorId');
+    SecureLogger.debug('  - postTitle: $postTitle');
+    SecureLogger.debug('  - postId: $postId');
 
     final notification = NotificationFactory.createPostApprovedNotification(
       postAuthorId: postAuthorId,
@@ -373,12 +394,12 @@ class NotificationService {
       postId: postId,
     );
 
-    print('📤 投稿承認通知送信処理開始...');
+    SecureLogger.debug('📤 投稿承認通知送信処理開始...');
     await sendNotification(
       notification,
       preferenceKey: NotificationPreferenceKey.bulletinModeration,
     );
-    print('✅ sendPostApprovedNotification完了');
+    SecureLogger.debug('✅ sendPostApprovedNotification完了');
   }
 
   // 投稿却下通知を送信
@@ -388,11 +409,11 @@ class NotificationService {
     required String postId,
     String? reason,
   }) async {
-    print('🔔 sendPostRejectedNotification開始');
-    print('  - postAuthorId: $postAuthorId');
-    print('  - postTitle: $postTitle');
-    print('  - postId: $postId');
-    print('  - reason: $reason');
+    SecureLogger.debug('🔔 sendPostRejectedNotification開始');
+    SecureLogger.debug('  - postAuthorId: $postAuthorId');
+    SecureLogger.debug('  - postTitle: $postTitle');
+    SecureLogger.debug('  - postId: $postId');
+    SecureLogger.debug('  - reason: $reason');
 
     final notification = NotificationFactory.createPostRejectedNotification(
       postAuthorId: postAuthorId,
@@ -401,12 +422,12 @@ class NotificationService {
       reason: reason,
     );
 
-    print('📤 投稿却下通知送信処理開始...');
+    SecureLogger.debug('📤 投稿却下通知送信処理開始...');
     await sendNotification(
       notification,
       preferenceKey: NotificationPreferenceKey.bulletinModeration,
     );
-    print('✅ sendPostRejectedNotification完了');
+    SecureLogger.debug('✅ sendPostRejectedNotification完了');
   }
 
   // ピン留め承認通知を送信
@@ -415,10 +436,10 @@ class NotificationService {
     required String postTitle,
     required String postId,
   }) async {
-    print('🔔 sendPinApprovedNotification開始');
-    print('  - postAuthorId: $postAuthorId');
-    print('  - postTitle: $postTitle');
-    print('  - postId: $postId');
+    SecureLogger.debug('🔔 sendPinApprovedNotification開始');
+    SecureLogger.debug('  - postAuthorId: $postAuthorId');
+    SecureLogger.debug('  - postTitle: $postTitle');
+    SecureLogger.debug('  - postId: $postId');
 
     final notification = NotificationFactory.createPinApprovedNotification(
       postAuthorId: postAuthorId,
@@ -426,12 +447,12 @@ class NotificationService {
       postId: postId,
     );
 
-    print('📤 ピン留め承認通知送信処理開始...');
+    SecureLogger.debug('📤 ピン留め承認通知送信処理開始...');
     await sendNotification(
       notification,
       preferenceKey: NotificationPreferenceKey.bulletinModeration,
     );
-    print('✅ sendPinApprovedNotification完了');
+    SecureLogger.debug('✅ sendPinApprovedNotification完了');
   }
 
   static Future<void> sendCwitterReplyNotification({
@@ -516,12 +537,12 @@ class NotificationService {
 
     final notification =
         NotificationFactory.createChibaChannelThreadReplyNotification(
-      threadAuthorId: threadAuthorId,
-      threadId: threadId,
-      threadTitle: threadTitle,
-      commentId: commentId,
-      bodyPreview: bodyPreview,
-    );
+          threadAuthorId: threadAuthorId,
+          threadId: threadId,
+          threadTitle: threadTitle,
+          commentId: commentId,
+          bodyPreview: bodyPreview,
+        );
     await sendNotification(
       notification,
       preferenceKey: NotificationPreferenceKey.chibaChannelThreadReply,
@@ -541,13 +562,13 @@ class NotificationService {
 
     final notification =
         NotificationFactory.createChibaChannelCommentReplyNotification(
-      commentAuthorId: commentAuthorId,
-      threadId: threadId,
-      threadTitle: threadTitle,
-      commentId: commentId,
-      replyToCommentNumber: replyToCommentNumber,
-      bodyPreview: bodyPreview,
-    );
+          commentAuthorId: commentAuthorId,
+          threadId: threadId,
+          threadTitle: threadTitle,
+          commentId: commentId,
+          replyToCommentNumber: replyToCommentNumber,
+          bodyPreview: bodyPreview,
+        );
     await sendNotification(
       notification,
       preferenceKey: NotificationPreferenceKey.chibaChannelCommentReply,
@@ -561,11 +582,11 @@ class NotificationService {
     required String postId,
     String? reason,
   }) async {
-    print('🔔 sendPinRejectedNotification開始');
-    print('  - postAuthorId: $postAuthorId');
-    print('  - postTitle: $postTitle');
-    print('  - postId: $postId');
-    print('  - reason: $reason');
+    SecureLogger.debug('🔔 sendPinRejectedNotification開始');
+    SecureLogger.debug('  - postAuthorId: $postAuthorId');
+    SecureLogger.debug('  - postTitle: $postTitle');
+    SecureLogger.debug('  - postId: $postId');
+    SecureLogger.debug('  - reason: $reason');
 
     final notification = NotificationFactory.createPinRejectedNotification(
       postAuthorId: postAuthorId,
@@ -574,12 +595,12 @@ class NotificationService {
       reason: reason,
     );
 
-    print('📤 ピン留め却下通知送信処理開始...');
+    SecureLogger.debug('📤 ピン留め却下通知送信処理開始...');
     await sendNotification(
       notification,
       preferenceKey: NotificationPreferenceKey.bulletinModeration,
     );
-    print('✅ sendPinRejectedNotification完了');
+    SecureLogger.debug('✅ sendPinRejectedNotification完了');
   }
 }
 
@@ -619,16 +640,23 @@ class NotificationNotifier extends StateNotifier<AsyncValue<void>> {
 }
 
 // NotificationNotifierプロバイダー
-final notificationNotifierProvider = StateNotifierProvider<NotificationNotifier, AsyncValue<void>>((ref) {
-  return NotificationNotifier();
-});
+final notificationNotifierProvider =
+    StateNotifierProvider<NotificationNotifier, AsyncValue<void>>((ref) {
+      return NotificationNotifier();
+    });
 
 // テスト用通知作成プロバイダー
-final createTestNotificationProvider = FutureProvider.family<void, String>((ref, userId) async {
+final createTestNotificationProvider = FutureProvider.family<void, String>((
+  ref,
+  userId,
+) async {
   await NotificationService.createTestNotification(userId);
 });
 
 // 全通知削除プロバイダー
-final deleteAllNotificationsProvider = FutureProvider.family<void, String>((ref, userId) async {
+final deleteAllNotificationsProvider = FutureProvider.family<void, String>((
+  ref,
+  userId,
+) async {
   await NotificationService.deleteAllNotifications(userId);
 });

@@ -1,0 +1,25 @@
+name: Handoff knowledge checks
+on:
+  pull_request:
+    paths:
+      - 'docs/handoff/**'
+      - 'tools/discord-rag/**'
+      - 'firebase.rag.json'
+      - '.github/workflows/handoff-rag-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: tools/discord-rag/package-lock.json
+      - run: npm ci --prefix tools/discord-rag --ignore-scripts
+      - run: npm test --prefix tools/discord-rag
+      - run: npm run knowledge:build --prefix tools/discord-rag
+      - run: npm run knowledge:check --prefix tools/discord-rag

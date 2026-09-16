@@ -66,6 +66,6 @@ class CwitterRecweetOverrideNotifier
 }
 
 final cwitterRecweetOverrideProvider = StateNotifierProvider<
-    CwitterRecweetOverrideNotifier, Map<String, CwitterRecweetOverride>>(
-  (ref) => CwitterRecweetOverrideNotifier(),
-);
+  CwitterRecweetOverrideNotifier,
+  Map<String, CwitterRecweetOverride>
+>((ref) => CwitterRecweetOverrideNotifier());

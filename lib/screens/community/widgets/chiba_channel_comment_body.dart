@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -42,7 +43,7 @@ class _ChibaChannelCommentBodyState extends State<ChibaChannelCommentBody> {
         '[${ChibaChannelComment.deletedMessage}]',
         style: theme.textTheme.bodyMedium?.copyWith(
           height: 1.45,
-          color: colorScheme.onSurface.withValues(alpha: 0.45),
+          color: colorScheme.onSurfaceVariant,
           fontStyle: FontStyle.italic,
         ),
       );
@@ -55,39 +56,44 @@ class _ChibaChannelCommentBodyState extends State<ChibaChannelCommentBody> {
     _recognizers.clear();
     final bodyStyle = theme.textTheme.bodyMedium?.copyWith(height: 1.45);
     final anchorStyle = bodyStyle?.copyWith(
-      color: const Color(0xFF1565C0),
+      color: AppColors.accent(context, const Color(0xFF1565C0)),
       fontWeight: FontWeight.w600,
     );
 
     final spans = <InlineSpan>[];
     var start = 0;
-    for (final match in ChibaChannelCommentBody._anchorPattern
-        .allMatches(widget.comment.body)) {
+    for (final match in ChibaChannelCommentBody._anchorPattern.allMatches(
+      widget.comment.body,
+    )) {
       if (match.start > start) {
-        spans.add(TextSpan(
-          text: widget.comment.body.substring(start, match.start),
-          style: bodyStyle,
-        ));
+        spans.add(
+          TextSpan(
+            text: widget.comment.body.substring(start, match.start),
+            style: bodyStyle,
+          ),
+        );
       }
 
       final anchorNumber = int.parse(match.group(1)!);
-      final recognizer = TapGestureRecognizer()
-        ..onTap = () => widget.onAnchorTap(anchorNumber);
+      final recognizer =
+          TapGestureRecognizer()
+            ..onTap = () => widget.onAnchorTap(anchorNumber);
       _recognizers.add(recognizer);
 
-      spans.add(TextSpan(
-        text: match.group(0),
-        style: anchorStyle,
-        recognizer: recognizer,
-      ));
+      spans.add(
+        TextSpan(
+          text: match.group(0),
+          style: anchorStyle,
+          recognizer: recognizer,
+        ),
+      );
       start = match.end;
     }
 
     if (start < widget.comment.body.length) {
-      spans.add(TextSpan(
-        text: widget.comment.body.substring(start),
-        style: bodyStyle,
-      ));
+      spans.add(
+        TextSpan(text: widget.comment.body.substring(start), style: bodyStyle),
+      );
     }
 
     return Text.rich(TextSpan(children: spans));
@@ -115,9 +121,9 @@ class ChibaChannelReplyAnchorLink extends StatelessWidget {
         child: Text(
           '>>$commentNumber',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: const Color(0xFF1565C0),
-                fontWeight: FontWeight.w600,
-              ),
+            color: AppColors.accent(context, const Color(0xFF1565C0)),
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );

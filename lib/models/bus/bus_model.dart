@@ -43,9 +43,9 @@ class BusOperationPeriod {
   /// 現在の日付が運行期間内かどうかをチェック
   bool isCurrentlyActive() {
     final now = DateTime.now();
-    return isActive && 
-           now.isAfter(startDate.subtract(const Duration(days: 1))) && 
-           now.isBefore(endDate.add(const Duration(days: 1)));
+    return isActive &&
+        now.isAfter(startDate.subtract(const Duration(days: 1))) &&
+        now.isBefore(endDate.add(const Duration(days: 1)));
   }
 
   /// copyWithメソッド
@@ -110,7 +110,8 @@ class BusTimeEntry {
   }
 
   /// 時刻を文字列で取得 (例: "08:30")
-  String get timeString => '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+  String get timeString =>
+      '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
 
   /// copyWithメソッド
   BusTimeEntry copyWith({
@@ -164,9 +165,11 @@ class BusRoute {
       name: (json['name'] as String?) ?? '',
       description: json['description'] as String? ?? '',
       color: json['color'] as String? ?? '#2196F3',
-      timeEntries: (json['timeEntries'] as List<dynamic>?)
-          ?.map((e) => BusTimeEntry.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [],
+      timeEntries:
+          (json['timeEntries'] as List<dynamic>?)
+              ?.map((e) => BusTimeEntry.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       sortOrder: json['sortOrder'] as int? ?? 0,
       isActive: json['isActive'] as bool? ?? true,
     );
@@ -284,13 +287,20 @@ class BusInformation {
       id: (json['id'] as String?) ?? '',
       title: json['title'] as String? ?? '学バス時刻表',
       description: json['description'] as String? ?? '',
-      routes: (json['routes'] as List<dynamic>?)
-          ?.map((e) => BusRoute.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [],
-      operationPeriods: (json['operationPeriods'] as List<dynamic>?)
-          ?.map((e) => BusOperationPeriod.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [],
-      lastUpdated: (json['lastUpdated'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      routes:
+          (json['routes'] as List<dynamic>?)
+              ?.map((e) => BusRoute.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      operationPeriods:
+          (json['operationPeriods'] as List<dynamic>?)
+              ?.map(
+                (e) => BusOperationPeriod.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
+      lastUpdated:
+          (json['lastUpdated'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedBy: json['updatedBy'] as String? ?? '',
     );
   }
@@ -315,7 +325,9 @@ class BusInformation {
   /// 現在の運行期間を取得
   BusOperationPeriod? get currentOperationPeriod {
     try {
-      return operationPeriods.firstWhere((period) => period.isCurrentlyActive());
+      return operationPeriods.firstWhere(
+        (period) => period.isCurrentlyActive(),
+      );
     } catch (e) {
       return null;
     }
@@ -326,7 +338,7 @@ class BusInformation {
     return routes.where((route) => route.isActive).toList()
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
   }
-  
+
   /// アクティブな運行期間のみを取得
   List<BusOperationPeriod> get activeOperationPeriods {
     return operationPeriods.where((period) => period.isActive).toList()

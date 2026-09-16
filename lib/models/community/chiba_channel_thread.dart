@@ -7,10 +7,10 @@ enum ChibaChannelThreadSortKey {
   commentCount;
 
   String get displayName => switch (this) {
-        ChibaChannelThreadSortKey.lastActivity => '最終レス順',
-        ChibaChannelThreadSortKey.createdAt => '作成日順',
-        ChibaChannelThreadSortKey.commentCount => 'レス数順',
-      };
+    ChibaChannelThreadSortKey.lastActivity => '最終レス順',
+    ChibaChannelThreadSortKey.createdAt => '作成日順',
+    ChibaChannelThreadSortKey.commentCount => 'レス数順',
+  };
 }
 
 /// ちばちゃんねる スレッド
@@ -82,16 +82,14 @@ class ChibaChannelThread {
       commentCount >= 1 &&
       DateTime.now().difference(lastActivityAt) < hotActivityWindow;
 
-  String get activityLabel =>
-      commentCount > 0 ? '最終レス' : '作成';
+  String get activityLabel => commentCount > 0 ? '最終レス' : '作成';
 
   factory ChibaChannelThread.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
   ) {
     final data = doc.data()!;
     final createdAt = _parseDateTime(data['createdAt']) ?? DateTime.now();
-    final lastActivityAt =
-        _parseDateTime(data['lastActivityAt']) ?? createdAt;
+    final lastActivityAt = _parseDateTime(data['lastActivityAt']) ?? createdAt;
     return ChibaChannelThread(
       id: doc.id,
       title: data['title'] as String? ?? '',

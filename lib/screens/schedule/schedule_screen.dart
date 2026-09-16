@@ -1,10 +1,11 @@
+import '../../core/theme/app_colors.dart';
+import '../../widgets/common/retained_async_view.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:ui' as ui;
-import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:share_plus/share_plus.dart';
@@ -13,10 +14,15 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/providers/schedule_provider.dart';
+import '../../core/providers/auth_provider.dart' show firebaseAuthProvider;
 import '../../core/providers/settings_provider.dart';
 import '../../models/schedule/schedule_model.dart';
 import '../../models/schedule/lecture_period_model.dart';
 import '../../widgets/schedule/schedule_grid_widget.dart';
+import '../../widgets/schedule/schedule_class_move_dialog.dart';
+import '../../widgets/schedule/semester_switch_button.dart';
+import '../../widgets/schedule/excel_import_review_dialog.dart';
+import '../../widgets/schedule/excel_import_semester_dialog.dart';
 import 'schedule_edit_screen.dart';
 import '../../core/providers/in_app_ad_provider.dart';
 import '../../models/ads/in_app_ad_model.dart';
@@ -26,6 +32,7 @@ import '../../services/schedule/schedule_service.dart';
 import '../../services/schedule/excel_schedule_import_service.dart';
 import '../../services/schedule/excel_import_feedback_service.dart';
 import '../../services/schedule/attendance_service.dart';
+import '../../services/schedule/lecture_period_service.dart';
 import '../../services/widget/home_widgets_service.dart';
 import 'attendance_management_screen.dart';
 import 'attendance_qr_reader_screen.dart';
@@ -81,24 +88,13 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   }
 
   Future<void> _syncWidgetsForSelectedSchedule(Schedule? schedule) async {
+    final userId = ref.read(firebaseAuthProvider).currentUser?.uid;
+    if (userId == null) return;
     try {
       final title = schedule == null ? '週間時間割' : _scheduleLabel(schedule);
       await HomeWidgetsService.updateWeeklyFullSchedule(
         schedule,
-        scheduleTitle: title,
-      );
-      if (schedule == null) {
-        await HomeWidgetsService.updateTodaySchedule(
-          null,
-          scheduleTitle: '今日の時間割',
-        );
-        return;
-      }
-      final todayClasses = ScheduleUtils.getTodayClasses(schedule);
-      final currentPeriod = ScheduleUtils.getCurrentPeriod(schedule.timeSlots);
-      await HomeWidgetsService.updateTodaySchedule(
-        todayClasses,
-        currentPeriod: currentPeriod,
+        userId: userId,
         scheduleTitle: title,
       );
     } catch (e) {
@@ -111,9 +107,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   void _rescheduleNotificationsForSchedule(Schedule schedule) {
     final notificationEnabled = ref.read(scheduleNotificationEnabledProvider);
     if (!notificationEnabled) {
-      debugPrint(
-        '🔕 学期切替: 通知 OFF のため再予約スキップ (schedule=${schedule.id})',
-      );
+      debugPrint('🔕 学期切替: 通知 OFF のため再予約スキップ (schedule=${schedule.id})');
       return;
     }
     debugPrint('🔁 学期切替: ${schedule.semester} (${schedule.id}) で通知を再予約します');
@@ -139,14 +133,19 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     final scheduleAdAsync = ref.watch(
       inAppAdProvider(AdPlacement.scheduleBottom),
     );
+    const headerActionsWidth = 4 * kMinInteractiveDimension;
+    final headerTitleSpace = _isEditMode ? 88.0 : 8.0;
+    final semesterButtonWidth = (MediaQuery.sizeOf(context).width -
+            headerActionsWidth - headerTitleSpace)
+        .clamp(96.0, 200.0);
 
     return Scaffold(
       appBar: AppBar(
-        leadingWidth: userId != null ? 150 : null,
+        leadingWidth: userId != null ? semesterButtonWidth : null,
         leading:
             userId != null
                 ? Padding(
-                  padding: const EdgeInsets.only(left: 6, right: 2),
+                  padding: const EdgeInsets.only(left: 12, right: 4),
                   child: _buildHeaderScheduleChip(
                     context,
                     scheduleListAsync,
@@ -154,12 +153,15 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   ),
                 )
                 : null,
-        title: _isEditMode
-            ? const Text(
-                '編集モード',
-                style: TextStyle(color: Colors.black),
-              )
-            : const SizedBox.shrink(),
+        title:
+            _isEditMode
+                ? const Text(
+                  '編集モード',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.black),
+                )
+                : const SizedBox.shrink(),
         centerTitle: true,
         backgroundColor: _isEditMode ? Colors.orange.shade50 : null,
         foregroundColor: _isEditMode ? Colors.black : null,
@@ -168,16 +170,18 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           if (!_isEditMode)
             Consumer(
               builder: (context, ref, child) {
-                final notificationEnabled =
-                    ref.watch(scheduleNotificationEnabledProvider);
+                final notificationEnabled = ref.watch(
+                  scheduleNotificationEnabledProvider,
+                );
                 return IconButton(
                   icon: Icon(
                     notificationEnabled
                         ? Icons.notifications_active
                         : Icons.notifications_off,
-                    color: notificationEnabled
-                        ? Theme.of(context).colorScheme.primary
-                        : Colors.grey,
+                    color:
+                        notificationEnabled
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.grey,
                   ),
                   onPressed: () {
                     if (notificationEnabled) {
@@ -204,8 +208,10 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                       shape: BoxShape.circle,
                       color:
                           showSaturday
-                              ? Theme.of(context).primaryColor.withOpacity(0.15)
-                              : Colors.grey.withOpacity(0.15),
+                              ? Theme.of(
+                                context,
+                              ).primaryColor.withValues(alpha: 0.15)
+                              : Colors.grey.withValues(alpha: 0.15),
                       border: Border.all(
                         color:
                             showSaturday
@@ -235,7 +241,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                       child: Icon(
                         Icons.visibility_off,
                         size: 14,
-                        color: Colors.red.shade700,
+                        color: AppColors.accent(context, Colors.red.shade700),
                       ),
                     ),
                 ],
@@ -257,7 +263,8 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           if (_isEditMode)
             IconButton(
               icon: const Icon(Icons.upload_file),
-              onPressed: () => _pickAndImportExcel(context, _selectedScheduleId),
+              onPressed:
+                  () => _pickAndImportExcel(context, _selectedScheduleId),
               tooltip: 'Excelから自動入力',
             ),
 
@@ -279,10 +286,10 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    _isEditMode ? '編集モードに切り替えました' : '表示モードに切り替えました',
+                    _isEditMode ? '講義をタップして編集、長押ししてドラッグで移動できます' : '表示モードに切り替えました',
                   ),
                   duration: const Duration(seconds: 2),
-                  backgroundColor: _isEditMode ? Colors.orange : Colors.blue,
+                  backgroundColor: AppColors.snackBarSurface(context, _isEditMode ? Colors.orange : Colors.blue),
                 ),
               );
             },
@@ -318,114 +325,156 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           ],
         ],
       ),
-      body: userId == null
-          ? const Center(child: CircularProgressIndicator())
-          : ref.watch(scheduleListProvider(userId)).when(
-              data: (schedules) {
-                if (schedules.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.schedule, size: 64, color: Colors.grey),
-                          const SizedBox(height: 12),
-                          const Text('時間割データがありません', style: TextStyle(fontSize: 16)),
-                          const SizedBox(height: 8),
-                          Text(
-                            '左上プルダウンで切替できる時間割を追加できます。',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey[700]),
-                          ),
-                          const SizedBox(height: 16),
-                          FilledButton.icon(
-                            icon: const Icon(Icons.add),
-                            label: const Text('時間割を追加'),
-                            onPressed:
-                                () => _showCreateScheduleDialog(
-                                  context,
-                                  userId,
-                                  schedules,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                final selectedSchedule = _resolveSelectedSchedule(schedules);
-                final canShowAttendanceButton = _isWithinConfiguredLecturePeriod(
-                  settings: lecturePeriodAsync.valueOrNull,
-                  semester: selectedSchedule.semester,
-                );
-                final showAttendanceActions = canShowAttendanceButton;
-                final adSection = scheduleAdAsync.when(
-                  data: (ad) => ad == null
-                      ? const SizedBox.shrink()
-                      : Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: InAppAdCard(
-                            ad: ad,
-                            placement: AdPlacement.scheduleBottom,
-                          ),
-                        ),
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
-                );
-
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                        child: RepaintBoundary(
-                          key: _scheduleKey,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).scaffoldBackgroundColor,
-                              borderRadius: BorderRadius.circular(8),
+      body:
+          userId == null
+              ? const Center(child: CircularProgressIndicator())
+              : RetainedAsyncView<List<Schedule>>(
+                value: scheduleListAsync,
+                onRetry: () => ref.invalidate(scheduleListProvider(userId)),
+                data: (schedules) {
+                  if (schedules.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                             Icon(
+                              Icons.schedule,
+                              size: 64,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ScheduleGridWidget(
-                                  schedule: selectedSchedule,
-                                  onClassTap: (weekdayKey, period, scheduleClass) {
-                                    _navigateToEdit(
-                                      context,
-                                      selectedSchedule.id,
+                            const SizedBox(height: 12),
+                            const Text(
+                              '時間割データがありません',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '左上プルダウンで切替できる時間割を追加できます。',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                            ),
+                            const SizedBox(height: 16),
+                            FilledButton.icon(
+                              icon: const Icon(Icons.add),
+                              label: const Text('時間割を追加'),
+                              onPressed:
+                                  () => _showCreateScheduleDialog(
+                                    context,
+                                    userId,
+                                    schedules,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  final selectedSchedule = _resolveSelectedSchedule(schedules);
+                  final canShowAttendanceButton =
+                      _isWithinConfiguredLecturePeriod(
+                        settings: lecturePeriodAsync.valueOrNull,
+                        semester: selectedSchedule.semester,
+                      );
+                  final showAttendanceActions = canShowAttendanceButton;
+                  final adSection = scheduleAdAsync.when(
+                    data:
+                        (ad) =>
+                            ad == null
+                                ? const SizedBox.shrink()
+                                : Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  child: InAppAdCard(
+                                    ad: ad,
+                                    placement: AdPlacement.scheduleBottom,
+                                  ),
+                                ),
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                  );
+
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                          child: RepaintBoundary(
+                            key: _scheduleKey,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color:
+                                    Theme.of(context).scaffoldBackgroundColor,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_isEditMode && !_isSharing)
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+                                      child: Text('タップで編集・長押ししてドラッグで移動',
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                  ScheduleGridWidget(
+                                    schedule: selectedSchedule,
+                                    onClassLongPress: (day, period, lesson) => _moveClass(
+                                      selectedSchedule, day, period, lesson,
+                                    ),
+                                    onClassMove: (day, period, lesson, destinationDay, destinationPeriod) =>
+                                        _saveMovedClass(selectedSchedule, day, period, lesson, destinationDay, destinationPeriod),
+                                    onClassTap: (
                                       weekdayKey,
                                       period,
                                       scheduleClass,
-                                    );
-                                  },
-                                  onEmptySlotTap: (weekdayKey, period) {
-                                    _navigateToEdit(
-                                      context,
-                                      selectedSchedule.id,
+                                    ) {
+                                      _navigateToEdit(
+                                        context,
+                                        selectedSchedule.id,
+                                        weekdayKey,
+                                        period,
+                                        scheduleClass,
+                                      );
+                                    },
+                                    onEmptySlotTap: (weekdayKey, period) {
+                                      _navigateToEdit(
+                                        context,
+                                        selectedSchedule.id,
+                                        weekdayKey,
+                                        period,
+                                        null,
+                                      );
+                                    },
+                                    onClassNotesSave: (
                                       weekdayKey,
                                       period,
-                                      null,
-                                    );
-                                  },
-                                  onClassNotesSave:
-                                      (weekdayKey, period, scheduleClass, notes) {
-                                        return _saveClassNotesInline(
-                                          context: context,
-                                          schedule: selectedSchedule,
-                                          weekdayKey: weekdayKey,
-                                          period: period,
-                                          scheduleClass: scheduleClass,
-                                          notes: notes,
-                                        );
-                                      },
-                                  onClassAttendanceTap:
-                                      canShowAttendanceButton
-                                          ? (weekdayKey, period, scheduleClass) async {
+                                      scheduleClass,
+                                      notes,
+                                    ) {
+                                      return _saveClassNotesInline(
+                                        context: context,
+                                        schedule: selectedSchedule,
+                                        weekdayKey: weekdayKey,
+                                        period: period,
+                                        scheduleClass: scheduleClass,
+                                        notes: notes,
+                                      );
+                                    },
+                                    onClassAttendanceTap:
+                                        canShowAttendanceButton
+                                            ? (
+                                              weekdayKey,
+                                              period,
+                                              scheduleClass,
+                                            ) async {
                                               await _markAttendanceFromSchedule(
                                                 context: context,
                                                 schedule: selectedSchedule,
@@ -434,105 +483,159 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                                                 scheduleClass: scheduleClass,
                                               );
                                             }
-                                          : null,
-                                  onLoadAttendanceSummary:
-                                      (weekdayKey, period, scheduleClass) async {
-                                    final userId = ref.read(currentUserIdProvider);
-                                    if (userId == null) {
-                                      return const AttendanceClassSummary(
-                                        presentCount: 0,
-                                        lateCount: 0,
-                                        absentCount: 0,
+                                            : null,
+                                    onLoadAttendanceSummary: (
+                                      weekdayKey,
+                                      period,
+                                      scheduleClass,
+                                    ) async {
+                                      final userId = ref.read(
+                                        currentUserIdProvider,
                                       );
-                                    }
-                                    final window = _attendanceSummaryWindowForSemester(
-                                      settings: lecturePeriodAsync.valueOrNull,
-                                      semester: selectedSchedule.semester,
-                                    );
-                                    if (window == null) {
-                                      return AttendanceService.getClassAttendanceSummary(
+                                      if (userId == null) {
+                                        return const AttendanceClassSummary(
+                                          presentCount: 0,
+                                          lateCount: 0,
+                                          absentCount: 0,
+                                        );
+                                      }
+                                      final window =
+                                          _attendanceSummaryWindowForSemester(
+                                            settings:
+                                                lecturePeriodAsync.valueOrNull,
+                                            semester: selectedSchedule.semester,
+                                          );
+                                      if (window == null) {
+                                        return AttendanceService.getClassAttendanceSummary(
+                                          userId: userId,
+                                          scheduleId: selectedSchedule.id,
+                                          classId: scheduleClass.id,
+                                        );
+                                      }
+                                      return AttendanceService.getClassAttendanceSummaryForRange(
                                         userId: userId,
                                         scheduleId: selectedSchedule.id,
                                         classId: scheduleClass.id,
+                                        weekdayKey: weekdayKey,
+                                        startPeriod: period,
+                                        startDate: window.start,
+                                        endDate: window.end,
                                       );
-                                    }
-                                    return AttendanceService.getClassAttendanceSummaryForRange(
-                                      userId: userId,
-                                      scheduleId: selectedSchedule.id,
-                                      classId: scheduleClass.id,
-                                      weekdayKey: weekdayKey,
-                                      startPeriod: period,
-                                      startDate: window.start,
-                                      endDate: window.end,
-                                    );
-                                  },
-                                  showAttendanceActions: showAttendanceActions,
-                                  isEditMode: _isEditMode,
-                                  showSaturday: showSaturday,
-                                  forceFullHeight: _isSharing,
-                                  enableScroll: false,
-                                ),
-                                if (_isSharing)
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primary
-                                          .withOpacity(0.1),
-                                      borderRadius: const BorderRadius.only(
-                                        bottomLeft: Radius.circular(8),
-                                        bottomRight: Radius.circular(8),
+                                    },
+                                    showAttendanceActions:
+                                        showAttendanceActions,
+                                    onLoadAttendanceSessions: (weekdayKey, period, scheduleClass) async {
+                                      final userId = ref.read(currentUserIdProvider);
+                                      if (userId == null || userId != selectedSchedule.userId) {
+                                        throw StateError('ログイン状態を確認してください');
+                                      }
+                                      final settings = lecturePeriodAsync.valueOrNull ?? await LecturePeriodService.getLecturePeriod();
+                                      final start = selectedSchedule.semester.contains('後期') ? settings?.fallStartDate : settings?.springStartDate;
+                                      if (start == null) return [];
+                                      return AttendanceService.getClassAttendanceSessions(
+                                        userId: userId,
+                                        scheduleId: selectedSchedule.id,
+                                        classId: scheduleClass.id,
+                                        weekdayKey: weekdayKey,
+                                        startPeriod: period,
+                                        semesterStartDate: start,
+                                      );
+                                    },
+                                    onSaveAttendanceStatus: (weekdayKey, period, scheduleClass, session, status) async {
+                                      final userId = ref.read(currentUserIdProvider);
+                                      if (userId == null || userId != selectedSchedule.userId) {
+                                        throw StateError('ログイン状態を確認してください');
+                                      }
+                                      await AttendanceService.upsertAttendanceStatus(
+                                        userId: userId,
+                                        scheduleId: selectedSchedule.id,
+                                        classId: scheduleClass.id,
+                                        subjectName: scheduleClass.subjectName,
+                                        weekdayKey: weekdayKey,
+                                        startPeriod: period,
+                                        duration: scheduleClass.duration,
+                                        attendanceDate: session.date,
+                                        status: status,
+                                        existingRecordId: session.recordId,
+                                      );
+                                    },
+                                    isEditMode: _isEditMode,
+                                    showSaturday: showSaturday,
+                                    forceFullHeight: _isSharing,
+                                    enableScroll: false,
+                                  ),
+                                  if (_isSharing)
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary
+                                            .withValues(alpha: 0.1),
+                                        borderRadius: const BorderRadius.only(
+                                          bottomLeft: Radius.circular(8),
+                                          bottomRight: Radius.circular(8),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.school,
+                                            size: 20,
+                                            color:
+                                                Theme.of(
+                                                  context,
+                                                ).colorScheme.primary,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'CIT App - 千葉工業大学 学生支援アプリ',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color:
+                                                  Theme.of(
+                                                    context,
+                                                  ).colorScheme.primary,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.school,
-                                          size: 20,
-                                          color: Theme.of(context).colorScheme.primary,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'CIT App - 千葉工業大学 学生支援アプリ',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            color: Theme.of(context).colorScheme.primary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      adSection,
-                    ],
-                  ),
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error, size: 64, color: Colors.red),
-                    const SizedBox(height: 16),
-                    Text('エラーが発生しました: $error'),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => ref.invalidate(scheduleListProvider(userId)),
-                      child: const Text('再読み込み'),
+                        adSection,
+                      ],
                     ),
-                  ],
-                ),
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error:
+                    (error, stack) => Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                           Icon(Icons.error, size: 64, color: AppColors.accent(context, Colors.red)),
+                          const SizedBox(height: 16),
+                          Text('エラーが発生しました: $error'),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed:
+                                () => ref.invalidate(
+                                  scheduleListProvider(userId),
+                                ),
+                            child: const Text('再読み込み'),
+                          ),
+                        ],
+                      ),
+                    ),
               ),
-            ),
     );
   }
 
@@ -559,69 +662,24 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           return const SizedBox.shrink();
         }
         final selected = _resolveSelectedSchedule(schedules);
-        final colorScheme = Theme.of(context).colorScheme;
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(999),
-            onTap: () => _showScheduleSwitchSheet(
-              context: context,
-              userId: userId,
-              schedules: schedules,
-              selected: selected,
-            ),
-            child: Ink(
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: colorScheme.primary.withOpacity(0.35),
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 3, 4, 3),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.calendar_today_rounded,
-                      size: 11,
-                      color: colorScheme.onPrimaryContainer,
-                    ),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        _scheduleLabel(selected),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelMedium
-                            ?.copyWith(
-                              fontSize: 12,
-                              height: 1.0,
-                              fontWeight: FontWeight.w700,
-                              color: colorScheme.onPrimaryContainer,
-                            ),
-                      ),
-                    ),
-                    Icon(
-                      Icons.unfold_more_rounded,
-                      size: 13,
-                      color: colorScheme.onPrimaryContainer.withOpacity(0.7),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+        return SemesterSwitchButton(
+          label: _scheduleLabel(selected),
+          onPressed: () => _showScheduleSwitchSheet(
+            context: context,
+            userId: userId,
+            schedules: schedules,
+            selected: selected,
           ),
         );
       },
       loading:
-          () => const SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
+          () => const Align(
+            alignment: Alignment.centerLeft,
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
           ),
       error: (_, __) => const SizedBox.shrink(),
     );
@@ -711,10 +769,10 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                       ),
                       const SizedBox(width: 8),
                       OutlinedButton.icon(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.delete_outline,
                           size: 18,
-                          color: Colors.red,
+                          color: AppColors.accent(context, Colors.red),
                         ),
                         label: const Text('選択中を削除'),
                         onPressed: () {
@@ -796,7 +854,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                 child: const Text('キャンセル'),
               ),
               FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                style: FilledButton.styleFrom(foregroundColor: AppColors.onColor(Colors.red), backgroundColor: Colors.red),
                 onPressed: () => Navigator.of(dialogContext).pop(true),
                 child: const Text('削除'),
               ),
@@ -900,9 +958,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       if (!mounted) return;
       ref.invalidate(scheduleListProvider(userId));
       setState(() => _selectedScheduleId = updatedSchedule.id);
-      ref
-          .read(selectedScheduleIdProvider.notifier)
-          .set(updatedSchedule.id);
+      ref.read(selectedScheduleIdProvider.notifier).set(updatedSchedule.id);
       _syncWidgetsForSelectedSchedule(updatedSchedule);
       _rescheduleNotificationsForSchedule(updatedSchedule);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -921,7 +977,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       // ローディング表示
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+           SnackBar(
             content: Row(
               children: [
                 SizedBox(
@@ -937,7 +993,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
               ],
             ),
             duration: Duration(seconds: 3),
-            backgroundColor: Colors.blue,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.blue),
           ),
         );
       }
@@ -988,14 +1044,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       });
 
       // 共有テキスト
-      const String shareText =
-          '私の時間割📚\n\nCIT Appで作成しました！\n\n'
-          '📱 便利な機能：\n'
-          '• 時間割管理\n'
-          '• 掲示板\n'
-          '• 学食情報\n'
-          '• キャンパスマップ\n\n'
-          '🔗 アプリをダウンロード: [🔎CIT App]';
+      const String shareText = '時間割';
 
       // share_plusを使った共有を再試行
       print('🚀 share_plus再試行中...');
@@ -1006,15 +1055,15 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       // 成功メッセージ
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+           SnackBar(
             content: Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.white),
+                Icon(Icons.check_circle, color: Theme.of(context).colorScheme.onInverseSurface),
                 SizedBox(width: 8),
-                Text('時間割を共有しました！'),
+                Text('時間割を共有しました'),
               ],
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.green),
             duration: Duration(seconds: 3),
           ),
         );
@@ -1048,23 +1097,23 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.error_outline, color: Colors.white),
+                     Icon(Icons.error_outline, color: Theme.of(context).colorScheme.onInverseSurface),
                     const SizedBox(width: 8),
                     Expanded(child: Text(errorMessage)),
                   ],
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'エラー詳細: ${e.toString().length > 100 ? e.toString().substring(0, 100) + '...' : e.toString()}',
-                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                  'エラー詳細: ${e.toString().length > 100 ? '${e.toString().substring(0, 100)}...' : e.toString()}',
+                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onInverseSurface),
                 ),
               ],
             ),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
             duration: const Duration(seconds: 6),
             action: SnackBarAction(
               label: '再試行',
-              textColor: Colors.white,
+              textColor: Theme.of(context).colorScheme.onInverseSurface,
               onPressed: () => _shareSchedule(context),
             ),
           ),
@@ -1109,11 +1158,11 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('テキストを共有しました！画像は手動で添付してください'),
-              backgroundColor: Colors.blue,
+              content: const Text('テキストを共有しました。画像は手動で添付してください'),
+              backgroundColor: AppColors.snackBarSurface(context, Colors.blue),
               action: SnackBarAction(
                 label: '画像場所を表示',
-                textColor: Colors.white,
+                textColor: Theme.of(context).colorScheme.onInverseSurface,
                 onPressed: () => _showImageLocation(context, imagePath),
               ),
             ),
@@ -1144,9 +1193,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.image, color: Colors.blue),
+                Icon(Icons.image, color: AppColors.accent(context, Colors.blue)),
                 SizedBox(width: 8),
                 Text('画像の場所'),
               ],
@@ -1161,9 +1210,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                   ),
                   child: Text(
                     imagePath,
@@ -1258,9 +1307,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
 
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('画像を共有しました！テキストはクリップボードにコピー済みです'),
-                backgroundColor: Colors.blue,
+               SnackBar(
+                content: Text('画像を共有しました。テキストはクリップボードにコピー済みです'),
+                backgroundColor: AppColors.snackBarSurface(context, Colors.blue),
                 duration: Duration(seconds: 3),
               ),
             );
@@ -1322,9 +1371,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           context: context,
           builder:
               (context) => AlertDialog(
-                title: const Row(
+                title: Row(
                   children: [
-                    Icon(Icons.share, color: Colors.blue),
+                    Icon(Icons.share, color: AppColors.accent(context, Colors.blue)),
                     SizedBox(width: 8),
                     Text('時間割を共有'),
                   ],
@@ -1334,7 +1383,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      '時間割画像を作成しました！\n以下の方法で共有できます：',
+                      '時間割画像を作成しました。共有方法を選択してください。',
                       style: TextStyle(fontSize: 16),
                     ),
                     const SizedBox(height: 20),
@@ -1342,16 +1391,16 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
+                        color: AppColors.tintedSurface(context, Colors.blue),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.blue.shade200),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Row(
+                           Row(
                             children: [
-                              Icon(Icons.info, color: Colors.blue, size: 20),
+                              Icon(Icons.info, color: AppColors.accent(context, Colors.blue), size: 20),
                               SizedBox(width: 8),
                               Text(
                                 '画像の場所',
@@ -1373,16 +1422,16 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.green.shade50,
+                        color: AppColors.tintedSurface(context, Colors.green),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.green.shade200),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Row(
+                           Row(
                             children: [
-                              Icon(Icons.copy, color: Colors.green, size: 20),
+                              Icon(Icons.copy, color: AppColors.accent(context, Colors.green), size: 20),
                               SizedBox(width: 8),
                               Text(
                                 '共有テキスト（コピー済み）',
@@ -1395,9 +1444,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                             width: double.infinity,
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: Theme.of(context).colorScheme.surface,
                               borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: Colors.grey.shade300),
+                              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                             ),
                             child: Text(
                               shareText,
@@ -1418,9 +1467,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                       await Clipboard.setData(ClipboardData(text: shareText));
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
+                           SnackBar(
                             content: Text('テキストをクリップボードにコピーしました'),
-                            backgroundColor: Colors.green,
+                            backgroundColor: AppColors.snackBarSurface(context, Colors.green),
                             duration: Duration(seconds: 2),
                           ),
                         );
@@ -1442,7 +1491,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('共有に失敗しました: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
             duration: const Duration(seconds: 4),
           ),
         );
@@ -1457,16 +1506,12 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     final canStartImport = await _showExcelImportTutorialDialog(context);
     if (canStartImport != true) return;
 
-    String? targetScheduleId = scheduleId;
-    if (targetScheduleId == null) {
-      targetScheduleId = await _resolveImportTargetScheduleId();
-    }
-
-    if (targetScheduleId == null) {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('先に対象の時間割を選択してください')));
+      ).showSnackBar(const SnackBar(content: Text('時間割の取り込みにはログインが必要です')));
       return;
     }
 
@@ -1499,28 +1544,61 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
         ),
       );
 
-      final draft = await ExcelScheduleImportService.parseExcelBytes(bytes);
+      final workbook = await ExcelScheduleImportService.parseWorkbookBytes(bytes);
       if (!context.mounted) return;
+      if (workbook.semesters.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('大学の学生時間割表を確認できませんでした。Excelファイルを確認してください。')),
+        );
+        return;
+      }
+      final schedules = await ScheduleService.getAllSchedulesByUserId(userId);
+      if (!context.mounted) return;
+      if (schedules.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('先に取り込み先の時間割を作成してください')),
+        );
+        return;
+      }
+      final selection = await showExcelImportSemesterDialog(
+        context,
+        workbook: workbook,
+        schedules: schedules,
+        selectedScheduleId: scheduleId,
+      );
+      if (selection == null || !context.mounted) return;
+      final draft = selection.source.draft;
       if (draft.entries.isEmpty) {
-        final message = draft.warnings.isEmpty
-            ? '取り込み可能な講義が見つかりませんでした'
-            : draft.warnings.first;
+        final message =
+            draft.warnings.isEmpty
+                ? '取り込み可能な講義が見つかりませんでした'
+                : draft.warnings.first;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(message)));
         return;
       }
 
-      final review = await _showImportReviewDialog(context, draft);
+      final review = await showExcelImportReviewDialog(
+        context,
+        draft,
+        sourceSemesterLabel: selection.source.label,
+        targetScheduleLabel: _scheduleLabel(selection.target),
+        onEditEntry: _showEditImportEntryDialog,
+      );
       if (review == null) return;
 
       final applyResult = await ExcelScheduleImportService.applyImport(
-        scheduleId: targetScheduleId,
+        scheduleId: selection.target.id,
         entries: review.entries,
         clearExisting: review.clearExisting,
         autoColorAdjacent: review.autoColorAdjacent,
       );
 
+      if (!mounted) return;
+      setState(() => _selectedScheduleId = selection.target.id);
+      await ref.read(selectedScheduleIdProvider.notifier).set(selection.target.id);
+      if (!mounted) return;
       final currentUserId = ref.read(currentUserIdProvider);
       if (currentUserId != null) {
         ref.invalidate(scheduleListProvider(currentUserId));
@@ -1534,8 +1612,8 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           try {
             await ExcelImportFeedbackService.submitTrainingSample(
               userId: currentUserId,
-              originalFileName: file.name,
               excelBytes: bytes,
+              sourceSheetNames: selection.source.sourceSheetNames,
               autoExtractedEntries: draft.entries,
               reviewedEntries: review.entries,
               parserWarnings: draft.warnings,
@@ -1548,15 +1626,16 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       }
 
       if (!context.mounted) return;
-      final warningText = applyResult.warnings.isEmpty
-          ? ''
-          : '\n警告: ${applyResult.warnings.length}件';
+      final warningText =
+          applyResult.warnings.isEmpty
+              ? ''
+              : '\n警告: ${applyResult.warnings.length}件';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             'Excel取り込みを適用しました（${applyResult.appliedCount}件）$warningText$trainingNotice',
           ),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.snackBarSurface(context, Colors.green),
         ),
       );
     } catch (e) {
@@ -1599,7 +1678,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       builder:
           (dialogContext) => AlertDialog(
             title: const Text('Excelインポート手順'),
-            content: const SizedBox(
+            content: SizedBox(
               width: 520,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1613,16 +1692,16 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   Text('4. 開講年度学期でインポートしたい学期を表示'),
                   Text('   （必ず前期/後期を選択してください）'),
                   Text('5. 右上の「Excel」ボタンからエクスポート'),
-                  Text('6. CIT Appへインポート'),
+                  Text('6. CIT AppでExcelを選び、取り込む学期と保存先を選択'),
                   SizedBox(height: 10),
                   Text(
                     '準備ができたら「準備できたのでインポート」を押してください。',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                   SizedBox(height: 10),
                   Text(
                     '注意: 自動判別で講義情報を抽出しているため、表示される情報が誤っている可能性があります。インポート後は情報に誤りがないか必ず確認してください。',
-                    style: TextStyle(fontSize: 12, color: Colors.redAccent),
+                    style: TextStyle(fontSize: 12, color: AppColors.accent(context, Colors.redAccent)),
                   ),
                 ],
               ),
@@ -1666,187 +1745,6 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     return fallbackId;
   }
 
-  Future<_ImportReviewResult?> _showImportReviewDialog(
-    BuildContext context,
-    ScheduleImportDraft draft,
-  ) {
-    final entries = List<ImportedScheduleEntry>.from(draft.entries);
-    bool clearExisting = false;
-    bool autoColorAdjacent = true;
-    bool provideTrainingData = true;
-    final warnings = List<String>.from(draft.warnings);
-
-    return showDialog<_ImportReviewResult>(
-      context: context,
-      barrierDismissible: false,
-      builder:
-          (dialogContext) => StatefulBuilder(
-            builder: (dialogContext, setDialogState) {
-              return AlertDialog(
-                title: const Text('Excel取り込みの確認'),
-                content: SizedBox(
-                  width: 640,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('抽出件数: ${entries.length}件'),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: clearExisting,
-                            onChanged: (value) {
-                              setDialogState(() {
-                                clearExisting = value ?? false;
-                              });
-                            },
-                          ),
-                          const Expanded(
-                            child: Text('既存の時間割をクリアしてから適用する'),
-                          ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: autoColorAdjacent,
-                            onChanged: (value) {
-                              setDialogState(() {
-                                autoColorAdjacent = value ?? true;
-                              });
-                            },
-                          ),
-                          const Expanded(
-                            child: Text('上下左右で隣接する講義を自動色分けする'),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(top: 4, bottom: 8),
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.blueGrey.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Checkbox(
-                              value: provideTrainingData,
-                              onChanged: (value) {
-                                setDialogState(() {
-                                  provideTrainingData = value ?? false;
-                                });
-                              },
-                            ),
-                            const Expanded(
-                              child: Text(
-                                '抽出精度向上のため、個人情報（Excelファイルのsheet1/sheet2のI4・AG4）を匿名化したデータを提供する',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (warnings.isNotEmpty)
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(8),
-                          margin: const EdgeInsets.only(bottom: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.orange.shade300),
-                          ),
-                          child: Text(
-                            '解析時の警告: ${warnings.join(' / ')}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      Flexible(
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: entries.length,
-                          separatorBuilder:
-                              (_, __) => const Divider(height: 1),
-                          itemBuilder: (itemContext, index) {
-                            final e = entries[index];
-                            return ListTile(
-                              dense: true,
-                              title: Text(
-                                '${_weekdayLabel(e.weekdayKey)} ${e.startPeriod}限 (${e.duration}コマ) ${e.subjectName}',
-                              ),
-                              subtitle: Text(
-                                '講師: ${e.instructor.isEmpty ? '未設定' : e.instructor} / 教室: ${e.classroom.isEmpty ? '未設定' : e.classroom}',
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.edit, size: 20),
-                                    onPressed: () async {
-                                      final edited =
-                                          await _showEditImportEntryDialog(
-                                            dialogContext,
-                                            e,
-                                          );
-                                      if (edited == null) return;
-                                      setDialogState(() {
-                                        entries[index] = edited;
-                                      });
-                                    },
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete_outline,
-                                      size: 20,
-                                      color: Colors.red,
-                                    ),
-                                    onPressed: () {
-                                      setDialogState(() {
-                                        entries.removeAt(index);
-                                      });
-                                    },
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('キャンセル'),
-                  ),
-                  FilledButton(
-                    onPressed:
-                        entries.isEmpty
-                            ? null
-                            : () {
-                              Navigator.of(dialogContext).pop(
-                                _ImportReviewResult(
-                                  entries: entries,
-                                  clearExisting: clearExisting,
-                                  autoColorAdjacent: autoColorAdjacent,
-                                  provideTrainingData: provideTrainingData,
-                                ),
-                              );
-                            },
-                    child: const Text('この内容で適用'),
-                  ),
-                ],
-              );
-            },
-          ),
-    );
-  }
-
   Future<ImportedScheduleEntry?> _showEditImportEntryDialog(
     BuildContext context,
     ImportedScheduleEntry entry,
@@ -1883,11 +1781,13 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                           const SizedBox(height: 8),
                           TextField(
                             controller: classroomController,
-                            decoration: const InputDecoration(labelText: '教室情報'),
+                            decoration: const InputDecoration(
+                              labelText: '教室情報',
+                            ),
                           ),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
-                            value: weekdayKey,
+                            initialValue: weekdayKey,
                             decoration: const InputDecoration(labelText: '曜日'),
                             items:
                                 const [
@@ -1913,15 +1813,12 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                             children: [
                               Expanded(
                                 child: DropdownButtonFormField<int>(
-                                  value: startPeriod,
+                                  initialValue: startPeriod,
                                   decoration: const InputDecoration(
                                     labelText: '始点時限',
                                   ),
                                   items:
-                                      List.generate(
-                                        10,
-                                        (i) => i + 1,
-                                      ).map((p) {
+                                      List.generate(10, (i) => i + 1).map((p) {
                                         return DropdownMenuItem<int>(
                                           value: p,
                                           child: Text('$p限'),
@@ -1936,18 +1833,15 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: DropdownButtonFormField<int>(
-                                  value: duration,
+                                  initialValue: duration,
                                   decoration: const InputDecoration(
                                     labelText: '連続コマ数',
                                   ),
                                   items:
-                                      List.generate(
-                                        5,
-                                        (i) => i + 1,
-                                      ).map((d) {
+                                      List.generate(5, (i) => i + 1).map((d) {
                                         return DropdownMenuItem<int>(
                                           value: d,
-                                          child: Text('${d}コマ'),
+                                          child: Text('$dコマ'),
                                         );
                                       }).toList(),
                                   onChanged: (v) {
@@ -2045,7 +1939,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppColors.onColor(Colors.red),
                 ),
                 child: const Text('クリア'),
               ),
@@ -2061,7 +1955,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
           (context) => AlertDialog(
             title: Row(
               children: [
-                const Icon(Icons.construction, color: Colors.orange),
+                 Icon(Icons.construction, color: AppColors.accent(context, Colors.orange)),
                 const SizedBox(width: 8),
                 Text('$featureName（開発中）'),
               ],
@@ -2078,23 +1972,23 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: AppColors.tintedSurface(context, Colors.blue),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.blue.shade200),
                   ),
-                  child: const Column(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.info, color: Colors.blue, size: 16),
+                          Icon(Icons.info, color: AppColors.accent(context, Colors.blue), size: 16),
                           SizedBox(width: 4),
                           Text(
                             '現在利用可能な機能',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
-                              color: Colors.blue,
+                              color: AppColors.accent(context, Colors.blue),
                             ),
                           ),
                         ],
@@ -2145,6 +2039,66 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     }
   }
 
+  Future<void> _moveClass(Schedule schedule, String day, int period, ScheduleClass lesson) async {
+    if (!_isEditMode) return;
+    await HapticFeedback.mediumImpact();
+    if (!mounted) return;
+    await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => ScheduleClassMoveDialog(
+        schedule: schedule, weekdayKey: day, period: period, scheduleClass: lesson,
+        onMove: (destinationDay, destinationPeriod) => _saveMovedClass(
+          schedule, day, period, lesson, destinationDay, destinationPeriod,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _saveMovedClass(
+    Schedule schedule, String day, int period, ScheduleClass lesson,
+    String destinationDay, int destinationPeriod,
+  ) async {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null || userId != schedule.userId) {
+      throw StateError('ログイン状態を確認してください');
+    }
+    final updated = await ScheduleService.moveClass(
+      scheduleId: schedule.id, fromWeekdayKey: day, fromPeriod: period,
+      toWeekdayKey: destinationDay, toPeriod: destinationPeriod, expectedClass: lesson,
+    );
+    if (!mounted || ref.read(currentUserIdProvider) != userId) return;
+    ref.invalidate(scheduleListProvider(userId));
+    ref.invalidate(scheduleProvider(userId));
+    ref.invalidate(weeklyScheduleProvider(userId));
+    ref.invalidate(todayScheduleProvider(userId));
+    ref.invalidate(nextClassProvider(userId));
+    ref.invalidate(currentPeriodProvider(userId));
+    ref.invalidate(todayScheduleByIdProvider(schedule.id));
+    ref.invalidate(currentUserSelectedTodayScheduleProvider);
+    ref.invalidate(currentUserTodayScheduleProvider);
+    ref.invalidate(currentUserScheduleProvider);
+    ref.invalidate(currentUserNextClassProvider);
+    ref.invalidate(currentUserCurrentPeriodProvider);
+    ref.read(homeRefreshNotifierProvider.notifier).state++;
+    if (destinationDay == Weekday.saturday.name) {
+      try {
+        await ref.read(settingsProvider.notifier).setShowSaturday(true);
+      } catch (error) {
+        debugPrint('土曜日の表示設定を保存できませんでした: $error');
+      }
+    }
+    if (!mounted || ref.read(currentUserIdProvider) != userId) return;
+    _rescheduleNotificationsForSchedule(updated);
+    unawaited(_syncWidgetsForSelectedSchedule(updated));
+    final label = Weekday.values.firstWhere((value) => value.name == destinationDay).shortName;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text('${lesson.subjectName}を$label曜日 $destinationPeriod限に移動しました')),
+      );
+  }
+
   Future<bool> _saveClassNotesInline({
     required BuildContext context,
     required Schedule schedule,
@@ -2157,9 +2111,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       final latest = await ScheduleService.getScheduleById(schedule.id);
       if (latest == null) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('時間割の取得に失敗しました')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('時間割の取得に失敗しました')));
         }
         return false;
       }
@@ -2245,9 +2199,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('QRリーダーを起動できませんでした: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('QRリーダーを起動できませんでした: $e')));
       }
       return;
     }
@@ -2277,7 +2231,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.message),
-          backgroundColor: result.success ? Colors.green : Colors.orange,
+          backgroundColor: AppColors.snackBarSurface(context, result.success ? Colors.green : Colors.orange),
         ),
       );
     } catch (e) {
@@ -2295,7 +2249,8 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     final raw = scannedRaw.trim();
     final uri = Uri.tryParse(raw);
     if (uri == null) return;
-    final isWeb = (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty;
+    final isWeb =
+        (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty;
     if (!isWeb) return;
     try {
       final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -2360,100 +2315,102 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   void _showNotificationInfoDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(
-              Icons.notifications,
-              color: Theme.of(context).colorScheme.primary,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(
+                  Icons.notifications,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                const Text('講義通知をONにしますか？'),
+              ],
             ),
-            const SizedBox(width: 8),
-            const Text('講義通知をONにしますか？'),
-          ],
-        ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '講義開始の約15分前に「次の講義名・教室・QRで出席」の通知を受け取ります。',
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('講義開始の約15分前に「次の講義名・教室・QRで出席」の通知を受け取ります。'),
+                SizedBox(height: 12),
+                Text(
+                  '※ アプリの仕様上、講義開始後まで通知が遅れる可能性があります。',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ],
             ),
-            SizedBox(height: 12),
-            Text(
-              '※ アプリの仕様上、講義開始後まで通知が遅れる可能性があります。',
-              style: TextStyle(fontSize: 12),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('キャンセル'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('キャンセル'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                  _enableNotifications(context);
+                },
+                child: const Text('ONにする'),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              _enableNotifications(context);
-            },
-            child: const Text('ONにする'),
-          ),
-        ],
-      ),
     );
   }
 
   void _showDisableNotificationDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.notifications_off),
-            const SizedBox(width: 8),
-            const Text('講義通知をOFFにしますか？'),
-          ],
-        ),
-        content: const Text('すべての講義通知がキャンセルされます。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('キャンセル'),
+      builder:
+          (dialogContext) => AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.notifications_off),
+                const SizedBox(width: 8),
+                const Text('講義通知をOFFにしますか？'),
+              ],
+            ),
+            content: const Text('すべての講義通知がキャンセルされます。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('キャンセル'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(foregroundColor: AppColors.onColor(Colors.grey.shade700),
+                  backgroundColor: Colors.grey.shade700,
+                ),
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                  _disableNotifications(context);
+                },
+                child: const Text('OFFにする'),
+              ),
+            ],
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.grey.shade700),
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              _disableNotifications(context);
-            },
-            child: const Text('OFFにする'),
-          ),
-        ],
-      ),
     );
   }
 
   Future<void> _enableNotifications(BuildContext context) async {
     await ref.read(setScheduleNotificationEnabledProvider)(true);
+    if (!mounted || !context.mounted) return;
 
-    final schedule = ref.read(currentUserScheduleProvider).maybeWhen(
-          data: (value) => value,
-          orElse: () => null,
-        );
+    final schedule = ref
+        .read(currentUserScheduleProvider)
+        .maybeWhen(data: (value) => value, orElse: () => null);
     if (schedule != null) {
       await ScheduleNotificationService.scheduleWeeklyNotifications(schedule);
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+         SnackBar(
           content: Text('講義通知を有効にしました。講義開始まもなく通知します。'),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.snackBarSurface(context, Colors.green),
         ),
       );
     } else {
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+         SnackBar(
           content: Text('時間割データを読み込み中です。完了後に自動で通知を設定します。'),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppColors.snackBarSurface(context, Colors.orange),
         ),
       );
     }
@@ -2478,7 +2435,8 @@ class _CreateScheduleInputPage extends StatefulWidget {
   final List<Schedule> currentSchedules;
 
   @override
-  State<_CreateScheduleInputPage> createState() => _CreateScheduleInputPageState();
+  State<_CreateScheduleInputPage> createState() =>
+      _CreateScheduleInputPageState();
 }
 
 class _CreateScheduleInputPageState extends State<_CreateScheduleInputPage> {
@@ -2517,12 +2475,7 @@ class _CreateScheduleInputPageState extends State<_CreateScheduleInputPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('時間割を追加'),
-        actions: [
-          TextButton(
-            onPressed: _submit,
-            child: const Text('追加'),
-          ),
-        ],
+        actions: [TextButton(onPressed: _submit, child: const Text('追加'))],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -2567,7 +2520,8 @@ class _RenameScheduleInputPage extends StatefulWidget {
   final String initialName;
 
   @override
-  State<_RenameScheduleInputPage> createState() => _RenameScheduleInputPageState();
+  State<_RenameScheduleInputPage> createState() =>
+      _RenameScheduleInputPageState();
 }
 
 class _RenameScheduleInputPageState extends State<_RenameScheduleInputPage> {
@@ -2614,12 +2568,7 @@ class _RenameScheduleInputPageState extends State<_RenameScheduleInputPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('学期名を編集'),
-        actions: [
-          TextButton(
-            onPressed: _submit,
-            child: const Text('保存'),
-          ),
-        ],
+        actions: [TextButton(onPressed: _submit, child: const Text('保存'))],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -2650,18 +2599,4 @@ class _RenameScheduleInputPageState extends State<_RenameScheduleInputPage> {
       ),
     );
   }
-}
-
-class _ImportReviewResult {
-  const _ImportReviewResult({
-    required this.entries,
-    required this.clearExisting,
-    required this.autoColorAdjacent,
-    required this.provideTrainingData,
-  });
-
-  final List<ImportedScheduleEntry> entries;
-  final bool clearExisting;
-  final bool autoColorAdjacent;
-  final bool provideTrainingData;
 }

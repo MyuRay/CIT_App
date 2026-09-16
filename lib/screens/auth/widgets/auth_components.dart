@@ -1,3 +1,4 @@
+import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -36,11 +37,7 @@ class AuthBackgroundDecoration extends StatelessWidget {
             child: _glow(const Color(0xFF81C784).withValues(alpha: 0.12), 200),
           ),
           // 右上のドット装飾
-          const Positioned(
-            top: 24,
-            right: 18,
-            child: _DotGrid(),
-          ),
+          const Positioned(top: 24, right: 18, child: _DotGrid()),
         ],
       ),
     );
@@ -52,9 +49,7 @@ class AuthBackgroundDecoration extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [color, color.withValues(alpha: 0)],
-        ),
+        gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
       ),
     );
   }
@@ -81,8 +76,9 @@ class _DotGrid extends StatelessWidget {
                   height: 6,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AuthPalette.green
-                        .withValues(alpha: 0.10 + 0.16 * fade),
+                    color: AuthPalette.green.withValues(
+                      alpha: 0.10 + 0.16 * fade,
+                    ),
                   ),
                 ),
               );
@@ -135,11 +131,12 @@ class AuthHeader extends StatelessWidget {
             child: Image.asset(
               'assets/icons/app_launcher_icon.png',
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const Icon(
-                Icons.school,
-                size: 56,
-                color: AuthPalette.green,
-              ),
+              errorBuilder:
+                  (_, __, ___) => const Icon(
+                    Icons.school,
+                    size: 56,
+                    color: AuthPalette.green,
+                  ),
             ),
           ),
         ),
@@ -147,7 +144,7 @@ class AuthHeader extends StatelessWidget {
         Text(
           AppConstants.appName,
           style: theme.textTheme.titleMedium?.copyWith(
-            color: AuthPalette.greenDark,
+            color: AppColors.accent(context, AuthPalette.greenDark),
             fontWeight: FontWeight.w600,
             letterSpacing: 0.3,
           ),
@@ -168,11 +165,7 @@ class AuthHeader extends StatelessWidget {
 
 /// 淡いグリーンの案内カード（情報カードの土台）。
 class AuthInfoCard extends StatelessWidget {
-  const AuthInfoCard({
-    super.key,
-    required this.icon,
-    required this.child,
-  });
+  const AuthInfoCard({super.key, required this.icon, required this.child});
 
   final IconData icon;
   final Widget child;
@@ -182,7 +175,7 @@ class AuthInfoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: AuthPalette.greenSoft.withValues(alpha: 0.7),
+        color: AppColors.tintedSurface(context, AuthPalette.green),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: AuthPalette.green.withValues(alpha: 0.35),
@@ -198,7 +191,7 @@ class AuthInfoCard extends StatelessWidget {
               color: AuthPalette.green.withValues(alpha: 0.16),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 18, color: AuthPalette.greenDark),
+            child: Icon(icon, size: 18, color: AppColors.accent(context, AuthPalette.greenDark)),
           ),
           const SizedBox(width: 12),
           Expanded(child: child),
@@ -241,7 +234,7 @@ class AllowedEmailInfoCard extends StatelessWidget {
             style: theme.textTheme.bodySmall?.copyWith(
               height: 1.5,
               fontWeight: FontWeight.w700,
-              color: AuthPalette.greenDeep,
+              color: AppColors.accent(context, AuthPalette.greenDeep),
             ),
           ),
         ],
@@ -331,17 +324,21 @@ class AuthTextField extends StatelessWidget {
       style: theme.textTheme.bodyLarge,
       decoration: InputDecoration(
         hintText: hintText,
-        prefixIcon: Icon(prefixIcon, color: AuthPalette.greenDark),
+        prefixIcon: Icon(prefixIcon, color: AppColors.accent(context, AuthPalette.greenDark)),
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: fillColor,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         enabledBorder: border(borderColor, 1.2),
         border: border(borderColor, 1.2),
         focusedBorder: border(AuthPalette.green, 1.8),
-        errorBorder:
-            border(theme.colorScheme.error.withValues(alpha: 0.7), 1.2),
+        errorBorder: border(
+          theme.colorScheme.error.withValues(alpha: 0.7),
+          1.2,
+        ),
         focusedErrorBorder: border(theme.colorScheme.error, 1.8),
       ),
     );
@@ -365,18 +362,12 @@ class AuthInlineError extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.errorContainer.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.error.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: colorScheme.error.withValues(alpha: 0.35)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.error_outline,
-            size: 20,
-            color: colorScheme.error,
-          ),
+          Icon(Icons.error_outline, size: 20, color: colorScheme.error),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -422,63 +413,68 @@ class PrimaryAuthButton extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
-              colors: [AuthPalette.green, AuthPalette.greenDark],
+              colors: [AuthPalette.greenDark, AuthPalette.greenDeep],
             ),
-            boxShadow: enabled
-                ? [
-                    BoxShadow(
-                      color: AuthPalette.green.withValues(alpha: 0.4),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : null,
+            boxShadow:
+                enabled
+                    ? [
+                      BoxShadow(
+                        color: AuthPalette.green.withValues(alpha: 0.4),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
+                    : null,
           ),
           child: Material(
             color: Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(20),
               onTap: enabled ? onPressed : null,
-              child: SizedBox(
-                height: 56,
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 56),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 child: Center(
-                  child: isLoading
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.4,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
+                  child:
+                      isLoading
+                          ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.4,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                          : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Flexible(child: Text(
+                                label,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5,
+                                ),
+                              )),
+                              const SizedBox(width: 10),
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_forward_rounded,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ),
+                            ],
                           ),
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              label,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.22),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.arrow_forward_rounded,
-                                color: Colors.white,
-                                size: 16,
-                              ),
-                            ),
-                          ],
-                        ),
                 ),
               ),
             ),
@@ -506,7 +502,7 @@ class AuthDivider extends StatelessWidget {
           child: Text(
             'または',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ),
@@ -546,9 +542,10 @@ class AuthNavigationCard extends StatelessWidget {
     final Color background;
     final Color borderColor;
     if (tinted) {
-      background = isDark
-          ? theme.colorScheme.surfaceContainerHighest
-          : AuthPalette.greenTint;
+      background =
+          isDark
+              ? theme.colorScheme.surfaceContainerHighest
+              : AuthPalette.greenTint;
       borderColor = AuthPalette.green.withValues(alpha: 0.25);
     } else {
       background =
@@ -556,9 +553,10 @@ class AuthNavigationCard extends StatelessWidget {
       borderColor = theme.colorScheme.outline.withValues(alpha: 0.3);
     }
 
-    final textColor = emphasizeText
-        ? AuthPalette.greenDark
-        : theme.colorScheme.onSurface.withValues(alpha: 0.85);
+    final textColor =
+        emphasizeText
+            ? AppColors.accent(context, AuthPalette.greenDark)
+            : theme.colorScheme.onSurface.withValues(alpha: 0.85);
 
     return Material(
       color: background,
@@ -580,7 +578,11 @@ class AuthNavigationCard extends StatelessWidget {
                   color: AuthPalette.green.withValues(alpha: 0.14),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(leadingIcon, size: 20, color: AuthPalette.greenDark),
+                child: Icon(
+                  leadingIcon,
+                  size: 20,
+                  color: AppColors.accent(context, AuthPalette.greenDark),
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -594,7 +596,7 @@ class AuthNavigationCard extends StatelessWidget {
               ),
               Icon(
                 Icons.chevron_right,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ],
           ),

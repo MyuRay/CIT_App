@@ -33,8 +33,13 @@ void main() {
     });
 
     test('directions include boarding platform for mock', () {
-      final snap = TrainMockSnapshot.build('tsudanuma', DateTime(2026, 5, 17, 10));
-      final tokyo = snap.directions.firstWhere((d) => d.directionKey == 'tokyo');
+      final snap = TrainMockSnapshot.build(
+        'tsudanuma',
+        DateTime(2026, 5, 17, 10),
+      );
+      final tokyo = snap.directions.firstWhere(
+        (d) => d.directionKey == 'tokyo',
+      );
       expect(tokyo.boardingPlatform, '1・2番ホーム');
     });
   });

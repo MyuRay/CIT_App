@@ -7,10 +7,10 @@ enum CommentSortOrder {
   oldest;
 
   String get displayName => switch (this) {
-        CommentSortOrder.popular => '人気順',
-        CommentSortOrder.newest => '新しい順',
-        CommentSortOrder.oldest => '古い順',
-      };
+    CommentSortOrder.popular => '人気順',
+    CommentSortOrder.newest => '新しい順',
+    CommentSortOrder.oldest => '古い順',
+  };
 }
 
 // コメントモデル
@@ -49,15 +49,17 @@ class BulletinComment {
       authorId: json['authorId'] as String,
       authorName: json['authorName'] as String,
       createdAt: (json['createdAt'] as Timestamp).toDate(),
-      updatedAt: json['updatedAt'] != null 
-          ? (json['updatedAt'] as Timestamp).toDate() 
-          : null,
+      updatedAt:
+          json['updatedAt'] != null
+              ? (json['updatedAt'] as Timestamp).toDate()
+              : null,
       parentCommentId: json['parentCommentId'] as String?,
       isDeleted: json['isDeleted'] as bool? ?? false,
       likeCount: json['likeCount'] as int? ?? 0,
-      likedBy: json['likedBy'] is Map
-          ? Map<String, dynamic>.from(json['likedBy'] as Map)
-          : null,
+      likedBy:
+          json['likedBy'] is Map
+              ? Map<String, dynamic>.from(json['likedBy'] as Map)
+              : null,
     );
   }
 
@@ -149,10 +151,7 @@ class CommentThread {
   final BulletinComment comment;
   final List<BulletinComment> replies;
 
-  CommentThread({
-    required this.comment,
-    required this.replies,
-  });
+  CommentThread({required this.comment, required this.replies});
 
   int get totalReplies => replies.length;
 }

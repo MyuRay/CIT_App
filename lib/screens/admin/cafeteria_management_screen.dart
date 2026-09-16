@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -11,10 +12,12 @@ class CafeteriaManagementScreen extends ConsumerStatefulWidget {
   const CafeteriaManagementScreen({super.key});
 
   @override
-  ConsumerState<CafeteriaManagementScreen> createState() => _CafeteriaManagementScreenState();
+  ConsumerState<CafeteriaManagementScreen> createState() =>
+      _CafeteriaManagementScreenState();
 }
 
-class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementScreen> {
+class _CafeteriaManagementScreenState
+    extends ConsumerState<CafeteriaManagementScreen> {
   final List<_CafeTarget> _targets = const [
     _CafeTarget(label: '津田沼', campusCode: 'td', icon: Icons.restaurant),
     _CafeTarget(label: '新習志野 1F', campusCode: 'sd1', icon: Icons.ramen_dining),
@@ -55,31 +58,48 @@ class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementS
                     children: [
                       Row(
                         children: [
-                          Icon(t.icon, color: Theme.of(context).colorScheme.primary),
+                          Icon(
+                            t.icon,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             t.label,
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const Spacer(),
-                          if (busy) const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                          if (busy)
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
                         ],
                       ),
                       const SizedBox(height: 12),
                       // プレビュー
                       FutureBuilder<String?>(
                         key: ValueKey('${t.campusCode}_$_refreshTick'),
-                        future: FirebaseMenuService.getMenuImageDownloadUrlDirect(t.campusCode),
+                        future:
+                            FirebaseMenuService.getMenuImageDownloadUrlDirect(
+                              t.campusCode,
+                            ),
                         builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
                             return Container(
                               height: 140,
                               decoration: BoxDecoration(
-                                color: Colors.grey.shade50,
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.shade300),
+                                border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                               ),
-                              child: const Center(child: CircularProgressIndicator()),
+                              child: const Center(
+                                child: CircularProgressIndicator(),
+                              ),
                             );
                           }
                           final url = snapshot.data;
@@ -87,17 +107,26 @@ class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementS
                             return Container(
                               height: 140,
                               decoration: BoxDecoration(
-                                color: Colors.grey.shade50,
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.shade300),
+                                border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                               ),
                               child: Center(
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.image_not_supported, color: Colors.grey.shade500, size: 36),
+                                    Icon(
+                                      Icons.image_not_supported,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      size: 36,
+                                    ),
                                     const SizedBox(height: 8),
-                                    Text('画像未登録 (${t.campusCode}.png)', style: TextStyle(color: Colors.grey.shade600)),
+                                    Text(
+                                      '画像未登録 (${t.campusCode}.png)',
+                                      style: TextStyle(
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -105,7 +134,11 @@ class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementS
                           }
                           return ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: Image.network(url, height: 160, fit: BoxFit.cover),
+                            child: Image.network(
+                              url,
+                              height: 160,
+                              fit: BoxFit.cover,
+                            ),
                           );
                         },
                       ),
@@ -116,7 +149,8 @@ class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementS
                         builder: (context, snapshot) {
                           final controller = _controllerFor(t.campusCode);
                           if ((_noteLoaded[t.campusCode] != true) &&
-                              snapshot.connectionState == ConnectionState.done) {
+                              snapshot.connectionState ==
+                                  ConnectionState.done) {
                             controller.text = snapshot.data ?? '';
                             _noteLoaded[t.campusCode] = true;
                           }
@@ -146,7 +180,9 @@ class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementS
                                     onPressed:
                                         busy
                                             ? null
-                                            : () => _onSaveNotePressed(t.campusCode),
+                                            : () => _onSaveNotePressed(
+                                              t.campusCode,
+                                            ),
                                     icon: const Icon(Icons.save_outlined),
                                     label: const Text('備考を保存'),
                                   ),
@@ -170,19 +206,30 @@ class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementS
                       Row(
                         children: [
                           ElevatedButton.icon(
-                            onPressed: busy ? null : () => _onUploadPressed(t.campusCode),
+                            onPressed:
+                                busy
+                                    ? null
+                                    : () => _onUploadPressed(t.campusCode),
                             icon: const Icon(Icons.upload),
                             label: const Text('アップロード（PNG）'),
                           ),
                           const SizedBox(width: 8),
                           OutlinedButton.icon(
-                            onPressed: busy ? null : () => _onDeletePressed(t.campusCode),
-                            style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                            onPressed:
+                                busy
+                                    ? null
+                                    : () => _onDeletePressed(t.campusCode),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                            ),
                             icon: const Icon(Icons.delete_outline),
                             label: const Text('削除'),
                           ),
                           const Spacer(),
-                          Text('${t.campusCode}.png', style: TextStyle(color: Colors.grey.shade600)),
+                          Text(
+                            '${t.campusCode}.png',
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                          ),
                         ],
                       ),
                     ],
@@ -200,7 +247,7 @@ class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementS
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Card(
-        color: Colors.blueGrey.shade50,
+        color: AppColors.tintedSurface(context, Colors.blueGrey),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -208,13 +255,21 @@ class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementS
             children: [
               Row(
                 children: [
-                  Icon(Icons.restaurant_menu, color: Colors.blueGrey.shade700),
+                  Icon(Icons.restaurant_menu, color: AppColors.accent(context, Colors.blueGrey.shade700)),
                   const SizedBox(width: 8),
-                  Text('学食メニュー画像 管理', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800)),
+                  Text(
+                    '学食メニュー画像 管理',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.accent(context, Colors.blueGrey.shade800),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
-              const Text('・PNG画像のみ対応（自動で所定のファイル名に保存します）\n・既存画像がある場合は上書き保存されます\n・削除でFirebase Storageから画像を削除します'),
+              const Text(
+                '・PNG画像のみ対応（自動で所定のファイル名に保存します）\n・既存画像がある場合は上書き保存されます\n・削除でFirebase Storageから画像を削除します',
+              ),
             ],
           ),
         ),
@@ -239,7 +294,9 @@ class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementS
       final Uint8List? bytes = file.bytes;
       if (bytes == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ファイル読み込みに失敗しました')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('ファイル読み込みに失敗しました')));
         }
         setState(() => _loading[campus] = false);
         return;
@@ -249,21 +306,33 @@ class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementS
       if (mounted) {
         if (url != null) {
           // 関連キャッシュを無効化
-          await CacheService().removePersistentCache('firebase_today_menu_$campus');
-          try { ref.invalidate(firebaseTodayMenuProvider(campus)); } catch (_) {}
-          try { ref.invalidate(firebaseTodayMenuNoteProvider(campus)); } catch (_) {}
+          await CacheService().removePersistentCache(
+            'firebase_today_menu_$campus',
+          );
+          try {
+            ref.invalidate(firebaseTodayMenuProvider(campus));
+          } catch (_) {}
+          try {
+            ref.invalidate(firebaseTodayMenuNoteProvider(campus));
+          } catch (_) {}
           _noteLoaded[campus] = false;
           if (!mounted) return;
 
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('アップロードしました')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('アップロードしました')));
           setState(() => _refreshTick++);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('アップロードに失敗しました')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('アップロードに失敗しました')));
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラー: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('エラー: $e')));
       }
     } finally {
       if (mounted) setState(() => _loading[campus] = false);
@@ -273,18 +342,22 @@ class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementS
   Future<void> _onDeletePressed(String campus) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('画像を削除'),
-        content: Text('「$campus.png」をFirebaseから削除します。よろしいですか？'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('削除'),
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('画像を削除'),
+            content: Text('「$campus.png」をFirebaseから削除します。よろしいですか？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('キャンセル'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: FilledButton.styleFrom(foregroundColor: AppColors.onColor(Colors.red), backgroundColor: Colors.red),
+                child: const Text('削除'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
     if (ok != true) return;
 
@@ -293,21 +366,33 @@ class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementS
       final success = await FirebaseMenuService.deleteMenuImage(campus);
       if (mounted) {
         if (success) {
-          await CacheService().removePersistentCache('firebase_today_menu_$campus');
-          try { ref.invalidate(firebaseTodayMenuProvider(campus)); } catch (_) {}
-          try { ref.invalidate(firebaseTodayMenuNoteProvider(campus)); } catch (_) {}
+          await CacheService().removePersistentCache(
+            'firebase_today_menu_$campus',
+          );
+          try {
+            ref.invalidate(firebaseTodayMenuProvider(campus));
+          } catch (_) {}
+          try {
+            ref.invalidate(firebaseTodayMenuNoteProvider(campus));
+          } catch (_) {}
           _noteLoaded[campus] = false;
           if (!mounted) return;
 
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('削除しました')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('削除しました')));
           setState(() => _refreshTick++);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('削除に失敗しました')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('削除に失敗しました')));
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラー: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('エラー: $e')));
       }
     } finally {
       if (mounted) setState(() => _loading[campus] = false);
@@ -328,7 +413,9 @@ class _CafeteriaManagementScreenState extends ConsumerState<CafeteriaManagementS
       );
       if (!mounted) return;
       if (success) {
-        try { ref.invalidate(firebaseTodayMenuNoteProvider(campus)); } catch (_) {}
+        try {
+          ref.invalidate(firebaseTodayMenuNoteProvider(campus));
+        } catch (_) {}
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('備考を保存しました')));
@@ -354,5 +441,9 @@ class _CafeTarget {
   final String campusCode;
   final IconData icon;
 
-  const _CafeTarget({required this.label, required this.campusCode, required this.icon});
+  const _CafeTarget({
+    required this.label,
+    required this.campusCode,
+    required this.icon,
+  });
 }

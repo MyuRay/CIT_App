@@ -58,12 +58,14 @@ class ConvenienceLink {
       color: json['color'] as String,
       order: json['order'] as int? ?? 0,
       isEnabled: json['isEnabled'] as bool? ?? true,
-      createdAt: json['createdAt'] != null 
-          ? DateTime.tryParse(json['createdAt'] as String)
-          : null,
-      updatedAt: json['updatedAt'] != null 
-          ? DateTime.tryParse(json['updatedAt'] as String)
-          : null,
+      createdAt:
+          json['createdAt'] != null
+              ? DateTime.tryParse(json['createdAt'] as String)
+              : null,
+      updatedAt:
+          json['updatedAt'] != null
+              ? DateTime.tryParse(json['updatedAt'] as String)
+              : null,
     );
   }
 
@@ -152,7 +154,8 @@ class LinkIcons {
     return icons[iconName] ?? Icons.link;
   }
 
-  static List<MapEntry<String, IconData>> get iconList => icons.entries.toList();
+  static List<MapEntry<String, IconData>> get iconList =>
+      icons.entries.toList();
 }
 
 // カラー定数

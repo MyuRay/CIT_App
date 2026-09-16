@@ -1,0 +1,10 @@
+{
+  "files": [
+    "docs/handoff/README.md",
+    "docs/handoff/development.md",
+    "docs/handoff/architecture.md",
+    "docs/handoff/incidents.md",
+    "docs/handoff/releases.md",
+    "docs/handoff/ownership.md"
+  ]
+}

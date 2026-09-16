@@ -34,11 +34,7 @@ Widget _evacuationBox() {
     ),
     child: Text(
       kNarashinoFloorPlanEvacuationNotice,
-      style: TextStyle(
-        color: Colors.amber.shade50,
-        fontSize: 11,
-        height: 1.25,
-      ),
+      style: TextStyle(color: Colors.amber.shade50, fontSize: 11, height: 1.25),
       textAlign: TextAlign.center,
     ),
   );
@@ -49,11 +45,7 @@ Widget narashinoFloorPlanFullscreenLegalFooter() {
   return Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      _disclaimerBox(),
-      const SizedBox(height: 8),
-      _evacuationBox(),
-    ],
+    children: [_disclaimerBox(), const SizedBox(height: 8), _evacuationBox()],
   );
 }
 
@@ -64,10 +56,6 @@ Widget narashinoFloorPlanPinDialogLegalFooter() {
   return Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      _disclaimerBox(),
-      const SizedBox(height: 8),
-      _evacuationBox(),
-    ],
+    children: [_disclaimerBox(), const SizedBox(height: 8), _evacuationBox()],
   );
 }

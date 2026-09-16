@@ -37,6 +37,10 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+# Temporary backups created while repairing the local build environment
+/build.setup-backup-*/
+/node_modules/
+/.dart_tool.setup-backup-*/
 
 # Symbolication related
 app.*.symbols
@@ -63,6 +67,7 @@ lib/firebase_options.dart
 scripts/*-key.json
 
 # User data (個人情報を含む可能性のあるファイル)
+/excel_import_training/
 scripts/user-id-prefixes.json
 scripts/user-growth-stats.json
 scripts/*.csv

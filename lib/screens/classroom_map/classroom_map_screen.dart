@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -14,7 +15,11 @@ const double kClassroomMapAppBarToolbarHeight = kToolbarHeight;
 
 /// 教室マップ
 class ClassroomMapScreen extends ConsumerStatefulWidget {
-  const ClassroomMapScreen({super.key, this.initialCampusId, this.initialSearchQuery});
+  const ClassroomMapScreen({
+    super.key,
+    this.initialCampusId,
+    this.initialSearchQuery,
+  });
 
   final String? initialCampusId;
 
@@ -93,18 +98,25 @@ class _ClassroomMapScreenState extends ConsumerState<ClassroomMapScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
-              const SizedBox(height: 16),
-              Text('データの読み込みに失敗しました', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              Text(e.toString(), style: Theme.of(context).textTheme.bodySmall),
-            ],
-          ),
-        ),
+        error:
+            (e, _) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 48, color: AppColors.accent(context, Colors.red[300])),
+                  const SizedBox(height: 16),
+                  Text(
+                    'データの読み込みに失敗しました',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    e.toString(),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
       ),
     );
   }

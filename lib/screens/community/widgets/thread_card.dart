@@ -48,8 +48,9 @@ class ThreadCard extends StatelessWidget {
                           const SizedBox(width: 6),
                           _Badge(
                             label: 'HOT',
-                            backgroundColor:
-                                Colors.orange.withValues(alpha: 0.15),
+                            backgroundColor: Colors.orange.withValues(
+                              alpha: 0.15,
+                            ),
                             textColor: Colors.orange,
                           ),
                         ],
@@ -57,8 +58,8 @@ class ThreadCard extends StatelessWidget {
                           const SizedBox(width: 6),
                           _Badge(
                             label: '格納',
-                            backgroundColor:
-                                colorScheme.outlineVariant.withValues(alpha: 0.35),
+                            backgroundColor: colorScheme.outlineVariant
+                                .withValues(alpha: 0.35),
                             textColor: mutedColor,
                           ),
                         ],
@@ -147,9 +148,10 @@ class _CategoryTag extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: colorScheme.brightness == Brightness.dark
-              ? const Color(0xFF81C784)
-              : const Color(0xFF2E7D32),
+          color:
+              colorScheme.brightness == Brightness.dark
+                  ? const Color(0xFF81C784)
+                  : const Color(0xFF2E7D32),
         ),
       ),
     );

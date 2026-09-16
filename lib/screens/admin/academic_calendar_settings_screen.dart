@@ -1,3 +1,4 @@
+import '../../core/theme/app_colors.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -58,28 +59,29 @@ class _AcademicCalendarSettingsScreenState
                         await _deleteEvent(event);
                       }
                     },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit, size: 18),
-                            SizedBox(width: 8),
-                            Text('編集'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete, color: Colors.red, size: 18),
-                            SizedBox(width: 8),
-                            Text('削除', style: TextStyle(color: Colors.red)),
-                          ],
-                        ),
-                      ),
-                    ],
+                    itemBuilder:
+                        (context) =>  [
+                          PopupMenuItem(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit, size: 18),
+                                SizedBox(width: 8),
+                                Text('編集'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, color: AppColors.accent(context, Colors.red), size: 18),
+                                SizedBox(width: 8),
+                                Text('削除', style: TextStyle(color: AppColors.accent(context, Colors.red))),
+                              ],
+                            ),
+                          ),
+                        ],
                   ),
                 ),
               );
@@ -131,8 +133,11 @@ class _AcademicCalendarSettingsScreenState
                           );
                           if (picked == null) return;
                           setDialogState(() {
-                            selectedDate =
-                                DateTime(picked.year, picked.month, picked.day);
+                            selectedDate = DateTime(
+                              picked.year,
+                              picked.month,
+                              picked.day,
+                            );
                           });
                         },
                         icon: const Icon(Icons.calendar_today),
@@ -157,7 +162,7 @@ class _AcademicCalendarSettingsScreenState
                       ),
                       const SizedBox(height: 10),
                       DropdownButtonFormField<String>(
-                        value: colorHex,
+                        initialValue: colorHex,
                         decoration: const InputDecoration(
                           labelText: '表示色',
                           border: OutlineInputBorder(),
@@ -255,9 +260,9 @@ class _AcademicCalendarSettingsScreenState
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存に失敗しました: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -279,7 +284,7 @@ class _AcademicCalendarSettingsScreenState
               ),
               FilledButton(
                 onPressed: () => Navigator.of(ctx).pop(true),
-                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                style: FilledButton.styleFrom(foregroundColor: AppColors.onColor(Colors.red), backgroundColor: Colors.red),
                 child: const Text('削除'),
               ),
             ],

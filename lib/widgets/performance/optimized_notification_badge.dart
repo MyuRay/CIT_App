@@ -11,7 +11,7 @@ import 'memoized_consumer.dart';
 class OptimizedNotificationBadge extends ConsumerWidget {
   final VoidCallback onTap;
   final String tooltip;
-  
+
   const OptimizedNotificationBadge({
     super.key,
     required this.onTap,
@@ -24,24 +24,28 @@ class OptimizedNotificationBadge extends ConsumerWidget {
       provider: authStateProvider,
       builder: (context, authState, child) {
         return authState.when(
-          data: (user) => user != null 
-              ? _AuthenticatedNotificationBadge(
-                  user: user,
-                  onTap: onTap,
-                  tooltip: tooltip,
-                )
-              : _UnauthenticatedNotificationBadge(
-                  onTap: onTap,
-                  tooltip: '$tooltip（ログインが必要）',
-                ),
-          loading: () => _LoadingNotificationBadge(
-            onTap: null,
-            tooltip: '$tooltip（認証中）',
-          ),
-          error: (_, __) => _ErrorNotificationBadge(
-            onTap: onTap,
-            tooltip: '$tooltip（認証エラー）',
-          ),
+          data:
+              (user) =>
+                  user != null
+                      ? _AuthenticatedNotificationBadge(
+                        user: user,
+                        onTap: onTap,
+                        tooltip: tooltip,
+                      )
+                      : _UnauthenticatedNotificationBadge(
+                        onTap: onTap,
+                        tooltip: '$tooltip（ログインが必要）',
+                      ),
+          loading:
+              () => _LoadingNotificationBadge(
+                onTap: null,
+                tooltip: '$tooltip（認証中）',
+              ),
+          error:
+              (_, __) => _ErrorNotificationBadge(
+                onTap: onTap,
+                tooltip: '$tooltip（認証エラー）',
+              ),
         );
       },
     );
@@ -53,7 +57,7 @@ class _AuthenticatedNotificationBadge extends ConsumerWidget {
   final User user;
   final VoidCallback onTap;
   final String tooltip;
-  
+
   const _AuthenticatedNotificationBadge({
     required this.user,
     required this.onTap,
@@ -64,9 +68,9 @@ class _AuthenticatedNotificationBadge extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // グローバル通知の未読数を取得
     final globalUnreadCount = ref.watch(
-      unviewedNotificationCountProvider.select((count) => count)
+      unviewedNotificationCountProvider.select((count) => count),
     );
-    
+
     // 個人通知の未読数を取得（メモ化されたConsumerで最適化）
     return MemoizedAsyncConsumer<int>(
       provider: unreadNotificationCountProvider(user.uid),
@@ -81,18 +85,20 @@ class _AuthenticatedNotificationBadge extends ConsumerWidget {
               isError: false,
             );
           },
-          loading: () => _NotificationBadgeIcon(
-            count: globalUnreadCount,
-            onTap: onTap,
-            tooltip: tooltip,
-            isError: false,
-          ),
-          error: (_, __) => _NotificationBadgeIcon(
-            count: 0,
-            onTap: onTap,
-            tooltip: '$tooltip（オフライン）',
-            isError: true,
-          ),
+          loading:
+              () => _NotificationBadgeIcon(
+                count: globalUnreadCount,
+                onTap: onTap,
+                tooltip: tooltip,
+                isError: false,
+              ),
+          error:
+              (_, __) => _NotificationBadgeIcon(
+                count: 0,
+                onTap: onTap,
+                tooltip: '$tooltip（オフライン）',
+                isError: true,
+              ),
         );
       },
     );
@@ -103,7 +109,7 @@ class _AuthenticatedNotificationBadge extends ConsumerWidget {
 class _UnauthenticatedNotificationBadge extends StatelessWidget {
   final VoidCallback onTap;
   final String tooltip;
-  
+
   const _UnauthenticatedNotificationBadge({
     required this.onTap,
     required this.tooltip,
@@ -123,11 +129,8 @@ class _UnauthenticatedNotificationBadge extends StatelessWidget {
 class _LoadingNotificationBadge extends StatelessWidget {
   final VoidCallback? onTap;
   final String tooltip;
-  
-  const _LoadingNotificationBadge({
-    required this.onTap,
-    required this.tooltip,
-  });
+
+  const _LoadingNotificationBadge({required this.onTap, required this.tooltip});
 
   @override
   Widget build(BuildContext context) {
@@ -143,11 +146,8 @@ class _LoadingNotificationBadge extends StatelessWidget {
 class _ErrorNotificationBadge extends StatelessWidget {
   final VoidCallback onTap;
   final String tooltip;
-  
-  const _ErrorNotificationBadge({
-    required this.onTap,
-    required this.tooltip,
-  });
+
+  const _ErrorNotificationBadge({required this.onTap, required this.tooltip});
 
   @override
   Widget build(BuildContext context) {
@@ -165,7 +165,7 @@ class _NotificationBadgeIcon extends StatelessWidget {
   final VoidCallback onTap;
   final String tooltip;
   final bool isError;
-  
+
   const _NotificationBadgeIcon({
     required this.count,
     required this.onTap,
@@ -196,7 +196,7 @@ class _NotificationBadgeIcon extends StatelessWidget {
 /// 通知数カウンター（メモ化済み）
 class _NotificationBadgeCounter extends StatelessWidget {
   final int count;
-  
+
   const _NotificationBadgeCounter({required this.count});
 
   @override
@@ -207,10 +207,7 @@ class _NotificationBadgeCounter extends StatelessWidget {
         color: Theme.of(context).colorScheme.error,
         borderRadius: BorderRadius.circular(10),
       ),
-      constraints: const BoxConstraints(
-        minWidth: 16,
-        minHeight: 16,
-      ),
+      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
       child: Text(
         count > 99 ? '99+' : '$count',
         style: TextStyle(

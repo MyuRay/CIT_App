@@ -39,16 +39,12 @@ class AppTheme {
     return base.copyWith(
       textTheme: textTheme,
       primaryTextTheme: primaryTextTheme,
-      scaffoldBackgroundColor: isDark ? Colors.grey[900] : null,
+      scaffoldBackgroundColor: colorScheme.surface,
       appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: 0,
         backgroundColor: colorScheme.surface,
         foregroundColor: colorScheme.onSurface,
-        titleTextStyle: textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
-        toolbarTextStyle: textTheme.bodyMedium,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -69,10 +65,10 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         filled: true,
-        fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
+        fillColor: colorScheme.surfaceContainerLow,
         labelStyle: textTheme.bodyMedium,
         hintStyle: textTheme.bodyMedium?.copyWith(
-          color: isDark ? Colors.grey[400] : Colors.grey[600],
+          color: colorScheme.onSurfaceVariant,
         ),
         helperStyle: textTheme.bodySmall,
         errorStyle: textTheme.bodySmall?.copyWith(color: colorScheme.error),
@@ -80,7 +76,7 @@ class AppTheme {
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         selectedLabelStyle: textTheme.labelSmall,
         unselectedLabelStyle: textTheme.labelSmall,
-        backgroundColor: isDark ? Colors.grey[900] : null,
+        backgroundColor: colorScheme.surface,
       ),
       navigationBarTheme: NavigationBarThemeData(
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
@@ -102,7 +98,14 @@ class AppTheme {
         titleTextStyle: textTheme.headlineSmall,
         contentTextStyle: textTheme.bodyMedium,
       ),
-      snackBarTheme: SnackBarThemeData(contentTextStyle: textTheme.bodyMedium),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: colorScheme.inverseSurface,
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: colorScheme.onInverseSurface,
+        ),
+        actionTextColor: colorScheme.onInverseSurface,
+        closeIconColor: colorScheme.onInverseSurface,
+      ),
       chipTheme: ChipThemeData(
         labelStyle: textTheme.labelMedium,
         secondaryLabelStyle: textTheme.labelMedium,
@@ -113,18 +116,28 @@ class AppTheme {
         leadingAndTrailingTextStyle: textTheme.bodyMedium,
       ),
       popupMenuTheme: PopupMenuThemeData(textStyle: textTheme.bodyMedium),
-      tooltipTheme: TooltipThemeData(textStyle: textTheme.bodySmall),
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+          color: colorScheme.inverseSurface,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        textStyle: textTheme.bodySmall?.copyWith(
+          color: colorScheme.onInverseSurface,
+        ),
+      ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         extendedTextStyle: textTheme.labelLarge,
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
-        style: ButtonStyle(textStyle: WidgetStatePropertyAll(textTheme.labelLarge)),
+        style: ButtonStyle(
+          textStyle: WidgetStatePropertyAll(textTheme.labelLarge),
+        ),
       ),
       drawerTheme: DrawerThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
       ),
       cardTheme: CardThemeData(
-        color: isDark ? Colors.grey.shade800 : null,
+        color: colorScheme.surfaceContainerLow,
         elevation: isDark ? 2 : 1,
       ),
       badgeTheme: BadgeThemeData(textStyle: textTheme.labelSmall),

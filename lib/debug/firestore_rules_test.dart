@@ -7,10 +7,12 @@ class FirestoreRulesTestScreen extends ConsumerStatefulWidget {
   const FirestoreRulesTestScreen({super.key});
 
   @override
-  ConsumerState<FirestoreRulesTestScreen> createState() => _FirestoreRulesTestScreenState();
+  ConsumerState<FirestoreRulesTestScreen> createState() =>
+      _FirestoreRulesTestScreenState();
 }
 
-class _FirestoreRulesTestScreenState extends ConsumerState<FirestoreRulesTestScreen> {
+class _FirestoreRulesTestScreenState
+    extends ConsumerState<FirestoreRulesTestScreen> {
   String _testResult = '';
   bool _isLoading = false;
 
@@ -35,12 +37,15 @@ class _FirestoreRulesTestScreenState extends ConsumerState<FirestoreRulesTestScr
                   children: [
                     const Text(
                       'Firestore Rules テスト',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     const Text('管理者権限コレクションへのアクセスをテストします'),
                     const SizedBox(height: 16),
-                    
+
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -52,9 +57,9 @@ class _FirestoreRulesTestScreenState extends ConsumerState<FirestoreRulesTestScr
                         child: const Text('読み取りテスト'),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 8),
-                    
+
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -66,9 +71,9 @@ class _FirestoreRulesTestScreenState extends ConsumerState<FirestoreRulesTestScr
                         child: const Text('書き込みテスト'),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 8),
-                    
+
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -84,9 +89,9 @@ class _FirestoreRulesTestScreenState extends ConsumerState<FirestoreRulesTestScr
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             if (_testResult.isNotEmpty)
               Card(
                 color: Colors.grey.shade50,
@@ -99,7 +104,10 @@ class _FirestoreRulesTestScreenState extends ConsumerState<FirestoreRulesTestScr
                         children: [
                           const Text(
                             'テスト結果',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const Spacer(),
                           IconButton(
@@ -118,19 +126,17 @@ class _FirestoreRulesTestScreenState extends ConsumerState<FirestoreRulesTestScr
                         ),
                         child: Text(
                           _testResult,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: Colors.white, fontSize: 12),
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-              
+
             const SizedBox(height: 16),
-            
+
             Card(
               color: Colors.red.shade50,
               child: Padding(
@@ -140,10 +146,15 @@ class _FirestoreRulesTestScreenState extends ConsumerState<FirestoreRulesTestScr
                   children: [
                     const Text(
                       '⚠️ エラーが発生した場合',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 12),
-                    const Text('1. Firebase Console → Firestore Database → Rules'),
+                    const Text(
+                      '1. Firebase Console → Firestore Database → Rules',
+                    ),
                     const SizedBox(height: 4),
                     const Text('2. 以下のルールを追加:'),
                     const SizedBox(height: 8),
@@ -157,9 +168,9 @@ class _FirestoreRulesTestScreenState extends ConsumerState<FirestoreRulesTestScr
                         'match /admin_permissions/{document} {\n'
                         '  allow read, write: if request.auth != null;\n'
                         '}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontSize: 12,
-                        ),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(fontSize: 12),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -191,10 +202,11 @@ class _FirestoreRulesTestScreenState extends ConsumerState<FirestoreRulesTestScr
         _testResult += 'ユーザーID: ${currentUser.uid}\n';
       });
 
-      final doc = await FirebaseFirestore.instance
-          .collection('admin_permissions')
-          .doc(currentUser.uid)
-          .get();
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('admin_permissions')
+              .doc(currentUser.uid)
+              .get();
 
       setState(() {
         _testResult += '✅ 読み取り成功\n';
@@ -203,12 +215,12 @@ class _FirestoreRulesTestScreenState extends ConsumerState<FirestoreRulesTestScr
           _testResult += 'データ: ${doc.data()}\n';
         }
       });
-
     } catch (e) {
       setState(() {
         _testResult += '❌ 読み取りエラー: $e\n';
         if (e.toString().contains('permission-denied')) {
-          _testResult += '\n🛠️ 解決方法: Firestore Rulesに admin_permissions の読み取り権限を追加してください';
+          _testResult +=
+              '\n🛠️ 解決方法: Firestore Rulesに admin_permissions の読み取り権限を追加してください';
         }
       });
     } finally {
@@ -237,26 +249,26 @@ class _FirestoreRulesTestScreenState extends ConsumerState<FirestoreRulesTestScr
           .collection('admin_permissions')
           .doc(currentUser.uid)
           .set({
-        'userId': currentUser.uid,
-        'isAdmin': true,
-        'canManagePosts': true,
-        'canManageUsers': true,
-        'canViewContacts': true,
-        'canManageCategories': true,
-        'grantedAt': Timestamp.now(),
-        'grantedBy': currentUser.uid,
-      });
+            'userId': currentUser.uid,
+            'isAdmin': true,
+            'canManagePosts': true,
+            'canManageUsers': true,
+            'canViewContacts': true,
+            'canManageCategories': true,
+            'grantedAt': Timestamp.now(),
+            'grantedBy': currentUser.uid,
+          });
 
       setState(() {
         _testResult += '✅ 書き込み成功\n';
         _testResult += '管理者権限ドキュメントを作成しました\n';
       });
-
     } catch (e) {
       setState(() {
         _testResult += '❌ 書き込みエラー: $e\n';
         if (e.toString().contains('permission-denied')) {
-          _testResult += '\n🛠️ 解決方法: Firestore Rulesに admin_permissions の書き込み権限を追加してください';
+          _testResult +=
+              '\n🛠️ 解決方法: Firestore Rulesに admin_permissions の書き込み権限を追加してください';
         }
       });
     } finally {
@@ -282,10 +294,11 @@ class _FirestoreRulesTestScreenState extends ConsumerState<FirestoreRulesTestScr
       });
 
       // 3秒間リアルタイム監視をテスト
-      final stream = FirebaseFirestore.instance
-          .collection('admin_permissions')
-          .doc(currentUser.uid)
-          .snapshots();
+      final stream =
+          FirebaseFirestore.instance
+              .collection('admin_permissions')
+              .doc(currentUser.uid)
+              .snapshots();
 
       bool hasData = false;
       final subscription = stream.listen(
@@ -307,7 +320,8 @@ class _FirestoreRulesTestScreenState extends ConsumerState<FirestoreRulesTestScr
           setState(() {
             _testResult += '❌ リアルタイム監視エラー: $e\n';
             if (e.toString().contains('permission-denied')) {
-              _testResult += '\n🛠️ 解決方法: Firestore Rulesに admin_permissions の読み取り権限を追加してください';
+              _testResult +=
+                  '\n🛠️ 解決方法: Firestore Rulesに admin_permissions の読み取り権限を追加してください';
             }
           });
         },
@@ -322,7 +336,6 @@ class _FirestoreRulesTestScreenState extends ConsumerState<FirestoreRulesTestScr
           _testResult += '⏱️ タイムアウト: リアルタイム監視データを受信できませんでした';
         });
       }
-
     } catch (e) {
       setState(() {
         _testResult += '❌ リアルタイム監視テストエラー: $e';

@@ -108,9 +108,10 @@ class ClassNotificationPayload {
         classDate: DateTime(classDate.year, classDate.month, classDate.day),
         startDateTime: start.toLocal(),
         endDateTime: end.toLocal(),
-        classroom: (classroom != null && classroom.trim().isNotEmpty)
-            ? classroom
-            : null,
+        classroom:
+            (classroom != null && classroom.trim().isNotEmpty)
+                ? classroom
+                : null,
       );
     } catch (e) {
       debugPrint('⚠️ ClassNotificationPayload parse error: $e');
