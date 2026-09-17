@@ -1,9 +1,13 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    function isActiveAccount() {
+      return request.auth != null && !firestore.exists(/databases/(default)/documents/account_deletion_jobs/$(request.auth.uid));
+    }
+
 
     function authEmailLower() {
-      return request.auth != null && request.auth.token.email != null
+      return isActiveAccount() && request.auth.token.email != null
         ? request.auth.token.email.lower()
         : '';
     }
@@ -15,13 +19,13 @@ service firebase.storage {
     }
 
     function isCITUser() {
-      return request.auth != null
+      return isActiveAccount()
         && request.auth.token.email != null
         && isAllowedCitEmailDomain();
     }
 
     function isAdmin() {
-      return request.auth != null
+      return isActiveAccount()
         && firestore.exists(
           /databases/(default)/documents/admin_permissions/$(request.auth.uid)
         )

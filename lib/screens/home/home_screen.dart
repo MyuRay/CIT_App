@@ -15,6 +15,7 @@ import '../../core/providers/notification_provider.dart';
 import '../../core/providers/convenience_link_provider.dart';
 import '../../core/providers/global_notification_provider.dart';
 import '../../core/providers/firebase_menu_provider.dart';
+import '../../core/providers/firebase_campus_provider.dart';
 import '../../core/providers/bus_provider.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/providers/in_app_ad_provider.dart';
@@ -32,6 +33,9 @@ import '../schedule/attendance_qr_reader_screen.dart';
 import '../../widgets/campus_map_widget.dart';
 import '../../widgets/home/academic_calendar_card.dart';
 import '../../widgets/home/campus_weather_card.dart';
+import '../../core/providers/assignment_provider.dart';
+import '../../widgets/assignments/assignment_list.dart';
+import '../../widgets/assignments/assignment_editor.dart';
 // 一時非表示: JR津田沼駅発（電車アクセス）カード
 // import '../../widgets/home/train_access_home_card.dart';
 import '../../widgets/performance/optimized_notification_badge.dart';
@@ -69,6 +73,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   static const List<String> _defaultHomeCardOrder = [
     'weather',
     'timetable',
+    'assignments',
     'cafeteria',
     'bus',
     // 'train_access', // 一時非表示: JR津田沼駅発
@@ -81,6 +86,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   bool _showTextMatchAd = false;
   List<String> _homeCardOrder = List<String>.from(_defaultHomeCardOrder);
   Set<String> _hiddenHomeCards = <String>{};
+  bool _alwaysShowAssignments = false;
   bool _timetableAutoShowOverrideOutsideLecturePeriod = false;
   int _selectedRouteIndex = 0; // 選択中の路線インデックス
   bool _busInitialRouteSet = false; // 学バス初期表示の適用有無
@@ -221,7 +227,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () => _refreshData(ref),
+        onRefresh: () => _refreshData(ref, reloadCampusMaps: true),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           physics: const AlwaysScrollableScrollPhysics(),
@@ -413,10 +419,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     AsyncValue<bool> todayReviewExistsAsync,
   ) {
     final autoHideTimetable = _shouldAutoHideTimetableCardByLecturePeriod();
+    final showAssignments = showAssignmentHomeCard(ref.watch(assignmentsProvider), alwaysShow: _alwaysShowAssignments);
     final visibleCardIds =
         _homeCardOrder.where((id) {
           if (_hiddenHomeCards.contains(id)) return false;
           if (id == 'timetable' && autoHideTimetable) return false;
+          if (id == 'assignments' && !showAssignments) return false;
           // 一時非表示: JR津田沼駅発（保存済みレイアウトに残っていても出さない）
           if (id == 'train_access') return false;
           return true;
@@ -470,6 +478,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return _buildWeatherCard(context);
       case 'timetable':
         return _buildTimetableCard(context, ref);
+      case 'assignments':
+        return const AssignmentHomeCard();
       case 'cafeteria':
         return _buildCafeteriaCard(context, ref, todayReviewExistsAsync);
       case 'bus':
@@ -901,6 +911,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Future<void> _showHomeCardLayoutEditor(BuildContext context) async {
     final tempOrder = List<String>.from(_homeCardOrder);
     final tempHidden = Set<String>.from(_hiddenHomeCards);
+    var tempAlwaysShowAssignments = _alwaysShowAssignments;
     var tempTimetableAutoShowOverride =
         _timetableAutoShowOverrideOutsideLecturePeriod;
 
@@ -961,6 +972,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                   _defaultHomeCardOrder,
                                 );
                                 _hiddenHomeCards = <String>{};
+                                _alwaysShowAssignments = false;
                                 _timetableAutoShowOverrideOutsideLecturePeriod =
                                     false;
                               });
@@ -977,6 +989,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               setState(() {
                                 _homeCardOrder = List<String>.from(tempOrder);
                                 _hiddenHomeCards = Set<String>.from(tempHidden);
+                                _alwaysShowAssignments = tempAlwaysShowAssignments;
                                 _timetableAutoShowOverrideOutsideLecturePeriod =
                                     tempTimetableAutoShowOverride;
                               });
@@ -1014,6 +1027,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                   : false;
                           final isVisible =
                               !tempHidden.contains(cardId) &&
+                              (cardId != 'assignments' || showAssignmentHomeCard(ref.read(assignmentsProvider), alwaysShow: tempAlwaysShowAssignments)) &&
                               !(cardId == 'timetable' &&
                                   isOutsideLecturePeriod &&
                                   !tempTimetableAutoShowOverride);
@@ -1021,11 +1035,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             key: ValueKey(cardId),
                             leading: const Icon(Icons.drag_handle),
                             title: Text(_homeCardTitle(cardId)),
-                            subtitle: Text(isVisible ? '表示中' : '非表示'),
+                            subtitle: Text(cardId == 'assignments' && !tempHidden.contains(cardId) && !tempAlwaysShowAssignments
+                              ? '未完了の課題があるときに自動表示' : isVisible ? '表示中' : '非表示'),
                             trailing: Switch(
                               value: isVisible,
                               onChanged: (value) {
                                 setModalState(() {
+                                  if (cardId == 'assignments') {
+                                    tempAlwaysShowAssignments = value;
+                                  }
                                   if (cardId == 'timetable') {
                                     if (value) {
                                       tempHidden.remove(cardId);
@@ -1067,6 +1085,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return '天気';
       case 'timetable':
         return '時間割';
+      case 'assignments':
+        return '課題';
       case 'cafeteria':
         return '学食情報';
       case 'bus':
@@ -1122,6 +1142,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       if (!result.contains(id)) {
         result.add(id);
       }
+    }
+    // Migrate existing layouts by placing the new card below today's timetable.
+    if (!incoming.contains('assignments')) {
+      result.remove('assignments');
+      result.insert(result.indexOf('timetable') + 1, 'assignments');
     }
     return result;
   }
@@ -1199,6 +1224,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       setState(() {
         _homeCardOrder = order;
         _hiddenHomeCards = hidden;
+        _alwaysShowAssignments = decoded['alwaysShowAssignments'] == true;
         _timetableAutoShowOverrideOutsideLecturePeriod =
             decoded[_timetableAutoShowOverrideKey] == true;
       });
@@ -1212,6 +1238,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final payload = <String, dynamic>{
       'order': _homeCardOrder,
       'hidden': _hiddenHomeCards.toList(),
+      'alwaysShowAssignments': _alwaysShowAssignments,
       _timetableAutoShowOverrideKey:
           _timetableAutoShowOverrideOutsideLecturePeriod,
     };
@@ -2504,6 +2531,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       barrierDismissible: false,
       builder: (dialogContext) => ScheduleClassDetailDialog(
         lesson: scheduleClass,
+        onAddAssignment: !canEdit ? null : () => showAssignmentEditor(dialogContext, ref, schedule: schedule, lesson: scheduleClass),
         dayLabel: weekdayNames[weekdayKey] ?? '日曜日',
         periodRange: ScheduleUtils.getClassPeriodRange(
           period,
@@ -4356,8 +4384,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   // プルツーリフレッシュでデータを更新
-  Future<void> _refreshData(WidgetRef ref) async {
+  Future<void> _refreshData(WidgetRef ref, {bool reloadCampusMaps = false}) async {
     try {
+      // Start independently so other refresh failures do not prevent map retries.
+      final mapRefresh = reloadCampusMaps
+          ? ref.read(refreshCampusMapsProvider)().catchError((Object error) {
+              debugPrint('キャンパスマップの再読み込みに失敗しました: $error');
+            })
+          : Future<void>.value();
       final weatherRefresh = _weatherCardKey.currentState?.refresh();
       // 各プロバイダーを無効化して再取得
       _invalidateScheduleProviders();
@@ -4394,6 +4428,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       });
 
       if (weatherRefresh != null) await weatherRefresh;
+      await mapRefresh;
 
       // 少し待機してデータ更新を完了させる
       await Future.delayed(const Duration(milliseconds: 800));

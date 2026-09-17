@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Firebase Auth は Android Keystore 連動の暗号化ストレージを使うため、
-  アンインストール後の Auto Backup 復元では復号できずセッションが壊れる。
-  認証関連の SharedPreferences もバックアップ対象から除外する。
+  Firebase Auth の Store と crypto は Firebase app ごとにファイル名が変わる。
+  path は前方一致・ワイルドカードではないため、sharedpref 全体を除外する。
+  Android Keystore の鍵は復元されないので、暗号化セッション・鍵セットを
+  クラウドや別端末から戻さない。通常のアプリ再起動・上書き更新では保持される。
 -->
 <full-backup-content>
-    <exclude domain="sharedpref" path="com.google.firebase.auth.api.Store." />
-    <exclude domain="sharedpref" path="FlutterSharedPreferences.xml" />
+    <exclude domain="sharedpref" path="." />
 </full-backup-content>

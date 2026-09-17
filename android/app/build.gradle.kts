@@ -79,8 +79,14 @@ flutter {
 }
 
 dependencies {
+    // FlutterFire's current BoM selects 23.2.1, whose encrypted session store
+    // cannot recover after Android backup restores a keyset without its key.
+    // 24.0.1 recreates an unusable keyset so the next sign-in can persist.
+    implementation("com.google.firebase:firebase-auth:24.0.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    // Compile the native timeout regression against the app's existing SDK.
+    androidTestImplementation("com.google.firebase:firebase-firestore:25.1.4")
     implementation("androidx.multidex:multidex:2.0.1")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     // AGP 8.8.2環境向け（依存関係のバージョンは自動解決）

@@ -17,11 +17,16 @@ class SemesterSwitchButton extends StatelessWidget {
     final colors = theme.colorScheme;
     return Align(
       alignment: Alignment.centerLeft,
+      widthFactor: 1,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final showCalendar =
               constraints.maxWidth >= 148 &&
               MediaQuery.textScalerOf(context).scale(14) <= 18;
+          // Keep the actual semester identifiable beside the assignment switch.
+          // The full year/semester remains in the tooltip and semantics label.
+          final compactLabel = label.replaceFirst(RegExp(r'^\d{4}年度\s*'), '');
+          final displayLabel = showCalendar || compactLabel.isEmpty ? label : compactLabel;
           return Tooltip(
             message: '学期を切り替え\n$label',
             excludeFromSemantics: true,
@@ -56,7 +61,7 @@ class SemesterSwitchButton extends StatelessWidget {
                   ],
                   Flexible(
                     child: Text(
-                      label,
+                      displayLabel,
                       semanticsLabel: '学期を切り替え、選択中：$label',
                       maxLines: 1,
                       softWrap: false,

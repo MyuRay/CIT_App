@@ -10,6 +10,7 @@ import 'package:cit_app/core/providers/settings_provider.dart';
 import 'package:cit_app/core/services/analytics_service.dart';
 import 'package:cit_app/screens/auth/signup_screen.dart';
 import 'package:cit_app/services/auth/email_registration.dart';
+import 'package:cit_app/services/auth/tab_tutorial_progress.dart';
 import 'package:cit_app/services/auth/legal_consent_service.dart';
 import 'package:cit_app/services/auth/verified_profile.dart';
 import 'package:cit_app/screens/legal/community_legal_update_consent_gate.dart';
@@ -39,11 +40,13 @@ void main() {
     double width = 390,
     double scale = 1,
     bool realRouter = false,
+    String? pendingEmail = 'student@chibatech.ac.jp',
     Future<void> Function()? saveProfile,
   }) async {
     await tester.pumpWidget(const SizedBox.shrink());
     SharedPreferences.setMockInitialValues({
-      registrationEmailKey: 'student@chibatech.ac.jp',
+      if (pendingEmail != null) registrationEmailKey: pendingEmail,
+      'tab_tutorial_seen_version': TabTutorialProgress.currentVersion,
     });
     final preferences = await SharedPreferences.getInstance();
     final firestore = FakeFirebaseFirestore();
@@ -250,7 +253,63 @@ void main() {
       expect(find.text('登録完了'), findsOneWidget);
       expect(find.text('同意して利用を開始する'), findsNothing);
       expect(container.read(hasAcceptedCurrentLegalConsentProvider), isTrue);
+      expect(
+        TabTutorialProgress(
+          container.read(sharedPreferencesProvider),
+        ).shouldShow(auth.currentUser!.uid),
+        isTrue,
+      );
       expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'completion locks the stored recipient without disabling readability',
+    (tester) async {
+      await mount(tester, complete: true);
+      final email = tester.widget<TextFormField>(
+        find.byType(TextFormField).first,
+      );
+      expect(email.controller!.text, 'student@chibatech.ac.jp');
+      expect(email.enabled, isTrue);
+      final editable = tester.widget<EditableText>(
+        find.byType(EditableText).first,
+      );
+      expect(editable.readOnly, isTrue);
+      expect(
+        find.descendant(
+          of: find.byType(TextFormField).first,
+          matching: find.byIcon(Icons.lock_outline),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.byType(TextFormField).first);
+      await tester.pump();
+      expect(tester.testTextInput.isVisible, isFalse);
+      expect(email.controller!.text, 'student@chibatech.ac.jp');
+    },
+  );
+  testWidgets(
+    'another device asks for the recipient once before locking the form',
+    (tester) async {
+      await mount(tester, complete: true, pendingEmail: null);
+      expect(find.byType(TextFormField), findsOneWidget);
+      await tester.enterText(
+        find.byType(TextFormField),
+        'student@chibatech.ac.jp',
+      );
+      await tester.ensureVisible(find.text('このメールアドレスで続ける'));
+      await tester.tap(find.text('このメールアドレスで続ける'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextFormField), findsNWidgets(4));
+      expect(
+        tester.widget<EditableText>(find.byType(EditableText).first).readOnly,
+        isTrue,
+      );
+      expect(auth.currentUser, isNull);
+      await fillCompletion(tester);
+      await tester.tap(find.text('メールを認証して登録を完了'));
+      await tester.pumpAndSettle();
+      expect(find.text('登録完了'), findsOneWidget);
     },
   );
   testWidgets(

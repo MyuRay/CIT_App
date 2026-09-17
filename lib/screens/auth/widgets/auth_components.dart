@@ -277,6 +277,7 @@ class AuthTextField extends StatelessWidget {
     this.keyboardType,
     this.textInputAction,
     this.enabled = true,
+    this.readOnly = false,
     this.autocorrect = true,
     this.inputFormatters,
     this.validator,
@@ -291,6 +292,7 @@ class AuthTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final bool enabled;
+  final bool readOnly;
   final bool autocorrect;
   final List<TextInputFormatter>? inputFormatters;
   final String? Function(String?)? validator;
@@ -317,6 +319,7 @@ class AuthTextField extends StatelessWidget {
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       enabled: enabled,
+      readOnly: readOnly,
       autocorrect: autocorrect,
       inputFormatters: inputFormatters,
       validator: validator,

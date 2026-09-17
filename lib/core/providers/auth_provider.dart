@@ -200,6 +200,46 @@ class AuthService {
 
   User? get currentUser => _auth.currentUser;
 
+  /// Deletion is durable; cleanup cannot depend on now-blocked server writes.
+  Future<void> signOutAfterAccountDeletion() async {
+    final uid = _auth.currentUser?.uid;
+    Future<void> clean(Future<void> Function() action) async {
+      try {
+        await action();
+      } catch (_) {
+        SecureLogger.warning('削除受付後の端末データ消去を一部完了できませんでした');
+      }
+    }
+
+    try {
+      if (!kIsWeb &&
+          (defaultTargetPlatform == TargetPlatform.android ||
+              defaultTargetPlatform == TargetPlatform.iOS)) {
+        await clean(ScheduleNotificationService.clearSessionNotifications);
+        await clean(HomeWidgetsService.clearUserSchedule);
+      }
+      await clean(() => SimpleOfflineService().clearPendingActions());
+      await clean(() => CacheService().clearAllCache());
+      await clean(() async {
+        final prefs = await SharedPreferences.getInstance();
+        for (final key in [
+          'selected_schedule_id',
+          'registration_pending_email',
+          'registration_verified_setup_uid',
+          if (uid != null) ...[
+            'legal_consent_accepted_version:$uid',
+            'tab_tutorial_seen_version:$uid',
+          ],
+        ]) {
+          await prefs.remove(key);
+        }
+      });
+    } finally {
+      await _auth.signOut();
+      NotificationService.finishLogout();
+    }
+  }
+
   // 現在のユーザーの表示名を取得
   String getCurrentUserDisplayName() {
     final user = _auth.currentUser;

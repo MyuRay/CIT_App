@@ -1,6 +1,6 @@
 # 学生登録の制限とスポンサーアカウント案
 
-更新: 2026-09-16
+更新: 2026-09-17
 
 ## 今回の実装・確認
 
@@ -16,13 +16,13 @@ Firebase の登録前関数 `requireVerifiedEmailBeforeCreate` が使う `functi
 - Node: 登録前関数のテスト22件成功。
 - アプリと関数で共有する19ケースの入力データ: `test/fixtures/registration_email_policy.json`。
 - 対象 Dart ファイルの静的解析: 指摘なし。
-- 本番 `cit-app-2de1c` の関数一覧を確認したが、登録前チェック関数は未反映。実ユーザーの作成・削除・招待メール送信は行っていない。
+- 2026-09-17に本番 `cit-app-2de1c` の登録前チェック・メールリンク認証・認証用Hostingを反映。本番APIの一時テストアカウントで登録・パスワードログイン・不正登録拒否を確認し、テストアカウントを削除済み。実利用者の削除・招待メール送信は行っていない。
 
-### 本番反映に残る作業
+### 本番反映と今後の確認
 
-アプリ内のチェックだけでは Firebase Auth API への直接の登録要求を制限できない。登録前関数を本番に反映し、Auth のブロッキングトリガーとして登録されていることを確認する必要がある。
+アプリ内のチェックだけでは Firebase Auth API への直接の登録要求を制限できないため、登録前関数を本番に反映し、Auth のブロッキングトリガーも確認済み。
 
-ブロッキング関数には Firebase Authentication with Identity Platform が必要。メール確認前の登録も拒否するため、メールリンク方式の登録画面・認証設定と一緒にリリースする。旧方式の新規登録が拒否されることも含めて案内する。Identity Platform のアップグレードや本番認証設定の変更は今回行っていない。
+Firebase Authentication with Identity Platformへ切り替え済み。旧方式のメール確認前登録は拒否されるため、新規登録にはメールリンク方式のアプリが必要。既存利用者の通常ログインは維持する。実メール受信と端末のリンク起動は別途確認する。反映手順、Gen 2フックURL修復、本番テストは `docs/EMAIL_REGISTRATION.md` を参照。
 
 公式仕様: [Auth blocking triggers](https://firebase.google.com/docs/functions/auth-blocking-events)
 

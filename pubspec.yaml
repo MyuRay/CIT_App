@@ -142,6 +142,10 @@ dev_dependencies:
 # path_provider_android 2.3.0: release で PathUtils ClassNotFoundException
 dependency_overrides:
   path_provider_android: 2.3.1
+  # Android transaction timeout fix, backported from FlutterFire #18668.
+  # Keep the existing Firebase/iOS compatibility; see third_party/cloud_firestore/PATCHES.md.
+  cloud_firestore:
+    path: third_party/cloud_firestore
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -158,6 +162,7 @@ flutter:
   assets:
     - assets/icons/
     - assets/images/
+    - assets/images/campus_maps/
     - assets/data/
     - assets/train/
     - assets/sounds/chiba_channel_reply_pop.wav

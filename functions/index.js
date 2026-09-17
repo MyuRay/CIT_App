@@ -30,6 +30,23 @@ const {beforeUserCreated} = require('firebase-functions/v2/identity');
 const {requireVerifiedRegistration} = require('./verified_registration');
 exports.requireVerifiedEmailBeforeCreate = beforeUserCreated(requireVerifiedRegistration);
 
+const {JOBS: DELETION_JOBS, createDeletionApi, createDeletionWorker} = require('./account_deletion');
+const deletionWorker = createDeletionWorker({auth: admin.auth(), db: admin.firestore(), bucket: admin.storage().bucket()});
+exports.deleteMyAccount = onRequest({timeoutSeconds: 60, cors: true},
+    createDeletionApi({auth: admin.auth(), db: admin.firestore()}));
+exports.processAccountDeletion = onDocumentCreated({document: `${DELETION_JOBS}/{uid}`, retry: true, timeoutSeconds: 540, memory: '512MiB'},
+    event => deletionWorker(event.params.uid));
+exports.retryAccountDeletions = onSchedule({schedule: 'every 15 minutes', timeoutSeconds: 540, memory: '512MiB'}, async () => {
+  const jobs = await admin.firestore().collection(DELETION_JOBS).where('status', 'in', ['queued', 'retry', 'running']).limit(10).get();
+  for (const job of jobs.docs) {
+    try { await deletionWorker(job.id); } catch (_) { console.error('Account deletion will retry'); }
+  }
+  // Keep the write-denial tombstone beyond the lifetime of any old ID token.
+  const expired = await admin.firestore().collection(DELETION_JOBS)
+      .where('completedAt', '<', admin.firestore.Timestamp.fromMillis(Date.now() - 7 * 86400000)).limit(100).get();
+  for (const job of expired.docs) await admin.firestore().recursiveDelete(job.ref);
+});
+
 const {syncFavoriteCounts} = require('./cafeteria_favorites');
 exports.syncCafeteriaFavoriteCounts = onDocumentWritten({
   document: 'users/{userId}/cafeteria_favorites/{favoriteId}',

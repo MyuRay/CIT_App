@@ -1,9 +1,6 @@
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 
-import 'storage_direct_url.dart';
-import 'storage_url_validator.dart';
-
 class FirebaseCampusService {
   static final _storage = FirebaseStorage.instance;
   static const String _campusMapPath = 'campus_maps';
@@ -130,30 +127,12 @@ class FirebaseCampusService {
   // =========== プライベートメソッド ===========
 
   static Future<String?> _resolveStorageImageUrl(String fullPath) async {
-    final publicUrl = StorageDirectUrl.publicGcsUrl(fullPath);
-    if (await StorageUrlValidator.isReachable(publicUrl)) {
-      return publicUrl;
-    }
-
-    final ref = _storage.ref().child(fullPath);
-    final metadata = await ref.getMetadata();
-    final token =
-        metadata.customMetadata?['firebaseStorageDownloadTokens']
-            ?.split(',')
-            .first
-            .trim();
-    if (token != null && token.isNotEmpty) {
-      final tokenUrl = StorageDirectUrl.mediaWithToken(fullPath, token);
-      if (await StorageUrlValidator.isReachable(tokenUrl)) {
-        return tokenUrl;
-      }
-    }
-
-    final downloadUrl = await ref.getDownloadURL();
-    if (await StorageUrlValidator.isReachable(downloadUrl)) {
-      return downloadUrl;
-    }
-    return null;
+    // These private objects need an SDK download URL, not a public GCS probe.
+    return _storage
+        .ref()
+        .child(fullPath)
+        .getDownloadURL()
+        .timeout(const Duration(seconds: 15));
   }
 
   /// キャンパスマップファイル名を生成

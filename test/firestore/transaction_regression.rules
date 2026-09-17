@@ -1,0 +1,9 @@
+rules_version = '2';
+// Local demo-cit-transaction-regression emulator only; never deploy these rules.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /regression/{document} {
+      allow read, write: if true;
+    }
+  }
+}

@@ -34,6 +34,7 @@ class ScheduleGridWidget extends StatefulWidget {
   final Future<bool> Function(String, int, ScheduleClass, String?)?
   onClassNotesSave;
   final Future<void> Function(String, int, ScheduleClass)? onClassAttendanceTap;
+  final Future<void> Function(ScheduleClass)? onAddAssignment;
   final Future<AttendanceClassSummary> Function(String, int, ScheduleClass)?
   onLoadAttendanceSummary;
   final Future<List<AttendanceSession>> Function(String, int, ScheduleClass)?
@@ -63,6 +64,7 @@ class ScheduleGridWidget extends StatefulWidget {
     this.onClassMove,
     this.onClassNotesSave,
     this.onClassAttendanceTap,
+    this.onAddAssignment,
     this.onLoadAttendanceSummary,
     this.onLoadAttendanceSessions,
     this.onSaveAttendanceStatus,
@@ -1078,6 +1080,7 @@ class _ScheduleGridWidgetState extends State<ScheduleGridWidget> {
       builder:
           (dialogContext) => ScheduleClassDetailDialog(
             lesson: scheduleClass,
+            onAddAssignment: widget.onAddAssignment == null ? null : () => widget.onAddAssignment!(scheduleClass),
             dayLabel: weekdayNames[weekdayKey] ?? weekdayKey,
             periodRange: periodRange,
             timeRange: timeRange,

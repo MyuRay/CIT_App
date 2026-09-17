@@ -390,7 +390,7 @@ class SimpleProfileScreen extends ConsumerWidget {
                         color: AppColors.accent(context, Colors.red),
                       ),
                       title: const Text('アカウント削除'),
-                      subtitle: const Text('アカウントと関連データの削除を申請'),
+                      subtitle: const Text('アカウントと関連データを削除'),
                       onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
                         builder: (_) => const AccountDeletionScreen(),
                       )),

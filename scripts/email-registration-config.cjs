@@ -5,7 +5,7 @@ const args = process.argv.slice(2);
 const project = args[args.indexOf('--project') + 1];
 if (!args.includes('--project') || project !== 'cit-app-2de1c') throw new Error('Pass --project cit-app-2de1c explicitly. Default is read-only.');
 const apply = args.includes('--apply');
-const requested = ['--upgrade-identity-platform', '--enable-email-links', '--register-debug-certificate'].filter(flag => args.includes(flag));
+const requested = ['--upgrade-identity-platform', '--enable-email-links', '--register-debug-certificate', '--repair-before-create-url'].filter(flag => args.includes(flag));
 if (requested.length && !apply) throw new Error('Mutations require --apply after approval of the production configuration change.');
 const configUrl = 'https://identitytoolkit.googleapis.com/admin/v2/projects/' + project + '/config';
 
@@ -47,10 +47,31 @@ const configUrl = 'https://identitytoolkit.googleapis.com/admin/v2/projects/' + 
       }
     }
   }
+  if (apply && args.includes('--repair-before-create-url')) {
+    // firebase-functions v6 verifies a Gen 2 blocking token against run.app.
+    // Recent CLI deployments may instead register the cloudfunctions.net alias.
+    const name = 'projects/' + project + '/locations/us-central1/functions/requireVerifiedEmailBeforeCreate';
+    const fn = await request('https://cloudfunctions.googleapis.com/v2/' + name);
+    const uri = fn.serviceConfig?.uri;
+    if (fn.name !== name || fn.state !== 'ACTIVE' || fn.environment !== 'GEN_2' ||
+        !uri || new URL(uri).protocol !== 'https:' || !new URL(uri).hostname.endsWith('.run.app')) {
+      throw new Error('Expected active Gen 2 registration function with a Cloud Run URL.');
+    }
+    config = await request(configUrl);
+    const current = config.blockingFunctions?.triggers?.beforeCreate?.functionUri;
+    if (current !== fn.url && current !== uri) throw new Error('Unexpected beforeCreate trigger; refusing to replace it.');
+    if (current !== uri) {
+      await request(configUrl + '?updateMask=blockingFunctions', {method:'PATCH',body:{
+        blockingFunctions:{...config.blockingFunctions,triggers:{...config.blockingFunctions.triggers,
+          beforeCreate:{functionUri:uri}}},
+      }});
+    }
+  }
   config = await request(configUrl);
   console.log(JSON.stringify({project,subtype:config.subtype,
     passwordSignInEnabled:config.signIn?.email?.enabled === true,
-    emailLinkEnabled:config.signIn?.email?.enabled === true && config.signIn?.email?.passwordRequired === false,
+    // The REST API omits protobuf boolean fields when their value is false.
+    emailLinkEnabled:config.signIn?.email?.enabled === true && config.signIn?.email?.passwordRequired !== true,
     beforeCreateConfigured:!!config.blockingFunctions?.triggers?.beforeCreate,
     applied:apply ? requested : []},null,2));
 })().catch(error => { console.error(error.message); process.exitCode = 1; });
