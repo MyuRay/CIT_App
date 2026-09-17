@@ -22,6 +22,7 @@ class ScheduleClassDetailDialog extends StatefulWidget {
     this.loadAttendance,
     this.loadAttendanceSessions,
     this.onSaveAttendance,
+    this.onAddAssignment,
   });
   final ScheduleClass lesson;
   final String dayLabel, periodRange, timeRange;
@@ -31,6 +32,7 @@ class ScheduleClassDetailDialog extends StatefulWidget {
   final Future<AttendanceClassSummary> Function()? loadAttendance;
   final Future<List<AttendanceSession>> Function()? loadAttendanceSessions;
   final Future<void> Function(AttendanceSession, String?)? onSaveAttendance;
+  final Future<void> Function()? onAddAssignment;
 
   @override
   State<ScheduleClassDetailDialog> createState() =>
@@ -209,6 +211,12 @@ class _ScheduleClassDetailDialogState extends State<ScheduleClassDetailDialog> {
                   ),
                 ),
                 const SizedBox(height: 24),
+                if (widget.onAddAssignment != null) ...[
+                  FilledButton.tonalIcon(
+                    onPressed: _busy || _editing ? null : widget.onAddAssignment,
+                    icon: const Icon(Icons.assignment_add), label: const Text('この講義の課題を登録')),
+                  const SizedBox(height: 16),
+                ],
                 _surface(
                   child: Column(
                     children: [

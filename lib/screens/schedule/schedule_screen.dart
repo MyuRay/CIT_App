@@ -21,6 +21,11 @@ import '../../models/schedule/lecture_period_model.dart';
 import '../../widgets/schedule/schedule_grid_widget.dart';
 import '../../widgets/schedule/schedule_class_move_dialog.dart';
 import '../../widgets/schedule/semester_switch_button.dart';
+import '../../widgets/assignments/assignment_flip_view.dart';
+import '../../widgets/assignments/assignment_list.dart';
+import '../../widgets/assignments/assignment_editor.dart';
+import '../../widgets/assignments/assignment_header.dart';
+import '../../core/providers/assignment_provider.dart';
 import '../../widgets/schedule/excel_import_review_dialog.dart';
 import '../../widgets/schedule/excel_import_semester_dialog.dart';
 import 'schedule_edit_screen.dart';
@@ -123,6 +128,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final showAssignments = ref.watch(assignmentViewOpenProvider);
     final userId = ref.watch(currentUserIdProvider);
     final showSaturday = ref.watch(showSaturdayProvider);
     final lecturePeriodAsync = ref.watch(lecturePeriodSettingsProvider);
@@ -140,10 +146,37 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
         .clamp(96.0, 200.0);
 
     return Scaffold(
-      appBar: AppBar(
-        leadingWidth: userId != null ? semesterButtonWidth : null,
+      appBar: !_isEditMode ? AssignmentHeader.appBar(context,
+        semesterButton: userId == null ? const Text('時間割') :
+          _buildHeaderScheduleChip(context, scheduleListAsync, userId),
+        showAssignments: showAssignments,
+        onToggle: () => ref.read(assignmentViewOpenProvider.notifier).state = !showAssignments,
+        actions: [
+          IconButton(
+            icon: Icon(ref.watch(scheduleNotificationEnabledProvider)
+              ? Icons.notifications_active : Icons.notifications_off),
+            tooltip: ref.watch(scheduleNotificationEnabledProvider) ? '講義通知をOFF' : '講義通知をON',
+            onPressed: () {
+              if (ref.read(scheduleNotificationEnabledProvider)) {
+                _showDisableNotificationDialog(context);
+              } else { _showNotificationInfoDialog(context); }
+            },
+          ),
+          IconButton(icon: const Icon(Icons.fact_check_outlined),
+            tooltip: '出欠管理', onPressed: () => _openAttendanceManagement(context)),
+          IconButton(icon: const Icon(Icons.edit), tooltip: '時間割を編集',
+            onPressed: () {
+              ref.read(assignmentViewOpenProvider.notifier).state = false;
+              setState(() => _isEditMode = true);
+            }),
+          IconButton(icon: const Icon(Icons.share), tooltip: '時間割を共有',
+            onPressed: showAssignments ? null : () => _shareSchedule(context)),
+        ],
+      ) : AppBar(
+        automaticallyImplyLeading: false,
+        leadingWidth: userId != null && _isEditMode ? semesterButtonWidth : null,
         leading:
-            userId != null
+            userId != null && _isEditMode
                 ? Padding(
                   padding: const EdgeInsets.only(left: 12, right: 4),
                   child: _buildHeaderScheduleChip(
@@ -153,48 +186,17 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                   ),
                 )
                 : null,
-        title:
-            _isEditMode
-                ? const Text(
+        title: const Text(
                   '編集モード',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: Colors.black),
-                )
-                : const SizedBox.shrink(),
-        centerTitle: true,
+                ),
+        titleSpacing: _isEditMode ? null : 12,
+        centerTitle: false,
         backgroundColor: _isEditMode ? Colors.orange.shade50 : null,
         foregroundColor: _isEditMode ? Colors.black : null,
         actions: [
-          // 講義通知ON/OFFボタン（表示モードのみ）
-          if (!_isEditMode)
-            Consumer(
-              builder: (context, ref, child) {
-                final notificationEnabled = ref.watch(
-                  scheduleNotificationEnabledProvider,
-                );
-                return IconButton(
-                  icon: Icon(
-                    notificationEnabled
-                        ? Icons.notifications_active
-                        : Icons.notifications_off,
-                    color:
-                        notificationEnabled
-                            ? Theme.of(context).colorScheme.primary
-                            : Colors.grey,
-                  ),
-                  onPressed: () {
-                    if (notificationEnabled) {
-                      _showDisableNotificationDialog(context);
-                    } else {
-                      _showNotificationInfoDialog(context);
-                    }
-                  },
-                  tooltip: notificationEnabled ? '講義通知をOFF' : '講義通知をON',
-                );
-              },
-            ),
-
           // 土曜日表示切り替えボタン（編集モードのみ）
           if (_isEditMode)
             IconButton(
@@ -268,16 +270,8 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
               tooltip: 'Excelから自動入力',
             ),
 
-          // 出欠管理ボタン（表示モード時のみ、編集/表示切替ボタンの左側）
-          if (!_isEditMode)
-            IconButton(
-              icon: const Icon(Icons.fact_check_outlined),
-              onPressed: () => _openAttendanceManagement(context),
-              tooltip: '出欠管理',
-            ),
-
           // 編集/表示モード切り替えボタン
-          IconButton(
+          if (_isEditMode) IconButton(
             icon: Icon(_isEditMode ? Icons.visibility : Icons.edit),
             onPressed: () {
               setState(() {
@@ -296,39 +290,21 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
             tooltip: _isEditMode ? '表示モードに切り替え' : '編集モードに切り替え',
           ),
 
-          // 表示モード時のみ表示される共有ボタン
-          if (!_isEditMode)
-            IconButton(
-              icon: const Icon(Icons.share),
-              onPressed: () => _shareSchedule(context),
-              tooltip: '時間割を共有',
-            ),
-
-          // 編集モード時のみ表示されるアクション
-          if (_isEditMode) ...[
-            PopupMenuButton<String>(
-              onSelected: (value) => _handleMenuAction(context, value),
-              itemBuilder:
-                  (BuildContext context) => [
-                    const PopupMenuItem(
-                      value: 'clear',
-                      child: Row(
-                        children: [
-                          Icon(Icons.clear_all),
-                          SizedBox(width: 8),
-                          Text('時間割をクリア'),
-                        ],
-                      ),
-                    ),
-                  ],
-            ),
-          ],
+          IconButton(icon: const Icon(Icons.clear_all), tooltip: '時間割をクリア',
+            onPressed: () => _handleMenuAction(context, 'clear')),
         ],
       ),
       body:
           userId == null
               ? const Center(child: CircularProgressIndicator())
-              : RetainedAsyncView<List<Schedule>>(
+              : AssignmentFlipView(
+                showAssignments: showAssignments,
+                assignments: AssignmentBoard(
+                  key: ValueKey('assignments-$userId'),
+                  preferredSchedule: scheduleListAsync.valueOrNull?.isNotEmpty == true
+                    ? _resolveSelectedSchedule(scheduleListAsync.valueOrNull!) : null,
+                ),
+                timetable: RetainedAsyncView<List<Schedule>>(
                 value: scheduleListAsync,
                 onRetry: () => ref.invalidate(scheduleListProvider(userId)),
                 data: (schedules) {
@@ -426,6 +402,8 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                                     ),
                                   ScheduleGridWidget(
                                     schedule: selectedSchedule,
+                                    onAddAssignment: (lesson) => showAssignmentEditor(context, ref,
+                                      schedule: selectedSchedule, lesson: lesson),
                                     onClassLongPress: (day, period, lesson) => _moveClass(
                                       selectedSchedule, day, period, lesson,
                                     ),
@@ -635,7 +613,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                         ],
                       ),
                     ),
-              ),
+              )),
     );
   }
 

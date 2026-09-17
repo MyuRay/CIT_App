@@ -200,7 +200,7 @@ void main() async {
       // 永続化設定エラーでもアプリは継続
     }
 
-    // 再インストール後の Auto Backup 復元で壊れた認証キャッシュを修復
+    // SDK の認証状態と食い違う旧アプリ独自のログイン表示キャッシュを整理
     await AuthStorageReconciler.reconcileAfterFirebaseInit();
 
     // 現在のユーザー状態をログで確認

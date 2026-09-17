@@ -1,6 +1,24 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/firebase/firebase_campus_service.dart';
 
+final campusMapLoaderProvider = Provider<Future<String?> Function(String)>(
+  (ref) => FirebaseCampusService.getCampusMapUrl,
+);
+
+// A new URL also retries failed image streams and bypasses stale image caches.
+final campusMapRefreshVersionProvider = StateProvider<int>((ref) => 0);
+
+final refreshCampusMapsProvider = Provider<Future<void> Function()>((ref) {
+  return () async {
+    ref.read(campusMapRefreshVersionProvider.notifier).state =
+        DateTime.now().microsecondsSinceEpoch;
+    await Future.wait([
+      ref.read(campusMapProvider('tsudanuma').future),
+      ref.read(campusMapProvider('narashino').future),
+    ]);
+  };
+});
+
 // 全キャンパスマップデータを取得
 final allCampusMapsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   return await FirebaseCampusService.getAllCampusMaps();
@@ -11,7 +29,16 @@ final campusMapProvider = FutureProvider.family<String?, String>((
   ref,
   campus,
 ) async {
-  return await FirebaseCampusService.getCampusMapUrl(campus);
+  final version = ref.watch(campusMapRefreshVersionProvider);
+  final load = ref.watch(campusMapLoaderProvider);
+  final url = await load(campus);
+  if (url == null || url.isEmpty || version == 0) return url;
+  final uri = Uri.parse(url);
+  return uri
+      .replace(
+        queryParameters: {...uri.queryParameters, 'campusRefresh': '$version'},
+      )
+      .toString();
 });
 
 // 特定キャンパスのフロアマップ一覧を取得

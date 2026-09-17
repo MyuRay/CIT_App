@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
-import 'main_navigation_bar.dart';
+import 'assignment_tutorial_demo.dart';
+
+enum TutorialTopic { home, schedule, assignments, community, bulletin, profile }
 
 /// Intentionally independent of providers, storage, APIs and user content.
 class TabTutorialDemo extends StatefulWidget {
   const TabTutorialDemo({
     super.key,
-    required this.tabIndex,
+    required this.topic,
     required this.selectedCampus,
     required this.onCampusChanged,
   });
-  final int tabIndex;
+  final TutorialTopic topic;
   final String selectedCampus;
   final ValueChanged<String> onCampusChanged;
 
@@ -525,13 +527,13 @@ class _TabTutorialDemoState extends State<TabTutorialDemo> {
       borderRadius: BorderRadius.circular(18),
       border: Border.all(color: colors.outlineVariant),
     ),
-    child: switch (widget.tabIndex) {
-      MainNavigation.homeIndex => _home(),
-      MainNavigation.scheduleIndex => _schedule(),
-      MainNavigation.communityIndex => _community(),
-      MainNavigation.bulletinIndex => _bulletin(),
-      MainNavigation.profileIndex => _profile(),
-      _ => const SizedBox.shrink(),
+    child: switch (widget.topic) {
+      TutorialTopic.home => _home(),
+      TutorialTopic.schedule => _schedule(),
+      TutorialTopic.assignments => const AssignmentTutorialDemo(),
+      TutorialTopic.community => _community(),
+      TutorialTopic.bulletin => _bulletin(),
+      TutorialTopic.profile => _profile(),
     },
   );
 }

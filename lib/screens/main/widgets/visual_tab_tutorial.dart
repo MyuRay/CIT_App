@@ -5,6 +5,8 @@ import 'tab_tutorial_demo.dart';
 const _topics = [
   (
     label: 'ホーム',
+    topic: TutorialTopic.home,
+    tabIndex: MainNavigation.homeIndex,
     icon: Icons.home_outlined,
     title: 'ホームカードの表示と順序',
     description: '右上のメニューから「ホームカードを編集」。表示するカードと並び順を選べます。',
@@ -12,13 +14,26 @@ const _topics = [
   ),
   (
     label: '時間割',
+    topic: TutorialTopic.schedule,
+    tabIndex: MainNavigation.scheduleIndex,
     icon: Icons.calendar_today_outlined,
     title: '時間割の登録・編集',
     description: '鉛筆を押すと編集モードに。Excel取り込みのボタンは、このモードで表示されます。',
     tip: '表示モードでは講義をタップして詳細を確認。出欠管理はチェック表のアイコンから開けます。',
   ),
   (
+    label: '課題管理',
+    topic: TutorialTopic.assignments,
+    tabIndex: MainNavigation.scheduleIndex,
+    icon: Icons.assignment_outlined,
+    title: '課題の登録・締切・完了',
+    description: '時間割の学期ボタン横にある「課題」から開きます。「課題を登録」で課題名と締切を入力します。',
+    tip: '未完了の課題は締切順に並び、ホームにも表示されます。講義詳細の「この講義の課題を登録」も使えます。',
+  ),
+  (
     label: '交流',
+    topic: TutorialTopic.community,
+    tabIndex: MainNavigation.communityIndex,
     icon: Icons.groups_outlined,
     title: 'Cwitter・ちばちゃんねる',
     description: '上部のタブで、Cwitterとちばちゃんねるを切り替えられます。',
@@ -26,6 +41,8 @@ const _topics = [
   ),
   (
     label: '掲示板',
+    topic: TutorialTopic.bulletin,
+    tabIndex: MainNavigation.bulletinIndex,
     icon: Icons.campaign_outlined,
     title: '掲示板の検索・投稿',
     description: 'カテゴリで投稿を絞り込めます。右上の＋から投稿を申請できます。',
@@ -33,12 +50,21 @@ const _topics = [
   ),
   (
     label: 'マイページ',
+    topic: TutorialTopic.profile,
+    tabIndex: MainNavigation.profileIndex,
     icon: Icons.person_outline,
     title: 'メインキャンパスの設定',
     description: '「メインキャンパスを設定」で選ぶと、ホームの天気や学バスの初期表示に反映されます。',
     tip: 'このガイドは「マイページ → チュートリアルを確認」から、いつでも見直せます。',
   ),
 ];
+
+/// Tutorial pages and bottom-navigation destinations have independent indices.
+class TutorialDestination {
+  const TutorialDestination(this.tabIndex, {this.showAssignments = false});
+  final int tabIndex;
+  final bool showAssignments;
+}
 
 /// Campus changes are staged until completion; all other examples stay local.
 class VisualTabTutorial extends StatefulWidget {
@@ -66,7 +92,9 @@ class _VisualTabTutorialState extends State<VisualTabTutorial> {
     if (_saving) return;
     final campus = _selectedCampus;
     if (campus == null) {
-      Navigator.of(context).pop(MainNavigation.homeIndex);
+      Navigator.of(
+        context,
+      ).pop(const TutorialDestination(MainNavigation.homeIndex));
       return;
     }
     setState(() {
@@ -75,7 +103,11 @@ class _VisualTabTutorialState extends State<VisualTabTutorial> {
     });
     try {
       await widget.onSaveCampus(campus);
-      if (mounted) Navigator.of(context).pop(MainNavigation.homeIndex);
+      if (mounted) {
+        Navigator.of(
+          context,
+        ).pop(const TutorialDestination(MainNavigation.homeIndex));
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -93,6 +125,7 @@ class _VisualTabTutorialState extends State<VisualTabTutorial> {
 
   void _goTo(int index) {
     if (index < 0 || index >= _topics.length || index == _index) return;
+    FocusScope.of(context).unfocus();
     setState(() => _index = index);
     if (_scroll.hasClients) _scroll.jumpTo(0);
   }
@@ -139,26 +172,30 @@ class _VisualTabTutorialState extends State<VisualTabTutorial> {
                 Expanded(
                   child: SingleChildScrollView(
                     controller: _scroll,
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '$number / 5 ・ ${topic.label}',
+                          '$number / ${_topics.length} ・ ${topic.label}',
                           key: const Key('tutorial_progress'),
                           style: theme.textTheme.labelLarge?.copyWith(
                             color: colors.primary,
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Row(
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
                           children: [
                             for (var i = 0; i < _topics.length; i++)
-                              Expanded(
+                              SizedBox(
+                                width: 48,
+                                height: 48,
                                 child: Padding(
-                                  padding: EdgeInsets.only(
-                                    right: i == _topics.length - 1 ? 0 : 4,
-                                  ),
+                                  padding: EdgeInsets.zero,
                                   child: Semantics(
                                     selected: i == _index,
                                     child: IconButton(
@@ -228,7 +265,7 @@ class _VisualTabTutorialState extends State<VisualTabTutorial> {
                         ),
                         const SizedBox(height: 10),
                         TabTutorialDemo(
-                          tabIndex: _index,
+                          topic: topic.topic,
                           selectedCampus:
                               _selectedCampus ?? widget.initialCampus,
                           onCampusChanged:
@@ -251,7 +288,14 @@ class _VisualTabTutorialState extends State<VisualTabTutorial> {
                         const SizedBox(height: 8),
                         TextButton.icon(
                           key: const Key('tutorial_open_tab'),
-                          onPressed: () => Navigator.of(context).pop(_index),
+                          onPressed:
+                              () => Navigator.of(context).pop(
+                                TutorialDestination(
+                                  topic.tabIndex,
+                                  showAssignments:
+                                      topic.topic == TutorialTopic.assignments,
+                                ),
+                              ),
                           icon: const Icon(Icons.open_in_new, size: 18),
                           label: Text('${topic.label}を開く'),
                         ),

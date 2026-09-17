@@ -30,17 +30,25 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       _obscureConfirmPassword = true;
   bool _agreedTerms = false, _agreedPrivacy = false;
   String? _sentTo;
+  String? _registrationEmail;
   int _cooldown = 0;
   Timer? _resendTimer;
   bool get _completing => widget.completing || widget.emailLink != null;
+  bool get _needsEmail => _completing && _registrationEmail == null;
 
   @override
   void initState() {
     super.initState();
     final registration = ref.read(emailRegistrationServiceProvider);
     final pending = registration.pendingEmail;
-    _emailController.text =
-        pending ?? registration.auth.currentUser?.email ?? '';
+    final email =
+        registration.hasPendingSetup
+            ? registration.auth.currentUser?.email
+            : pending;
+    _emailController.text = email ?? '';
+    if (_completing && email?.isNotEmpty == true) {
+      _registrationEmail = email!.trim().toLowerCase();
+    }
     _displayNameController.text =
         registration.auth.currentUser?.displayName ?? '';
     if (!_completing) _sentTo = pending;
@@ -71,6 +79,14 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
   Future<void> _submit() async {
     if (_isLoading || !_formKey.currentState!.validate()) return;
+    if (_needsEmail) {
+      setState(() {
+        _registrationEmail = _emailController.text.trim().toLowerCase();
+        _emailController.text = _registrationEmail!;
+      });
+      FocusScope.of(context).unfocus();
+      return;
+    }
     if (_completing && (!_agreedTerms || !_agreedPrivacy)) {
       _message('利用規約とプライバシーポリシーに同意してください');
       return;
@@ -100,7 +116,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         _message('確認メールを送信しました。メール内のリンクから登録を続けてください。');
       } else {
         await service.complete(
-          email: _emailController.text,
+          email: _registrationEmail!,
           link: widget.emailLink ?? '',
           displayName: _displayNameController.text,
           password: _passwordController.text,
@@ -168,7 +184,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                             const SizedBox(height: 10),
                             Text(
                               _completing
-                                  ? 'メールを受け取ったアドレスを入力してください。リンクの認証が成功すると、アカウントを作成します。'
+                                  ? _needsEmail
+                                      ? '確認メールを受け取ったアドレスを入力してください。'
+                                      : 'このメールアドレスでアカウントを作成します。'
                                   : '確認メールのリンクを開いてからアカウントを作成します。メールを送信しただけでは登録されません。',
                             ),
                             const SizedBox(height: 18),
@@ -187,12 +205,17 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                                       ? TextInputAction.next
                                       : TextInputAction.done,
                               enabled: !_isLoading,
+                              readOnly: _completing && !_needsEmail,
+                              suffixIcon:
+                                  _completing && !_needsEmail
+                                      ? const Icon(Icons.lock_outline)
+                                      : null,
                               autocorrect: false,
                               inputFormatters:
                                   AppConstants.citEmailInputFormatters,
                               validator: AppConstants.validateCitEmailForSignup,
                             ),
-                            if (_completing) ...[
+                            if (_completing && !_needsEmail) ...[
                               const SizedBox(height: 12),
                               AuthTextField(
                                 controller: _displayNameController,
@@ -302,7 +325,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                             PrimaryAuthButton(
                               label:
                                   _completing
-                                      ? 'メールを認証して登録を完了'
+                                      ? _needsEmail
+                                          ? 'このメールアドレスで続ける'
+                                          : 'メールを認証して登録を完了'
                                       : _cooldown > 0
                                       ? '再送まで $_cooldown秒'
                                       : _sentTo == null
@@ -313,6 +338,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                                   _isLoading ||
                                           (!_completing && _cooldown > 0) ||
                                           (_completing &&
+                                              !_needsEmail &&
                                               (!_agreedTerms ||
                                                   !_agreedPrivacy))
                                       ? null

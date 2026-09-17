@@ -22,6 +22,7 @@ void main() {
     Size size = const Size(390, 844),
     double scale = 1,
     ValueChanged<int?>? onClose,
+    ValueChanged<TutorialDestination?>? onDestination,
     String initialCampus = 'tsudanuma',
     Future<void> Function(String)? onSaveCampus,
   }) async {
@@ -49,7 +50,7 @@ void main() {
               builder:
                   (context) => TextButton(
                     onPressed: () async {
-                      final result = await showDialog<int>(
+                      final result = await showDialog<TutorialDestination>(
                         context: context,
                         barrierDismissible: false,
                         builder:
@@ -58,7 +59,8 @@ void main() {
                               onSaveCampus: onSaveCampus ?? (_) async {},
                             ),
                       );
-                      onClose?.call(result);
+                      onClose?.call(result?.tabIndex);
+                      onDestination?.call(result);
                     },
                     child: const Text('ガイドを開く'),
                   ),
@@ -134,13 +136,13 @@ void main() {
     tester,
   ) async {
     await open(tester);
-    await tap(tester, 'tutorial_topic_2');
+    await tap(tester, 'tutorial_topic_3');
     await tap(tester, 'demo_community_channel');
     expect(find.text('おすすめの学食メニューは？'), findsOneWidget);
-    await tap(tester, 'tutorial_topic_3');
+    await tap(tester, 'tutorial_topic_4');
     await tap(tester, 'demo_bulletin_add');
     expect(find.text('管理者の承認後に公開'), findsOneWidget);
-    await tap(tester, 'tutorial_topic_4');
+    await tap(tester, 'tutorial_topic_5');
     await tap(tester, 'demo_campus_settings');
     await tap(tester, 'demo_campus_true');
     expect(find.text('新習志野の天気'), findsOneWidget);
@@ -162,7 +164,7 @@ void main() {
       expect(closed, [null, null]);
       await tester.tap(find.text('ガイドを開く'));
       await tester.pumpAndSettle();
-      for (var i = 0; i < 5; i++) {
+      for (var i = 0; i < 6; i++) {
         await tap(tester, 'tutorial_next');
       }
       expect(closed, [null, null, 0]);
@@ -173,14 +175,65 @@ void main() {
   testWidgets('open-tab action returns only the chosen destination', (
     tester,
   ) async {
-    for (var i = 0; i < 5; i++) {
+    for (var i = 0; i < 6; i++) {
       int? result;
       await open(tester, onClose: (value) => result = value);
       await tap(tester, 'tutorial_topic_$i');
       await tap(tester, 'tutorial_open_tab');
-      expect(result, i);
+      expect(result, [0, 1, 1, 2, 3, 4][i]);
     }
   });
+
+  testWidgets(
+    'assignment guide opens the assignment face of the schedule tab',
+    (tester) async {
+      TutorialDestination? result;
+      await open(tester, onDestination: (value) => result = value);
+      await tap(tester, 'tutorial_topic_2');
+      expect(find.text('3 / 6 ・ 課題管理'), findsOneWidget);
+      await tap(tester, 'tutorial_open_tab');
+      expect(result?.tabIndex, 1);
+      expect(result?.showAssignments, isTrue);
+    },
+  );
+
+  Future<void> practiceAssignments(WidgetTester tester) async {
+    await tap(tester, 'tutorial_topic_2');
+    await tap(tester, 'demo_assignment_toggle');
+    await tap(tester, 'demo_assignment_add');
+    await tester.enterText(
+      find.byKey(const Key('demo_assignment_title')),
+      '演習レポート',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    await tap(tester, 'demo_assignment_due_true');
+    await tap(tester, 'demo_assignment_save');
+    expect(find.text('演習レポート'), findsOneWidget);
+    expect(find.text('締切 今日 23:59'), findsOneWidget);
+    await tap(tester, 'demo_assignment_complete');
+    expect(find.text('課題はすべて完了しました'), findsOneWidget);
+    await tap(tester, 'demo_assignment_filter_true');
+    expect(find.text('演習レポート'), findsOneWidget);
+    await tap(tester, 'demo_assignment_complete');
+    await tap(tester, 'demo_assignment_filter_false');
+    expect(find.text('演習レポート'), findsOneWidget);
+    await tap(tester, 'demo_assignment_toggle');
+    expect(find.text('月曜 2限\n情報基礎'), findsOneWidget);
+    await tap(tester, 'demo_assignment_toggle');
+    expect(find.text('演習レポート'), findsOneWidget);
+  }
+
+  testWidgets(
+    'assignment example adds and completes locally without campus writes',
+    (tester) async {
+      var writes = 0;
+      await open(tester, onSaveCampus: (_) async => writes++);
+      await practiceAssignments(tester);
+      expect(writes, 0);
+      expect(find.byType(VisualTabTutorial), findsOneWidget);
+    },
+  );
 
   for (final campus in ['narashino', 'tsudanuma']) {
     testWidgets(
@@ -205,7 +258,7 @@ void main() {
             expect(container.read(preferredBusCampusProvider), campus);
           },
         );
-        await tap(tester, 'tutorial_topic_4');
+        await tap(tester, 'tutorial_topic_5');
         await tap(tester, 'demo_campus_settings');
         await tap(tester, 'demo_campus_${campus == 'narashino'}');
         expect(container.read(preferredBusCampusProvider), previous);
@@ -229,7 +282,7 @@ void main() {
         initialCampus: 'narashino',
         onSaveCampus: (_) async => writes++,
       );
-      await tap(tester, 'tutorial_topic_4');
+      await tap(tester, 'tutorial_topic_5');
       expect(find.text('新習志野の天気'), findsOneWidget);
       await tap(tester, 'tutorial_next');
       expect(writes, 0);
@@ -246,7 +299,7 @@ void main() {
       'system_back',
     ]) {
       await open(tester, onSaveCampus: (_) async => writes++);
-      await tap(tester, 'tutorial_topic_4');
+      await tap(tester, 'tutorial_topic_5');
       await tap(tester, 'demo_campus_settings');
       await tap(tester, 'demo_campus_true');
       if (action == 'system_back') {
@@ -272,7 +325,7 @@ void main() {
           return pending.future;
         },
       );
-      await tap(tester, 'tutorial_topic_4');
+      await tap(tester, 'tutorial_topic_5');
       await tap(tester, 'demo_campus_settings');
       await tap(tester, 'demo_campus_true');
       await tap(tester, 'tutorial_next');
@@ -313,7 +366,9 @@ void main() {
           size: viewport.$1,
           scale: viewport.$2,
         );
-        for (var i = 0; i < 5; i++) {
+        await practiceAssignments(tester);
+        await tap(tester, 'tutorial_topic_0');
+        for (var i = 0; i < 6; i++) {
           final next = find.byKey(const Key('tutorial_next'));
           expect(
             tester.getRect(next).bottom,
@@ -323,7 +378,7 @@ void main() {
           expect(tester.takeException(), isNull);
           await tap(tester, 'tutorial_open_tab');
           // Each step must also remain reachable without completing previous demos.
-          if (i < 4) {
+          if (i < 5) {
             await tester.tap(find.text('ガイドを開く'));
             await tester.pumpAndSettle();
             await tap(tester, 'tutorial_topic_${i + 1}');
@@ -334,7 +389,7 @@ void main() {
 
     testWidgets('$brightness visual previews', (tester) async {
       await open(tester, brightness: brightness);
-      for (var i = 0; i < 5; i++) {
+      for (var i = 0; i < 6; i++) {
         await tap(tester, 'tutorial_topic_$i');
         await capture(tester, 'tutorial-${brightness.name}-$i');
       }
@@ -345,6 +400,18 @@ void main() {
       await tap(tester, 'demo_schedule_edit');
       await tap(tester, 'demo_schedule_import');
       await capture(tester, 'tutorial-${brightness.name}-excel');
+      await tap(tester, 'tutorial_topic_2');
+      await tap(tester, 'demo_assignment_toggle');
+      await tap(tester, 'demo_assignment_add');
+      await capture(tester, 'tutorial-${brightness.name}-assignment-form');
+      await tap(tester, 'demo_assignment_save');
+      await capture(
+        tester,
+        'tutorial-${brightness.name}-assignment-registered',
+      );
+      await tap(tester, 'demo_assignment_complete');
+      await tap(tester, 'demo_assignment_filter_true');
+      await capture(tester, 'tutorial-${brightness.name}-assignment-completed');
     });
   }
 }

@@ -10,6 +10,7 @@ import 'package:cit_app/models/cafeteria/cafeteria_favorite_target.dart';
 import 'package:cit_app/models/cafeteria/cafeteria_menu_item_model.dart';
 import 'package:cit_app/models/cafeteria/cafeteria_review_model.dart';
 import 'package:cit_app/screens/cafeteria/cafeteria_reviews_screen.dart';
+import 'package:cit_app/widgets/cafeteria/cafeteria_favorite_button.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_core_platform_interface/test.dart';
 import 'package:flutter/material.dart';
@@ -56,6 +57,7 @@ void main() {
     WidgetTester tester, {
     Stream<Map<String, int>> Function()? watch,
     Set<int> withoutReviews = const {},
+    int? favoriteCount,
   }) async {
     tester.view.physicalSize = const Size(430, 980);
     tester.view.devicePixelRatio = 1;
@@ -80,6 +82,10 @@ void main() {
       ProviderScope(
         overrides: [
           cafeteriaFavoriteUserIdProvider.overrideWithValue(null),
+          if (favoriteCount != null)
+            cafeteriaFavoriteCountProvider.overrideWith(
+              (ref, target) => Stream.value(favoriteCount),
+            ),
           for (final campus in Cafeterias.all)
             cafeteriaReviewsProvider(campus).overrideWith(
               (ref) => Stream.value(campus == 'tsudanuma' ? reviews : []),
@@ -127,6 +133,33 @@ void main() {
     }
     expect(tester.takeException(), isNull);
   }
+
+  testWidgets(
+    'favorite count sits directly below heart without raising the menu card',
+    (tester) async {
+      await mount(tester, favoriteCount: 123);
+      final favorite = find.byWidgetPredicate(
+        (widget) =>
+            widget is CafeteriaFavoriteButton &&
+            widget.target.menuItemId == menus[1].id,
+      );
+      final heart = find.descendant(
+        of: favorite,
+        matching: find.byIcon(Icons.favorite_border),
+      );
+      final count = find.descendant(of: favorite, matching: find.text('123人'));
+      final heartRect = tester.getRect(heart);
+      final countRect = tester.getRect(count);
+      expect(countRect.center.dx, closeTo(heartRect.center.dx, 0.1));
+      expect(countRect.top - heartRect.bottom, closeTo(1, 0.1));
+      expect(tester.getSize(favorite).height, 48);
+      // The 72px menu image plus the existing card padding/margin sets the height.
+      final card =
+          find.ancestor(of: favorite, matching: find.byType(Card)).first;
+      expect(tester.getSize(card).height, lessThanOrEqualTo(100));
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'clear labels and recommendation defaults without popularity fetch',

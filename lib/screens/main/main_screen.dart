@@ -3,6 +3,7 @@ import 'package:cit_app/core/utils/logger.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../core/providers/assignment_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -18,6 +19,7 @@ import '../../core/providers/schedule_provider.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../models/schedule/schedule_model.dart';
 import '../../services/schedule/attendance_availability.dart';
+import '../../services/auth/tab_tutorial_progress.dart';
 import '../../services/schedule/attendance_service.dart';
 import '../../services/schedule/class_notification_payload.dart';
 import '../../services/schedule/schedule_notification_service.dart';
@@ -50,6 +52,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   int _currentIndex = 0;
   final Set<int> _visitedTabIndices = <int>{};
   bool _didCheckTabTutorial = false;
+  String? _tutorialUserId;
   bool _isTabTutorialShowing = false;
   int _lastTutorialReplaySignal = 0;
   bool _didCheckEmailMigrationPrompt = false;
@@ -59,9 +62,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   StreamSubscription<void>? _pushTapSub;
   bool _handlingNotificationTap = false;
   bool _didBootstrapScheduleNotifications = false;
-
-  static const String _tabTutorialSeenVersionKey = 'tab_tutorial_seen_version';
-  static const String _tabTutorialCurrentVersion = '2.0.0';
 
   int get safeCurrentIndex => MainNavigation.normalizeIndex(_currentIndex);
 
@@ -412,6 +412,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           return const Scaffold(body: Center(child: Text('リダイレクト中...')));
         }
         // 利用規約同意が済んでからチュートリアルを開始（ポップアップの重なり防止）
+        if (_tutorialUserId != user.uid) {
+          _tutorialUserId = user.uid;
+          _didCheckTabTutorial = false;
+        }
         ref.listen<bool>(hasAcceptedCurrentLegalConsentProvider, (prev, next) {
           if (prev == false && next == true) {
             _scheduleTabTutorialIfNeeded();
@@ -496,6 +500,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         }
 
         // ホーム画面以外の場合はホームに戻る
+        if (_currentIndex == MainNavigation.scheduleIndex &&
+            ref.read(assignmentViewOpenProvider)) {
+          ref.read(assignmentViewOpenProvider.notifier).state = false;
+          return;
+        }
         if (_currentIndex != MainNavigation.homeIndex) {
           _selectTab(MainNavigation.homeIndex);
           return;
@@ -515,6 +524,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           hasNewCommunityPosts: showCommunityNew,
           hasNewBulletinPosts: showBulletinNew,
           onDestinationSelected: uiFeedbackTabIndexHandler((index) async {
+            if (index == MainNavigation.scheduleIndex &&
+                safeCurrentIndex == MainNavigation.scheduleIndex) {
+              final assignments = ref.read(assignmentViewOpenProvider.notifier);
+              assignments.state = !assignments.state;
+              return;
+            }
             // 交流タブを開いている状態で再タップしたら Cwitter / ちばちゃんねる を切り替える
             if (index == MainNavigation.communityIndex &&
                 safeCurrentIndex == MainNavigation.communityIndex) {
@@ -590,9 +605,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (!ref.read(hasAcceptedCurrentLegalConsentProvider)) return;
 
     _didCheckTabTutorial = true;
+    final uid = _tutorialUserId;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future<void>.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
+      if (_tutorialUserId != uid) return;
       if (!ref.read(hasAcceptedCurrentLegalConsentProvider)) return;
       await _maybeStartTabTutorial();
     });
@@ -602,12 +619,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (!mounted || _isTabTutorialShowing || _isEmailMigrationPromptShowing) return;
     if (!ref.read(hasAcceptedCurrentLegalConsentProvider)) return;
     final prefs = ref.read(sharedPreferencesProvider);
-    final seenVersion = prefs.getString(_tabTutorialSeenVersionKey);
-    if (!force && seenVersion == _tabTutorialCurrentVersion) return;
+    final uid = ref.read(authStateProvider).valueOrNull?.uid;
+    if (uid == null) return;
+    final progress = TabTutorialProgress(prefs);
+    if (!force && !progress.shouldShow(uid)) return;
 
     _isTabTutorialShowing = true;
     try {
-      final destination = await showDialog<int>(
+      final destination = await showDialog<TutorialDestination>(
         context: context,
         barrierDismissible: false,
         builder: (_) => VisualTabTutorial(
@@ -615,12 +634,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           onSaveCampus: ref.read(setPreferredBusCampusProvider),
         ),
       );
-      if (!mounted) return;
-      await prefs.setString(
-        _tabTutorialSeenVersionKey,
-        _tabTutorialCurrentVersion,
-      );
-      if (mounted && destination != null) _selectTab(destination);
+      if (!mounted || ref.read(authStateProvider).valueOrNull?.uid != uid) return;
+      await progress.markSeen(uid);
+      if (mounted && destination != null) {
+        if (destination.tabIndex == MainNavigation.scheduleIndex) {
+          ref.read(assignmentViewOpenProvider.notifier).state =
+              destination.showAssignments;
+        }
+        _selectTab(destination.tabIndex);
+      }
     } finally {
       _isTabTutorialShowing = false;
     }

@@ -23,64 +23,69 @@ class CafeteriaFavoriteButton extends ConsumerWidget {
         enabled
             ? AppColors.accent(context, Colors.pink)
             : Theme.of(context).colorScheme.onSurfaceVariant;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          tooltip:
-              uid == null
-                  ? 'お気に入りにはログインが必要です'
-                  : enabled
-                  ? 'お気に入りを解除'
-                  : 'お気に入りに追加',
-          icon:
-              busy
-                  ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                  : Icon(
-                    enabled ? Icons.favorite : Icons.favorite_border,
-                    color: color,
-                    size: compact ? 22 : 26,
-                  ),
-          onPressed:
-              uid == null || busy || favorite.isLoading
-                  ? null
-                  : () async {
-                    if (favorite.hasError) {
-                      ref.invalidate(userCafeteriaFavoritesProvider);
-                      return;
-                    }
-                    try {
-                      await ref
-                          .read(
-                            cafeteriaFavoriteMutationProvider(target).notifier,
-                          )
-                          .setEnabled(!enabled);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              enabled ? 'お気に入りを解除しました' : 'お気に入りに追加しました',
-                            ),
-                          ),
-                        );
-                      }
-                    } catch (_) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('変更できませんでした。通信状態を確認して再試行してください。'),
-                          ),
-                        );
-                      }
-                    }
-                  },
-        ),
-        CafeteriaFavoriteCount(target: target, compact: compact),
-      ],
+    return IconButton(
+      // Keep the count inside the heart's tap target, not in an extra row
+      // below the button that increases every menu card's height.
+      style: IconButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        padding: const EdgeInsets.all(4),
+      ),
+      tooltip:
+          uid == null
+              ? 'お気に入りにはログインが必要です'
+              : enabled
+              ? 'お気に入りを解除'
+              : 'お気に入りに追加',
+      icon: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          busy
+              ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+              : Icon(
+                enabled ? Icons.favorite : Icons.favorite_border,
+                color: color,
+                size: compact ? 22 : 26,
+              ),
+          const SizedBox(height: 1),
+          CafeteriaFavoriteCount(target: target, compact: compact),
+        ],
+      ),
+      onPressed:
+          uid == null || busy || favorite.isLoading
+              ? null
+              : () async {
+                if (favorite.hasError) {
+                  ref.invalidate(userCafeteriaFavoritesProvider);
+                  return;
+                }
+                try {
+                  await ref
+                      .read(cafeteriaFavoriteMutationProvider(target).notifier)
+                      .setEnabled(!enabled);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          enabled ? 'お気に入りを解除しました' : 'お気に入りに追加しました',
+                        ),
+                      ),
+                    );
+                  }
+                } catch (_) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('変更できませんでした。通信状態を確認して再試行してください。'),
+                      ),
+                    );
+                  }
+                }
+              },
     );
   }
 }
@@ -115,11 +120,14 @@ class CafeteriaFavoriteCount extends ConsumerWidget {
                 ? () => ref.invalidate(cafeteriaFavoriteCountProvider(target))
                 : null,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 3),
           child: Text(
             text,
+            textAlign: TextAlign.center,
+            maxLines: 1,
             style: TextStyle(
               fontSize: compact ? 11 : 12,
+              height: 1.1,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),

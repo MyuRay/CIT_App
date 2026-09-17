@@ -2,8 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// 再インストール後の Android Auto Backup 復元で SharedPreferences と
-/// Firebase Auth の永続セッションが不整合になる問題を検出して修復する。
+/// Firebase Auth と食い違う旧アプリ独自のログイン表示キャッシュを取り除く。
+/// SDK 自身の暗号化セッションや鍵セットは操作しない。その復旧は Android
+/// Firebase Auth 24.0.1 以降、再発防止は Android のバックアップ除外設定が担う。
 class AuthStorageReconciler {
   static const _authPreferenceKeys = <String>[
     'user_logged_in',

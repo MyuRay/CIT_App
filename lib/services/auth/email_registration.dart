@@ -168,7 +168,7 @@ String registrationErrorMessage(Object error) {
   if (error is FirebaseAuthException) {
     switch (error.code) {
       case 'operation-not-allowed':
-        return 'メールでの登録を準備中です。時間をおいて再試行してください。既存アカウントではログインできます。';
+        return 'メール登録が利用できません。運営側の認証設定の確認が必要です。';
       case 'invalid-action-code':
       case 'expired-action-code':
       case 'invalid-credential':
