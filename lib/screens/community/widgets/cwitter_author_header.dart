@@ -9,6 +9,7 @@ import 'cwitter_avatar.dart';
 import 'cwitter_author_name_row.dart';
 import 'cwitter_handle_text.dart';
 import 'cwitter_profile_screen.dart';
+import 'cwitter_hashtag_users_screen.dart';
 import '../../../core/providers/cwitter_provider.dart';
 
 /// 投稿者アイコン・名前タップでプロフィール（投稿一覧）を開く
@@ -104,6 +105,11 @@ class CwitterAuthorHeader extends ConsumerWidget {
           cwitterId: cwitterId,
           tags: tags,
           compact: true,
+          onTagTap: (tag) => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => CwitterHashtagUsersScreen(tag: tag),
+            ),
+          ),
         ),
         CwitterHandleText(
           cwitterId: cwitterId,

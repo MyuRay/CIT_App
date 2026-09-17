@@ -26,10 +26,16 @@ class CwitterTagsRow extends StatelessWidget {
 
 /// 単一のハッシュタグチップ。[Wrap] の子として個別に折り返しできる。
 class CwitterTagChip extends StatelessWidget {
-  const CwitterTagChip({super.key, required this.tag, this.compact = false});
+  const CwitterTagChip({
+    super.key,
+    required this.tag,
+    this.compact = false,
+    this.onTap,
+  });
 
   final String tag;
   final bool compact;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +55,26 @@ class CwitterTagChip extends StatelessWidget {
             ? textColor.withValues(alpha: 0.55)
             : const Color(0xFF4CAF50).withValues(alpha: 0.28);
 
+    final label = Text(
+      '#$tag',
+      style: theme.textTheme.labelSmall?.copyWith(
+        fontSize: fontSize,
+        color: textColor,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+    if (onTap != null) {
+      return ActionChip(
+        label: label,
+        onPressed: onTap,
+        tooltip: '#$tag を使っている人を見る',
+        backgroundColor: backgroundColor,
+        side: BorderSide(color: borderColor),
+        shape: const StadiumBorder(),
+        materialTapTargetSize: MaterialTapTargetSize.padded,
+      );
+    }
+
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: horizontalPadding,
@@ -59,14 +85,7 @@ class CwitterTagChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: borderColor),
       ),
-      child: Text(
-        '#$tag',
-        style: theme.textTheme.labelSmall?.copyWith(
-          fontSize: fontSize,
-          color: textColor,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+      child: label,
     );
   }
 }

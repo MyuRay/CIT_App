@@ -26,6 +26,7 @@ import 'cwitter_profile_setup_dialog.dart';
 import 'cwitter_social_links_section.dart';
 import 'cwitter_follow_list_screen.dart';
 import 'cwitter_handle_text.dart';
+import 'cwitter_hashtag_users_screen.dart';
 import '../../../models/community/cwitter_follow_user.dart';
 import 'cwitter_follow_feedback.dart';
 import 'cwitter_more_menu.dart';
@@ -436,6 +437,11 @@ class _ProfileHeader extends ConsumerWidget {
                           displayName: resolvedName,
                           cwitterId: profileUser.cwitterId,
                           tags: tags,
+                          onTagTap: (tag) => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => CwitterHashtagUsersScreen(tag: tag),
+                            ),
+                          ),
                           nameStyle: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
