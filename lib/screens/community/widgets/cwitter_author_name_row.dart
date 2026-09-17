@@ -13,6 +13,7 @@ class CwitterAuthorNameRow extends StatelessWidget {
     this.tags = const [],
     this.compact = false,
     this.nameStyle,
+    this.onTagTap,
   });
 
   final String displayName;
@@ -20,6 +21,7 @@ class CwitterAuthorNameRow extends StatelessWidget {
   final List<String> tags;
   final bool compact;
   final TextStyle? nameStyle;
+  final ValueChanged<String>? onTagTap;
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +79,11 @@ class CwitterAuthorNameRow extends StatelessWidget {
             else
               nameText,
             ...limitedTags.map(
-              (tag) => CwitterTagChip(tag: tag, compact: compact),
+              (tag) => CwitterTagChip(
+                tag: tag,
+                compact: compact,
+                onTap: onTagTap == null ? null : () => onTagTap!(tag),
+              ),
             ),
           ],
         );
