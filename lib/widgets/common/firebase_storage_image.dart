@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../services/firebase/storage_url_validator.dart';
 
-/// Firebase Storage 画像用。
-/// App Check Enforced 時は Image.network が失敗するため、SDK(getData) にフォールバックする。
-class FirebaseStorageImage extends StatefulWidget {
+/// ダウンロード URL を優先し、取得できない場合だけ Storage SDK で再取得する。
+/// 通常の画像キャッシュを共有し、再描画中に取得方法を切り替えない。
+class FirebaseStorageImage extends StatelessWidget {
   const FirebaseStorageImage({
     super.key,
     required this.imageUrl,
@@ -27,110 +27,108 @@ class FirebaseStorageImage extends StatefulWidget {
   final Alignment alignment;
 
   @override
-  State<FirebaseStorageImage> createState() => _FirebaseStorageImageState();
+  Widget build(BuildContext context) {
+    return Image.network(
+      // URL（更新時の download token を含む）ごとに表示状態を分離する。
+      // 別の作者や更新前の画像・SDK リクエストを引き継がない。
+      key: ValueKey(imageUrl),
+      imageUrl,
+      width: width,
+      height: height,
+      fit: fit,
+      alignment: alignment,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        return frame != null ? child : _placeholder();
+      },
+      errorBuilder: (context, error, stackTrace) {
+        if (!isFirebaseStorageUrl(imageUrl)) return _error();
+        return _StorageImageFallback(key: ValueKey(imageUrl), image: this);
+      },
+    );
+  }
+
+  Widget _placeholder() {
+    return placeholder ??
+        SizedBox(
+          width: width,
+          height: height,
+          child: const Center(
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        );
+  }
+
+  Widget _error() {
+    return errorWidget ??
+        SizedBox(
+          width: width,
+          height: height,
+          child: ColoredBox(
+            color: Colors.grey.shade300,
+            child: const Icon(Icons.broken_image_outlined),
+          ),
+        );
+  }
 }
 
-class _FirebaseStorageImageState extends State<FirebaseStorageImage> {
+/// HTTP 取得の失敗後にだけマウントされる。再描画では同じ Future を使用し、
+/// URL が変わったらキーによって破棄されるため、古い完了通知は反映されない。
+class _StorageImageFallback extends StatefulWidget {
+  const _StorageImageFallback({super.key, required this.image});
+
+  final FirebaseStorageImage image;
+
+  @override
+  State<_StorageImageFallback> createState() => _StorageImageFallbackState();
+}
+
+class _StorageImageFallbackState extends State<_StorageImageFallback> {
   static const int _maxDownloadBytes = 10 * 1024 * 1024;
+  late final Future<Uint8List?> _bytes = _load();
 
-  Uint8List? _sdkBytes;
-  bool _sdkLoadFailed = false;
-  bool _sdkLoadStarted = false;
-
-  bool get _shouldUseSdkFirst => isFirebaseStorageUrl(widget.imageUrl);
+  Future<Uint8List?> _load() async {
+    try {
+      return await FirebaseStorage.instance
+          .refFromURL(widget.image.imageUrl)
+          .getData(_maxDownloadBytes);
+    } catch (error) {
+      // URL に含まれる download token やユーザー ID をログに出さない。
+      if (kDebugMode) {
+        final code =
+            error is FirebaseException ? error.code : 'image-load-failed';
+        debugPrint('FirebaseStorageImage fallback failed: $code');
+      }
+      return null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (_sdkBytes != null) {
-      return Image.memory(
-        _sdkBytes!,
-        width: widget.width,
-        height: widget.height,
-        fit: widget.fit,
-        alignment: widget.alignment,
-        gaplessPlayback: true,
-      );
-    }
-
-    if (_sdkLoadFailed) {
-      return widget.errorWidget ?? _defaultError();
-    }
-
-    if (_shouldUseSdkFirst && !_sdkLoadStarted) {
-      _startSdkLoad();
-      return widget.placeholder ?? _defaultPlaceholder();
-    }
-
-    return Image.network(
-      widget.imageUrl,
-      width: widget.width,
-      height: widget.height,
-      fit: widget.fit,
-      alignment: widget.alignment,
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return widget.placeholder ?? _defaultPlaceholder();
-      },
-      errorBuilder: (context, error, stackTrace) {
-        debugPrint(
-          'FirebaseStorageImage network error: ${widget.imageUrl} → $error',
-        );
-        if (!_sdkLoadStarted) {
-          _startSdkLoad();
-          return widget.placeholder ?? _defaultPlaceholder();
+    final image = widget.image;
+    return FutureBuilder<Uint8List?>(
+      future: _bytes,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return image._placeholder();
         }
-        return widget.errorWidget ?? _defaultError();
+        final bytes = snapshot.data;
+        if (bytes == null || bytes.isEmpty) return image._error();
+        return Image.memory(
+          bytes,
+          width: image.width,
+          height: image.height,
+          fit: image.fit,
+          alignment: image.alignment,
+          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+            return frame != null ? child : image._placeholder();
+          },
+          errorBuilder: (context, error, stackTrace) => image._error(),
+        );
       },
-    );
-  }
-
-  void _startSdkLoad() {
-    if (_sdkLoadStarted || !isFirebaseStorageUrl(widget.imageUrl)) return;
-    _sdkLoadStarted = true;
-    _loadViaSdk();
-  }
-
-  Future<void> _loadViaSdk() async {
-    try {
-      final ref = FirebaseStorage.instance.refFromURL(widget.imageUrl);
-      final bytes = await ref.getData(_maxDownloadBytes);
-      if (!mounted) return;
-      if (bytes == null || bytes.isEmpty) {
-        setState(() => _sdkLoadFailed = true);
-        return;
-      }
-      setState(() => _sdkBytes = bytes);
-    } catch (e, stackTrace) {
-      debugPrint('FirebaseStorageImage SDK error: ${widget.imageUrl} → $e');
-      debugPrint('$stackTrace');
-      if (mounted) {
-        setState(() => _sdkLoadFailed = true);
-      }
-    }
-  }
-
-  Widget _defaultPlaceholder() {
-    return SizedBox(
-      width: widget.width,
-      height: widget.height,
-      child: const Center(
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      ),
-    );
-  }
-
-  Widget _defaultError() {
-    return SizedBox(
-      width: widget.width,
-      height: widget.height,
-      child: ColoredBox(
-        color: Colors.grey.shade300,
-        child: const Icon(Icons.broken_image_outlined),
-      ),
     );
   }
 }

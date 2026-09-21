@@ -46,12 +46,20 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
+    // A previous value ahead of the clock also covers repeated clock ticks.
+    final previousVersion = DateTime(2100).microsecondsSinceEpoch;
+    container.read(campusMapRefreshVersionProvider.notifier).state =
+        previousVersion;
     final initial = await container.read(campusMapProvider('tsudanuma').future);
     await container.read(refreshCampusMapsProvider)();
     final refreshed = await container.read(
       campusMapProvider('tsudanuma').future,
     );
     expect(refreshed, isNot(initial));
+    expect(
+      container.read(campusMapRefreshVersionProvider),
+      greaterThan(previousVersion),
+    );
     await container.read(refreshCampusMapsProvider)();
     expect(
       await container.read(campusMapProvider('tsudanuma').future),

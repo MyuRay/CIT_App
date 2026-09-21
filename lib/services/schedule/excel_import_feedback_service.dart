@@ -117,8 +117,8 @@ class ExcelImportFeedbackService {
       for (final anchor in layout.periodAnchors.entries) {
         put(layout.periodColumn, anchor.key, '${anchor.value}');
         for (final column in layout.dayColumns.values) {
-          // Empty slots cannot provide useful lecture extraction examples.
-          if (layout.text(column, anchor.key).isEmpty) continue;
+          // A blank period-label row can still have a wrapped lecture below it.
+          // Preserve the full slot so the normal parser can recover boundaries.
           for (
             var row = anchor.key;
             row <= layout.blockEndRow(anchor.key);

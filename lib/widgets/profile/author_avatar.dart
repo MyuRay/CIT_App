@@ -25,6 +25,8 @@ class AuthorAvatar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(authorProfileImageUrlProvider(authorId));
     final imageUrl = profileAsync.when(
+      skipLoadingOnReload: true,
+      skipError: true,
       data: (url) => url,
       loading: () => fallbackImageUrl,
       error: (_, __) => fallbackImageUrl,

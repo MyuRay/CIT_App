@@ -198,32 +198,20 @@ class ExcelScheduleImportService {
 
     for (final page in pages) {
       final layout = page.layout;
-      final periodAnchorMap = layout.periodAnchors;
-      final anchorRows = periodAnchorMap.keys.toList()..sort();
       _addUntimedCourseWarnings(layout, warnings);
 
       for (final dayEntry in layout.dayColumns.entries) {
         final weekdayKey = dayEntry.key;
         final col = dayEntry.value;
 
-        for (final startRow in anchorRows) {
-          final title = layout.text(col, startRow);
-          if (!_isLikelyLectureTitle(title)) {
+        for (final block in layout.lectureBlocks(col)) {
+          if (block.values.isEmpty ||
+              !_isLikelyLectureTitle(block.values.first)) {
             continue;
           }
 
-          final period = periodAnchorMap[startRow]!;
-
-          final endRow = layout.blockEndRow(startRow);
-          final blockValues = <String>[];
-          for (int r = startRow + 1; r <= endRow; r++) {
-            final v = layout.text(col, r);
-            if (v.isNotEmpty) {
-              blockValues.add(v);
-            }
-          }
-
-          final fields = ExcelLectureFields.parse([title, ...blockValues]);
+          final period = block.period;
+          final fields = ExcelLectureFields.parse(block.values);
           final subject = fields.subjectName;
           if (subject.isEmpty) continue;
           final instructor = fields.instructor;

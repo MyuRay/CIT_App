@@ -73,7 +73,12 @@ class SimpleProfileScreen extends ConsumerWidget {
       isLoggedIn: currentUser != null,
     );
     final profileImageUrl = appUserAsync?.maybeWhen(
-      data: (appUser) => appUser?.profileImageUrl,
+      skipLoadingOnReload: true,
+      skipError: true,
+      data: (appUser) =>
+          appUser?.uid == currentUser?.uid
+              ? appUser?.profileImageUrl
+              : currentUser?.photoURL,
       orElse: () => currentUser?.photoURL,
     );
 

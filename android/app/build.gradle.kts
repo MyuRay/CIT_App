@@ -14,6 +14,14 @@ val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 // Only for local bundle inspection. Unsigned bundles cannot be uploaded to Play.
 val allowUnsignedRelease = providers.gradleProperty("citUnsignedRelease").orNull == "true"
+// Android Studio's Generate Signed Bundle wizard supplies these without
+// writing passwords to key.properties. AGP validates the key and signs the AAB.
+val hasStudioSigning = listOf(
+    "android.injected.signing.store.file",
+    "android.injected.signing.store.password",
+    "android.injected.signing.key.alias",
+    "android.injected.signing.key.password",
+).all { providers.gradleProperty(it).orNull?.isNotBlank() == true }
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
@@ -67,8 +75,9 @@ android {
 
 tasks.matching { it.name == "preReleaseBuild" }.configureEach {
     doFirst {
-        check(keystorePropertiesFile.exists() || allowUnsignedRelease) {
+        check(keystorePropertiesFile.exists() || hasStudioSigning || allowUnsignedRelease) {
             "Release signing is missing. Restore android/key.properties and the existing Play upload key. " +
+                "Or use Android Studio's Generate Signed Bundle wizard. " +
                 "Debug signing is never used for a release. See docs/releases/2.3.0.md."
         }
     }

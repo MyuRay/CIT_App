@@ -27,7 +27,7 @@ class ExcelLectureFields {
         classroom: '',
       );
     }
-    final footer = rows.indexWhere(_isFooter, 1);
+    final footer = rows.indexWhere(isFooterRow, 1);
     if (footer >= 0) rows.removeRange(footer, rows.length);
 
     var locationStart = rows.length;
@@ -49,10 +49,15 @@ class ExcelLectureFields {
     );
   }
 
-  static bool _isFooter(String text) =>
-      RegExp(r'^[\[［【]|^[0-9０-９]+(?:\.[0-9]+)?\s*単位$').hasMatch(text) ||
+  /// Printed annotations and unit counts mark the end of a lecture's fields.
+  static bool isFooterRow(String text) =>
+      RegExp(r'^[\[［【]').hasMatch(text) ||
+      isUnitCountRow(text) ||
       text.contains('キャンパス（1限') ||
       text.contains('キャンパス(1限');
+
+  static bool isUnitCountRow(String text) =>
+      RegExp(r'^[0-9]+(?:\.[0-9]+)?\s*単位$').hasMatch(_normalize(text));
 
   static bool _startsLocation(String text) {
     final compact = _normalize(text).replaceAll(' ', '');
