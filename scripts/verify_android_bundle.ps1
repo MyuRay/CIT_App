@@ -88,7 +88,7 @@ try {
 } finally { $archive.Dispose() }
 
 if ($hasSignature) {
-    $signatureText = & $jarsignerFile -J-Duser.language=en -verify -verbose -certs $bundleFile 2>&1 | Out-String
+    $signatureText = & $jarsignerFile '-J-Duser.language=en' -verify -verbose -certs $bundleFile 2>&1 | Out-String
     if ($LASTEXITCODE -ne 0 -or $signatureText -notmatch 'jar verified' -or $signatureText -match 'CN=Android Debug') {
         throw 'Bundle signature verification failed or uses the Android debug key.'
     }

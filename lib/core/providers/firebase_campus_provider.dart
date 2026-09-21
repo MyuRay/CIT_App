@@ -10,8 +10,10 @@ final campusMapRefreshVersionProvider = StateProvider<int>((ref) => 0);
 
 final refreshCampusMapsProvider = Provider<Future<void> Function()>((ref) {
   return () async {
-    ref.read(campusMapRefreshVersionProvider.notifier).state =
-        DateTime.now().microsecondsSinceEpoch;
+    ref.read(campusMapRefreshVersionProvider.notifier).update((previous) {
+      final now = DateTime.now().microsecondsSinceEpoch;
+      return now > previous ? now : previous + 1;
+    });
     await Future.wait([
       ref.read(campusMapProvider('tsudanuma').future),
       ref.read(campusMapProvider('narashino').future),

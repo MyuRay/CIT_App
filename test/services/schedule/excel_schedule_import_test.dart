@@ -84,6 +84,45 @@ void setCell(Sheet sheet, int col, int row, String value) {
 
 Uint8List workbookBytes(Excel book) => Uint8List.fromList(book.encode()!);
 
+// Some printed exports place the next lecture's first line just above its
+// period number. The previous lecture has already ended with its unit footer.
+Excel wrappedBoundaryWorkbook({
+  bool differentNextLecture = false,
+  int secondTitleRow = 17,
+}) {
+  final book = Excel.createExcel();
+  final sheet = book['Sheet1'];
+  setCell(sheet, 2, 6, '2026年度 後期');
+  setCell(sheet, 9, 7, '火曜日');
+  setCell(sheet, 27, 7, '金曜日');
+  setCell(sheet, 2, 8, '3');
+  setCell(sheet, 2, 18, '4');
+  setCell(sheet, 2, 28, '5');
+  setCell(sheet, 2, 38, '集中講義');
+  for (final col in [9, 27]) {
+    for (final row in [8, secondTitleRow]) {
+      final values = [
+        if (differentNextLecture && row == secondTitleRow)
+          '別の講義 経デ'
+        else if (col == 9)
+          '人間工学概論 経デ'
+        else
+          'システム方法論 経',
+        col == 9 || differentNextLecture ? '2年 ※経情' : 'デ2年 ※経P',
+        '山田 太郎',
+        col == 9 ? '５２０９講義室／' : '６２１講義室／',
+        '新習志野キャンパス',
+        '[複数回]',
+        '2単位',
+      ];
+      for (var index = 0; index < values.length; index++) {
+        setCell(sheet, col, row + index, values[index]);
+      }
+    }
+  }
+  return book;
+}
+
 Excel bothSemestersWorkbook({bool legacy = false, bool headers = true}) {
   final book = universityWorkbook(legacy: legacy, headers: headers);
   book.copy('Sheet1', 'Sheet3');
@@ -114,6 +153,139 @@ void expectAutumnLecture(ScheduleImportDraft draft) {
 }
 
 void main() {
+  test(
+    'keeps wrapped titles above a period number in one continuous lecture',
+    () async {
+      final draft = await ExcelScheduleImportService.parseExcelBytes(
+        workbookBytes(wrappedBoundaryWorkbook()),
+      );
+      expect(draft.entries, hasLength(2));
+      expect(draft.entries.map((e) => e.subjectName), [
+        '人間工学概論 経デ2年',
+        'システム方法論 経デ2年',
+      ]);
+      for (final entry in draft.entries) {
+        expect(entry.startPeriod, 3);
+        expect(entry.duration, 2);
+        expect(entry.instructor, '山田 太郎');
+      }
+      expect(draft.entries.map((e) => e.classroom), ['5209講義室', '621講義室']);
+      expect(draft.warnings, isEmpty);
+    },
+  );
+
+  test(
+    'a shifted boundary does not merge different courses with the same teacher and room',
+    () async {
+      final draft = await ExcelScheduleImportService.parseExcelBytes(
+        workbookBytes(wrappedBoundaryWorkbook(differentNextLecture: true)),
+      );
+      expect(draft.entries, hasLength(4));
+      expect(
+        draft.entries
+            .where((e) => e.startPeriod == 4)
+            .map((e) => e.subjectName),
+        everyElement('別の講義 経デ2年'),
+      );
+      expect(draft.entries.every((e) => e.duration == 1), isTrue);
+    },
+  );
+
+  test(
+    'feedback preserves the shifted lecture boundary without personal headers',
+    () async {
+      final book = wrappedBoundaryWorkbook();
+      setCell(book['Sheet1'], 9, 3, '保存しない個人情報');
+      final sanitized = ExcelImportFeedbackService.prepareTrainingWorkbook(
+        workbookBytes(book),
+      );
+      final draft = await ExcelScheduleImportService.parseExcelBytes(sanitized);
+      expect(draft.entries, hasLength(2));
+      expect(draft.entries.every((e) => e.duration == 2), isTrue);
+      expect(
+        Excel.decodeBytes(sanitized).tables.values
+            .expand((sheet) => sheet.rows)
+            .expand((row) => row)
+            .any(
+              (cell) => cell?.value?.toString().contains('保存しない個人情報') ?? false,
+            ),
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'reads a title below a blank period row, including after feedback sanitization',
+    () async {
+      final bytes = workbookBytes(wrappedBoundaryWorkbook(secondTitleRow: 19));
+      for (final input in [
+        bytes,
+        ExcelImportFeedbackService.prepareTrainingWorkbook(bytes),
+      ]) {
+        final draft = await ExcelScheduleImportService.parseExcelBytes(input);
+        expect(draft.entries, hasLength(2));
+        expect(draft.entries.every((e) => e.duration == 2), isTrue);
+        expect(draft.entries.first.subjectName, '人間工学概論 経デ2年');
+      }
+    },
+  );
+
+  test(
+    'does not turn a wrapped footer into a lecture in the following empty slot',
+    () async {
+      final book = universityWorkbook();
+      for (var row = 14; row < 24; row++) {
+        setCell(book['Sheet1'], 9, row, '');
+      }
+      setCell(book['Sheet1'], 9, 14, '[複数回] [定');
+      setCell(book['Sheet1'], 9, 15, '員有]');
+      setCell(book['Sheet1'], 9, 16, '2単位');
+      final draft = await ExcelScheduleImportService.parseExcelBytes(
+        workbookBytes(book),
+      );
+      expect(draft.entries, hasLength(1));
+      expect(draft.entries.single.subjectName, '流通情報システム論');
+      expect(draft.entries.single.duration, 1);
+    },
+  );
+
+  test(
+    'saves a recovered continuous lecture as one shared class across both cells',
+    () async {
+      final db = FakeFirebaseFirestore();
+      ScheduleService.firestoreOverride = db;
+      addTearDown(() => ScheduleService.firestoreOverride = null);
+      final schedule = DefaultTimeSlots.createDefault(
+        id: 'wrapped-import',
+        userId: 'owner',
+        semester: '2026年度後期',
+      );
+      await db.collection('schedules').doc(schedule.id).set(schedule.toJson());
+      final draft = await ExcelScheduleImportService.parseExcelBytes(
+        workbookBytes(wrappedBoundaryWorkbook()),
+      );
+      final result = await ExcelScheduleImportService.applyImport(
+        scheduleId: schedule.id,
+        entries: draft.entries,
+        clearExisting: false,
+        autoColorAdjacent: true,
+      );
+      expect(result.appliedCount, 2);
+      final saved = (await ScheduleService.getScheduleById(schedule.id))!;
+      for (final day in ['tuesday', 'friday']) {
+        final first = saved.timetable[day]![3]!;
+        final continuation = saved.timetable[day]![4]!;
+        expect(first.id, continuation.id);
+        expect(first.subjectName, continuation.subjectName);
+        expect(first.duration, 2);
+        expect(continuation.duration, 2);
+        expect(first.isStartCell, isTrue);
+        expect(continuation.isStartCell, isFalse);
+        expect(saved.timetable[day]![5], isNull);
+      }
+    },
+  );
+
   test(
     'masked instructor remains empty and is identified for review',
     () async {

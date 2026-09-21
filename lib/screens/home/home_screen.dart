@@ -33,6 +33,7 @@ import '../schedule/attendance_qr_reader_screen.dart';
 import '../../widgets/campus_map_widget.dart';
 import '../../widgets/home/academic_calendar_card.dart';
 import '../../widgets/home/campus_weather_card.dart';
+import '../../widgets/home/timetable_card_visibility.dart';
 import '../../core/providers/assignment_provider.dart';
 import '../../widgets/assignments/assignment_list.dart';
 import '../../widgets/assignments/assignment_editor.dart';
@@ -1035,8 +1036,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             key: ValueKey(cardId),
                             leading: const Icon(Icons.drag_handle),
                             title: Text(_homeCardTitle(cardId)),
-                            subtitle: Text(cardId == 'assignments' && !tempHidden.contains(cardId) && !tempAlwaysShowAssignments
-                              ? '未完了の課題があるときに自動表示' : isVisible ? '表示中' : '非表示'),
+                            subtitle: Text(
+                              cardId == 'timetable' &&
+                                      !tempHidden.contains(cardId) &&
+                                      !tempTimetableAutoShowOverride
+                                  ? isOutsideLecturePeriod
+                                      ? '講義期間外のため自動で非表示'
+                                      : '講義期間中は自動表示'
+                                  : cardId == 'assignments' &&
+                                          !tempHidden.contains(cardId) &&
+                                          !tempAlwaysShowAssignments
+                                      ? '未完了の課題があるときに自動表示'
+                                      : isVisible ? '表示中' : '非表示',
+                            ),
                             trailing: Switch(
                               value: isVisible,
                               onChanged: (value) {
@@ -1151,51 +1163,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return result;
   }
 
-  Schedule? _resolveActiveSchedule({
-    required List<Schedule> schedules,
-    required String? selectedScheduleId,
-  }) {
-    if (schedules.isEmpty) return null;
-    if (selectedScheduleId != null &&
-        schedules.any((schedule) => schedule.id == selectedScheduleId)) {
-      return schedules.firstWhere(
-        (schedule) => schedule.id == selectedScheduleId,
-      );
-    }
-    return schedules.first;
-  }
-
   bool _isOutsideLecturePeriodForTimetable({required bool useWatch}) {
-    final userId =
-        useWatch
-            ? ref.watch(currentUserIdProvider)
-            : ref.read(currentUserIdProvider);
-    if (userId == null) return false;
-
-    final selectedScheduleId =
-        useWatch
-            ? ref.watch(selectedScheduleIdProvider)
-            : ref.read(selectedScheduleIdProvider);
     final lecturePeriodAsync =
         useWatch
             ? ref.watch(lecturePeriodSettingsProvider)
             : ref.read(lecturePeriodSettingsProvider);
-    final scheduleListAsync =
-        useWatch
-            ? ref.watch(scheduleListProvider(userId))
-            : ref.read(scheduleListProvider(userId));
 
-    final schedules = scheduleListAsync.valueOrNull;
-    if (schedules == null || schedules.isEmpty) return false;
-    final activeSchedule = _resolveActiveSchedule(
-      schedules: schedules,
-      selectedScheduleId: selectedScheduleId,
-    );
-    if (activeSchedule == null) return false;
-
-    return !_isWithinConfiguredLecturePeriod(
+    return isOutsideHomeTimetableLecturePeriod(
       settings: lecturePeriodAsync.valueOrNull,
-      semester: activeSchedule.semester,
+      date: DateTime.now(),
     );
   }
 

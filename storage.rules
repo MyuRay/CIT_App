@@ -7,7 +7,9 @@ service firebase.storage {
 
 
     function authEmailLower() {
-      return isActiveAccount() && request.auth.token.email != null
+      // isCITUser() checks account state once. Repeating the Firestore lookup
+      // for each domain can exceed Storage's two-call evaluation limit.
+      return request.auth != null && request.auth.token.email != null
         ? request.auth.token.email.lower()
         : '';
     }

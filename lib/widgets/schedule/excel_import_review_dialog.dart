@@ -20,7 +20,7 @@ Future<ExcelImportReviewResult?> showExcelImportReviewDialog(
   final entries = List<ImportedScheduleEntry>.from(draft.entries);
   bool clearExisting = false;
   bool autoColorAdjacent = true;
-  bool provideTrainingData = false;
+  bool provideTrainingData = true;
   final warnings = List<String>.from(draft.warnings);
 
   return showDialog<ExcelImportReviewResult>(

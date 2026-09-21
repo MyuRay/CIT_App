@@ -80,7 +80,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('requires opting in and retains reviewed lecture data', (
+  testWidgets('defaults feedback on and retains reviewed lecture data', (
     tester,
   ) async {
     await mount(tester);
@@ -88,7 +88,7 @@ void main() {
       tester
           .widgetList<Checkbox>(find.byType(Checkbox))
           .map((box) => box.value),
-      [false, true, false],
+      [false, true, true],
     );
     expect(find.textContaining('集中講義「卒業研究」'), findsOneWidget);
     expect(find.text('Excelの学期: 2026年度 後期'), findsOneWidget);
@@ -98,10 +98,10 @@ void main() {
     expect(completed, isTrue);
     expect(result!.entries.single, lecture);
     expect(result!.clearExisting, isFalse);
-    expect(result!.provideTrainingData, isFalse);
+    expect(result!.provideTrainingData, isTrue);
   });
 
-  testWidgets('keeps editing and explicit feedback opt-in available', (
+  testWidgets('keeps editing and feedback opt-out available', (
     tester,
   ) async {
     await mount(tester);
@@ -115,7 +115,7 @@ void main() {
     await tester.tap(find.text('この内容で適用'));
     await tester.pumpAndSettle();
     expect(result!.entries.single.classroom, '7205講義室');
-    expect(result!.provideTrainingData, isTrue);
+    expect(result!.provideTrainingData, isFalse);
   });
 
   testWidgets(

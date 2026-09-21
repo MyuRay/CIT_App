@@ -1,5 +1,7 @@
 import 'package:excel/excel.dart';
 
+import 'excel_lecture_fields.dart';
+
 /// Locates the printed timetable without depending on an export's column widths.
 class ExcelTimetableLayout {
   ExcelTimetableLayout._({
@@ -112,6 +114,44 @@ class ExcelTimetableLayout {
       if (row > startRow) return row - 1;
     }
     return endRow - 1;
+  }
+
+  /// A printed period label can be below the first wrapped title line. Only
+  /// move a boundary after the preceding lecture's unit count; never
+  /// infer continuity from a shared teacher, classroom or title suffix.
+  Iterable<({int period, List<String> values})> lectureBlocks(
+    int column,
+  ) sync* {
+    final anchors = periodAnchors.keys.toList();
+    final starts = List<int>.from(anchors);
+    for (var index = 1; index < anchors.length; index++) {
+      var afterFooter = false;
+      int? titleStart;
+      for (var row = anchors[index - 1] + 1; row < anchors[index]; row++) {
+        final value = text(column, row);
+        if (value.isEmpty) continue;
+        if (ExcelLectureFields.isFooterRow(value)) {
+          // An annotation such as "[定員有]" can itself wrap across rows.
+          // Only the final unit count proves that a following line is a title.
+          afterFooter = ExcelLectureFields.isUnitCountRow(value);
+          titleStart = null;
+        } else if (afterFooter) {
+          titleStart ??= row;
+        }
+      }
+      if (titleStart != null) starts[index] = titleStart;
+    }
+
+    for (var index = 0; index < anchors.length; index++) {
+      final end = index + 1 < starts.length ? starts[index + 1] : endRow;
+      yield (
+        period: periodAnchors[anchors[index]]!,
+        values: [
+          for (var row = starts[index]; row < end; row++)
+            if (text(column, row).isNotEmpty) text(column, row),
+        ],
+      );
+    }
   }
 
   String text(int col, int row) => cellText(rows, col, row);
