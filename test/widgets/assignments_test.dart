@@ -480,6 +480,7 @@ void main() {
           'flip, header, board and home fit $mode at ${width}px / $scale',
           (tester) async {
             var back = false;
+            var shareCount = 0;
             await mount(
               tester,
               StatefulBuilder(
@@ -500,7 +501,12 @@ void main() {
                             Icons.edit,
                             Icons.share,
                           ])
-                            IconButton(onPressed: () {}, icon: Icon(icon)),
+                            IconButton(
+                              onPressed: () {
+                                if (icon == Icons.share) shareCount++;
+                              },
+                              icon: Icon(icon),
+                            ),
                         ],
                       ),
                       body: AssignmentFlipView(
@@ -526,6 +532,11 @@ void main() {
             );
             final toggle = find.byKey(const ValueKey('assignment-flip-button'));
             void checkHeader() {
+              expect(tester.widget<AppBar>(find.byType(AppBar)).bottom, isNull);
+              expect(
+                tester.getRect(find.byIcon(Icons.share)).center.dy,
+                closeTo(tester.getRect(toggle).center.dy, 0.1),
+              );
               expect(
                 tester.getRect(toggle).left -
                     tester.getRect(semesterButton).right,
@@ -555,6 +566,16 @@ void main() {
             }
 
             checkHeader();
+            final headerScroll = find.byKey(
+              const ValueKey('schedule-header-scroll'),
+            );
+            await tester.drag(headerScroll, const Offset(-600, 0));
+            await tester.pumpAndSettle();
+            await tester.tap(find.byIcon(Icons.share));
+            await tester.pumpAndSettle();
+            expect(shareCount, 1);
+            await tester.drag(headerScroll, const Offset(600, 0));
+            await tester.pumpAndSettle();
             final title = tester.widget<Text>(
               find.byKey(const ValueKey('assignment-home-title')),
             );
