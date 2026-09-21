@@ -18,36 +18,34 @@ class AssignmentHeader extends StatelessWidget {
     required VoidCallback onToggle,
     required List<Widget> actions,
   }) {
-    // Keep every action directly accessible without squeezing either switch.
-    final twoRows =
-        MediaQuery.sizeOf(context).width < 384 ||
-        MediaQuery.textScalerOf(context).scale(14) > 18;
     return AppBar(
       automaticallyImplyLeading: false,
       centerTitle: false,
       titleSpacing: 12,
-      title: AssignmentHeader(
-        semesterButton: semesterButton,
-        showAssignments: showAssignments,
-        onToggle: onToggle,
-      ),
-      actions: twoRows ? null : actions,
-      bottom:
-          twoRows
-              ? PreferredSize(
-                preferredSize: const Size.fromHeight(48),
-                child: SizedBox(
-                  height: 48,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: actions,
+      title: LayoutBuilder(
+        builder:
+            (context, constraints) => SingleChildScrollView(
+              key: const ValueKey('schedule-header-scroll'),
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Keep the semester and assignment switches visible together,
+                  // and let the remaining actions scroll without adding a row.
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                    child: AssignmentHeader(
+                      semesterButton: semesterButton,
+                      showAssignments: showAssignments,
+                      onToggle: onToggle,
                     ),
                   ),
-                ),
-              )
-              : null,
+                  const SizedBox(width: 8),
+                  ...actions,
+                ],
+              ),
+            ),
+      ),
     );
   }
 
