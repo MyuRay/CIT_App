@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/bus/bus_model.dart';
 
 /// 学バス情報のFirebaseサービス
 class BusService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  BusService({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  final FirebaseFirestore _firestore;
 
   static const String _busInfoCollection = 'bus_information';
   static const String _busRoutesSubcollection = 'bus_routes';
@@ -93,89 +98,71 @@ class BusService {
 
   /// 学バス情報をリアルタイム監視
   Stream<BusInformation?> watchBusInformation() {
-    print('🚌 watchBusInformation: ストリーム開始');
+    final main = _firestore.collection(_busInfoCollection).doc('main');
+    DocumentSnapshot<Map<String, dynamic>>? metadata;
+    QuerySnapshot<Map<String, dynamic>>? periods;
+    QuerySnapshot<Map<String, dynamic>>? routes;
+    final subscriptions = <StreamSubscription<dynamic>>[];
+    late final StreamController<BusInformation?> controller;
 
-    return _firestore
-        .collection(_busInfoCollection)
-        .doc('main')
-        .snapshots()
-        .asyncMap((doc) async {
-          print('🚌 watchBusInformation: スナップショット受信 - exists: ${doc.exists}');
-          if (!doc.exists) return null;
+    void emit() {
+      if (metadata == null || controller.isClosed) return;
+      if (!metadata!.exists) {
+        controller.add(null);
+        return;
+      }
+      if (periods == null || routes == null) return;
+      try {
+        controller.add(
+          BusInformation.fromJson({
+            ...metadata!.data()!,
+            'id': metadata!.id,
+            'operationPeriods':
+                periods!.docs
+                    .map((doc) => {...doc.data(), 'id': doc.id})
+                    .toList(),
+            'routes':
+                routes!.docs
+                    .map((doc) => {...doc.data(), 'id': doc.id})
+                    .toList(),
+          }),
+        );
+      } catch (error, stack) {
+        controller.addError(error, stack);
+      }
+    }
 
-          final data = doc.data()!;
-
-          // 運行期間を取得
-          print('🚌 watchBusInformation: 運行期間取得中...');
-          final periodsSnapshot =
-              await _firestore
-                  .collection(_busInfoCollection)
-                  .doc('main')
-                  .collection(_operationPeriodsSubcollection)
-                  .get();
-
-          print(
-            '🚌 watchBusInformation: 運行期間取得完了 - ${periodsSnapshot.docs.length}件',
-          );
-          final operationPeriods =
-              periodsSnapshot.docs
-                  .map(
-                    (doc) => BusOperationPeriod.fromJson({
-                      'id': doc.id,
-                      ...doc.data(),
-                    }),
-                  )
-                  .toList()
-                ..sort((a, b) => a.startDate.compareTo(b.startDate));
-
-          print(
-            '🚌 ストリーム: 全運行期間=${operationPeriods.length}, アクティブ期間=${operationPeriods.where((p) => p.isActive).length}',
-          );
-
-          // バス路線を取得
-          print('🚌 watchBusInformation: バス路線取得中...');
-          final routesSnapshot =
-              await _firestore
-                  .collection(_busInfoCollection)
-                  .doc('main')
-                  .collection(_busRoutesSubcollection)
-                  .get();
-
-          print(
-            '🚌 watchBusInformation: バス路線取得完了 - ${routesSnapshot.docs.length}件',
-          );
-          final routes =
-              routesSnapshot.docs
-                  .map(
-                    (doc) => BusRoute.fromJson({'id': doc.id, ...doc.data()}),
-                  )
-                  .toList()
-                ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-
-          print(
-            '🚌 ストリーム: 全路線=${routes.length}, アクティブ路線=${routes.where((r) => r.isActive).length}',
-          );
-
-          final busInfo = BusInformation(
-            id: doc.id,
-            title: data['title'] ?? '学バス時刻表',
-            description: data['description'] ?? '',
-            routes: routes,
-            operationPeriods: operationPeriods,
-            lastUpdated:
-                (data['lastUpdated'] as Timestamp?)?.toDate() ?? DateTime.now(),
-            updatedBy: data['updatedBy'] ?? '',
-          );
-
-          print(
-            '🚌 watchBusInformation: BusInformation作成完了 - ${busInfo.title} - routes: ${busInfo.routes.length} - periods: ${busInfo.operationPeriods.length}',
-          );
-          return busInfo;
-        })
-        .handleError((error) {
-          print('❌ watchBusInformation: ストリームエラー - $error');
-          throw error;
-        });
+    controller = StreamController<BusInformation?>(
+      onListen: () {
+        // Switches can update only a child document, without changing main.
+        subscriptions.add(
+          main.snapshots().listen((value) {
+            metadata = value;
+            emit();
+          }, onError: controller.addError),
+        );
+        subscriptions.add(
+          main.collection(_operationPeriodsSubcollection).snapshots().listen((
+            value,
+          ) {
+            periods = value;
+            emit();
+          }, onError: controller.addError),
+        );
+        subscriptions.add(
+          main.collection(_busRoutesSubcollection).snapshots().listen((value) {
+            routes = value;
+            emit();
+          }, onError: controller.addError),
+        );
+      },
+      onCancel: () async {
+        await Future.wait(
+          subscriptions.map((subscription) => subscription.cancel()),
+        );
+      },
+    );
+    return controller.stream;
   }
 
   /// 学バス情報を保存・更新

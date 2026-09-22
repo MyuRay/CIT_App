@@ -149,7 +149,7 @@ class HomeWidgetPayloads {
             : japan.weekday == DateTime.saturday
             ? 'saturday'
             : 'weekday';
-    final routes = info.routes.where((route) => route.isActive).toList();
+    final routes = info.operatingRoutesAt(now);
     final campus = preferredCampus == 'narashino' ? '新習志野' : '津田沼';
     bool preferred(BusRoute route) =>
         route.name.split('→').first.contains(campus);

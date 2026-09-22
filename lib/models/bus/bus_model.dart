@@ -148,6 +148,8 @@ class BusRoute {
   final List<BusTimeEntry> timeEntries; // 時刻表
   final int sortOrder; // 表示順序
   final bool isActive;
+  final DateTime? startDate;
+  final DateTime? endDate;
 
   const BusRoute({
     required this.id,
@@ -157,6 +159,8 @@ class BusRoute {
     required this.timeEntries,
     required this.sortOrder,
     required this.isActive,
+    this.startDate,
+    this.endDate,
   });
 
   factory BusRoute.fromJson(Map<String, dynamic> json) {
@@ -171,7 +175,9 @@ class BusRoute {
               .toList() ??
           [],
       sortOrder: json['sortOrder'] as int? ?? 0,
-      isActive: json['isActive'] as bool? ?? true,
+      isActive: json['isActive'] as bool? ?? json['status'] != 'suspended',
+      startDate: (json['startDate'] as Timestamp?)?.toDate(),
+      endDate: (json['endDate'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -182,6 +188,8 @@ class BusRoute {
       'description': description,
       'color': color,
       'timeEntries': timeEntries.map((e) => e.toJson()).toList(),
+      if (startDate != null) 'startDate': Timestamp.fromDate(startDate!),
+      if (endDate != null) 'endDate': Timestamp.fromDate(endDate!),
       'sortOrder': sortOrder,
       'isActive': isActive,
     };
@@ -215,6 +223,8 @@ class BusRoute {
       description: description ?? this.description,
       color: color ?? this.color,
       timeEntries: timeEntries ?? this.timeEntries,
+      startDate: startDate,
+      endDate: endDate,
       sortOrder: sortOrder ?? this.sortOrder,
       isActive: isActive ?? this.isActive,
     );
@@ -319,7 +329,35 @@ class BusInformation {
 
   /// 現在運行中かどうかをチェック
   bool get isCurrentlyOperating {
-    return operationPeriods.any((period) => period.isCurrentlyActive());
+    return operatingRoutes.isNotEmpty;
+  }
+
+  List<BusRoute> get operatingRoutes => operatingRoutesAt(DateTime.now());
+
+  /// Route dates configured in the current admin screen take precedence over
+  /// legacy global periods. Both boundary dates are inclusive in Japan time.
+  List<BusRoute> operatingRoutesAt(DateTime now) {
+    DateTime day(DateTime value) {
+      final japan = value.toUtc().add(const Duration(hours: 9));
+      return DateTime.utc(japan.year, japan.month, japan.day);
+    }
+
+    final today = day(now);
+    bool contains(DateTime? start, DateTime? end) =>
+        (start == null || !today.isBefore(day(start))) &&
+        (end == null || !today.isAfter(day(end)));
+    final legacyOperating =
+        operationPeriods.isEmpty ||
+        operationPeriods.any(
+          (period) =>
+              period.isActive && contains(period.startDate, period.endDate),
+        );
+    return activeRoutes.where((route) {
+      if (route.startDate != null || route.endDate != null) {
+        return contains(route.startDate, route.endDate);
+      }
+      return legacyOperating;
+    }).toList();
   }
 
   /// 現在の運行期間を取得

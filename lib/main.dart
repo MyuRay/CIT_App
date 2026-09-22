@@ -294,7 +294,9 @@ void main() async {
 
       if (kDebugMode && appCheckActivated && !kIsWeb) {
         try {
-          final debugToken = await FirebaseAppCheck.instance.getToken();
+          final debugToken = await FirebaseAppCheck.instance
+              .getToken()
+              .timeout(const Duration(seconds: 5));
           if (debugToken != null && debugToken.isNotEmpty) {
             SecureLogger.debug(
               '🔐 App Check debug token（Firebase Console → App Check → デバッグトークン管理）: $debugToken',

@@ -44,7 +44,7 @@ final currentOperationPeriodProvider = Provider<BusOperationPeriod?>((ref) {
 final activeRoutesProvider = Provider<List<BusRoute>>((ref) {
   final busInfo = ref.watch(busInformationStreamProvider);
   return busInfo.when(
-    data: (data) => data?.activeRoutes ?? [],
+    data: (data) => data?.operatingRoutes ?? [],
     loading: () => [],
     error: (_, __) => [],
   );
