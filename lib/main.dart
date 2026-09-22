@@ -17,11 +17,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'core/theme/app_theme.dart';
 import 'widgets/common/app_system_safe_area.dart';
 import 'widgets/common/ui_feedback_listener.dart';
+import 'widgets/common/app_update_prompt.dart';
 import 'core/config/app_router.dart';
 import 'core/constants/app_constants.dart';
 import 'core/providers/settings_provider.dart';
 import 'core/providers/auth_session_provider.dart';
 import 'core/providers/analytics_provider.dart';
+import 'core/providers/app_update_provider.dart';
 import 'core/services/analytics_service.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/services/performance_monitor.dart';
@@ -344,9 +346,6 @@ void main() async {
   // バックグラウンドで遅延初期化を実行（起動時間に影響しない）
   _initializeBackgroundServices();
 
-  // ストアレビュー管理：起動回数をカウント
-  _handleAppReview();
-
   // アプリ起動時間を記録
   final startupTime = monitor.stopTimer('app_startup');
   SecureLogger.debug('🚀 アプリ起動完了: ${startupTime}ms');
@@ -525,6 +524,8 @@ class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
     final appFontSize = ref.watch(appFontSizeProvider);
+    final navigatorKey = ref.watch(appNavigatorKeyProvider);
+    final updateObserver = ref.watch(appUpdateObserverProvider);
 
     return MaterialApp.router(
       title: AppConstants.appName,
@@ -545,7 +546,13 @@ class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
           child: DefaultTextStyle(
             style: defaultTextStyle,
             child: AppSystemSafeArea(
-              child: UiFeedbackListener(child: child ?? const SizedBox.shrink()),
+              child: AppUpdatePromptHost(
+                navigatorKey: navigatorKey,
+                observer: updateObserver,
+                checkForUpdate: () => ref.read(appUpdateCheckProvider.future),
+                onNoUpdate: _handleAppReview,
+                child: UiFeedbackListener(child: child ?? const SizedBox.shrink()),
+              ),
             ),
           ),
         );

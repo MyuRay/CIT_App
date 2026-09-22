@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../constants/app_constants.dart';
 import '../providers/simple_auth_provider.dart';
 import '../providers/email_registration_provider.dart';
+import '../providers/app_update_provider.dart';
 import '../../services/auth/email_registration.dart';
 import '../services/analytics_service.dart';
 import '../../screens/auth/login_screen.dart';
@@ -30,6 +31,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final initialRoute = ref.watch(initialRouteFromWidgetProvider);
 
   final router = GoRouter(
+    navigatorKey: ref.watch(appNavigatorKeyProvider),
     initialLocation: initialRoute,
     redirect: (context, state) {
       final isLoggedIn = ref.read(isLoggedInSimpleProvider);
@@ -244,7 +246,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           builder: (context, state) => const ClassroomMapCalibrationScreen(),
         ),
     ],
-    observers: [analyticsObserver],
+    observers: [analyticsObserver, ref.watch(appUpdateObserverProvider)],
     errorBuilder: (context, state) {
       // 想定外のディープリンクで到達した場合は、可能な限り意味のあるタブへ
       // 自動フォールバックする。特にホーム画面ウィジェット由来の
