@@ -3161,7 +3161,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   // 学バス情報カードを構築
   Widget _buildBusInfoCard(BuildContext context, WidgetRef ref) {
-    final busInfo = ref.watch(busInformationProvider);
+    final busInfo = ref.watch(busInformationStreamProvider);
     final hasEnabledBusTimetable = busInfo.when(
       data: _hasEnabledBusTimetable,
       loading: () => false,
@@ -3332,7 +3332,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   ) {
     final isOperating = busInfo.isCurrentlyOperating;
     final activeRoutes =
-        busInfo.activeRoutes
+        busInfo.operatingRoutes
             .where((route) => route.activeTimeEntries.isNotEmpty)
             .toList();
 
@@ -3875,11 +3875,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   // 路線切り替えアニメーション（次へ）
   void _flipToNextRoute() async {
-    final busInfo = ref.read(busInformationProvider).valueOrNull;
+    final busInfo = ref.read(busInformationStreamProvider).valueOrNull;
     if (busInfo == null) return;
 
     final activeRoutes =
-        busInfo.activeRoutes
+        busInfo.operatingRoutes
             .where((route) => route.activeTimeEntries.isNotEmpty)
             .toList();
 
@@ -3899,11 +3899,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   // 路線切り替えアニメーション（前へ）
   void _flipToPreviousRoute() async {
-    final busInfo = ref.read(busInformationProvider).valueOrNull;
+    final busInfo = ref.read(busInformationStreamProvider).valueOrNull;
     if (busInfo == null) return;
 
     final activeRoutes =
-        busInfo.activeRoutes
+        busInfo.operatingRoutes
             .where((route) => route.activeTimeEntries.isNotEmpty)
             .toList();
 

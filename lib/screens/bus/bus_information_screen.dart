@@ -157,7 +157,7 @@ class BusInformationScreen extends ConsumerWidget {
   }
 
   Widget _buildRoutes(BuildContext context, BusInformation info) {
-    final routes = info.activeRoutes;
+    final routes = info.operatingRoutes;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
