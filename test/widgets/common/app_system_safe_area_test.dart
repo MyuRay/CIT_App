@@ -37,7 +37,7 @@ void main() {
       expect(bar.height, 64);
       expect(bar.bottom, _screenSize.height - bottomInset);
       expect(tester.getRect(find.byKey(_pageKey)).bottom, bar.top);
-      for (final label in ['ホーム', '時間割', '交流', '掲示板', 'マイページ']) {
+      for (final label in ['ホーム', '時間割', '交流', '掲示板']) {
         final destination = find.ancestor(
           of: find.text(label),
           matching: find.byType(NavigationDestination),
@@ -75,7 +75,7 @@ void main() {
       final bar = tester.getRect(find.byType(MainNavigationBar));
       expect(bar.height, 88);
       expect(bar.bottom, 752);
-      for (final label in ['ホーム', '時間割', '交流', '掲示板', 'マイページ']) {
+      for (final label in ['ホーム', '時間割', '交流', '掲示板']) {
         final labelRect = tester.getRect(find.text(label));
         expect(labelRect.top, greaterThanOrEqualTo(bar.top));
         expect(labelRect.bottom, lessThanOrEqualTo(bar.bottom));

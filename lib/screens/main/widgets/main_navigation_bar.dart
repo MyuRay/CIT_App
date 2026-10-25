@@ -6,8 +6,7 @@ abstract final class MainNavigation {
   static const scheduleIndex = 1;
   static const communityIndex = 2;
   static const bulletinIndex = 3;
-  static const profileIndex = 4;
-  static const destinationCount = 5;
+  static const destinationCount = 4;
 
   static int normalizeIndex(int index) {
     return index >= 0 && index < destinationCount ? index : homeIndex;
@@ -74,11 +73,6 @@ class MainNavigationBar extends StatelessWidget {
             hasNewContent: hasNewBulletinPosts,
           ),
           label: '掲示板',
-        ),
-        const NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person),
-          label: 'マイページ',
         ),
       ],
     );

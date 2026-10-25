@@ -7,7 +7,6 @@ import '../../core/providers/assignment_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 import '../../core/providers/auth_provider.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/providers/bulletin_provider.dart';
@@ -16,6 +15,7 @@ import '../../core/providers/cwitter_composer_back_provider.dart';
 import '../../core/providers/cwitter_provider.dart';
 import '../../core/providers/legal_consent_provider.dart';
 import '../../core/providers/schedule_provider.dart';
+import '../../core/providers/home_feature_intro_provider.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../models/schedule/schedule_model.dart';
 import '../../services/schedule/attendance_availability.dart';
@@ -33,7 +33,6 @@ import '../bulletin/bulletin_screen.dart';
 import '../community/community_screen.dart';
 import '../home/home_screen.dart';
 import '../legal/community_legal_update_consent_gate.dart';
-import '../profile/simple_profile_screen.dart';
 import '../schedule/attendance_qr_reader_screen.dart';
 import '../schedule/schedule_screen.dart';
 import 'widgets/main_navigation_bar.dart';
@@ -85,6 +84,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(ref.read(analyticsServiceProvider).showMainTab(safeCurrentIndex));
+      if (safeCurrentIndex == MainNavigation.homeIndex) {
+        ref.read(homeTabVisitSignalProvider.notifier).update((s) => s + 1);
+      }
       final pending = ScheduleNotificationService.consumePendingLaunchPayload();
       if (pending != null) {
         _handleScheduleNotificationPayload(pending);
@@ -363,6 +365,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       _visitedTabIndices.add(nextIndex);
     });
     unawaited(ref.read(analyticsServiceProvider).showMainTab(nextIndex));
+    if (nextIndex == MainNavigation.homeIndex) {
+      ref.read(homeTabVisitSignalProvider.notifier).update((s) => s + 1);
+    }
   }
 
   Widget _buildTabScreen(int index) {
@@ -377,7 +382,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       MainNavigation.scheduleIndex => const ScheduleScreen(),
       MainNavigation.communityIndex => const CommunityScreen(),
       MainNavigation.bulletinIndex => const BulletinScreen(),
-      MainNavigation.profileIndex => const SimpleProfileScreen(),
       _ => const SizedBox.shrink(),
     };
 

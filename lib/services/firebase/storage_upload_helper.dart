@@ -46,6 +46,20 @@ class StorageUploadHelper {
   }
 
   /// [File] 向け。掲示板など既存の putFile 呼び出しを置き換える。
+  static Future<String> uploadValidatedBytes({
+    required Reference ref,
+    required Uint8List bytes,
+    required String contentType,
+  }) async {
+    if (bytes.isEmpty) {
+      throw StateError('画像ファイルが空です');
+    }
+    if (bytes.length > maxUploadBytes) {
+      throw ArgumentError('画像が大きすぎます（最大${maxUploadBytes ~/ (1024 * 1024)}MB）');
+    }
+    return _uploadBytes(ref: ref, bytes: bytes, contentType: contentType);
+  }
+
   static Future<String> uploadFile({
     required Reference ref,
     required File file,

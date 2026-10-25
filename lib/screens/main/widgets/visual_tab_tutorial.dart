@@ -49,12 +49,13 @@ const _topics = [
     tip: '投稿は承認後に公開されます。掲載ルールは右上のⓘから確認できます。',
   ),
   (
-    label: 'マイページ',
+    label: 'ホーム',
     topic: TutorialTopic.profile,
-    tabIndex: MainNavigation.profileIndex,
+    tabIndex: MainNavigation.homeIndex,
     icon: Icons.person_outline,
-    title: 'メインキャンパスの設定',
-    description: '「メインキャンパスを設定」で選ぶと、ホームの天気や学バスの初期表示に反映されます。',
+    title: 'マイページ',
+    description:
+        '左上の自分のアイコンからマイページを開けます。「メインキャンパスを設定」で選ぶと、ホームの天気や学バスの初期表示に反映されます。',
     tip: 'このガイドは「マイページ → チュートリアルを確認」から、いつでも見直せます。',
   ),
 ];

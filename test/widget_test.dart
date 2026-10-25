@@ -13,7 +13,7 @@ void main() {
   ) async {
     await tester.pumpWidget(const MaterialApp(home: _NavigationHarness()));
 
-    for (final label in ['ホーム', '時間割', '交流', '掲示板', 'マイページ']) {
+    for (final label in ['ホーム', '時間割', '交流', '掲示板']) {
       expect(find.text(label), findsOneWidget);
     }
 

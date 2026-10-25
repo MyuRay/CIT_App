@@ -8,7 +8,9 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/providers/cafeteria_provider.dart';
+import '../../core/providers/cwitter_provider.dart';
 import '../../core/providers/cafeteria_review_provider.dart';
 import '../../core/providers/schedule_provider.dart';
 import '../../core/providers/notification_provider.dart';
@@ -51,6 +53,11 @@ import '../../services/schedule/attendance_service.dart';
 import '../../widgets/common/interactive_fullscreen_image_viewer.dart';
 import '../../widgets/schedule/schedule_class_detail_dialog.dart';
 import '../../services/schedule/lecture_period_service.dart';
+import '../../widgets/profile/user_avatar.dart';
+import '../../core/constants/home_feature_intro.dart';
+import '../../core/providers/home_feature_intro_provider.dart';
+import '../../widgets/home/home_app_bar_leading.dart';
+import '../profile/simple_profile_screen.dart';
 
 const Map<String, String> _campusNavigationOptions = {
   'tsudanuma': '津田沼',
@@ -203,9 +210,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       todayCafeteriaReviewExistsProvider,
     );
 
+    final mainCampusIntroPending = ref.watch(
+      homeFeatureIntroMainCampusPendingProvider,
+    );
+    final introDisplay = resolveHomeFeatureIntroDisplay(
+      mainCampusPending: mainCampusIntroPending,
+      shortcutBubble: ref.watch(homeFeatureIntroBubbleProvider),
+    );
+    final showIntroBubble = introDisplay.show && introDisplay.id != null;
+    final introMessage =
+        showIntroBubble ? homeFeatureIntroMessage(introDisplay.id!) : '';
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ホーム'),
+        leading: HomeAppBarLeading(
+          avatar: const _HomeProfileAvatarButton(),
+        ),
+        leadingWidth: HomeAppBarLeading.leadingWidth(
+          context,
+          showBubble: showIntroBubble,
+          message: introMessage,
+        ),
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.menu),
@@ -932,7 +957,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         'ホームカードを編集',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      subtitle: const Text('表示/非表示と順序を変更できます'),
+                      subtitle: const Text(
+                        '表示/非表示と順序の変更は自動で保存されます',
+                      ),
                       trailing: Wrap(
                         spacing: 4,
                         children: [
@@ -968,16 +995,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     ),
                               );
                               if (confirmed != true) return;
-                              setState(() {
-                                _homeCardOrder = List<String>.from(
-                                  _defaultHomeCardOrder,
-                                );
-                                _hiddenHomeCards = <String>{};
-                                _alwaysShowAssignments = false;
-                                _timetableAutoShowOverrideOutsideLecturePeriod =
-                                    false;
-                              });
-                              await _saveHomeCardLayout();
+                              tempOrder
+                                ..clear()
+                                ..addAll(_defaultHomeCardOrder);
+                              tempHidden.clear();
+                              tempAlwaysShowAssignments = false;
+                              tempTimetableAutoShowOverride = false;
+                              setModalState(() {});
+                              await _persistHomeCardLayoutFromEditor(
+                                order: tempOrder,
+                                hidden: tempHidden,
+                                alwaysShowAssignments: tempAlwaysShowAssignments,
+                                timetableAutoShowOverride:
+                                    tempTimetableAutoShowOverride,
+                              );
                               if (context.mounted) {
                                 Navigator.of(context).pop();
                               }
@@ -985,21 +1016,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             icon: const Icon(Icons.restore),
                             tooltip: 'デフォルトに戻す',
                           ),
-                          TextButton(
-                            onPressed: () async {
-                              setState(() {
-                                _homeCardOrder = List<String>.from(tempOrder);
-                                _hiddenHomeCards = Set<String>.from(tempHidden);
-                                _alwaysShowAssignments = tempAlwaysShowAssignments;
-                                _timetableAutoShowOverrideOutsideLecturePeriod =
-                                    tempTimetableAutoShowOverride;
-                              });
-                              await _saveHomeCardLayout();
-                              if (context.mounted) {
-                                Navigator.of(context).pop();
-                              }
-                            },
-                            child: const Text('保存'),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close),
+                            tooltip: '閉じる',
                           ),
                         ],
                       ),
@@ -1011,12 +1031,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     Expanded(
                       child: ReorderableListView.builder(
                         itemCount: tempOrder.length,
-                        onReorder: (oldIndex, newIndex) {
+                        onReorder: (oldIndex, newIndex) async {
                           setModalState(() {
                             if (newIndex > oldIndex) newIndex -= 1;
                             final item = tempOrder.removeAt(oldIndex);
                             tempOrder.insert(newIndex, item);
                           });
+                          await _persistHomeCardLayoutFromEditor(
+                            order: tempOrder,
+                            hidden: tempHidden,
+                            alwaysShowAssignments: tempAlwaysShowAssignments,
+                            timetableAutoShowOverride:
+                                tempTimetableAutoShowOverride,
+                          );
                         },
                         itemBuilder: (context, index) {
                           final cardId = tempOrder[index];
@@ -1051,7 +1078,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ),
                             trailing: Switch(
                               value: isVisible,
-                              onChanged: (value) {
+                              onChanged: (value) async {
                                 setModalState(() {
                                   if (cardId == 'assignments') {
                                     tempAlwaysShowAssignments = value;
@@ -1075,6 +1102,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     tempHidden.add(cardId);
                                   }
                                 });
+                                await _persistHomeCardLayoutFromEditor(
+                                  order: tempOrder,
+                                  hidden: tempHidden,
+                                  alwaysShowAssignments:
+                                      tempAlwaysShowAssignments,
+                                  timetableAutoShowOverride:
+                                      tempTimetableAutoShowOverride,
+                                );
                               },
                             ),
                           );
@@ -1219,6 +1254,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           _timetableAutoShowOverrideOutsideLecturePeriod,
     };
     await prefs.setString(_homeCardLayoutPrefsKey, jsonEncode(payload));
+  }
+
+  Future<void> _persistHomeCardLayoutFromEditor({
+    required List<String> order,
+    required Set<String> hidden,
+    required bool alwaysShowAssignments,
+    required bool timetableAutoShowOverride,
+  }) async {
+    if (!mounted) return;
+    setState(() {
+      _homeCardOrder = List<String>.from(order);
+      _hiddenHomeCards = Set<String>.from(hidden);
+      _alwaysShowAssignments = alwaysShowAssignments;
+      _timetableAutoShowOverrideOutsideLecturePeriod =
+          timetableAutoShowOverride;
+    });
+    await _saveHomeCardLayout();
   }
 
   // TextMatchのWebサイトを開く
@@ -4474,4 +4526,62 @@ class _YearCalendarImageItem {
   final String downloadUrl;
 
   const _YearCalendarImageItem({required this.name, required this.downloadUrl});
+}
+
+class _HomeProfileAvatarButton extends ConsumerWidget {
+  const _HomeProfileAvatarButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authUser = ref.watch(authStateProvider).valueOrNull;
+    final appUserAsync = authUser != null
+        ? ref.watch(currentAppUserStreamProvider)
+        : null;
+    final profileImageUrl = appUserAsync?.maybeWhen(
+      data: (appUser) => appUser?.profileImageUrl,
+      orElse: () => authUser?.photoURL,
+    );
+    final firestoreName = appUserAsync?.maybeWhen(
+      data: (appUser) => appUser?.displayName,
+      orElse: () => null,
+    );
+    final displayName = (firestoreName?.trim().isNotEmpty == true)
+        ? firestoreName!.trim()
+        : ((authUser?.displayName?.trim().isNotEmpty == true)
+            ? authUser!.displayName!.trim()
+            : (authUser != null ? 'ユーザー' : 'ゲスト'));
+
+    return Tooltip(
+      message: 'マイページ',
+      child: Center(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const SimpleProfileScreen(),
+                ),
+              );
+            },
+            customBorder: const CircleBorder(),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: UserAvatar(
+                imageUrl: profileImageUrl,
+                displayName: displayName,
+                colorSeed: authUser?.uid,
+                radius: 18,
+                initialTextStyle: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

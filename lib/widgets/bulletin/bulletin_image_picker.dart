@@ -152,8 +152,13 @@ class _BulletinImagePickerState extends State<BulletinImagePicker> {
               child: ReorderableListView(
                 scrollDirection: Axis.horizontal,
                 buildDefaultDragHandles: false,
-                onReorderItem: (oldIndex, newIndex) {
-                  if (enabled) widget.draft.reorder(oldIndex, newIndex);
+                onReorder: (oldIndex, newIndex) {
+                  if (!enabled) return;
+                  var targetIndex = newIndex;
+                  if (targetIndex > oldIndex) {
+                    targetIndex -= 1;
+                  }
+                  widget.draft.reorder(oldIndex, targetIndex);
                 },
                 children: [
                   for (var i = 0; i < images.length; i++)
