@@ -10,6 +10,20 @@ class ScheduleService {
   static FirebaseFirestore get _firestore => firestoreOverride ?? FirebaseFirestore.instance;
   static const String _collection = 'schedules';
 
+  static Future<Schedule?> getSelectedScheduleByUserId(
+    String userId, {
+    String? selectedScheduleId,
+  }) async {
+    final schedules = await getAllSchedulesByUserId(userId);
+    if (schedules.isEmpty) return null;
+    for (final schedule in schedules) {
+      if (schedule.id == selectedScheduleId) return schedule;
+    }
+    return schedules.first;
+  }
+
+
+
   /// 時間割を保存
   static Future<void> saveSchedule(Schedule schedule) async {
     try {

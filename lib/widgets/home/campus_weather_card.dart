@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/weather/campus_weather.dart';
 import '../../services/weather/campus_weather_service.dart';
+import '../../core/utils/logger.dart';
 
 class CampusWeatherCard extends StatefulWidget {
   const CampusWeatherCard({
@@ -29,7 +30,7 @@ class CampusWeatherCardState extends State<CampusWeatherCard>
   final _requests = <String, Future<void>>{};
   final _lastAttempt = <String, DateTime>{};
   final _loading = <String>{};
-  final _errors = <String>{};
+  final _errors = <String, Object>{};
   late final CampusWeatherService _service;
   late String _selected;
   Timer? _timer;
@@ -44,7 +45,7 @@ class CampusWeatherCardState extends State<CampusWeatherCard>
     _service = widget.service ?? CampusWeatherService();
     _selected = _mainCampus;
     WidgetsBinding.instance.addObserver(this);
-    unawaited(refresh());
+    unawaited(refresh(force: false));
     _timer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (!mounted || !_active) return;
       setState(
@@ -65,32 +66,68 @@ class CampusWeatherCardState extends State<CampusWeatherCard>
 
   /// Shared with the home's pull-to-refresh. Requests for each campus are
   /// deduplicated; a slow response for another campus cannot replace this one.
-  Future<void> refresh() {
+  Future<void> refresh({bool force = true}) {
     if (!mounted) return Future.value();
-    return _requests[_selected] ??= _load(_selected);
+    final campusKey = _selected;
+    final pending = _requests[campusKey];
+    if (pending != null) return pending;
+    late final Future<void> request;
+    request = _load(campusKey, force: force).whenComplete(() {
+      if (identical(_requests[campusKey], request)) _requests.remove(campusKey);
+    });
+    _requests[campusKey] = request;
+    return request;
   }
 
-  Future<void> _load(String campusKey) async {
+  Future<void> _load(String campusKey, {required bool force}) async {
     setState(() {
       _loading.add(campusKey);
       _errors.remove(campusKey);
       _lastAttempt[campusKey] = _now;
     });
     try {
+      if (!_cache.containsKey(campusKey)) {
+        final cached = await _service.readCached(campusKey);
+        if (mounted && cached != null && !_cache.containsKey(campusKey)) {
+          setState(() => _cache[campusKey] = cached);
+        }
+      }
+      if (!mounted) return;
+      final cached = _cache[campusKey];
+      if (!force && cached != null) {
+        final age = _now.difference(cached.fetchedAt);
+        if (!age.isNegative &&
+            age < const Duration(minutes: 10) &&
+            !cached.isStale(_now)) {
+          _lastAttempt[campusKey] = cached.fetchedAt;
+          return;
+        }
+      }
       final weather = await _service.fetch(campusKey);
       if (mounted) setState(() => _cache[campusKey] = weather);
-    } catch (_) {
-      if (mounted) setState(() => _errors.add(campusKey));
+    } catch (error) {
+      SecureLogger.error(
+        'Weather refresh failed ($campusKey): '
+        '${error is WeatherHttpException ? 'HTTP ${error.statusCode}' : error.runtimeType}',
+        error: error,
+      );
+      if (mounted) setState(() => _errors[campusKey] = error);
     } finally {
-      _requests.remove(campusKey);
       if (mounted) setState(() => _loading.remove(campusKey));
     }
   }
 
   void _refreshIfDue() {
     final last = _lastAttempt[_selected];
-    if (last == null || _now.difference(last) >= const Duration(minutes: 10)) {
-      unawaited(refresh());
+    final error = _errors[_selected];
+    final retryAfter =
+        error is WeatherHttpException && error.statusCode == 429
+            ? error.retryAfter ?? const Duration(minutes: 1)
+            : error != null
+            ? const Duration(seconds: 30)
+            : const Duration(minutes: 10);
+    if (last == null || _now.difference(last) >= retryAfter) {
+      unawaited(refresh(force: false));
     }
   }
 
@@ -105,7 +142,11 @@ class CampusWeatherCardState extends State<CampusWeatherCard>
     _active = state == AppLifecycleState.resumed;
     if (_active && mounted) {
       setState(() {});
-      _refreshIfDue();
+      if (_errors.containsKey(_selected)) {
+        unawaited(refresh(force: false));
+      } else {
+        _refreshIfDue();
+      }
     }
   }
 
@@ -121,7 +162,8 @@ class CampusWeatherCardState extends State<CampusWeatherCard>
     final theme = Theme.of(context);
     final weather = _cache[_selected];
     final loading = _loading.contains(_selected);
-    final failed = _errors.contains(_selected);
+    final error = _errors[_selected];
+    final failed = error != null;
     final color = _campusColor(_selected);
     final toggle = _WeatherExpansionButton(
       expanded: _expanded,
@@ -165,7 +207,12 @@ class CampusWeatherCardState extends State<CampusWeatherCard>
                   if (failed) ...[
                     Text(
                       weather == null
-                          ? '天気を取得できませんでした。通信状況を確認して再試行してください。'
+                          ? error is TimeoutException
+                              ? '天気の取得がタイムアウトしました。通信状況を確認して再試行してください。'
+                              : error is WeatherHttpException &&
+                                  error.statusCode == 429
+                              ? '天気サービスが混み合っています。しばらくしてから再試行してください。'
+                              : '天気を取得できませんでした。通信状況を確認して再試行してください。'
                           : '更新できませんでした。前回取得した予報を表示しています。',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.error,
@@ -483,6 +530,10 @@ class CampusWeatherForecast extends StatelessWidget {
     final stale = weather.isStale(now);
     final outlook = RainOutlook.forWeather(weather, now);
     final hours = weather.upcoming(now, count: 12);
+    final windForecast =
+        hours.take(6).where((hour) => hour.windSpeed != null).toList()
+          ..sort((a, b) => b.windSpeed!.compareTo(a.windSpeed!));
+    final peakWind = windForecast.firstOrNull;
     final panel = AppColors.tintedSurface(context, accentColor);
     final panelText = AppColors.ensureContrast(scheme.onSurface, panel);
     return Column(
@@ -538,6 +589,40 @@ class CampusWeatherForecast extends StatelessWidget {
             if (trailing != null) ...[const SizedBox(width: 8), trailing!],
           ],
         ),
+        if (weather.windSpeed != null || peakWind != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.air, size: 20, color: accentColor),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (weather.windSpeed != null)
+                        Text(
+                          '現在の風 ' +
+                              weather.windSpeed!.toStringAsFixed(1) +
+                              ' m/s · ' +
+                              windStrengthLabel(weather.windSpeed!),
+                        ),
+                      if (peakWind != null)
+                        Text(
+                          'この先6時間 最大 ' +
+                              peakWind.windSpeed!.toStringAsFixed(1) +
+                              ' m/s（' +
+                              weatherTimeLabel(peakWind.endsAt, now) +
+                              '）',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         if (expanded) ...[
           const SizedBox(height: 6),
           Wrap(

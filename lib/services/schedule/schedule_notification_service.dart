@@ -1,3 +1,6 @@
+import 'package:flutter/foundation.dart';
+import '../../models/assignments/assignment.dart';
+import '../assignments/assignment_reminders.dart';
 import 'package:cit_app/core/utils/logger.dart';
 import 'dart:async';
 
@@ -8,6 +11,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../../core/utils/period_time_resolver.dart';
 import '../../models/schedule/schedule_model.dart';
+import '../../models/schedule/lecture_period_model.dart';
 import 'class_notification_payload.dart';
 import 'lecture_period_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -54,6 +58,10 @@ class ScheduleNotificationService {
       FlutterLocalNotificationsPlugin();
 
   static bool _initialized = false;
+  static Future<void>? _initializing;
+  static int _lectureGeneration = 0, _assignmentGeneration = 0;
+  static Future<void> _assignmentQueue = Future.value();
+  static const int assignmentIdMin = 0x08000000;
 
   /// 通知タップ用 broadcast Stream。
   static final StreamController<String> _tapStreamController =
@@ -66,6 +74,8 @@ class ScheduleNotificationService {
   static String? _pendingLaunchPayload;
 
   static Future<void> clearSessionNotifications() async {
+    _lectureGeneration++;
+    _assignmentGeneration++;
     _pendingLaunchPayload = null;
     if (_initialized) await _plugin.cancelAll();
   }
@@ -78,9 +88,14 @@ class ScheduleNotificationService {
   }
 
   /// 初期化。`main.dart` 起動シーケンスから 1 度だけ呼ぶ。
-  static Future<void> initialize() async {
-    if (_initialized) return;
+  static Future<void> initialize() {
+    if (_initialized) return Future.value();
+    return _initializing ??= _initialize().whenComplete(
+      () => _initializing = null,
+    );
+  }
 
+  static Future<void> _initialize() async {
     tz.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Asia/Tokyo'));
 
@@ -181,9 +196,7 @@ class ScheduleNotificationService {
     if (title.trim().isEmpty && body.trim().isEmpty) return;
 
     // attendance 範囲（>= _attendanceIdMin）と衝突しない ID を採番する。
-    final id = DateTime.now().millisecondsSinceEpoch.remainder(
-      _attendanceIdMin,
-    );
+    final id = DateTime.now().millisecondsSinceEpoch.remainder(assignmentIdMin);
 
     final details = NotificationDetails(
       android: AndroidNotificationDetails(
@@ -232,11 +245,33 @@ class ScheduleNotificationService {
     }
   }
 
+  static Future<void> _requireNotificationPermission() async {
+    final android =
+        _plugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
+    if (android != null && await android.areNotificationsEnabled() != true) {
+      throw StateError('端末の設定でCIT Appの通知を許可してください');
+    }
+    final ios =
+        _plugin
+            .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin
+            >();
+    if (ios != null && (await ios.checkPermissions())?.isEnabled != true) {
+      throw StateError('端末の設定でCIT Appの通知を許可してください');
+    }
+  }
+
   /// すべての授業出席通知をキャンセル。
   ///
   /// 予約 ID が attendance 範囲（[_attendanceIdMin] 以上）のもののみを
   /// 個別キャンセルし、他のローカル通知（学食/掲示板など）には影響しない。
-  static Future<void> cancelAllNotifications() async {
+  static Future<void> cancelAllNotifications({
+    bool invalidateReservation = true,
+  }) async {
+    if (invalidateReservation) _lectureGeneration++;
     if (!_initialized) {
       // 初期化前でも cancel() 自体は安全に呼べる。
       try {
@@ -268,24 +303,52 @@ class ScheduleNotificationService {
   /// - 講義期間設定がない場合は [fallbackScheduleHorizonDays] 日分を予約する。
   /// - 通知時刻が現在より過去のものは予約しない。
   /// - 連続講義は開始セルのみを通知対象とする。
-  /// - 無効な period（1〜10 以外）は対象外。
-  static Future<void> scheduleWeeklyNotifications(Schedule schedule) async {
+  /// - 無効な period（1〜15 以外）は対象外。
+  /// 予約できた件数を返す。権限がない場合や全件失敗した場合は例外を返す。
+  static Future<int> scheduleWeeklyNotifications(
+    Schedule schedule, {
+    FirebaseAuth? auth,
+    DateTime? now,
+    Future<LecturePeriodSettings?> Function()? loadLecturePeriod,
+    bool requestExactPermission = false,
+  }) async {
+    final reservation = ++_lectureGeneration;
     final generation = SessionWorkGuard.generation;
     bool isCurrent() =>
+        reservation == _lectureGeneration &&
         SessionWorkGuard.isCurrent(generation) &&
-        FirebaseAuth.instance.currentUser?.uid == schedule.userId;
-    if (!isCurrent()) return;
+        (auth ?? FirebaseAuth.instance).currentUser?.uid == schedule.userId;
+    if (!isCurrent()) return 0;
     if (!_initialized) {
       await initialize();
     }
-    if (!isCurrent()) return;
-    await cancelAllNotifications();
+    final scheduleMode = await ensureNotificationAccess(
+      requestExactPermission: requestExactPermission,
+    );
+    if (!isCurrent()) return 0;
+    await cancelAllNotifications(invalidateReservation: false);
 
-    final now = DateTime.now();
-    final window = await _resolveScheduleWindow(schedule, now);
+    final currentTime = now ?? DateTime.now();
+    final window = await _resolveScheduleWindow(
+      schedule,
+      currentTime,
+      loadLecturePeriod,
+    );
+    if (window == null) return 0;
     int skipped = 0;
     int failed = 0;
     final scheduledList = <_ScheduledNotificationLog>[];
+    final planned =
+        <
+          ({
+            int id,
+            String title,
+            String body,
+            DateTime at,
+            String payload,
+            _ScheduledNotificationLog log,
+          })
+        >[];
 
     SecureLogger.debug('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     SecureLogger.debug('🔔 授業通知 予約処理開始');
@@ -320,14 +383,14 @@ class ScheduleNotificationService {
             );
             final endDateTime = PeriodTimeResolver.endDateTimeFor(
               targetDate,
-              period,
+              period + scheduleClass.duration - 1,
             );
             if (startDateTime == null || endDateTime == null) continue;
 
             final notificationTime = startDateTime.subtract(
               const Duration(minutes: classNotificationBeforeMinutes),
             );
-            if (!notificationTime.isAfter(now)) {
+            if (!notificationTime.isAfter(currentTime)) {
               skipped++;
               continue;
             }
@@ -365,38 +428,49 @@ class ScheduleNotificationService {
               period: period,
             );
 
-            try {
-              if (!isCurrent()) return;
-              await _plugin.zonedSchedule(
-                notificationId,
-                title,
-                body,
-                tz.TZDateTime.from(notificationTime, tz.local),
-                _buildNotificationDetails(body),
-                androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-                uiLocalNotificationDateInterpretation:
-                    UILocalNotificationDateInterpretation.absoluteTime,
-                payload: payload.toJsonString(),
-              );
-              scheduledList.add(
-                _ScheduledNotificationLog(
-                  notificationTime: notificationTime,
-                  startDateTime: startDateTime,
-                  period: period,
-                  subjectName: subjectName,
-                  classroom: classroom,
-                ),
-              );
-            } catch (e) {
-              failed++;
-              SecureLogger.debug(
-                '❌ 通知予約失敗: ${_formatDate(targetDate)} $period限 $subjectName / $e',
-              );
-            }
+            planned.add((
+              id: notificationId,
+              title: title,
+              body: body,
+              at: notificationTime,
+              payload: payload.toJsonString(),
+              log: _ScheduledNotificationLog(
+                notificationTime: notificationTime,
+                startDateTime: startDateTime,
+                period: period,
+                subjectName: subjectName,
+                classroom: classroom,
+              ),
+            ));
           }
         }
       }
       targetDate = targetDate.add(const Duration(days: 1));
+    }
+
+    // Keep the nearest alarms within OS limits. Reserve half of iOS's
+    // pending slots for task reminders; Android stays below OEM alarm limits.
+    planned.sort((a, b) => a.at.compareTo(b.at));
+    final limit = defaultTargetPlatform == TargetPlatform.iOS ? 32 : 400;
+    for (final item in planned.take(limit)) {
+      if (!isCurrent()) return 0;
+      try {
+        await _plugin.zonedSchedule(
+          item.id,
+          item.title,
+          item.body,
+          tz.TZDateTime.from(item.at, tz.local),
+          _buildNotificationDetails(item.body),
+          androidScheduleMode: scheduleMode,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          payload: item.payload,
+        );
+        scheduledList.add(item.log);
+      } catch (error) {
+        failed++;
+        SecureLogger.debug('講義通知を予約できませんでした: $error');
+      }
     }
 
     scheduledList.sort(
@@ -404,10 +478,14 @@ class ScheduleNotificationService {
     );
 
     SecureLogger.debug(
-      '✅ 通知予約完了: 予約=${scheduledList.length}件 / スキップ(過去)=$skipped件 / 失敗=$failed件',
+      '通知予約結果: 予約=${scheduledList.length}件 / スキップ(過去)=$skipped件 / 失敗=$failed件',
     );
     if (scheduledList.isEmpty) {
-      SecureLogger.debug('   予約された通知はありません（対象期間内に未来の講義なし）');
+      SecureLogger.debug(
+        failed > 0
+            ? '   通知を予約できませんでした（予約処理の失敗）'
+            : '   予約された通知はありません（対象期間内に未来の講義なし）',
+      );
     } else {
       SecureLogger.debug('   ── 予約済み通知一覧（通知時刻順） ──');
       for (final entry in scheduledList) {
@@ -415,6 +493,116 @@ class ScheduleNotificationService {
       }
     }
     SecureLogger.debug('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    if (failed > 0 && scheduledList.isEmpty) {
+      throw StateError('講義通知を予約できませんでした。もう一度お試しください');
+    }
+    return scheduledList.length;
+  }
+
+  /// Permission requests only run after the user enables reminder settings.
+  static Future<AndroidScheduleMode> ensureNotificationAccess({
+    bool requestExactPermission = false,
+  }) async {
+    if (!_initialized) await initialize();
+    await _requireNotificationPermission();
+    final android =
+        _plugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
+    if (android == null) return AndroidScheduleMode.exactAllowWhileIdle;
+    var precise = await android.canScheduleExactNotifications() == true;
+    if (!precise && requestExactPermission) {
+      precise = await android.requestExactAlarmsPermission() == true;
+      if (!precise) throw StateError('設定の「アラームとリマインダー」を許可してから、もう一度保存してください');
+    }
+    return precise
+        ? AndroidScheduleMode.exactAllowWhileIdle
+        : AndroidScheduleMode.inexactAllowWhileIdle;
+  }
+
+  static Future<int> scheduleAssignmentReminders(
+    String uid,
+    List<Assignment> tasks, {
+    required bool enabled,
+    FirebaseAuth? auth,
+    DateTime? now,
+  }) {
+    final request = ++_assignmentGeneration;
+    final generation = SessionWorkGuard.generation;
+    bool current() =>
+        request == _assignmentGeneration &&
+        SessionWorkGuard.isCurrent(generation) &&
+        (auth ?? FirebaseAuth.instance).currentUser?.uid == uid;
+    final result = Completer<int>();
+    _assignmentQueue = _assignmentQueue.catchError((Object _) {}).then((
+      _,
+    ) async {
+      try {
+        if (!current()) {
+          result.complete(0);
+          return;
+        }
+        if (!_initialized) await initialize();
+        final pending = await _plugin.pendingNotificationRequests();
+        for (final notification in pending) {
+          if (!current()) {
+            result.complete(0);
+            return;
+          }
+          if (notification.id >= assignmentIdMin &&
+              notification.id < _attendanceIdMin)
+            await _plugin.cancel(notification.id);
+        }
+        if (!enabled || !current()) {
+          result.complete(0);
+          return;
+        }
+        final mode = await ensureNotificationAccess();
+        final planned = planAssignmentReminders(
+          uid,
+          tasks,
+          now ?? DateTime.now(),
+        );
+        final limit = defaultTargetPlatform == TargetPlatform.iOS ? 32 : 64;
+        var count = 0;
+        for (final item in planned.take(limit)) {
+          if (!current()) {
+            result.complete(0);
+            return;
+          }
+          await _plugin.zonedSchedule(
+            item.id,
+            item.title,
+            item.body,
+            tz.TZDateTime.from(item.at, tz.local),
+            NotificationDetails(
+              android: AndroidNotificationDetails(
+                'assignment_reminders',
+                '課題の締切通知',
+                channelDescription: '課題の締切24時間前と1時間前のお知らせ',
+                importance: Importance.high,
+                priority: Priority.high,
+                icon: 'ic_stat_notification',
+              ),
+              iOS: const DarwinNotificationDetails(
+                presentAlert: true,
+                presentSound: true,
+              ),
+            ),
+            androidScheduleMode: mode,
+            uiLocalNotificationDateInterpretation:
+                UILocalNotificationDateInterpretation.absoluteTime,
+            payload: item.payload,
+          );
+          count++;
+        }
+        result.complete(count);
+      } catch (error, stack) {
+        result.completeError(error, stack);
+      }
+    });
+    return result.future;
   }
 
   static String _formatDate(DateTime d) {
@@ -426,25 +614,23 @@ class ScheduleNotificationService {
   static String _formatTime(DateTime d) =>
       '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 
-  static Future<DateTimeRange> _resolveScheduleWindow(
+  static Future<DateTimeRange?> _resolveScheduleWindow(
     Schedule schedule,
     DateTime now,
+    Future<LecturePeriodSettings?> Function()? loadLecturePeriod,
   ) async {
     final today = DateTime(now.year, now.month, now.day);
     try {
-      final settings = await LecturePeriodService.getLecturePeriod();
-      final isFall = schedule.semester.contains('後期');
-      final startRaw =
-          isFall ? settings?.fallStartDate : settings?.springStartDate;
-      final endRaw = isFall ? settings?.fallEndDate : settings?.springEndDate;
-      final legacyStart = settings?.lectureStartDate;
-      final legacyEnd = settings?.lectureEndDate;
-
-      final start = startRaw ?? (!isFall ? legacyStart : null);
-      final end = endRaw ?? (!isFall ? legacyEnd : null);
+      final settings =
+          await (loadLecturePeriod ?? LecturePeriodService.getLecturePeriod)();
+      if (settings?.periodForSemester(schedule.semester)?.isActive == false)
+        return null;
+      final start = settings?.startDateForSemester(schedule.semester);
+      final end = settings?.endDateForSemester(schedule.semester);
       if (start != null && end != null) {
         final startDay = DateTime(start.year, start.month, start.day);
         final endDay = DateTime(end.year, end.month, end.day);
+        if (endDay.isBefore(today)) return null;
         if (!endDay.isBefore(today)) {
           return DateTimeRange(
             start: today.isAfter(startDay) ? today : startDay,

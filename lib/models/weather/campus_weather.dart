@@ -87,6 +87,7 @@ class WeatherHour {
     this.code,
     this.precipitation,
     this.probability,
+    this.windSpeed,
     this.isDay = true,
   });
 
@@ -97,6 +98,7 @@ class WeatherHour {
   final int? code;
   final double? precipitation;
   final int? probability;
+  final double? windSpeed;
   final bool isDay;
   WeatherCondition get condition => weatherCondition(code, precipitation);
   bool? get isWet {
@@ -177,6 +179,7 @@ class CampusWeather {
                 probability != null && probability >= 0 && probability <= 100
                     ? probability.round()
                     : null,
+            windSpeed: _nonNegative(_at(hourly, 'wind_speed_10m', i)),
             isDay: _at(hourly, 'is_day', i) != 0,
           ),
         );
@@ -312,3 +315,5 @@ class RainOutlook {
     return RainOutlook('$untilごろまで雨の予報なし', '外に出る前に最新の予報をチェック。');
   }
 }
+
+String windStrengthLabel(double speed) => speed >= 15 ? 'かなり強い風' : speed >= 10 ? '強い風' : speed >= 5 ? 'やや強い風' : '穏やかな風';

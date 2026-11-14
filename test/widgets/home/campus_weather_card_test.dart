@@ -31,6 +31,7 @@ CampusWeather sample({
       WeatherHour(
         endsAt: DateTime.utc(2026, 9, 12, 4 + i),
         temperature: 24 - (i % 5).toDouble(),
+        windSpeed: 2.0 + i,
         precipitation:
             condition == WeatherCondition.rain && (i < 2 || i == 6) ? 1.5 : 0,
         probability:
@@ -51,8 +52,32 @@ class FakeWeatherService extends CampusWeatherService {
   }
 }
 
+class RestoredWeatherService extends FakeWeatherService {
+  RestoredWeatherService(super.load, this.restore);
+  final Future<CampusWeather?> Function(String) restore;
+  @override
+  Future<CampusWeather?> readCached(String key) => restore(key);
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets(
+    'current wind and forecast are visible before expanding the weather',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CampusWeatherForecast(weather: sample(), now: now),
+          ),
+        ),
+      );
+      expect(find.textContaining('現在の風'), findsOneWidget);
+      expect(find.textContaining('この先6時間 最大'), findsOneWidget);
+      expect(find.textContaining('穏やかな風'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   late Map<Brightness, ThemeData> themes;
   setUpAll(() async => themes = await loadTestThemes());
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -382,6 +407,139 @@ void main() {
     },
   );
 
+  testWidgets(
+    'fresh restored weather avoids startup requests and refreshes when due',
+    (tester) async {
+      var clock = now;
+      final service = RestoredWeatherService(
+        (_) async => sample(time: clock),
+        (_) async => sample(time: now.subtract(const Duration(minutes: 3))),
+      );
+      final key = GlobalKey<CampusWeatherCardState>();
+      await mount(tester, service: service, cardKey: key, clock: () => clock);
+      expect(service.calls, isEmpty);
+      expect(find.byType(CampusWeatherForecast), findsOneWidget);
+      clock = now.add(const Duration(minutes: 7));
+      await tester.pump(const Duration(minutes: 1));
+      await tester.pumpAndSettle();
+      expect(service.calls, ['tsudanuma']);
+    },
+  );
+
+  testWidgets(
+    'manual refresh bypasses fresh cache and completed requests are removed',
+    (tester) async {
+      final service = RestoredWeatherService(
+        (_) async => sample(),
+        (_) async => sample(),
+      );
+      final key = GlobalKey<CampusWeatherCardState>();
+      await mount(tester, service: service, cardKey: key);
+      expect(service.calls, isEmpty);
+      await key.currentState!.refresh();
+      await tester.pumpAndSettle();
+      await key.currentState!.refresh();
+      await tester.pumpAndSettle();
+      expect(service.calls, ['tsudanuma', 'tsudanuma']);
+    },
+  );
+
+  testWidgets('stale restored weather survives an offline startup', (
+    tester,
+  ) async {
+    final service = RestoredWeatherService(
+      (_) async => throw TimeoutException('offline'),
+      (_) async => sample(time: now.subtract(const Duration(hours: 1))),
+    );
+    await mount(tester, service: service);
+    expect(find.byType(CampusWeatherForecast), findsOneWidget);
+    expect(find.textContaining('前回取得した予報'), findsOneWidget);
+    expect(find.textContaining('前回の天気'), findsOneWidget);
+    expect(service.calls, ['tsudanuma']);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a recent fetch timestamp cannot hide outdated current weather', (
+    tester,
+  ) async {
+    final service = RestoredWeatherService(
+      (_) async => sample(),
+      (_) async => CampusWeather(
+        asOf: now.subtract(const Duration(hours: 1)),
+        fetchedAt: now,
+        condition: WeatherCondition.rain,
+        temperature: 24,
+        hours: const [],
+      ),
+    );
+    await mount(tester, service: service);
+    expect(service.calls, ['tsudanuma']);
+  });
+
+  testWidgets(
+    'unmounting during cache restore does not start an abandoned request',
+    (tester) async {
+      final restore = Completer<CampusWeather?>();
+      final service = RestoredWeatherService(
+        (_) async => sample(),
+        (_) => restore.future,
+      );
+      await mount(tester, service: service, settle: false);
+      await tester.pumpWidget(const SizedBox());
+      restore.complete(null);
+      await tester.pumpAndSettle();
+      expect(service.calls, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'a first timeout explains the failure and recovers immediately on resume',
+    (tester) async {
+      var clock = now;
+      var calls = 0;
+      final service = FakeWeatherService((_) async {
+        if (calls++ == 0) throw TimeoutException('offline');
+        return sample(time: clock);
+      });
+      await mount(tester, service: service, clock: () => clock);
+      expect(find.textContaining('タイムアウトしました'), findsOneWidget);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      clock = clock.add(const Duration(seconds: 1));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(service.calls, hasLength(2));
+      expect(find.text('再試行'), findsNothing);
+    },
+  );
+
+  testWidgets('automatic refresh respects the weather rate-limit cooldown', (
+    tester,
+  ) async {
+    var clock = now;
+    var calls = 0;
+    final service = FakeWeatherService((_) async {
+      if (calls++ == 0) {
+        throw WeatherHttpException(
+          429,
+          Uri.https('api.open-meteo.com'),
+          retryAfter: const Duration(minutes: 5),
+        );
+      }
+      return sample(time: clock);
+    });
+    await mount(tester, service: service, clock: () => clock);
+    expect(find.textContaining('混み合っています'), findsOneWidget);
+    clock = clock.add(const Duration(minutes: 4));
+    await tester.pump(const Duration(minutes: 4));
+    expect(service.calls, hasLength(1));
+    clock = clock.add(const Duration(minutes: 1));
+    await tester.pump(const Duration(minutes: 1));
+    await tester.pumpAndSettle();
+    expect(service.calls, hasLength(2));
+    expect(find.text('再試行'), findsNothing);
+  });
+
   testWidgets('failed refresh retains data, marks age and offers retry', (
     tester,
   ) async {
@@ -478,4 +636,24 @@ void main() {
       });
     }
   }
+  testWidgets(
+    'a failed request is retried on resume without waiting ten minutes',
+    (tester) async {
+      var clock = now;
+      var serviceCalls = 0;
+      final service = FakeWeatherService((_) async {
+        if (serviceCalls++ == 0) throw StateError('offline');
+        return sample(time: clock);
+      });
+      await mount(tester, service: service, clock: () => clock);
+      expect(find.text('再試行'), findsOneWidget);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      clock = clock.add(const Duration(minutes: 1));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(service.calls.length, 2);
+      expect(find.text('再試行'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

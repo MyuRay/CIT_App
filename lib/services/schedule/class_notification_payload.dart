@@ -31,7 +31,7 @@ class ClassNotificationPayload {
   /// 曜日番号（DateTime.monday=1 .. sunday=7）。
   final int weekday;
 
-  /// 時限（1〜10）。
+  /// 時限（1〜15）。
   final int period;
 
   /// 授業対象日（時刻なし、ローカル日付）。ISO `yyyy-MM-dd`。

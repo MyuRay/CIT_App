@@ -1,4 +1,4 @@
-/// 千葉工業大学の時限制（1〜10限、各60分）を1か所に集約する解決クラス。
+/// 時限（各60分）を1か所に集約する解決クラス。
 ///
 /// 既存の時間割データに開始/終了時刻が直接保存されていない場合でも、
 /// 時限番号から具体的な時刻を計算する責務をここで一元化する。
@@ -19,9 +19,11 @@ class PeriodTimeResolver {
 
   /// サポートする時限の最小値・最大値。
   static const int minPeriod = 1;
-  static const int maxPeriod = 10;
+  static const int defaultPeriodCount = 10;
+  // 09:00から同じ日の24:00まで。翌日の出欠・通知に混ざらない範囲。
+  static const int maxPeriod = 15;
 
-  /// 与えられた period が 1〜10 の範囲に入っているか。
+  /// 与えられた period が同じ日の時限の範囲に入っているか。
   static bool isValidPeriod(int period) {
     return period >= minPeriod && period <= maxPeriod;
   }

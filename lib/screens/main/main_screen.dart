@@ -1,3 +1,5 @@
+import '../../core/providers/assignment_notification_provider.dart';
+import 'dart:convert';
 import '../../core/theme/app_colors.dart';
 import 'package:cit_app/core/utils/logger.dart';
 import 'dart:async';
@@ -123,6 +125,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   /// payload は [ClassNotificationPayload] が JSON 文字列にエンコードしたもの。
   /// type が `class_attendance` 以外、または parse 失敗時は何もせずに無視する。
   Future<void> _handleScheduleNotificationPayload(String payload) async {
+    try {
+      final value = jsonDecode(payload);
+      if (value is Map && value['kind'] == 'assignment_reminder') {
+        if (mounted && value['userId'] == ref.read(authStateProvider).valueOrNull?.uid) {
+          ref.read(assignmentViewOpenProvider.notifier).state = true;
+          _selectTab(MainNavigation.scheduleIndex);
+        }
+        return;
+      }
+    } catch (_) {}
+
     final pushTarget = NotificationTarget.tryParse(payload);
     if (pushTarget != null) {
       NotificationService.taps.add(pushTarget);
@@ -399,6 +412,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(assignmentReminderSyncProvider);
     // 認証状態を確認
     final authState = ref.watch(authStateProvider);
     final tutorialReplaySignal = ref.watch(tabTutorialReplaySignalProvider);
