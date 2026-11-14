@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:cit_app/models/weather/campus_weather.dart';
 import 'package:cit_app/services/weather/campus_weather_service.dart';
@@ -40,6 +41,8 @@ CampusWeather forecast({
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   test('rain ends at the start of the first dry interval, and can restart', () {
     final result = RainOutlook.forWeather(forecast(), japan(12, 15));
     expect(result.headline, '14時ごろに雨がやむ見込み');
@@ -188,6 +191,7 @@ void main() {
                 japan(14).millisecondsSinceEpoch ~/ 1000,
               ],
               'precipitation': [0.2],
+              'wind_speed_10m': [6.5],
               'precipitation_probability': [null, 60],
               'weather_code': [51],
             },
@@ -210,6 +214,10 @@ void main() {
       expect(result.hours[0].probability, isNull);
       expect(result.hours[1].precipitation, isNull);
       expect(result.maxTemp, isNull);
+      expect(result.windSpeed, 2);
+      expect(result.hours.first.windSpeed, 6.5);
+      expect(result.hours.last.windSpeed, isNull);
+      expect(windStrengthLabel(12), '強い風');
       expect(
         weatherTimeLabel(
           now,
@@ -241,6 +249,38 @@ void main() {
         () => CampusWeather.fromJson({'current': {}}, japan(12)),
         throwsFormatException,
       );
+    },
+  );
+  test(
+    'a valid forecast can be restored after recreating the service',
+    () async {
+      var clock = japan(12, 15);
+      final client = MockClient(
+        (request) async => http.Response(
+          jsonEncode({
+            'current': {
+              'time': clock.millisecondsSinceEpoch ~/ 1000,
+              'temperature_2m': 24,
+              'weather_code': 3,
+            },
+            'hourly': {'time': []},
+          }),
+          200,
+        ),
+      );
+      final service = CampusWeatherService(client: client, now: () => clock);
+      await SharedPreferences.getInstance();
+      await service.fetch('tsudanuma');
+      await Future<void>.delayed(Duration.zero);
+      clock = clock.add(const Duration(hours: 2));
+      final restored = await CampusWeatherService(
+        now: () => clock,
+      ).readCached('tsudanuma');
+      expect(restored?.temperature, 24);
+      expect(restored!.isStale(clock), isTrue);
+      expect(await service.readCached('narashino'), isNull);
+      clock = clock.add(const Duration(days: 1));
+      expect(await service.readCached('tsudanuma'), isNull);
     },
   );
 }

@@ -1,3 +1,6 @@
+import '../../core/providers/assignment_notification_provider.dart';
+import '../../models/assignments/assignment.dart';
+import '../../widgets/notification/reminder_alarm_permission.dart';
 import '../../core/theme/app_colors.dart';
 import '../../widgets/common/retained_async_view.dart';
 import 'package:flutter/material.dart';
@@ -52,6 +55,7 @@ class ScheduleScreen extends ConsumerStatefulWidget {
 enum _ScheduleSheetAction { add, rename, delete }
 
 class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
+  bool _isUpdatingNotifications = false;
   bool _isEditMode = false;
   bool _isSharing = false; // 共有中フラグ
   String? _selectedScheduleId;
@@ -153,14 +157,10 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
         onToggle: () => ref.read(assignmentViewOpenProvider.notifier).state = !showAssignments,
         actions: [
           IconButton(
-            icon: Icon(ref.watch(scheduleNotificationEnabledProvider)
+            icon: Icon(ref.watch(scheduleNotificationEnabledProvider) || ref.watch(assignmentNotificationsEnabledProvider)
               ? Icons.notifications_active : Icons.notifications_off),
-            tooltip: ref.watch(scheduleNotificationEnabledProvider) ? '講義通知をOFF' : '講義通知をON',
-            onPressed: () {
-              if (ref.read(scheduleNotificationEnabledProvider)) {
-                _showDisableNotificationDialog(context);
-              } else { _showNotificationInfoDialog(context); }
-            },
+            tooltip: '時間割・課題の通知設定',
+            onPressed: () => _showNotificationInfoDialog(context),
           ),
           IconButton(icon: const Icon(Icons.fact_check_outlined),
             tooltip: '出欠管理', onPressed: () => _openAttendanceManagement(context)),
@@ -2290,121 +2290,81 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     return DateTimeRange(start: startDay, end: endDay);
   }
 
-  void _showNotificationInfoDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: Row(
-              children: [
-                Icon(
-                  Icons.notifications,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                const Text('講義通知をONにしますか？'),
-              ],
-            ),
-            content: const Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('講義開始の約15分前に「次の講義名・教室・QRで出席」の通知を受け取ります。'),
-                SizedBox(height: 12),
-                Text(
-                  '※ アプリの仕様上、講義開始後まで通知が遅れる可能性があります。',
-                  style: TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('キャンセル'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                  _enableNotifications(context);
-                },
-                child: const Text('ONにする'),
-              ),
-            ],
-          ),
-    );
+  Future<void> _showNotificationInfoDialog(BuildContext context) async {
+    final initialLectures = ref.read(scheduleNotificationEnabledProvider);
+    final initialAssignments = ref.read(assignmentNotificationsEnabledProvider);
+    var lectures = initialLectures;
+    var assignments = initialAssignments;
+    var checkingAlarmAccess = false;
+    final save = await showDialog<bool>(context: context, builder: (dialogContext) =>
+      StatefulBuilder(builder: (context, update) {
+        Future<void> changeReminder(bool value, VoidCallback apply) async {
+          if (!value) {
+            update(apply);
+            return;
+          }
+          update(() => checkingAlarmAccess = true);
+          try {
+            final allowed = await ensureReminderAlarmPermission(context);
+            if (context.mounted && allowed) update(apply);
+          } finally {
+            if (context.mounted) update(() => checkingAlarmAccess = false);
+          }
+        }
+        return AlertDialog(
+        title: const Text('時間割・課題の通知'), scrollable: true,
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('講義開始の通知'),
+            subtitle: const Text('講義開始の15分前にお知らせ'), value: lectures,
+            onChanged: checkingAlarmAccess ? null :
+              (value) => changeReminder(value, () => lectures = value)),
+          SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('課題の締切通知も受け取る'),
+            subtitle: const Text('締切の24時間前と1時間前。完了した課題は通知しません。時刻未設定の課題はその日の終了を締切として通知します。'), value: assignments,
+            onChanged: checkingAlarmAccess ? null :
+              (value) => changeReminder(value, () => assignments = value)),
+          const Text('アプリを閉じていても端末から通知します。Androidでは「アラームとリマインダー」の許可が必要です。端末の省電力設定や強制停止により遅れることがあります。'),
+        ]),
+        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('キャンセル')),
+          FilledButton(onPressed: checkingAlarmAccess ? null :
+            () => Navigator.pop(dialogContext, true), child: const Text('保存'))],
+        );
+      }));
+    if (save != true || !context.mounted || _isUpdatingNotifications) return;
+    _isUpdatingNotifications = true;
+    try {
+      final uid = ref.read(currentUserIdProvider);
+      if (uid == null) throw StateError('ログイン状態を確認してください');
+      if (lectures || assignments) {
+        if ((lectures && !initialLectures) ||
+            (assignments && !initialAssignments)) {
+          if (!await ensureReminderAlarmPermission(context) || !mounted) {
+            return;
+          }
+        }
+        await ScheduleNotificationService.ensureNotificationAccess();
+      }
+      if (!mounted || ref.read(currentUserIdProvider) != uid) return;
+      if (lectures) {
+        final schedule = await ScheduleService.getSelectedScheduleByUserId(uid,
+          selectedScheduleId: _selectedScheduleId);
+        if (schedule == null) throw StateError('先に時間割を作成してください');
+        await ScheduleNotificationService.scheduleWeeklyNotifications(schedule);
+      } else {
+        await ScheduleNotificationService.cancelAllNotifications();
+      }
+      if (!mounted || ref.read(currentUserIdProvider) != uid) return;
+      await ref.read(setScheduleNotificationEnabledProvider)(lectures);
+      final tasks = assignments ? await ref.read(userAssignmentsProvider(uid).future) : const <Assignment>[];
+      await ScheduleNotificationService.scheduleAssignmentReminders(uid, tasks, enabled: assignments);
+      if (!mounted || ref.read(currentUserIdProvider) != uid) return;
+      await ref.read(setAssignmentNotificationsEnabledProvider)(assignments);
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('通知設定を保存しました')));
+    } catch (error) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
+        error is StateError ? error.message.toString() : '通知を設定できませんでした。もう一度お試しください')));
+    } finally { _isUpdatingNotifications = false; }
   }
 
-  void _showDisableNotificationDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: Row(
-              children: [
-                const Icon(Icons.notifications_off),
-                const SizedBox(width: 8),
-                const Text('講義通知をOFFにしますか？'),
-              ],
-            ),
-            content: const Text('すべての講義通知がキャンセルされます。'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('キャンセル'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(foregroundColor: AppColors.onColor(Colors.grey.shade700),
-                  backgroundColor: Colors.grey.shade700,
-                ),
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                  _disableNotifications(context);
-                },
-                child: const Text('OFFにする'),
-              ),
-            ],
-          ),
-    );
-  }
-
-  Future<void> _enableNotifications(BuildContext context) async {
-    await ref.read(setScheduleNotificationEnabledProvider)(true);
-    if (!mounted || !context.mounted) return;
-
-    final schedule = ref
-        .read(currentUserScheduleProvider)
-        .maybeWhen(data: (value) => value, orElse: () => null);
-    if (schedule != null) {
-      await ScheduleNotificationService.scheduleWeeklyNotifications(schedule);
-      if (!mounted || !context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(
-          content: Text('講義通知を有効にしました。講義開始まもなく通知します。'),
-          backgroundColor: AppColors.snackBarSurface(context, Colors.green),
-        ),
-      );
-    } else {
-      if (!mounted || !context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(
-          content: Text('時間割データを読み込み中です。完了後に自動で通知を設定します。'),
-          backgroundColor: AppColors.snackBarSurface(context, Colors.orange),
-        ),
-      );
-    }
-  }
-
-  Future<void> _disableNotifications(BuildContext context) async {
-    await ref.read(setScheduleNotificationEnabledProvider)(false);
-    await ScheduleNotificationService.cancelAllNotifications();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('講義通知を無効にしました。'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
 }
 
 class _CreateScheduleInputPage extends StatefulWidget {

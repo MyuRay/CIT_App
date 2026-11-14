@@ -10,6 +10,7 @@ import '../../models/notification/notification_preference_model.dart';
 import '../../services/notification/notification_preference_service.dart';
 import '../../services/schedule/schedule_notification_service.dart';
 import '../../services/schedule/schedule_service.dart';
+import '../../widgets/notification/reminder_alarm_permission.dart';
 
 /// プッシュ通知の受信設定（アプリ内の通知一覧はオフでも表示されます）
 class NotificationSettingsScreen extends ConsumerWidget {
@@ -99,7 +100,10 @@ class NotificationSettingsScreen extends ConsumerWidget {
                             style: Theme.of(
                               context,
                             ).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ),
@@ -118,15 +122,31 @@ class NotificationSettingsScreen extends ConsumerWidget {
   ) async {
     try {
       if (key == NotificationPreferenceKey.scheduleClass) {
+        int? scheduledCount;
+        if (value) {
+          if (!await ensureReminderAlarmPermission(context) ||
+              !context.mounted || ref.read(currentUserIdProvider) != uid) {
+            return;
+          }
+          scheduledCount = await _rescheduleScheduleNotifications(ref, uid);
+        } else {
+          await ScheduleNotificationService.cancelAllNotifications();
+        }
+        if (!context.mounted || ref.read(currentUserIdProvider) != uid) return;
         await ref
             .read(settingsProvider.notifier)
             .setScheduleNotificationEnabled(value);
-        if (value) {
-          // ON にしたら現在の時間割で通知を予約する。
-          // （以前は ON 時に何もせず、再起動するまで通知が来なかった）
-          await _rescheduleScheduleNotifications(ref, uid);
-        } else {
-          await ScheduleNotificationService.cancelAllNotifications();
+        if (!context.mounted) return;
+        if (scheduledCount != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                scheduledCount > 0
+                    ? '選択中の時間割の講義通知を$scheduledCount件予約しました（開始15分前）'
+                    : '講義通知をONにしました。選択中の時間割には、これから通知する講義がありません',
+              ),
+            ),
+          );
         }
         return;
       }
@@ -140,7 +160,9 @@ class NotificationSettingsScreen extends ConsumerWidget {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('設定の保存に失敗しました: $e'),
+          content: Text(
+            e is StateError ? e.message.toString() : '設定の保存に失敗しました: $e',
+          ),
           backgroundColor: AppColors.snackBarSurface(context, Colors.red),
         ),
       );
@@ -148,28 +170,16 @@ class NotificationSettingsScreen extends ConsumerWidget {
   }
 
   /// 現在選択中（なければ先頭）の時間割で講義通知を予約し直す。
-  static Future<void> _rescheduleScheduleNotifications(
+  static Future<int> _rescheduleScheduleNotifications(
     WidgetRef ref,
     String uid,
   ) async {
-    try {
-      final schedules = await ScheduleService.getAllSchedulesByUserId(uid);
-      if (schedules.isEmpty) return;
-      final selectedId = ref.read(selectedScheduleIdProvider);
-      var schedule = schedules.first;
-      if (selectedId != null) {
-        for (final s in schedules) {
-          if (s.id == selectedId) {
-            schedule = s;
-            break;
-          }
-        }
-      }
-      await ScheduleNotificationService.scheduleWeeklyNotifications(schedule);
-    } catch (e) {
-      // 予約失敗は通知設定自体の保存を妨げない。
-      debugPrint('⚠️ 講義通知の再予約に失敗: $e');
-    }
+    final schedule = await ScheduleService.getSelectedScheduleByUserId(
+      uid,
+      selectedScheduleId: ref.read(selectedScheduleIdProvider),
+    );
+    if (schedule == null) throw StateError('先に時間割を作成してください');
+    return ScheduleNotificationService.scheduleWeeklyNotifications(schedule);
   }
 }
 

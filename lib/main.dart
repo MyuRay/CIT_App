@@ -1,3 +1,4 @@
+import 'widgets/common/app_startup_host.dart';
 import 'package:cit_app/core/utils/logger.dart';
 import 'services/widget/home_widget_destination.dart';
 import 'dart:async';
@@ -45,7 +46,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   SecureLogger.debug('バックグラウンド通知イベントを受信しました');
 }
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
   FlutterError.onError = (details) {
@@ -105,6 +106,10 @@ void main() async {
     );
   };
 
+  runApp(AppStartupHost(initialize: _initializeApp));
+}
+
+Future<Widget> _initializeApp() async {
   // パフォーマンス監視開始
   final monitor = PerformanceMonitor();
   monitor.startTimer('app_startup');
@@ -344,7 +349,8 @@ void main() async {
   }
 
   // バックグラウンドで遅延初期化を実行（起動時間に影響しない）
-  _initializeBackgroundServices();
+  if (Firebase.apps.isEmpty) throw StateError('Firebase initialization failed');
+  WidgetsBinding.instance.addPostFrameCallback((_) => _initializeBackgroundServices());
 
   // アプリ起動時間を記録
   final startupTime = monitor.stopTimer('app_startup');
@@ -373,14 +379,12 @@ void main() async {
     } catch (_) {}
   }
 
-  runApp(
-    ProviderScope(
+  return ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
         initialRouteFromWidgetProvider.overrideWithValue(initialRoute),
       ],
       child: const CITApp(),
-    ),
   );
 }
 

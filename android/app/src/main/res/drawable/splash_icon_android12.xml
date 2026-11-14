@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Android 12 uses a 288dp canvas. Padding keeps the complete 112dp logo
+         inside its circular mask, matching the legacy and Flutter screens. -->
+    <item android:width="288dp" android:height="288dp" android:gravity="center">
+        <bitmap android:gravity="center" android:src="@drawable/splash_icon" />
+    </item>
+</layer-list>
