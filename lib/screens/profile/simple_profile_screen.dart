@@ -17,20 +17,21 @@ import '../../services/user/user_service.dart';
 import '../../services/user/profile_image_service.dart';
 import '../../widgets/profile/user_avatar.dart';
 import '../../core/providers/cwitter_provider.dart';
-import '../contact/contact_form_screen.dart';
 import '../admin/admin_dashboard_screen.dart';
 import '../../core/providers/admin_provider.dart';
 import '../contact/user_contact_list_screen.dart';
 import '../legal/terms_of_service_screen.dart';
 import '../legal/privacy_policy_screen.dart';
-import '../cafeteria/cafeteria_my_screen.dart';
 import 'cit_app_recruitment_screen.dart';
+import 'profile_avatar_setup_screen.dart';
 import 'account_deletion_screen.dart';
 import '../../core/providers/settings_provider.dart';
 import '../user_block/blocked_user_list_screen.dart';
 import '../../core/providers/in_app_ad_provider.dart';
 import '../../models/ads/in_app_ad_model.dart';
 import '../../widgets/ads/in_app_ad_card.dart';
+import '../../widgets/profile/profile_feature_shortcuts_card.dart';
+import '../../widgets/profile/profile_highlight_badge.dart';
 
 class SimpleProfileScreen extends ConsumerWidget {
   const SimpleProfileScreen({super.key});
@@ -42,7 +43,7 @@ class SimpleProfileScreen extends ConsumerWidget {
 
     final themeMode = ref.watch(themeModeProvider);
     final themeModeNotifier = ref.read(themeModeProvider.notifier);
-    final preferredBusCampus = ref.watch(preferredBusCampusProvider);
+    final storedMainCampus = ref.watch(preferredBusCampusStoredProvider);
     final appFontSize = ref.watch(appFontSizeProvider);
     final analyticsEnabled = ref.watch(analyticsCollectionEnabledProvider);
     final calendarWeekStart = ref.watch(calendarWeekStartProvider);
@@ -81,6 +82,21 @@ class SimpleProfileScreen extends ConsumerWidget {
               : currentUser?.photoURL,
       orElse: () => currentUser?.photoURL,
     );
+    final mainCampusLabel =
+        storedMainCampus == null
+            ? '未設定'
+            : storedMainCampus == 'narashino'
+            ? '新習志野キャンパス'
+            : '津田沼キャンパス';
+    final mainCampusNameStyle =
+        storedMainCampus == null
+            ? Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            )
+            : Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            );
 
     return Scaffold(
       appBar: AppBar(title: const Text('マイページ'), actions: const []),
@@ -93,98 +109,211 @@ class SimpleProfileScreen extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Stack(
-                      alignment: Alignment.bottomRight,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        UserAvatar(
-                          imageUrl: profileImageUrl,
-                          displayName: effectiveDisplayName,
-                          colorSeed: currentUser?.uid,
-                          radius: 40,
-                          initialTextStyle: const TextStyle(
-                            fontSize: 32,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        if (currentUser != null)
-                          Material(
-                            color: Theme.of(context).colorScheme.primary,
-                            shape: const CircleBorder(),
-                            child: InkWell(
-                              onTap:
-                                  () => _showAvatarEditSheet(
-                                    context,
-                                    ref,
-                                    uid: currentUser.uid,
-                                    profileImageUrl: profileImageUrl,
-                                  ),
-                              customBorder: const CircleBorder(),
-                              child: Padding(
-                                padding: EdgeInsets.all(6),
-                                child: Icon(
-                                  Icons.camera_alt,
-                                  size: 18,
-                                  color: AppColors.onColor(Theme.of(context).colorScheme.primary),
-                                ),
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            UserAvatar(
+                              imageUrl: profileImageUrl,
+                              displayName: effectiveDisplayName,
+                              colorSeed: currentUser?.uid,
+                              radius: 36,
+                              initialTextStyle: const TextStyle(
+                                fontSize: 28,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
+                            if (currentUser != null)
+                              Positioned(
+                                right: -2,
+                                bottom: -2,
+                                child: Material(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  shape: const CircleBorder(),
+                                  elevation: 1,
+                                  child: InkWell(
+                                    onTap:
+                                        () => _showAvatarEditSheet(
+                                          context,
+                                          ref,
+                                          uid: currentUser.uid,
+                                          profileImageUrl: profileImageUrl,
+                                        ),
+                                    customBorder: const CircleBorder(),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(5),
+                                      child: Icon(
+                                        Icons.camera_alt,
+                                        size: 16,
+                                        color: AppColors.onColor(
+                                          Theme.of(context).colorScheme.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              InkWell(
+                                onTap:
+                                    () => _showEditCommentNameDialog(
+                                      context,
+                                      ref,
+                                      effectiveDisplayName,
+                                    ),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 2,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          effectiveDisplayName,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleLarge
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.edit,
+                                        size: 16,
+                                        color:
+                                            Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Material(
+                                    color:
+                                        Theme.of(context)
+                                            .colorScheme
+                                            .surfaceContainerHighest
+                                            .withValues(alpha: 0.65),
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: InkWell(
+                                      onTap:
+                                          () => _showPreferredBusCampusDialog(
+                                            context,
+                                            ref,
+                                            storedMainCampus,
+                                          ),
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 8,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'メインキャンパス',
+                                                    style: Theme.of(context)
+                                                        .textTheme
+                                                        .labelSmall
+                                                        ?.copyWith(
+                                                          color:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .onSurfaceVariant,
+                                                        ),
+                                                  ),
+                                                  Text(
+                                                    mainCampusLabel,
+                                                    style: mainCampusNameStyle,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            Icon(
+                                              Icons.edit_outlined,
+                                              size: 18,
+                                              color:
+                                                  Theme.of(context)
+                                                      .colorScheme
+                                                      .primary,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (storedMainCampus == null)
+                                    const Positioned(
+                                      top: -4,
+                                      right: -4,
+                                      child: ProfileHighlightBadge(),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              _ProfileEmailTapZone(
+                                email: currentUser?.email,
+                                fallbackLabel: 'ログインして全機能をご利用ください',
+                              ),
+                              if (currentUser != null &&
+                                  AppConstants.shouldShowEmailChangeButton(
+                                    currentUser.email,
+                                  )) ...[
+                                const SizedBox(height: 4),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: TextButton(
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    onPressed: () => context.push('/change-email'),
+                                    child: const Text('メールアドレスを変更'),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    if (currentUser != null)
-                      TextButton(
-                        onPressed:
-                            () => _showAvatarEditSheet(
-                              context,
-                              ref,
-                              uid: currentUser.uid,
-                              profileImageUrl: profileImageUrl,
-                            ),
-                        child: const Text('表示アイコンを変更'),
-                      ),
-                    const SizedBox(height: 8),
-                    Text(
-                      effectiveDisplayName,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      currentUser?.email ?? 'ログインして全機能をご利用ください',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed:
-                          () => _showEditCommentNameDialog(
-                            context,
-                            ref,
-                            effectiveDisplayName,
-                          ),
-                      icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('表示名を編集'),
-                    ),
-                    if (currentUser != null &&
-                        AppConstants.shouldShowEmailChangeButton(
-                          currentUser.email,
-                        )) ...[
-                      const SizedBox(height: 8),
-                      OutlinedButton.icon(
-                        onPressed: () => context.push('/change-email'),
-                        icon: const Icon(Icons.alternate_email, size: 16),
-                        label: const Text('メールアドレスを変更'),
-                      ),
-                    ],
                   ],
                 ),
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             profileAdAsync.when(
               data:
                   (ad) =>
@@ -201,13 +330,37 @@ class SimpleProfileScreen extends ConsumerWidget {
               error: (_, __) => const SizedBox.shrink(),
             ),
 
+            ProfileFeatureShortcutsCard(
+              themeModeNotifier: themeModeNotifier,
+              themeMode: themeMode,
+              appFontSize: appFontSize,
+              calendarWeekStart: calendarWeekStart,
+              onThemeDialog:
+                  () => _showThemeSelectionDialog(
+                    context,
+                    themeModeNotifier,
+                    themeMode,
+                  ),
+              onFontSizeDialog:
+                  () => _showFontSizeDialog(context, ref, appFontSize),
+              onCalendarDialog:
+                  () => _showCalendarWeekStartDialog(
+                    context,
+                    ref,
+                    calendarWeekStart,
+                  ),
+            ),
+
+            const SizedBox(height: 16),
+
             // 設定セクション
             Card(
+              clipBehavior: Clip.antiAlias,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                     child: Text(
                       '設定',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -215,143 +368,18 @@ class SimpleProfileScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  const Divider(height: 1),
-
-                  // テーマ設定
-                  ListTile(
-                    leading: Icon(
-                      themeModeNotifier.isDarkMode(context)
-                          ? Icons.dark_mode
-                          : Icons.light_mode,
-                    ),
-                    title: const Text('テーマ設定'),
-                    subtitle: Text(themeModeNotifier.currentThemeDisplayName),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () {
-                      SecureLogger.debug('🔧 テーマ設定タップ');
-                      _showThemeSelectionDialog(
-                        context,
-                        themeModeNotifier,
-                        themeMode,
-                      );
-                    },
+                  _ProfileMenuTile(
+                    icon: Icons.play_circle_outline,
+                    title: '使い方ガイド',
+                    subtitle: '各タブの操作見本を確認',
+                    onTap: () => _replayTabTutorial(context, ref),
                   ),
-
-                  const Divider(height: 1),
-
-                  // メインキャンパス設定
-                  ListTile(
-                    leading: const Icon(Icons.school),
-                    title: const Text('メインキャンパスを設定'),
-                    subtitle: Text(
-                      preferredBusCampus == 'narashino'
-                          ? '新習志野キャンパス'
-                          : '津田沼キャンパス',
-                    ),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap:
-                        () => _showPreferredBusCampusDialog(
-                          context,
-                          ref,
-                          preferredBusCampus,
-                        ),
-                  ),
-
-                  const Divider(height: 1),
-
-                  // 文字サイズ設定
-                  ListTile(
-                    leading: const Icon(Icons.format_size),
-                    title: const Text('文字サイズ'),
-                    subtitle: Text(appFontSize.displayName),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () => _showFontSizeDialog(context, ref, appFontSize),
-                  ),
-
-                  const Divider(height: 1),
-
-                  // 学年暦
-                  ListTile(
-                    leading: const Icon(Icons.calendar_month),
-                    title: const Text('学年暦'),
-                    subtitle: Text('カレンダー: ${calendarWeekStart.displayName}'),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap:
-                        () => _showCalendarWeekStartDialog(
-                          context,
-                          ref,
-                          calendarWeekStart,
-                        ),
-                  ),
-
-                  const Divider(height: 1),
-
-                  // タブチュートリアル再表示
-                  ListTile(
-                    leading: const Icon(Icons.play_circle_outline),
-                    title: const Text('チュートリアルを確認'),
-                    subtitle: const Text('操作の見本をタップして、各タブの使い方を確認'),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () async {
-                      final prefs = ref.read(sharedPreferencesProvider);
-                      await prefs.remove(_tabTutorialSeenVersionKey);
-                      ref
-                          .read(tabTutorialReplaySignalProvider.notifier)
-                          .state++;
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('チュートリアルを再表示します')),
-                        );
-                      }
-                    },
-                  ),
-
-                  const Divider(height: 1),
-
-                  // My食堂
-                  ListTile(
-                    leading: const Icon(Icons.favorite),
-                    title: const Text('My食堂'),
-                    subtitle: const Text('自分のレビュー履歴とお気に入りを確認'),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const MyCafeteriaScreen(),
-                        ),
-                      );
-                    },
-                  ),
-
-                  const Divider(height: 1),
-
-                  // お問い合わせフォーム（ログインユーザー向け）
                   if (currentUser != null) ...[
-                    ListTile(
-                      leading: Icon(
-                        Icons.help_center,
-                        color: AppColors.accent(context, Colors.blue),
-                      ),
-                      title: const Text('お問い合わせ'),
-                      subtitle: const Text('質問・要望・不具合報告'),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const ContactFormScreen(),
-                          ),
-                        );
-                      },
-                    ),
-
-                    const Divider(height: 1),
-
-                    // お問い合わせ履歴
-                    ListTile(
-                      leading: Icon(Icons.history, color: AppColors.accent(context, Colors.green)),
-                      title: const Text('お問い合わせ履歴'),
-                      subtitle: const Text('過去のお問い合わせと返信'),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    _ProfileMenuTile(
+                      icon: Icons.history,
+                      iconColor: AppColors.accent(context, Colors.green),
+                      title: 'お問い合わせ履歴',
+                      subtitle: '過去のお問い合わせと返信',
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -360,15 +388,11 @@ class SimpleProfileScreen extends ConsumerWidget {
                         );
                       },
                     ),
-
-                    const Divider(height: 1),
-
-                    // ブロック済みユーザー管理
-                    ListTile(
-                      leading: Icon(Icons.block, color: AppColors.accent(context, Colors.red)),
-                      title: const Text('ブロック済みユーザー'),
-                      subtitle: const Text('ブロックしたユーザーの管理'),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    _ProfileMenuTile(
+                      icon: Icons.block,
+                      iconColor: AppColors.accent(context, Colors.red),
+                      title: 'ブロック済みユーザー',
+                      subtitle: 'ブロックしたユーザーの管理',
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -377,48 +401,42 @@ class SimpleProfileScreen extends ConsumerWidget {
                         );
                       },
                     ),
-
-                    const Divider(height: 1),
                   ],
-
-                  // ログアウト（ユーザーがログインしている場合のみ）
                   if (currentUser != null) ...[
-                    ListTile(
-                      leading: Icon(Icons.logout, color: AppColors.accent(context, Colors.red)),
-                      title: const Text('ログアウト'),
+                    _ProfileMenuTile(
+                      icon: Icons.logout,
+                      iconColor: AppColors.accent(context, Colors.red),
+                      title: 'ログアウト',
+                      showChevron: false,
                       onTap: () => _showLogoutDialog(context, ref),
                     ),
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: Icon(
-                        Icons.delete_forever,
-                        color: AppColors.accent(context, Colors.red),
-                      ),
-                      title: const Text('アカウント削除'),
-                      subtitle: const Text('アカウントと関連データを削除'),
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                        builder: (_) => const AccountDeletionScreen(),
-                      )),
+                    _ProfileMenuTile(
+                      icon: Icons.delete_forever,
+                      iconColor: AppColors.accent(context, Colors.red),
+                      title: 'アカウント削除',
+                      subtitle: 'アカウントと関連データを削除',
+                      showChevron: false,
+                      onTap:
+                          () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const AccountDeletionScreen(),
+                            ),
+                          ),
                     ),
-                  ] else ...[
-                    ListTile(
-                      leading: Icon(Icons.login, color: AppColors.accent(context, Colors.blue)),
-                      title: const Text('ログイン'),
-                      onTap: () {
-                        Navigator.of(context).pushNamed('/login');
-                      },
+                  ] else
+                    _ProfileMenuTile(
+                      icon: Icons.login,
+                      iconColor: AppColors.accent(context, Colors.blue),
+                      title: 'ログイン',
+                      showChevron: false,
+                      onTap: () => Navigator.of(context).pushNamed('/login'),
                     ),
-                  ],
-
-                  const Divider(height: 1),
-
-                  // 利用状況の分析
-                  SwitchListTile(
-                    secondary: const Icon(Icons.insights_outlined),
-                    title: const Text('利用状況の分析'),
-                    subtitle: const Text(
-                      '画面の利用状況や設定を改善に役立てます。氏名・メール・投稿内容は送信しません。この端末でオフにできます。',
-                    ),
+                  const SizedBox(height: 4),
+                  _ProfileSwitchTile(
+                    icon: Icons.insights_outlined,
+                    title: '利用状況の分析',
+                    subtitle:
+                        '画面の利用状況や設定を改善に役立てます。氏名・メール・投稿内容は送信しません。この端末でオフにできます。',
                     value: analyticsEnabled,
                     onChanged: (enabled) async {
                       try {
@@ -436,6 +454,7 @@ class SimpleProfileScreen extends ConsumerWidget {
                       }
                     },
                   ),
+                  const SizedBox(height: 8),
                 ],
               ),
             ),
@@ -453,6 +472,17 @@ class SimpleProfileScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _replayTabTutorial(BuildContext context, WidgetRef ref) async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.remove(_tabTutorialSeenVersionKey);
+    ref.read(tabTutorialReplaySignalProvider.notifier).state++;
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('チュートリアルを再表示します')),
+      );
+    }
+  }
+
   Widget _buildAdminSection(BuildContext context, WidgetRef ref, User? currentUser) {
     if (currentUser == null) return const SizedBox.shrink();
     return ref.watch(currentUserAdminProvider).when(
@@ -461,27 +491,36 @@ class SimpleProfileScreen extends ConsumerWidget {
       data: (permissions) => permissions?.isAdmin == true
           ? Padding(
               padding: const EdgeInsets.only(bottom: 24),
-              child: Card(child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                leading: Icon(Icons.admin_panel_settings_outlined, color: Theme.of(context).colorScheme.primary),
-                title: const Text('管理センター', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('対応待ちの確認・配信・キャンパス運営'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AdminDashboardScreen())),
-              )),
+              child: Card(
+                clipBehavior: Clip.antiAlias,
+                child: _ProfileMenuTile(
+                  icon: Icons.admin_panel_settings_outlined,
+                  iconColor: Theme.of(context).colorScheme.primary,
+                  title: '管理センター',
+                  subtitle: '対応待ちの確認・配信・キャンパス運営',
+                  onTap:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const AdminDashboardScreen(),
+                        ),
+                      ),
+                ),
+              ),
             )
           : const SizedBox.shrink(),
       loading: () => const SizedBox.shrink(),
       error: (_, __) => const SizedBox.shrink(),
     );
   }
+
   Widget _buildAppInfoCard(BuildContext context) {
     return Card(
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text(
               'アプリ情報',
               style: Theme.of(
@@ -489,24 +528,16 @@ class SimpleProfileScreen extends ConsumerWidget {
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
-          const Divider(height: 1),
-
-          ListTile(
-            leading: const Icon(Icons.info),
-            title: const Text('バージョン'),
-            subtitle: Text(AppConstants.appVersion),
+          _ProfileMenuTile(
+            icon: Icons.info_outline,
+            title: 'バージョン',
+            subtitle: AppConstants.appVersion,
+            showChevron: false,
           ),
-
-          const Divider(height: 1),
-
           const _AppDescriptionListTile(),
-
-          const Divider(height: 1),
-
-          ListTile(
-            leading: const Icon(Icons.description),
-            title: const Text('利用規約'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          _ProfileMenuTile(
+            icon: Icons.description_outlined,
+            title: '利用規約',
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -515,13 +546,9 @@ class SimpleProfileScreen extends ConsumerWidget {
               );
             },
           ),
-
-          const Divider(height: 1),
-
-          ListTile(
-            leading: const Icon(Icons.privacy_tip),
-            title: const Text('プライバシーポリシー'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          _ProfileMenuTile(
+            icon: Icons.privacy_tip_outlined,
+            title: 'プライバシーポリシー',
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -530,6 +557,7 @@ class SimpleProfileScreen extends ConsumerWidget {
               );
             },
           ),
+          const SizedBox(height: 8),
         ],
       ),
     );
@@ -699,30 +727,29 @@ class SimpleProfileScreen extends ConsumerWidget {
     String uid,
     ImageSource source,
   ) async {
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-
     try {
-      await ProfileImageService.pickAndUpload(uid: uid, source: source);
+      final picked = await ProfileImageService.pickAvatarImage(source: source);
+      if (!context.mounted) return;
+      final saved = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
+          builder:
+              (_) => ProfileAvatarSetupScreen(uid: uid, imageFile: picked),
+        ),
+      );
+      if (saved != true || !context.mounted) return;
       ref.invalidate(userProvider(uid));
       ref.invalidate(authStateProvider);
       ref.invalidate(currentAppUserStreamProvider);
-      if (!context.mounted) return;
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('表示アイコンを更新しました')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('表示アイコンを更新しました')),
+      );
     } on ProfileImageCancelledException {
-      if (context.mounted) Navigator.of(context).pop();
+      return;
     } catch (e) {
       if (context.mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('アイコンの更新に失敗しました: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('アイコンの更新に失敗しました: $e')),
+        );
       }
     }
   }
@@ -838,7 +865,7 @@ class SimpleProfileScreen extends ConsumerWidget {
   void _showPreferredBusCampusDialog(
     BuildContext context,
     WidgetRef ref,
-    String current,
+    String? current,
   ) {
     showDialog(
       context: context,
@@ -1060,14 +1087,217 @@ class _AppDescriptionListTileState extends State<_AppDescriptionListTile> {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: const Icon(Icons.school),
-      title: const Text(AppConstants.appDescriptionTitle),
-      subtitle: Text(
-        AppConstants.appDescriptionSubtitle,
-        style: Theme.of(context).textTheme.bodySmall,
-      ),
+    return _ProfileMenuTile(
+      icon: Icons.school_outlined,
+      title: AppConstants.appDescriptionTitle,
+      subtitle: AppConstants.appDescriptionSubtitle,
+      showChevron: false,
       onTap: _handleTap,
+    );
+  }
+}
+
+class _ProfileIconBadge extends StatelessWidget {
+  const _ProfileIconBadge({
+    required this.icon,
+    this.iconColor,
+    this.backgroundColor,
+    this.size = 44,
+    this.iconSize = 24,
+  });
+
+  final IconData icon;
+  final Color? iconColor;
+  final Color? backgroundColor;
+  final double size;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final bg = backgroundColor ?? scheme.primaryContainer.withValues(alpha: 0.55);
+    final fg = iconColor ?? scheme.onPrimaryContainer;
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(size * 0.28),
+      ),
+      child: Icon(icon, size: iconSize, color: fg),
+    );
+  }
+}
+
+class _ProfileMenuTile extends StatelessWidget {
+  const _ProfileMenuTile({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.iconColor,
+    this.backgroundColor,
+    this.showChevron = true,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Color? iconColor;
+  final Color? backgroundColor;
+  final bool showChevron;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      leading: _ProfileIconBadge(
+        icon: icon,
+        iconColor: iconColor,
+        backgroundColor: backgroundColor,
+      ),
+      title: Text(
+        title,
+        style: Theme.of(
+          context,
+        ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+      ),
+      subtitle:
+          subtitle == null
+              ? null
+              : Text(
+                subtitle!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+      trailing:
+          showChevron && onTap != null
+              ? Icon(Icons.chevron_right, color: scheme.outline)
+              : null,
+      onTap: onTap,
+    );
+  }
+}
+
+class _ProfileSwitchTile extends StatelessWidget {
+  const _ProfileSwitchTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ProfileIconBadge(icon: icon),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch.adaptive(value: value, onChanged: onChanged),
+        ],
+      ),
+    );
+  }
+}
+
+/// 管理者のみ: メール表示部を15回タップでマイページ設定を初期化。
+class _ProfileEmailTapZone extends ConsumerStatefulWidget {
+  const _ProfileEmailTapZone({this.email, required this.fallbackLabel});
+
+  final String? email;
+  final String fallbackLabel;
+
+  @override
+  ConsumerState<_ProfileEmailTapZone> createState() =>
+      _ProfileEmailTapZoneState();
+}
+
+class _ProfileEmailTapZoneState extends ConsumerState<_ProfileEmailTapZone> {
+  static const int _requiredTaps = 15;
+  static const Duration _tapResetGap = Duration(seconds: 3);
+
+  int _tapCount = 0;
+  DateTime? _lastTapAt;
+
+  Future<void> _onTap() async {
+    final isAdmin = ref.read(currentUserAdminProvider).valueOrNull?.isAdmin;
+    if (isAdmin != true) return;
+
+    final now = DateTime.now();
+    if (_lastTapAt != null && now.difference(_lastTapAt!) > _tapResetGap) {
+      _tapCount = 0;
+    }
+    _lastTapAt = now;
+    _tapCount++;
+
+    if (_tapCount < _requiredTaps) return;
+    _tapCount = 0;
+
+    try {
+      await ref.read(resetMyPageDefaultsProvider)();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('マイページ設定を初期状態に戻しました')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('設定のリセットに失敗しました')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final label = widget.email ?? widget.fallbackLabel;
+    final scheme = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTap: _onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: scheme.onSurfaceVariant,
+        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
   }
 }
