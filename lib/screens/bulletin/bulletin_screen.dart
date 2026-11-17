@@ -418,7 +418,9 @@ class _BulletinScreenState extends ConsumerState<BulletinScreen> {
   Future<void> _openGuide() async {
     try {
       if (await launchUrl(
-        Uri.parse('https://cit-app.com/features'),
+        Uri.parse(
+          'https://cit-app.com/features#feature-board:~:text=%E3%82%92%E5%A4%A7%E3%81%8D%E3%81%8F%E8%A6%8B%E3%82%8B-,%E6%8E%B2%E7%A4%BA%E6%9D%BF%E3%81%AE%E4%BD%BF%E3%81%84%E6%96%B9,-%E3%82%B5%E3%83%BC%E3%82%AF%E3%83%AB%E6%B4%BB%E5%8B%95%E3%80%81%E3%82%A4%E3%83%99%E3%83%B3%E3%83%88',
+        ),
         mode: LaunchMode.externalApplication,
       )) {
         return;
