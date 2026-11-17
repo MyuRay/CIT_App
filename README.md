@@ -1,227 +1,202 @@
-# CIT App - 千葉工業大学学生支援アプリ
+# CIT App - 千葉工業大学向け大学生活支援アプリ
 
-千葉工業大学の学生向けに開発された包括的な学生支援アプリケーションです。時間割管理、掲示板機能、食堂メニュー表示、シラバス検索など、学生生活に必要な機能を一つのアプリで提供します。
+千葉工業大学の学生向けに、時間割・課題・出欠、学内交流、掲示板、学食、学バス、キャンパスマップをまとめたアプリです。Android・iOS・Web向けにFlutterで開発しています。
 
-開発・運用を引き継ぐメンバーは[引き継ぎ資料](docs/handoff/README.md)から確認してください。[Discord RAGの初期実装と導入手順](tools/discord-rag/README.md)も用意しています。本番反映状況とローカル実装・検証結果は分けて記録します。
+**README更新日: 2026-11-17**。各ブランチのアプリ版数は `pubspec.yaml` を確認してください。ローカルでは2.5.0+86に向けた変更を準備しています。
 
-## 📱 主な機能
+このREADMEには、マージ済みの機能とローカルで開発中の変更の両方を記載しています。開発中の変更は、対応するソースを含むブランチで利用できます。ストア公開版や本番Firebaseへの反映状況は、各機能の資料・リリース記録で確認してください。
 
-### 🗓️ 時間割管理
-- 個人の時間割作成・編集
-- ホーム画面ウィジェット今後対応（次の授業、今日の予定、週間予定）
+- [公式サイト](https://cit-app.com/)
+- [開発・運用の引き継ぎ資料](docs/handoff/README.md)
+- [2.5.0のリリース記録](docs/releases/2.5.0.md)
+- [利用規約](TERMS_OF_SERVICE.md)・[プライバシーポリシー](PRIVACY_POLICY.md)
 
-### 📢 掲示板システム
-- カテゴリ別投稿（イベント、サークル、学習、その他）
-- 画像投稿対応
-- ピン留め・人気投稿表示
-- コメント機能
-- 管理者による投稿管理
+## 主な機能
 
-### 🍽️ 食堂メニュー
-- リアルタイムメニュー表示
-- 画像付きメニュー情報
-- 自動更新スケジューラー追加済み
+以下は開発中の実装を含む機能一覧です。お問い合わせチャット、3Dマップ、Cwitterの引用・検索・固定投稿、学年別広告分析などの追加実装は、各資料の反映条件を確認してください。
 
-### 📚 シラバス検索今後追加
-- 講義情報検索
-- ブックマーク機能
+| 機能 | 内容 |
+| --- | --- |
+| 時間割・出欠 | 複数時間割の作成・編集、Excel取り込み、連続コマ、土曜日の表示切替、10限を超える時限の追加、画像共有、前期・後期別の出欠管理、講義通知 |
+| 課題管理 | 講義に紐づく課題や単独の課題の登録、締切・メモ、完了／未完了の切替、ホーム表示、締切のリマインダー |
+| 大学内SNS | Cwitterの投稿・画像・返信・いいね・リクイート・引用・投票・検索・フォロー・固定投稿、ちばちゃんねるのスレッド・返信、通報・ブロック |
+| 掲示板 | カテゴリ別の投稿申請、画像・コメント、ピン留め、管理者による承認・掲載管理、スポンサー掲載 |
+| 学食 | キャンパス別メニュー、写真・レビュー、お気に入り、並べ替え |
+| 学バス | キャンパス間の時刻表、次の出発便、運行日・臨時ダイヤ、優先キャンパス設定 |
+| キャンパス情報 | 教室・フロアマップ、津田沼／新習志野の3Dマップ、天気予報、学年暦、便利リンク |
+| ホームウィジェット | Android・iOSの今日の時間割、週間時間割、学バス表示 |
+| マイページ・サポート | プロフィール・アバター、ホーム表示のカスタマイズ、ライト／ダークテーマ、使い方ガイドの再表示、画像付きお問い合わせチャット、通知設定、アカウント削除 |
+| 管理者機能 | 管理センター、投稿・通報・ユーザー・お問い合わせの管理、広告配信・学年別広告分析、講義期間・バス情報などの設定 |
 
-### 👤 ユーザー管理
-- CITメールアドレス認証（@s.chibakoudai.jp, @p.chibakoudai.jp, @chibatech.ac.jp）
-- 管理者権限システム
-- お問い合わせ機能
+2.5.0の準備中ソースでは、学バスタイムアタックの入口を非表示にし、3Dマップの入口は維持しています。
 
-## 🏗️ 技術スタック
+### 認証・登録
 
-- **フレームワーク**: Flutter 3.38.3 (stable)
-- **状態管理**: Riverpod + Hooks Riverpod
-- **バックエンド**: Firebase
-  - Authentication（認証）
-  - Firestore（データベース）
-  - Storage（画像ストレージ）
-  - App Check（セキュリティ）
-  - Cloud Messaging（プッシュ通知）
-  - Analytics（分析）
-- **ナビゲーション**: Go Router
-- **UI**: Material Design 3
-- **プラットフォーム**: Android, iOS, Web
+- 新規登録は **`@chibatech.ac.jp` のみ**。メールリンクによる本人確認後に登録を完了し、パスワードを設定します。
+- 既存の `@s.chibakoudai.jp`／`@p.chibakoudai.jp` アカウントは引き続きログインでき、新ドメインへの変更を案内します。
+- 認証にはFirebase Authenticationを使用します。登録前のサーバーチェック、リンク設定、既存利用者の扱いは[メール登録の資料](docs/EMAIL_REGISTRATION.md)を参照してください。
 
-## 🚀 セットアップと起動
+## 技術構成
 
-WindowsでOneDrive配下の `cleanMergeDebugAssets` が失敗する場合は、[生成物をローカル保存へ切り替える手順](docs/handoff/development.md#onedrive内でビルドが止まる)を参照してください。
+| 項目 | 使用技術・構成 |
+| --- | --- |
+| アプリ | Flutter / Dart、Material Design 3 |
+| 状態管理・画面遷移 | Riverpod / Hooks Riverpod、Go Router |
+| バックエンド | Firebase Authentication、Cloud Firestore、Cloud Storage、Cloud Functions |
+| 通知・運用 | Firebase Cloud Messaging、ローカル通知、App Check、Analytics、Remote Config |
+| モデル・コード生成 | Freezed、json_serializable、build_runner |
+| ウィジェット・地図 | home_widget、WidgetKit、flutter_map、Three.js / WebViewによる3D表示 |
 
-### 前提条件
-- Flutter SDK 3.38.3 (stable)
-- Dart SDK 3.7.0以降
-- Android Studio / Xcode（モバイル開発時）
-- Firebase プロジェクト
+Cloud FirestoreのFlutterプラグインはローカル修正版を使用しています。`third_party/cloud_firestore` を含めて取得し、変更理由は[パッチ記録](third_party/cloud_firestore/PATCHES.md)を確認してください。
 
-### インストール手順
+## セットアップ
 
-1. **リポジトリのクローン**
+### 必要な環境
+
+- Flutter / Dart SDK。`pubspec.yaml` のDart指定は `>=3.7.0-0 <4.0.0` です。実際に必要なSDKは、使用するブランチの `pubspec.lock` 末尾にある `sdks` を確認してください。2.5.0準備中の作業環境ではDart `>=3.13.0 <4.0.0`・Flutter `>=3.47.0` が必要で、最近のローカル検証にはFlutter 3.47.3を使用しています。
+- Android開発: Android Studio、Android SDK、Gradleに対応するJDK。
+- iOS開発: macOS、Xcode、CocoaPods、署名環境。
+- バックエンド・ルールテスト: Node.js / npm、Firebase CLI。`functions/` の実行環境はNode.js 20です。開発中の `security-functions/`・`game-functions/` はNode.js 22を使用します。
+- Firestore等のエミュレーター用Java。既存の検証ではJava 21を使用しています。
+
+依存関係は `pubspec.lock` と各 `package-lock.json`、Functionsのランタイムは `firebase.json` と各 `package.json` を基準にしてください。
+
+### 取得・依存関係
+
 ```bash
-git clone [repository-url]
-cd cit_app
-```
-
-2. **依存関係のインストール**
-```bash
+git clone https://github.com/MyuRay/CIT_App.git
+cd CIT_App
+flutter --version
+flutter doctor
 flutter pub get
 ```
 
-3. **Firebase設定**
-   - Firebase Console でプロジェクトを作成
-   - Android: `android/app/google-services.json` を配置
-   - iOS: `ios/Runner/GoogleService-Info.plist` を配置
-   - Web: `web/firebase-config.js` の設定値を更新
-
-4. **コード生成**
-```bash
-flutter packages pub run build_runner build
-```
-
-5. **アプリケーションの起動**
-```bash
-flutter run
-```
-
-## 📁 プロジェクト構造
-
-```
-lib/
-├── core/                     # コア機能
-│   ├── config/              # アプリ設定
-│   ├── constants/           # 定数定義
-│   ├── providers/           # Riverpod プロバイダー
-│   └── theme/               # テーマ設定
-├── models/                  # データモデル
-├── screens/                 # 画面コンポーネント
-│   ├── auth/               # 認証画面
-│   ├── home/               # ホーム画面
-│   ├── schedule/           # 時間割画面
-│   ├── bulletin/           # 掲示板画面
-│   └── profile/            # プロフィール画面
-├── services/                # ビジネスロジック
-├── widgets/                 # 再利用可能ウィジェット
-└── utils/                   # ユーティリティ
-```
-
-## 🔧 開発ガイド
-
-### 認証システム
-- CITのメールアドレス（@s.chibakoudai.jp または @p.chibakoudai.jp）のみ登録可能
-- Firebase Authentication を使用
-
-### 状態管理
-- Riverpod を使用したリアクティブな状態管理
-- プロバイダーは `core/providers/` に配置
-
-### データモデル
-- Freezed を使用したイミュータブルなデータクラス
-- JSON シリアライゼーション対応
-
-### テーマ
-- Material Design 3 準拠
-- ライト・ダークテーマ対応
-
-## 🧪 テスト
+バックエンドの開発・テストを行う場合は、対象の依存関係も取得します。
 
 ```bash
-# 単体テスト
+npm ci
+npm ci --prefix functions
+```
+
+開発中のセキュリティ監視・キャンパスゲームを含むブランチでは、それぞれ `npm ci --prefix security-functions`・`npm ci --prefix game-functions` も実行します。
+
+Windows PowerShellで `npm.ps1` が実行ポリシーにより停止する場合は、`npm` を `npm.cmd` に置き換えて実行できます。
+
+### Firebase設定
+
+既存プロジェクトの設定を運営から受け取って使用してください。
+
+| 対象 | 設定箇所 |
+| --- | --- |
+| Android | `android/app/google-services.json` |
+| iOS | `ios/Runner/GoogleService-Info.plist` |
+| Web | `lib/main.dart` の `FirebaseOptions`。`web/firebase-config.js` にも関連設定がありますが、Firebaseの初期化はDart側で行います |
+| Web App Check | `--dart-define=FIREBASE_RECAPTCHA_SITE_KEY=...` で実際のサイトキーを指定 |
+
+WebのApp Checkはサイトキー未設定時に初期化をスキップします。利用先のApp Check強制設定に合わせて構成してください。メール登録のApp Links／Universal Linksや認証用Hostingは[専用資料](docs/EMAIL_REGISTRATION.md)を参照してください。
+
+### コード生成・起動
+
+FreezedやJSONモデルを変更した場合は、生成コードを更新します。
+
+```bash
+dart run build_runner build --delete-conflicting-outputs
+flutter devices
+flutter run -d <device-id>
+```
+
+Webで起動する場合:
+
+```bash
+flutter run -d chrome
+```
+
+## プロジェクト構成
+
+| パス | 役割 |
+| --- | --- |
+| `lib/main.dart` | 起動・Firebase初期化 |
+| `lib/core/` | ルーティング、定数、Riverpodプロバイダー、テーマ、規約モデル |
+| `lib/models/` | データモデル |
+| `lib/screens/` | ホーム・時間割・交流・掲示板・管理などの画面 |
+| `lib/services/` | 機能別のデータ取得・保存・通知処理 |
+| `lib/widgets/` | 共通UI・機能別ウィジェット |
+| `android/`・`ios/`・`web/` | プラットフォーム設定・ネイティブ実装 |
+| `assets/` | 画像、3Dモデル、同梱データ・音声 |
+| `functions/` | 通知、登録、プロフィール同期、アカウント削除等のFunctions |
+| `security-functions/`・`game-functions/` | 開発中のセキュリティ監視・キャンパスゲーム用Functions。対応する実装ブランチに配置 |
+| `firestore.rules`・`storage.rules` | アクセス制御。インデックスは `firestore.indexes.json` |
+| `legal/` | 利用規約・プライバシーポリシーの原稿 |
+| `test/` | Flutter、認証、Firestore・Storageルールなどのテスト |
+| `scripts/`・`tools/` | ビルド支援、運用、検証用プレビュー、Discord RAG等 |
+| `docs/` | 機能仕様、検証記録、リリース・引き継ぎ資料 |
+
+## 検証
+
+Flutterのテスト・静的解析:
+
+```bash
 flutter test
-
-# 統合テスト
-flutter test integration_test/
+dart analyze lib test
 ```
 
-## 📦 ビルド
+バックエンド・アクセス制御のテスト:
 
-### Android
 ```bash
+npm test --prefix functions
+npm run test:rules
+npm run test:auth
+```
+
+開発中の機能を含むブランチでは、`npm test --prefix security-functions`・`npm test --prefix game-functions`・`npm run test:contact-chat-rules` も対象になります。
+
+ルール・認証テストは各 `firebase.*test.json` と `demo-` で始まるテスト用プロジェクトを使用します。対象・前提条件は `package.json` のscriptsを確認してください。実機の通知、ウィジェット、メールリンク、iOS署名は別途端末で確認します。
+
+規約の原稿を変更する場合は `legal/documents.json` を編集し、生成・整合性確認を行います。詳細は[規約管理の資料](legal/README.md)を参照してください。
+
+```bash
+node scripts/generate_legal_documents.cjs
+node scripts/generate_legal_documents.cjs --check
+```
+
+## ビルド・配布
+
+```bash
+# Android
 flutter build apk --release
 flutter build appbundle --release
-```
 
-### iOS
-```bash
+# iOS（macOS・Xcodeが必要）
 flutter build ios --release
-```
 
-### Web
-```bash
+# Web
 flutter build web --release
 ```
 
-## 🛠️ トラブルシューティング
+Androidの配信用ビルドには既存のPlayアップロードキーと `android/key.properties`、またはAndroid Studioの署名ウィザードによる設定が必要です。署名情報・キーストアはGitへ含めません。AABの通常の出力先は `build/app/outputs/bundle/release/app-release.aab` です。
 
-### よくある問題
+生成したAABは `scripts/verify_android_bundle.ps1` で版数・署名・マニフェスト等を検査できます。必要な引数は `-BundlePath` と `-BundletoolPath` です。配布時の条件は[2.5.0の記録](docs/releases/2.5.0.md)、更新案内の設定は[アップデート案内](docs/APP_UPDATE_PROMPT.md)を参照してください。
 
-1. **Firebase接続エラー**
-   - `google-services.json` の配置を確認
-   - Firebase プロジェクトの設定を確認
+Firebaseの反映対象・移行手順は機能ごとの資料で確認し、対象を指定してデプロイします。現在の作業ツリーには複数機能の変更が含まれるため、ルール全文やFunctions全体の一括反映前に本番との差分を確認してください。
 
-2. **ビルドエラー**
-   - `flutter clean && flutter pub get` を実行
-   - 依存関係の競合を確認
+### Windows / OneDriveのビルド復旧
 
-## 📋 変更ログ
+`cleanMergeDebugAssets` で生成物を削除できない場合は、Android Studioの実行・デバッグを停止し、`android/gradlew.bat --stop` でGradleを停止します。[Windowsビルドの復旧記録](docs/WINDOWS_BUILD_RECOVERY_2026-09-12.md)と、使用するブランチの `scripts/prepare_windows_build.ps1` を確認してください。準備中の2.5.0には、対象の生成アセットを退避する `scripts/repair_android_assets.ps1` もあります。スクリプトの動作は版によって異なります。
 
-### v1.17.10+60
-#### 🍽️ 学食レビュー機能の改善
-- **メニュー名の2行表示対応**
-  - レビューカード、レビューリスト、詳細画面のメニュー名を2行表示に対応
-  - 長いメニュー名も見やすく表示
-- **ドラッグ可能なボタン**
-  - レビュー作成・編集ボタンをドラッグで移動可能に
-  - 右下固定で、文字数に応じて左上方向に拡大
-  - 全角20文字（メニュー詳細画面）または25文字（レビュー作成フォーム）で折り返し
-- **UI改善**
-  - ボタンの幅を調整し、文字が全部見えるように改善
+## 機能・運用資料
 
-#### 🔒 セキュリティ・プライバシー
-- **プライバシーポリシー・利用規約の改訂**
-  - 最新の内容に更新
-- **アカウント登録画面の改善**
-  - パスワード設定フォームの下に、MARINEアカウント及び大学関連サービスとは違うパスワードを使うことを推奨するメッセージを追加
+| 分野 | 資料 |
+| --- | --- |
+| 時間割・課題・出欠 | [Excel取り込み](docs/EXCEL_TIMETABLE_IMPORT.md)、[課題管理](docs/ASSIGNMENTS.md)、[講義の出欠](docs/LECTURE_ATTENDANCE.md)、[ドラッグ操作](docs/SCHEDULE_DRAG.md) |
+| ホーム・端末連携 | [ホームウィジェット](docs/HOME_WIDGETS.md)、[天気予報](docs/WEATHER_FORECAST.md)、[学年暦](docs/ACADEMIC_CALENDAR.md)、[使い方ガイド](docs/VISUAL_TUTORIAL.md) |
+| 地図・バス | [3Dマップ](docs/CAMPUS_3D_MAP.md)、[バス時刻表管理](docs/BUS_TIMETABLE_MANAGEMENT.md) |
+| 交流・プライバシー | [公開プロフィール](docs/PUBLIC_PROFILES_PRIVACY.md)、[ちばちゃんねるの投稿者情報](docs/CHIBA_PRIVATE_IDENTITIES.md) |
+| 管理・サポート | [管理センター](docs/ADMIN_CENTER.md)、[お問い合わせ](docs/CONTACT_CHAT.md)、[広告配信・分析](docs/AD_TARGETING_AND_ANALYTICS.md)、[スポンサー掲載](docs/SPONSOR_PLACEMENTS.md) |
+| 認証・規約・退会 | [メール登録](docs/EMAIL_REGISTRATION.md)、[規約管理](legal/README.md)、[アカウント削除](docs/ACCOUNT_DELETION.md)、[Storageの認可](docs/STORAGE_AUTHORIZATION.md) |
+| 引き継ぎ | [資料の入口](docs/handoff/README.md)、[Discord RAG](tools/discord-rag/README.md) |
 
-### v1.4.0+11
-#### 🚀 新機能
-- **掲示板投稿申請システムを実装**
-  - すべての投稿が管理者による事前承認制に変更
-  - 投稿フォームを「投稿申請」に変更
-  - 管理者画面に承認待ち・承認済みタブを追加
+過去の変更履歴は [CHANGELOG.md](CHANGELOG.md)、最近の版別記録は [docs/releases/](docs/releases/) にあります。
 
-#### 🔒 セキュリティ向上
-- **Android権限の最適化**
-  - 危険な`MANAGE_EXTERNAL_STORAGE`権限を削除
-  - 必要最小限の権限のみに変更（カメラ、画像アクセス）
-  - Google Play Store承認要件に準拠
+## お問い合わせ
 
-#### 🛠️ 管理機能強化
-- 管理者による投稿承認・却下機能
-- ピン留め申請システムの完全実装
-- 掲示板管理ボタンの「開発中」表示を修正
-
-### v1.3.1+10
-#### 🐛 バグ修正
-- ホーム画面の右上ウィジェット更新ボタン（デバッグ用）を削除
-- ダークモードでのテキストと UI 要素の視認性を改善
-- ダークモードでのオーバーフロー警告（黄色い線）を修正
-
-#### 🎨 UI改善
-- 通知バッジ色をテーマ適応型に変更
-- 授業スケジュール表示のレイアウト最適化
-- 便利リンクカードの色指定をテーマ対応に改良
-
-### v1.3.0+9
-- 時間割管理機能の安定性向上
-- 掲示板システムの機能拡張
-- ホームウィジェット機能の実装
-
-## 📄 ライセンス
-
-このプロジェクトは千葉工業大学の学生支援を目的として開発されています。
-
-## 👥 コントリビューション
-
-バグ報告や機能提案は、https://cit-app.com/ お問い合わせフォームよりご連絡ください。
+不具合報告・機能提案はアプリ内の「お問い合わせ」、[公式サイト](https://cit-app.com/)、または [citapp919@gmail.com](mailto:citapp919@gmail.com) へご連絡ください。

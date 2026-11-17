@@ -1,0 +1,191 @@
+{
+  "recordedAtUtc": "2026-10-04T18:38:45.520190+00:00",
+  "repository": "C:\\Users\\mmura\\OneDrive\\Desktop\\CIT_App",
+  "commitPushDeployPerformed": false,
+  "nodeTests": {
+    "passed": 48,
+    "failed": 0
+  },
+  "backendUnitTests": {
+    "passed": 25,
+    "failed": 0
+  },
+  "backendSequentialEmulatorTests": {
+    "passed": 9,
+    "failed": 0
+  },
+  "flutterScopedTests": {
+    "passed": 38,
+    "failed": 0,
+    "portableVisualFixtureRecheckPassed": 1
+  },
+  "newFlutterCodeAnalysis": "No issues found (6 scoped items)",
+  "broaderAnalysis": {
+    "errors": 0,
+    "warnings": 5,
+    "infos": 10,
+    "note": "Existing home_screen warnings/info and Matrix4 deprecations retained; exit1, not a clean broad analysis pass."
+  },
+  "normalWebBuild": "passed (JavaScript); existing image4.3.0 optional Wasm dry-run failed",
+  "androidDebugApkBuild": "passed",
+  "sourceWebApkAssetParity": {
+    "count": 67,
+    "allMatch": true
+  },
+  "actualFlutterMapAndNavigationChecksPassed": 8,
+  "twoIndependentFlutterUiChecks": {
+    "checks": {
+      "mypageNameWithoutSeparateInput": true,
+      "flutterCreateAndCodeJoin": true,
+      "waitingRoomDisconnectReconnectThroughFlutter": true,
+      "heightAwareFlutterTrace": true,
+      "commonStartThroughFlutter": true,
+      "delayedRecoveryResponse": true,
+      "flutterServerSelectedRecoveryPenalty": true,
+      "mypageNameChangeAndOpponentSync": true,
+      "flutterTraceToVerifiedFinish": true,
+      "flutterRankingVisibleBoth": true,
+      "flutterFinishedRoomReloadCodeRejoin": true,
+      "missingMypageNameShowsSafeGuide": true
+    },
+    "errors": [],
+    "limits": [
+      "Independent Flutter Web contexts using Firebase Auth emulator anonymous identities and actual callable HTTP. Production callable requests intercepted before network and forwarded to localhost only.",
+      "QA-only viewer output adds synthetic centreline positions at 18m/s for completion; real time, unchanged timers/checkpoints/trace/Flutter bridge/backend. Not physical steering or real-device GPU QA.",
+      "3D renderer skipped after genuine first game rendering to avoid software-GPU shadow clear stalls with two clients. Original timers, events, trace, Flutter bridge and backend remain live; QA-only continuous centreline motion at up to 18m/s replaces physical steering."
+    ],
+    "serverTimes": [
+      59365,
+      75764
+    ],
+    "explicitRecoveryCounts": [
+      0,
+      1
+    ],
+    "recoveryResponseDelayMs": 3000,
+    "measuredRecoveryRoundTripMs": 3212,
+    "requestCounts": [
+      {
+        "action": "getProfile",
+        "status": 200,
+        "count": 10
+      },
+      {
+        "action": "profile",
+        "status": 200,
+        "count": 3
+      },
+      {
+        "action": "createRoom",
+        "status": 200,
+        "count": 1
+      },
+      {
+        "action": "room",
+        "status": 200,
+        "count": 95
+      },
+      {
+        "action": "joinRoom",
+        "status": 200,
+        "count": 2
+      },
+      {
+        "action": "room",
+        "status": 503,
+        "count": 3
+      },
+      {
+        "action": "readyRoom",
+        "status": 200,
+        "count": 2
+      },
+      {
+        "action": "startRoom",
+        "status": 200,
+        "count": 1
+      },
+      {
+        "action": "trace",
+        "status": 200,
+        "count": 75
+      },
+      {
+        "action": "recover",
+        "status": 200,
+        "count": 1
+      },
+      {
+        "action": "courses",
+        "status": 200,
+        "count": 2
+      },
+      {
+        "action": "standings",
+        "status": 200,
+        "count": 2
+      }
+    ],
+    "maximumCallableDurationMs": 7492,
+    "maximumTraceDurationMs": 7492
+  },
+  "recoveryClockFix": "Original common-start anchor preserved; genuine restored-position sample at response receipt, no backfill. Real core regression2.2/3sec delays finish accepted; >5sec fail closed with explicit retry, all server guards unchanged.",
+  "mobileWebGlInputChecks": "6 vehicle/orientation combinations passed; software Chrome with scripted CDP multitouch",
+  "cleanup": "Exported handler executed twice in emulator; expiry, live/persistent data preservation and idempotence passed in 9-test suite. Scheduler delivery untested.",
+  "unverified": [
+    "Physical Android/iOS GPU and touch",
+    "iOS build",
+    "Production online deployment/E2E",
+    "Cloud scheduler delivery"
+  ],
+  "limitations": [
+    "Two-client completion uses QA-only bounded centreline motion. Renderer disabled after real first frame. It proves UI/Auth/Callable/Firestore integration, not physical driving or GPU performance.",
+    "Home card image uses the production card methods in an offline fixture, with empty map image slots.",
+    "Campus exterior/heights include estimates; DEM is 97.7301% source-derived and2.2699% interpolated."
+  ],
+  "librarySave": {
+    "status": "previously blocked",
+    "error": "Library prepare_uploads is not available",
+    "retriedAfterInstruction": false
+  },
+  "deliverables": [
+    {
+      "file": "CIT-App-campus-3d-debug.apk",
+      "bytes": 285939004,
+      "sha256": "5c62f77113b88aa6a83aa052c3e021f7697446a86a35ad1d4610dfd256998a8e"
+    },
+    {
+      "file": "tsudanuma-map-labels.png",
+      "bytes": 107312,
+      "sha256": "f1b33ad595d72ffe1b1ef749aa6d93cd087a6a13b6d5e5d437051f982e7a17e9"
+    },
+    {
+      "file": "narashino-map-labels.png",
+      "bytes": 77784,
+      "sha256": "89cec397e6e1411cf4f7ca63de19c7d388a3dd449fe9cbefff7059e35a4fe8cc"
+    },
+    {
+      "file": "game-bus-sphere-portrait.png",
+      "bytes": 53391,
+      "sha256": "d536637c8311716b65c4c175cf66f4f3b63767ebc71b74e36a20543df3ab137e"
+    },
+    {
+      "file": "game-bus-sphere-landscape.png",
+      "bytes": 45593,
+      "sha256": "415ecad89fed825dc9c3d7cc3eae549d928c16482aa526bbffe8a7ff89361114"
+    },
+    {
+      "file": "flutter-ranking.png",
+      "bytes": 78142,
+      "sha256": "6423b67e213aef3c22fefb6b950c9567c5568644531b9e797c6b126ae9f22202"
+    },
+    {
+      "file": "home-campus-card.png",
+      "bytes": 40434,
+      "sha256": "7816962a8724ee79849d5f02d0f92ea3bbd43e9ef8ad5387d399d352f436264c"
+    }
+  ],
+  "localEmulators": "Stopped after completed UI validation; old39440 and restarted29570 no longer running",
+  "gitDiffCheck": "passed",
+  "recoveryClockRegressionSource": "tools/campus_3d/recovery_clock.test.mjs"
+}

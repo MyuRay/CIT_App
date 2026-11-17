@@ -6,7 +6,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../core/providers/legal_consent_provider.dart';
 
-/// 交流機能追加に伴う規約更新への同意ゲート
+/// 現在の規約・ポリシーへの同意を確認するゲート
 class CommunityLegalUpdateConsentGate extends ConsumerWidget {
   const CommunityLegalUpdateConsentGate({super.key, required this.child});
 
@@ -124,13 +124,13 @@ class _CommunityLegalUpdateConsentSheetState
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Icon(
-                        Icons.groups_outlined,
+                        Icons.policy_outlined,
                         size: 36,
                         color: colorScheme.primary,
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        '交流サービス登場に伴う\n利用規約・プライバシーポリシーの更新について',
+                        '利用規約・プライバシーポリシーを更新しました',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                           height: 1.35,
@@ -139,9 +139,24 @@ class _CommunityLegalUpdateConsentSheetState
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        'CIT App に Cwitter（マイクロブログ）とちばちゃんねる（匿名掲示板）が追加されました。\n\n'
-                        'これに伴い、利用規約およびプライバシーポリシーを更新しています。'
-                        '引き続き本アプリをご利用いただくには、更新後の内容をご確認のうえ、同意が必要です。',
+                        '主な変更内容\n'
+                        '・運営者と問い合わせ先の明記\n'
+                        '・投稿や問い合わせ等を運営用Discordへ送信することと、退会時の削除範囲\n'
+                        '・登録メールから推定した学年による広告表示と、その計測\n'
+                        '・Excel改善用データの任意提供（初期状態はオン、取り込み前に解除可能）\n'
+                        '・情報の保存方針と、利用制限・損害賠償の扱い\n\n'
+                        '更新後の全文をご確認ください。Excelの提供は、取り込みのたびに選べます。',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        '運営通知では、投稿・問い合わせの内容と、表示名・ユーザーID・メールの一部等をDiscordへ送信します。'
+                        '運営メンバーが新着確認・問い合わせ対応・通報確認のために閲覧します。'
+                        'メールを一部伏せても、個人との関連がなくなるわけではありません。'
+                        '過去の通知は退会時の自動削除に含まれない場合があります。\n\n'
+                        '同意しない場合や、アプリを利用せずに削除を請求する場合の窓口：citapp919@gmail.com',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           height: 1.5,
                         ),
