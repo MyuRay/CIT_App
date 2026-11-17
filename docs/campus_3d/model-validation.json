@@ -1,0 +1,24 @@
+[
+  {
+    "name": "tsudanuma-campus.glb",
+    "size": 4139212,
+    "sha256": "9fd036e09ef3cf9fa5d272c8b89c9de0a7d83d64a31f32bfc04462c72915697d",
+    "nodes": 15,
+    "meshes": 15,
+    "extensions": [],
+    "errors": 0,
+    "warnings": 0,
+    "messages": []
+  },
+  {
+    "name": "shinnarashino-campus.glb",
+    "size": 10311688,
+    "sha256": "a382024baeb711d41cd80ae1c8997b252539fc45839665f56235de4d3597d5cd",
+    "nodes": 25,
+    "meshes": 25,
+    "extensions": [],
+    "errors": 0,
+    "warnings": 0,
+    "messages": []
+  }
+]

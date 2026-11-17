@@ -1,0 +1,477 @@
+{
+  "apkPath": "C:\\Users\\mmura\\OneDrive\\Desktop\\CIT_App\\build\\app\\outputs\\flutter-apk\\app-debug.apk",
+  "apkSize": 285939004,
+  "assetCount": 67,
+  "allMatch": true,
+  "assets": [
+    {
+      "name": "tsudanuma-campus.glb",
+      "size": 4139212,
+      "sha256": "9fd036e09ef3cf9fa5d272c8b89c9de0a7d83d64a31f32bfc04462c72915697d",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "shinnarashino-campus.glb",
+      "size": 10311688,
+      "sha256": "a382024baeb711d41cd80ae1c8997b252539fc45839665f56235de4d3597d5cd",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "campus_engine.js",
+      "size": 818168,
+      "sha256": "1e785537cd8dc9506b4b3c4068912a26eb861e3743d1353d1da686bbf2e10489",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "viewer.html",
+      "size": 11284,
+      "sha256": "9d47a406d552b9f5e51f1d189ce2a2b9220c79bfa69aeaed1ae3b192887de485",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "campus_engine.js.LEGAL.txt",
+      "size": 188,
+      "sha256": "cc7cc7e2f53d5db0235ab2226e85fc6e91655161573b39813b41bb00e5919674",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region.json",
+      "size": 2709512,
+      "sha256": "6614016eeb5dffcfb16253b8a636f107e75dca72dd72bd805ec7696278d68ded",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region-source-manifest.json",
+      "size": 105338,
+      "sha256": "c02f2457bbf9474d260ce0bac001554b09badc7db1ed0dd7e0eeb9aed0c1017b",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58254-25803.jpg",
+      "size": 22485,
+      "sha256": "fa79b11d7405eda23aed1ce596497a2799ce29de9ed9d58b7587d3237adee4c4",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58254-25804.jpg",
+      "size": 24013,
+      "sha256": "7edf305c2035048dafeccf206cc68fa07a543d0cf8b091767407850c8509162b",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58254-25806.jpg",
+      "size": 18011,
+      "sha256": "6b66d2b961fde17cc76c25afb8cd2e2a2cac8980891567128f502d60060de511",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58254-25807.jpg",
+      "size": 14600,
+      "sha256": "758e947ebfdfb6ee219f0dfd56d0b8e213cb5cbfb472d835d07bcbe7f897c5f0",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58254-25808.jpg",
+      "size": 20139,
+      "sha256": "96de1370dc2ac9949b4c7500296d933d5e8d944991b46a8f3c5c0bd57830e6b1",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58254-25811.jpg",
+      "size": 11010,
+      "sha256": "b66643d887d51ef25ceaf94c269647cceb79470572e61212cd4a3aed07e21b04",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58254-25812.jpg",
+      "size": 6773,
+      "sha256": "ae5d172d81eaf8c6d4da117c05ed987f7710a0c0e8cb5ebf26eacf98613ab231",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58255-25803.jpg",
+      "size": 22901,
+      "sha256": "8ac1edd5316313ad636d527cb486e9e96cdf836601bc4548609080e64276033e",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58255-25804.jpg",
+      "size": 23431,
+      "sha256": "de9258d8b8a3b092690a95312e9ff5edcd1f74efa4de1160f137e85d9ab8d38b",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58255-25805.jpg",
+      "size": 24676,
+      "sha256": "3fb2adc5b93abc9c6457e51e22272f02710ea1a6c0ba8e0ea9b7a10447296c5e",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58255-25807.jpg",
+      "size": 7303,
+      "sha256": "fe524fc3294219569c523bbb677431993318172de1dc55bb9b2dcff9ebd3cba5",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58255-25811.jpg",
+      "size": 14427,
+      "sha256": "71a47afc49e04ee1c97f1305e4a25d9d36474c973755849ccd48fb5737043a0b",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58256-25804.jpg",
+      "size": 21731,
+      "sha256": "2e7a156793e144ff4058d9d7bffbe522e26ec4bcf5f6d0546dcf9b14e48c4608",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58256-25807.jpg",
+      "size": 21452,
+      "sha256": "7d8b4423e552d8ada5b784c02f412026fd58bd83291d5f1344ed5d4813461c00",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58256-25809.jpg",
+      "size": 18921,
+      "sha256": "0f6d21d9760101bf59c54bc73aee92c5fd2fdc6051867b358d2ba84381cde418",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58257-25803.jpg",
+      "size": 22633,
+      "sha256": "2884e5013bb41967f13f40ef4493967d41f7b9329418cf9f72fe8b98d791eb6b",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58257-25806.jpg",
+      "size": 23069,
+      "sha256": "b3adf5cd567811679d45d387cf8774044a26be4fe3133a4359fea4dd9640ad3a",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58257-25807.jpg",
+      "size": 23349,
+      "sha256": "21b1e673fcccbe870f3947b35e8e91c99f7bbd27f69777e8143e11a7ba3445c3",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58257-25808.jpg",
+      "size": 21211,
+      "sha256": "537205c355f03f3567b7ce5e188decb53142f52295a9812641ad39cc7779f535",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58258-25804.jpg",
+      "size": 22164,
+      "sha256": "1bf1d1f11b1ff2d1e3575ac3b12bdc583b6662fad1d3e2cd0a10757250c277c5",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58258-25805.jpg",
+      "size": 22605,
+      "sha256": "c07b8a604242c482425ad272acac9dff1716dd3d5eb98b5488f9ba3d9d887a64",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58258-25807.jpg",
+      "size": 22953,
+      "sha256": "66056950834cb0799c8559feacedb88da823120abe924c0067c98c0db7cb510f",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58258-25810.jpg",
+      "size": 18806,
+      "sha256": "5f3404c8e828739476b7a6091532640e9bb710b0d049f7a68740456a6948d4c1",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58258-25811.jpg",
+      "size": 18354,
+      "sha256": "ab4a2e098288293e0e520268ca8e8e6fc3295e32c7861c3bed72c10f2fc8ffb7",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58259-25803.jpg",
+      "size": 23366,
+      "sha256": "ed702aafadd4346aac8b11bd228fd88c9bb972ade1af03a86b9ec52debbc69df",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58259-25804.jpg",
+      "size": 23304,
+      "sha256": "296ccadc6a08750ce119b9fbc12035cf9996aef5e2abc66d2b0a8b6719694780",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58259-25805.jpg",
+      "size": 23653,
+      "sha256": "5e462bf71da579130562f790baad24cd92f26c8a5b644176b5243a87bdb19cdb",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58259-25806.jpg",
+      "size": 21641,
+      "sha256": "3df1f6357a25308f6b6227ac02ed6583c6d2080486cd80b1e23315409d154f33",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58259-25807.jpg",
+      "size": 23152,
+      "sha256": "f6adcdefa881b30f936fc2bafd62f016798c01b6d41d11d2eabc2e2745706f57",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58259-25808.jpg",
+      "size": 22582,
+      "sha256": "529b2073919f5ac93831b59982c9314f530a37ac160c3f49f32791dc46495a17",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58259-25811.jpg",
+      "size": 18648,
+      "sha256": "2e6a52e4ba2720ea375f8b78be0a2367989e4a9ec351e056d1df45f2ebc4fc06",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo16-58259-25812.jpg",
+      "size": 19056,
+      "sha256": "31b3818f064759d413c9bd9f85787d4654a8e8b909de8ab3ea1ba1d13ca5900a",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233025-103242.jpg",
+      "size": 19022,
+      "sha256": "8bd05f8c44f2a7c0a6558d17ac9bc232fcb23fa4ac4bcb7dbae78d7e3d426b52",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233025-103243.jpg",
+      "size": 15289,
+      "sha256": "48e6899bb1b00675357a5f8cfba42e61ee71997e179184e304437de14179d8ea",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233026-103242.jpg",
+      "size": 12494,
+      "sha256": "e64390d665019d371fff2ea12d9fdc27cf0e93c5a3ccd09c518b5d27d236c42b",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233026-103244.jpg",
+      "size": 17985,
+      "sha256": "e687b9d574776617a89f3c5ab795014fb6db1c9fded77e8322031771210c01b2",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233027-103242.jpg",
+      "size": 16886,
+      "sha256": "871cbf7149c1f9a7f0ff146e3487794465970f5da9a60b1eed17420f5880f980",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233027-103243.jpg",
+      "size": 18003,
+      "sha256": "9c867f0637b36b95a46cd0b98aab35ccbc8fdc6e644bbec51a1e5d4241ca3f89",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233027-103244.jpg",
+      "size": 17189,
+      "sha256": "1c50eb953d04d9607b7f7d1754f48a79794f8019f920f29011bd596e50404fd6",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233027-103245.jpg",
+      "size": 15253,
+      "sha256": "5bc4315d52a644d94b576cf6af520224656b392be41e1bc1cc7665ef9a898346",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233028-103242.jpg",
+      "size": 20581,
+      "sha256": "9282c7e857c70cd404feb29b188b79493d34c06b078ab22140058c52623642e8",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233028-103243.jpg",
+      "size": 17641,
+      "sha256": "32260d92ec94ccd25446ac1c0f36c3a11e470fec0e12e4cb6d3a83b7a428e8ac",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233029-103244.jpg",
+      "size": 16176,
+      "sha256": "d1fedc699beac0970bbc785db6a4e66be1d8943199b06e445301a28bb8827cfb",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233030-103217.jpg",
+      "size": 19551,
+      "sha256": "4b9b5f509241a96d028e4afbc442bdc322ab5d4f95ec8585c08c05f2bf1f5919",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233030-103218.jpg",
+      "size": 17161,
+      "sha256": "63133c693eaf0b91f67446ed4ba0d05c637eda20c62306940517c8699d874e78",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233030-103219.jpg",
+      "size": 16451,
+      "sha256": "73d35e6a3582063e30bb24e98080ad7bce8fe7f09a6a0efa42bc20047ad55ef7",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233030-103220.jpg",
+      "size": 21174,
+      "sha256": "b3781e11f8d808571f74c9191e9a10664e819e834e1e9060d2d7f40b0cbf0216",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233031-103218.jpg",
+      "size": 18426,
+      "sha256": "e4c54536e149dc4f91ff878c071b2b8584eba83d3a8c421b60e36367e3d7581f",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233031-103219.jpg",
+      "size": 15969,
+      "sha256": "f75c3af3fc4fa54c559b75a34b8ea24d415fa29dd95d7d95c12c6e5ee0a76710",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233031-103220.jpg",
+      "size": 18570,
+      "sha256": "0ebb49fe825b583f40d9538ac128d21b4b5ca61e622520350277dffbd20c0f91",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233032-103217.jpg",
+      "size": 20706,
+      "sha256": "5afc01d59fc228246e5660c8d2ee00356f9336a2da241192eb59135f00167426",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233032-103218.jpg",
+      "size": 17715,
+      "sha256": "064abec2c693f5c9e92e425d3dbf3094465a2c0a4a2cadfeb0da68c041c0feb5",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233032-103219.jpg",
+      "size": 16145,
+      "sha256": "90a4d75cac4348287be1334313410fa69cace760e13af7630595a4b8d63f27c7",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233033-103221.jpg",
+      "size": 15696,
+      "sha256": "703bef628f0453b0f75d87e73b37b27c0baf6c6820a5159af4ab27c08ff4fe1b",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233034-103217.jpg",
+      "size": 18453,
+      "sha256": "2feb80ec9f495ffa2fea18b45f6e4046fa960cd11718cbdb3b3ed2a01fad8810",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233034-103218.jpg",
+      "size": 16547,
+      "sha256": "89a9385591bfa198632c165fcc81bbe2864ee0b890b443964d8120d3ac6c4b29",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233034-103219.jpg",
+      "size": 20006,
+      "sha256": "983a546ee79c1d30eddfed053884ee06dde758d2ff2c3ecf1d4a6b205d98f6e0",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233034-103220.jpg",
+      "size": 17956,
+      "sha256": "722174ad35857df3dd83fc2a861c534986fb9d7cf996ff72d54e343c68863770",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "region/photo18-233034-103221.jpg",
+      "size": 18380,
+      "sha256": "e6dd867d8c04d7ed7ed7ed92eaab2d76268c9a1e34b8fafd5f860d3d25219210",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    },
+    {
+      "name": "pop_courses.json",
+      "size": 28751,
+      "sha256": "8b1c9c682dd49d4bdf66603d383578348f239f72c10d7e4b06ef027e2728c59b",
+      "apkMatchesSource": true,
+      "webMatchesSource": true
+    }
+  ]
+}

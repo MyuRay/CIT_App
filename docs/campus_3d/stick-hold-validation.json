@@ -1,0 +1,52 @@
+{
+  "inputMethod": "Chrome CDP synthetic multi-touch, original GLBs and offline regional assets; 10fps QA rendering cap",
+  "checks": {
+    "car-portrait": {
+      "bothOutsideClampAndNoCameraTransfer": true,
+      "returnStillOwned": true,
+      "onlyOwnerRelease": true,
+      "trueCancelNeutral": true,
+      "rotationNeutral": true
+    },
+    "car-landscape": {
+      "bothOutsideClampAndNoCameraTransfer": true,
+      "returnStillOwned": true,
+      "onlyOwnerRelease": true,
+      "trueCancelNeutral": true,
+      "rotationNeutral": true
+    },
+    "plane-portrait": {
+      "bothOutsideClampAndNoCameraTransfer": true,
+      "returnStillOwned": true,
+      "onlyOwnerRelease": true,
+      "trueCancelNeutral": true,
+      "rotationNeutral": true
+    },
+    "plane-landscape": {
+      "bothOutsideClampAndNoCameraTransfer": true,
+      "returnStillOwned": true,
+      "onlyOwnerRelease": true,
+      "trueCancelNeutral": true,
+      "rotationNeutral": true
+    },
+    "bus-portrait": {
+      "bothOutsideClampAndNoCameraTransfer": true,
+      "returnStillOwned": true,
+      "onlyOwnerRelease": true,
+      "trueCancelNeutral": true,
+      "rotationNeutral": true
+    },
+    "bus-landscape": {
+      "bothOutsideClampAndNoCameraTransfer": true,
+      "returnStillOwned": true,
+      "onlyOwnerRelease": true,
+      "trueCancelNeutral": true,
+      "rotationNeutral": true
+    },
+    "modeChangeNeutral": true,
+    "backgroundPauseNeutral": true,
+    "viewerBackDisposeNeutral": true
+  },
+  "errors": [],
+  "renderLimit": "Initial car portrait rendered normally; subsequent input/lifecycle checks suppress WebGL draw calls to isolate DOM multi-touch ownership from software GPU delays. Mode/reset button activation is programmatic; stick touches remain actual CDP events."
+}

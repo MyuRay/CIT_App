@@ -1,0 +1,90 @@
+{
+  "tsudanuma": {
+    "collisionTriangles": 53114,
+    "portrait-car": {
+      "controlsFit": true,
+      "simultaneousSticks": true,
+      "thirdFingerCamera": true,
+      "outsideReleasesOnlyOwner": true,
+      "cancelNeutral": true,
+      "extraFingerIgnored": true,
+      "resetHeld": true
+    },
+    "portrait-plane": {
+      "controlsFit": true,
+      "simultaneousSticks": true,
+      "thirdFingerCamera": true,
+      "outsideReleasesOnlyOwner": true,
+      "cancelNeutral": true,
+      "extraFingerIgnored": true,
+      "resetHeld": true
+    },
+    "landscape-car": {
+      "controlsFit": true,
+      "simultaneousSticks": true,
+      "thirdFingerCamera": true,
+      "outsideReleasesOnlyOwner": true,
+      "cancelNeutral": true,
+      "extraFingerIgnored": true,
+      "resetHeld": true
+    },
+    "landscape-plane": {
+      "controlsFit": true,
+      "simultaneousSticks": true,
+      "thirdFingerCamera": true,
+      "outsideReleasesOnlyOwner": true,
+      "cancelNeutral": true,
+      "extraFingerIgnored": true,
+      "resetHeld": true
+    },
+    "rotationClearsInput": true,
+    "heldModeClears": true,
+    "freeSwipe": true
+  },
+  "narashino": {
+    "collisionTriangles": 108584,
+    "portrait-car": {
+      "controlsFit": true,
+      "simultaneousSticks": true,
+      "thirdFingerCamera": true,
+      "outsideReleasesOnlyOwner": true,
+      "cancelNeutral": true,
+      "extraFingerIgnored": true,
+      "resetHeld": true
+    },
+    "portrait-plane": {
+      "controlsFit": true,
+      "simultaneousSticks": true,
+      "thirdFingerCamera": true,
+      "outsideReleasesOnlyOwner": true,
+      "cancelNeutral": true,
+      "extraFingerIgnored": true,
+      "resetHeld": true
+    },
+    "landscape-car": {
+      "controlsFit": true,
+      "simultaneousSticks": true,
+      "thirdFingerCamera": true,
+      "outsideReleasesOnlyOwner": true,
+      "cancelNeutral": true,
+      "extraFingerIgnored": true,
+      "resetHeld": true
+    },
+    "landscape-plane": {
+      "controlsFit": true,
+      "simultaneousSticks": true,
+      "thirdFingerCamera": true,
+      "outsideReleasesOnlyOwner": true,
+      "cancelNeutral": true,
+      "extraFingerIgnored": true,
+      "resetHeld": true
+    },
+    "rotationClearsInput": true,
+    "heldModeClears": true,
+    "freeSwipe": true
+  },
+  "pauseNeutral": true,
+  "heldFlutterResetClears": true,
+  "heldBackRemovesViewer": true,
+  "pageErrors": []
+}

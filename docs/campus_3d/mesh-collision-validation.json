@@ -1,0 +1,84 @@
+{
+  "tsudanuma-campus.glb": {
+    "buildingRoots": 11,
+    "triangleCount": 53114,
+    "surfaceContacts": 600,
+    "surfaceFreeSamplesWithinCoarseBounds": 1259,
+    "examples": [
+      {
+        "name": "Building_01",
+        "p": {
+          "x": -86.33134460449219,
+          "y": 1,
+          "z": -83.3370590209961
+        }
+      },
+      {
+        "name": "Building_01",
+        "p": {
+          "x": -86.33134460449219,
+          "y": 1,
+          "z": -78.05390771230061
+        }
+      },
+      {
+        "name": "Building_01",
+        "p": {
+          "x": -86.33134460449219,
+          "y": 1,
+          "z": -72.77075640360515
+        }
+      },
+      {
+        "name": "Building_01",
+        "p": {
+          "x": -86.33134460449219,
+          "y": 1,
+          "z": -67.48760509490967
+        }
+      }
+    ],
+    "note": "A surface-only test does not classify fully enclosed interior volume. Spawn remains outside conservative bounds; small continuous steps stop surface crossing."
+  },
+  "shinnarashino-campus.glb": {
+    "buildingRoots": 18,
+    "triangleCount": 108584,
+    "surfaceContacts": 901,
+    "surfaceFreeSamplesWithinCoarseBounds": 2141,
+    "examples": [
+      {
+        "name": "Building_01",
+        "p": {
+          "x": -63.45058822631836,
+          "y": 1,
+          "z": -121.10459899902344
+        }
+      },
+      {
+        "name": "Building_01",
+        "p": {
+          "x": -63.45058822631836,
+          "y": 1,
+          "z": -116.56885274251302
+        }
+      },
+      {
+        "name": "Building_01",
+        "p": {
+          "x": -63.45058822631836,
+          "y": 1,
+          "z": -112.03310648600261
+        }
+      },
+      {
+        "name": "Building_01",
+        "p": {
+          "x": -63.45058822631836,
+          "y": 1,
+          "z": -89.35437520345052
+        }
+      }
+    ],
+    "note": "A surface-only test does not classify fully enclosed interior volume. Spawn remains outside conservative bounds; small continuous steps stop surface crossing."
+  }
+}

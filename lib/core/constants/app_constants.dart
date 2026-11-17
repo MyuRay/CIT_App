@@ -1,6 +1,8 @@
 import 'package:characters/characters.dart';
 import 'package:flutter/services.dart';
 
+import '../legal/legal_documents.g.dart';
+
 class AppConstants {
   static const String appName = 'CIT App';
   static const String appVersion = '2.3.3';
@@ -266,5 +268,5 @@ class AppConstants {
       'legal_consent_accepted_version';
 
   /// 現在の同意が必要な規約バージョン（更新時に値を上げる）
-  static const String currentLegalConsentVersion = '2026-05-31-community';
+  static const String currentLegalConsentVersion = legalDocumentVersion;
 }

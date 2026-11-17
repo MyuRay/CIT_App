@@ -1,0 +1,41 @@
+{
+  "officialPlanPages": {
+    "tsudanuma": "https://chibatech.ac.jp/about/institute/campus/tsudanuma.html",
+    "narashino": "https://chibatech.ac.jp/about/institute/campus/shinnarashino.html"
+  },
+  "verifiedNumberRanges": {
+    "tsudanuma": [
+      1,
+      9
+    ],
+    "narashino": [
+      1,
+      13
+    ]
+  },
+  "idMapping": "Explicit GLB building_id normalized to integer; campus comes from original GLB metadata. Unnumbered annex/dorm geometry excluded. Model positioning and dimensions remain estimated.",
+  "referencesViewedLocally": [
+    {
+      "name": "tsudanuma-map.png",
+      "sha256": "39dfe2bce1333f200e663b886277453133cf5654c84aa0c1590983fd16dac6e1",
+      "shipped": false
+    },
+    {
+      "name": "narashino-map.jpg",
+      "sha256": "698459dee64d68070bf7df864b8c8bec26fb316a2f1019d9d12ba7209816efd7",
+      "shipped": false
+    },
+    {
+      "name": "campus_map.pdf",
+      "sha256": "603a133f1d8d755b896d66d81a43175539c7cec9fd18cbf7f3f14d89aff6d44b",
+      "shipped": false
+    },
+    {
+      "name": "campus-narashino-plan.png",
+      "sha256": "51dfde5127cf9f4fd6c042f281daa09fe8880e011fe696aeb2c9e9adf26cc589",
+      "shipped": false
+    }
+  ],
+  "officialPlanPdf": "https://kmsk.is.it-chiba.ac.jp/portal/whole/gakubu/campus_map.pdf",
+  "verificationNote": "Official 2026 campus plan page 2 (printed page 180) visually confirms Shin-Narashino buildings 1 through 13, including gym building 4 and food/shop building 13. Tsudanuma official illustration confirms 1 through 9."
+}

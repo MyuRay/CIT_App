@@ -62,10 +62,10 @@ void main() {
   );
 
   test('old consent versions still require the update notice', () async {
-    await db.doc('users/student').set({'legalConsentVersion': '2025-old'});
+    await db.doc('users/student').set({'legalConsentVersion': '2026-05-31-community'});
     await preferences.setString(
       legalConsentKeyForUser(student.uid),
-      '2025-old',
+      '2026-05-31-community',
     );
     expect(await service.hasAccepted(student), isFalse);
   });

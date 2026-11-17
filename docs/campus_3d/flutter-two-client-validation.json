@@ -1,0 +1,96 @@
+{
+  "checks": {
+    "mypageNameWithoutSeparateInput": true,
+    "flutterCreateAndCodeJoin": true,
+    "waitingRoomDisconnectReconnectThroughFlutter": true,
+    "heightAwareFlutterTrace": true,
+    "commonStartThroughFlutter": true,
+    "delayedRecoveryResponse": true,
+    "flutterServerSelectedRecoveryPenalty": true,
+    "mypageNameChangeAndOpponentSync": true,
+    "flutterTraceToVerifiedFinish": true,
+    "flutterRankingVisibleBoth": true,
+    "flutterFinishedRoomReloadCodeRejoin": true,
+    "missingMypageNameShowsSafeGuide": true
+  },
+  "errors": [],
+  "limits": [
+    "Independent Flutter Web contexts using Firebase Auth emulator anonymous identities and actual callable HTTP. Production callable requests intercepted before network and forwarded to localhost only.",
+    "QA-only viewer output adds synthetic centreline positions at 18m/s for completion; real time, unchanged timers/checkpoints/trace/Flutter bridge/backend. Not physical steering or real-device GPU QA.",
+    "3D renderer skipped after genuine first game rendering to avoid software-GPU shadow clear stalls with two clients. Original timers, events, trace, Flutter bridge and backend remain live; QA-only continuous centreline motion at up to 18m/s replaces physical steering."
+  ],
+  "serverTimes": [
+    59365,
+    75764
+  ],
+  "explicitRecoveryCounts": [
+    0,
+    1
+  ],
+  "recoveryResponseDelayMs": 3000,
+  "measuredRecoveryRoundTripMs": 3212,
+  "requestCounts": [
+    {
+      "action": "getProfile",
+      "status": 200,
+      "count": 10
+    },
+    {
+      "action": "profile",
+      "status": 200,
+      "count": 3
+    },
+    {
+      "action": "createRoom",
+      "status": 200,
+      "count": 1
+    },
+    {
+      "action": "room",
+      "status": 200,
+      "count": 95
+    },
+    {
+      "action": "joinRoom",
+      "status": 200,
+      "count": 2
+    },
+    {
+      "action": "room",
+      "status": 503,
+      "count": 3
+    },
+    {
+      "action": "readyRoom",
+      "status": 200,
+      "count": 2
+    },
+    {
+      "action": "startRoom",
+      "status": 200,
+      "count": 1
+    },
+    {
+      "action": "trace",
+      "status": 200,
+      "count": 75
+    },
+    {
+      "action": "recover",
+      "status": 200,
+      "count": 1
+    },
+    {
+      "action": "courses",
+      "status": 200,
+      "count": 2
+    },
+    {
+      "action": "standings",
+      "status": 200,
+      "count": 2
+    }
+  ],
+  "maximumCallableDurationMs": 7492,
+  "maximumTraceDurationMs": 7492
+}
