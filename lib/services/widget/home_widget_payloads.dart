@@ -1,13 +1,27 @@
 import '../../models/bus/bus_model.dart';
 import '../../models/schedule/schedule_model.dart';
+import '../../core/utils/period_time_resolver.dart';
 
 /// Shared snapshots: native widgets advance time without waking Flutter.
 /// Account IDs, private notes and attendance never leave the app.
 class HomeWidgetPayloads {
   /// Export every period, including empty cells. Missing definitions use the
   /// same defaults as the in-app timetable; configured times take precedence.
-  static List<TimeSlot> _timeSlots(List<TimeSlot> configured) => [
-    for (final fallback in DefaultTimeSlots.citTimeSlots)
+  static List<TimeSlot> _timeSlots(
+    List<TimeSlot> configured, {
+    int? periodCount,
+  }) => [
+    for (final fallback in DefaultTimeSlots.forPeriodCount(
+      periodCount ??
+          configured.fold(
+            PeriodTimeResolver.defaultPeriodCount,
+            (count, slot) =>
+                PeriodTimeResolver.isValidPeriod(slot.period) &&
+                        slot.period > count
+                    ? slot.period
+                    : count,
+          ),
+    ))
       configured.firstWhere(
         (slot) => slot.period == fallback.period,
         orElse: () => fallback,
@@ -15,7 +29,7 @@ class HomeWidgetPayloads {
   ];
 
   static String _displayTime(String value) {
-    final minutes = _minutes(value.trim());
+    final minutes = _minutes(value.trim(), allowEndOfDay: true);
     if (minutes == null) return '';
     return '${(minutes ~/ 60).toString().padLeft(2, '0')}:'
         '${(minutes % 60).toString().padLeft(2, '0')}';
@@ -38,15 +52,29 @@ class HomeWidgetPayloads {
     Map<int, ScheduleClass?> day,
     List<TimeSlot> slots,
   ) {
-    final times = {for (final slot in _timeSlots(slots)) slot.period: slot};
+    final periodCount =
+        Schedule(
+          id: '',
+          userId: '',
+          semester: '',
+          timetable: {'day': day},
+          timeSlots: slots,
+        ).periodCount;
+    final times = {
+      for (final slot in _timeSlots(slots, periodCount: periodCount))
+        slot.period: slot,
+    };
     final result = <Map<String, dynamic>>[];
-    for (var period = 1; period <= 10; period++) {
+    for (var period = 1; period <= periodCount; period++) {
       final lesson = day[period];
       if (lesson == null ||
           (!lesson.isStartCell && day[period - 1]?.id == lesson.id)) {
         continue;
       }
-      final end = (period + lesson.duration.clamp(1, 10) - 1).clamp(period, 10);
+      final end = (period + lesson.duration.clamp(1, periodCount) - 1).clamp(
+        period,
+        periodCount,
+      );
       result.add({
         'period': period,
         'endPeriod': end,
@@ -71,11 +99,16 @@ class HomeWidgetPayloads {
     'updatedAt': now.millisecondsSinceEpoch,
     'timeZone': 'Asia/Tokyo',
     'hasSchedule': schedule != null,
+    'periodCount':
+        schedule?.periodCount ?? PeriodTimeResolver.defaultPeriodCount,
     // Additive schema-v2 field: old widgets ignore it, updated widgets can
     // still read previously cached snapshots without this field.
     'timeSlots': [
       if (schedule != null)
-        for (final slot in _timeSlots(schedule.timeSlots))
+        for (final slot in _timeSlots(
+          schedule.timeSlots,
+          periodCount: schedule.periodCount,
+        ))
           {
             'period': slot.period,
             'startTime': _displayTime(slot.startTime),
@@ -102,7 +135,10 @@ class HomeWidgetPayloads {
     int? currentPeriod;
     for (final entry in entries) {
       final start = _minutes(entry['startTime'] as String? ?? '');
-      final end = _minutes(entry['endTime'] as String? ?? '');
+      final end = _minutes(
+        entry['endTime'] as String? ?? '',
+        allowEndOfDay: true,
+      );
       if (start != null && end != null && minutes >= start && minutes < end) {
         currentPeriod = entry['period'] as int?;
       }
@@ -113,6 +149,8 @@ class HomeWidgetPayloads {
       'hasSchedule': weekly['hasSchedule'] ?? false,
       'scheduleTitle': weekly['scheduleTitle'],
       'timeSlots': weekly['timeSlots'] ?? <dynamic>[],
+      'periodCount':
+          weekly['periodCount'] ?? PeriodTimeResolver.defaultPeriodCount,
       'dateKey': dateKey(japan),
       'date': '${japan.month}/${japan.day}',
       'weekday': ['月', '火', '水', '木', '金', '土', '日'][japan.weekday - 1],
@@ -121,7 +159,7 @@ class HomeWidgetPayloads {
     };
   }
 
-  static int? _minutes(String value) {
+  static int? _minutes(String value, {bool allowEndOfDay = false}) {
     final parts = value.split(':');
     if (parts.length != 2) return null;
     final hour = int.tryParse(parts[0]);
@@ -129,7 +167,8 @@ class HomeWidgetPayloads {
     if (hour == null ||
         minute == null ||
         hour < 0 ||
-        hour > 23 ||
+        hour > 24 ||
+        (hour == 24 && (!allowEndOfDay || minute != 0)) ||
         minute < 0 ||
         minute > 59) {
       return null;

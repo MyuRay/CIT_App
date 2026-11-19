@@ -1,0 +1,1 @@
+{"firestore":{"rules":"game-functions/firestore.game.rules"},"functions":[{"source":"game-functions","codebase":"campus-game"}],"emulators":{"firestore":{"port":8188},"functions":{"port":5018},"auth":{"port":9198},"ui":{"enabled":false},"singleProjectMode":true}}

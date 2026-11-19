@@ -93,7 +93,9 @@ void main() {
     expect(find.textContaining('集中講義「卒業研究」'), findsOneWidget);
     expect(find.text('Excelの学期: 2026年度 後期'), findsOneWidget);
     expect(find.text('取り込み先: 後期の時間割'), findsOneWidget);
-    await tester.tap(find.text('この内容で適用'));
+    expect(find.textContaining('ユーザーID（UID）と紐付けて保存'), findsOneWidget);
+    expect(find.textContaining('チェックを外しても時間割を取り込めます'), findsOneWidget);
+    await tester.tap(find.text('提供して取り込む'));
     await tester.pumpAndSettle();
     expect(completed, isTrue);
     expect(result!.entries.single, lecture);
@@ -101,9 +103,7 @@ void main() {
     expect(result!.provideTrainingData, isTrue);
   });
 
-  testWidgets('keeps editing and feedback opt-out available', (
-    tester,
-  ) async {
+  testWidgets('keeps editing and feedback opt-out available', (tester) async {
     await mount(tester);
     await tester.ensureVisible(find.byIcon(Icons.edit));
     await tester.tap(find.byIcon(Icons.edit));
@@ -112,7 +112,7 @@ void main() {
     await tester.ensureVisible(find.byType(Checkbox).last);
     await tester.tap(find.byType(Checkbox).last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('この内容で適用'));
+    await tester.tap(find.text('提供せず取り込む'));
     await tester.pumpAndSettle();
     expect(result!.entries.single.classroom, '7205講義室');
     expect(result!.provideTrainingData, isFalse);
@@ -153,10 +153,10 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
         final applyRect = tester.getRect(
-          find.widgetWithText(FilledButton, 'この内容で適用'),
+          find.widgetWithText(FilledButton, '提供して取り込む'),
         );
         expect(applyRect.bottom, lessThanOrEqualTo(568 - 48));
-        await tester.tap(find.text('この内容で適用'));
+        await tester.tap(find.text('提供して取り込む'));
         await tester.pumpAndSettle();
         expect(result!.entries.single, lecture);
       },

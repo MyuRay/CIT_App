@@ -1,0 +1,16 @@
+{
+  "outward": {
+    "samples": 2082,
+    "gaps": 0,
+    "maxRoadOffset": 0.05325898855990633,
+    "maxHeightStep": 0.4912482350481111,
+    "examples": []
+  },
+  "return": {
+    "samples": 1992,
+    "gaps": 0,
+    "maxRoadOffset": 0.055482090080961596,
+    "maxHeightStep": 0.5948487316167839,
+    "examples": []
+  }
+}

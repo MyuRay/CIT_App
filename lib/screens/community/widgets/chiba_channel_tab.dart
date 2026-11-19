@@ -112,6 +112,7 @@ class ChibaChannelTab extends ConsumerWidget {
                   else
                     ...interleaveWidgetsWithBannerAds(
                       items: feed.activeThreads,
+                      positionOffset: feed.hotThreads.length + feed.hotThreads.length ~/ InAppAdIntervals.chibaChannelThreadList,
                       interval: InAppAdIntervals.chibaChannelThreadList,
                       itemBuilder:
                           (thread) => ThreadCard(

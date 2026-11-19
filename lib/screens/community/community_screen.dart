@@ -12,10 +12,16 @@ import 'widgets/cwitter_profile_screen.dart';
 import 'widgets/cwitter_ranking_screen.dart';
 import 'widgets/cwitter_search_screen.dart';
 import 'widgets/cwitter_tab.dart';
+import 'widgets/cwitter_id_requirement.dart';
 
 /// 交流タブのメイン画面（Cwitter / ちばちゃんねる）
 class CommunityScreen extends ConsumerStatefulWidget {
-  const CommunityScreen({super.key});
+  const CommunityScreen({super.key, this.switchAnchorKey, this.searchAnchorKey, this.chibaAnchorKey, this.guideTabIndex, this.tutorialActive = false});
+  final bool tutorialActive;
+  final int? guideTabIndex;
+  final GlobalKey? chibaAnchorKey;
+  final GlobalKey? switchAnchorKey;
+  final GlobalKey? searchAnchorKey;
 
   @override
   ConsumerState<CommunityScreen> createState() => _CommunityScreenState();
@@ -42,6 +48,14 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
       markCwitterFeedSeen(ref);
     }
     if (mounted) setState(() {});
+  }
+
+  @override
+  void didUpdateWidget(covariant CommunityScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.tutorialActive && (!oldWidget.tutorialActive || widget.guideTabIndex != oldWidget.guideTabIndex)) {
+      _tabController.index = widget.guideTabIndex ?? 0;
+    }
   }
 
   @override
@@ -89,8 +103,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                 );
               },
             ),
-            if (hasCwitterId) ...[
+            ...[
               IconButton(
+                key: widget.searchAnchorKey,
                 tooltip: '検索',
                 icon: const Icon(Icons.search),
                 onPressed: () {
@@ -105,6 +120,10 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                 tooltip: 'マイページ',
                 icon: const Icon(Icons.person_outline),
                 onPressed: () {
+                  if (!hasCwitterId) {
+                    promptCwitterIdRegistration(context, ref, action: 'プロフィールの利用');
+                    return;
+                  }
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (_) => const CwitterProfileScreen(),
@@ -140,8 +159,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           unselectedLabelColor: colorScheme.onSurface.withValues(alpha: 0.6),
           onTap: (_) => UiFeedbackService.tabSwitch(),
           tabs: [
-            Tab(child: _TabLabel(label: 'Cwitter', showNew: showCwitterTabNew)),
-            const Tab(text: 'ちばちゃんねる'),
+            Tab(key: widget.switchAnchorKey, child: _TabLabel(label: 'Cwitter', showNew: showCwitterTabNew)),
+            Tab(key: widget.chibaAnchorKey, text: 'ちばちゃんねる'),
           ],
         ),
       ),

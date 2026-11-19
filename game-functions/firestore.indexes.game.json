@@ -1,0 +1,1 @@
+{"indexes":[],"fieldOverrides":[{"collectionGroup":"items","fieldPath":"campusGameExpiresAt","indexes":[{"order":"ASCENDING","queryScope":"COLLECTION_GROUP"}]}]}

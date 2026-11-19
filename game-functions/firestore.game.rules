@@ -1,0 +1,7 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /campusGamePrivate/{document=**} { allow read, write: if false; }
+    match /campusGameBoards/{document=**} { allow read, write: if false; }
+  }
+}

@@ -1,0 +1,113 @@
+{
+  "tsudanuma": {
+    "portrait-car": {
+      "triangles": 268808,
+      "region": {
+        "lon": 140.02120585220953,
+        "lat": 35.688934806366916,
+        "elevation": 15.378554941639834,
+        "terrainEstimated": false,
+        "campusesLoaded": [
+          "tsudanuma"
+        ],
+        "road": ""
+      }
+    },
+    "portrait-plane": {
+      "triangles": 269136,
+      "region": {
+        "lon": 140.02138,
+        "lat": 35.6887746,
+        "elevation": 15.358871649274473,
+        "terrainEstimated": false,
+        "campusesLoaded": [
+          "tsudanuma"
+        ],
+        "road": ""
+      }
+    },
+    "landscape-car": {
+      "triangles": 285792,
+      "region": {
+        "lon": 140.02120585220953,
+        "lat": 35.688934806366916,
+        "elevation": 15.378554941639834,
+        "terrainEstimated": false,
+        "campusesLoaded": [
+          "tsudanuma"
+        ],
+        "road": ""
+      }
+    },
+    "landscape-plane": {
+      "triangles": 290852,
+      "region": {
+        "lon": 140.02138,
+        "lat": 35.6887746,
+        "elevation": 15.358871649274473,
+        "terrainEstimated": false,
+        "campusesLoaded": [
+          "tsudanuma"
+        ],
+        "road": ""
+      }
+    },
+    "exitRegionRetainsFullscreen": true
+  },
+  "narashino": {
+    "portrait-car": {
+      "triangles": 387758,
+      "region": {
+        "lon": 140.0146262633704,
+        "lat": 35.66138952076799,
+        "elevation": 5.53,
+        "terrainEstimated": true,
+        "campusesLoaded": [
+          "narashino"
+        ],
+        "road": ""
+      }
+    },
+    "portrait-plane": {
+      "triangles": 387560,
+      "region": {
+        "lon": 140.0145,
+        "lat": 35.6617,
+        "elevation": 5.517687112890435,
+        "terrainEstimated": true,
+        "campusesLoaded": [
+          "narashino"
+        ],
+        "road": ""
+      }
+    },
+    "landscape-car": {
+      "triangles": 410442,
+      "region": {
+        "lon": 140.0146262633704,
+        "lat": 35.66138952076799,
+        "elevation": 5.53,
+        "terrainEstimated": true,
+        "campusesLoaded": [
+          "narashino"
+        ],
+        "road": ""
+      }
+    },
+    "landscape-plane": {
+      "triangles": 405036,
+      "region": {
+        "lon": 140.0145,
+        "lat": 35.6617,
+        "elevation": 5.517687112890435,
+        "terrainEstimated": true,
+        "campusesLoaded": [
+          "narashino"
+        ],
+        "road": ""
+      }
+    },
+    "exitRegionRetainsFullscreen": true
+  },
+  "pageErrors": []
+}

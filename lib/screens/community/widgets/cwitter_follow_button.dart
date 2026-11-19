@@ -1,5 +1,6 @@
 import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'cwitter_id_requirement.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../../core/providers/cwitter_follow_counts_override_provider.dart';
@@ -35,6 +36,10 @@ class _CwitterFollowButtonState extends ConsumerState<CwitterFollowButton> {
 
   Future<void> _toggleFollow(bool currentlyFollowing) async {
     if (_isUpdating) return;
+    if (!hasCurrentCwitterIdentity(ref)) {
+      await promptCwitterIdRegistration(context, ref, action: 'フォロー');
+      return;
+    }
 
     final targetFollowing = !currentlyFollowing;
     final countsNotifier = ref.read(

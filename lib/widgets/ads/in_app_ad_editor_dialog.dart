@@ -1,3 +1,4 @@
+import '../../models/ads/ad_audience.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../../models/ads/in_app_ad_model.dart';
@@ -50,12 +51,22 @@ class _InAppAdEditorDialogState extends State<InAppAdEditorDialog> {
   late bool _sponsored = widget.ad?.isSponsored ?? false;
   late DateTime? _start = widget.ad?.startAt;
   late DateTime? _end = widget.ad?.endAt;
+  late final Set<String> _grades = {...?widget.ad?.targetGrades};
   bool _saving = false;
   bool _allowExit = false;
   bool _closing = false;
   late final Map<String, dynamic> _initial;
   bool get _dirty =>
-      !mapEquals(_initial, _draft().toFirestore()..remove('updatedAt'));
+      !mapEquals(
+        {..._initial}..remove('targetGrades'),
+        _draft().toFirestore()
+          ..remove('updatedAt')
+          ..remove('targetGrades'),
+      ) ||
+      !listEquals(
+        _initial['targetGrades'] as List<String>,
+        _draft().targetGrades,
+      );
   String? _error;
 
   @override
@@ -139,6 +150,7 @@ class _InAppAdEditorDialogState extends State<InAppAdEditorDialog> {
     weight: int.tryParse(_weight.text) ?? 1,
     isSponsored: _sponsored,
     sponsorName: _sponsored ? _sponsor.text.trim() : '',
+    targetGrades: _grades.toList()..sort(),
   );
 
   Future<void> _pickDate(bool start) async {
@@ -534,6 +546,28 @@ class _InAppAdEditorDialogState extends State<InAppAdEditorDialog> {
   ];
 
   List<Widget> _settingsFields() => [
+    Text('対象学年', style: Theme.of(context).textTheme.titleSmall),
+    const Text('未選択は全員に配信。メールの入学年度から推定します（4月更新）。留年・編入・大学院など実際の学年と異なる場合があります。'),
+    Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      children: [
+        for (final grade in adGrades)
+          FilterChip(
+            label: Text(adGradeLabel(grade)),
+            selected: _grades.contains(grade),
+            onSelected:
+                (selected) => setState(() {
+                  if (selected) {
+                    _grades.add(grade);
+                  } else {
+                    _grades.remove(grade);
+                  }
+                }),
+          ),
+      ],
+    ),
+    const SizedBox(height: 16),
     Text('掲載期間', style: Theme.of(context).textTheme.titleSmall),
     const SizedBox(height: 8),
     _dateControl(true),

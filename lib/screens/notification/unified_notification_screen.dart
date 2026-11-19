@@ -9,7 +9,8 @@ import 'global_notification_list_screen.dart';
 import 'notification_settings_screen.dart';
 
 class UnifiedNotificationScreen extends ConsumerStatefulWidget {
-  const UnifiedNotificationScreen({super.key});
+  const UnifiedNotificationScreen({super.key, this.initialPersonalTab = false});
+  final bool initialPersonalTab;
 
   @override
   ConsumerState<UnifiedNotificationScreen> createState() =>
@@ -24,7 +25,8 @@ class _UnifiedNotificationScreenState
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 2, vsync: this,
+      initialIndex: widget.initialPersonalTab ? 1 : 0);
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
@@ -63,6 +65,23 @@ class _UnifiedNotificationScreenState
                   );
                 },
               ),
+              if (_tabController.index == 1)
+                IconButton(tooltip: '個人通知を全削除', icon: const Icon(Icons.delete_sweep_outlined),
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+                      title: const Text('個人通知をすべて削除しますか？'),
+                      content: const Text('削除した通知は元に戻せません。'),
+                      actions: [TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('キャンセル')),
+                        FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('全削除'))],
+                    ));
+                    if (confirmed != true || !context.mounted) return;
+                    try {
+                      ref.invalidate(deleteAllNotificationsProvider(user.uid));
+                      await ref.read(deleteAllNotificationsProvider(user.uid).future);
+                    } catch (_) {
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('通知を削除できませんでした。もう一度お試しください')));
+                    }
+                  }),
               IconButton(
                 tooltip: '全て既読',
                 icon: const Icon(Icons.done_all),

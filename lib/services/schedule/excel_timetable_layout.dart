@@ -1,4 +1,5 @@
 import 'package:excel/excel.dart';
+import '../../core/utils/period_time_resolver.dart';
 
 import 'excel_lecture_fields.dart';
 
@@ -176,8 +177,9 @@ class ExcelTimetableLayout {
       normalized = normalized.replaceAll(full[digit], '$digit');
     }
     final match = RegExp(
-      r'^(?:第)?(10|[1-9])(?:時限|限)?(?:\.0)?$',
+      r'^(?:第)?([1-9][0-9]?)(?:時限|限)?(?:\.0)?$',
     ).firstMatch(normalized);
-    return match == null ? null : int.parse(match.group(1)!);
+    final period = match == null ? null : int.parse(match.group(1)!);
+    return period != null && PeriodTimeResolver.isValidPeriod(period) ? period : null;
   }
 }

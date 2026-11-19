@@ -1,0 +1,364 @@
+{
+  "productionFinal": true,
+  "candidate": false,
+  "scope": "Short actual CDP pedal drive at start; additional QA-only sampled course poses/orbits with the real bus, road, Sphere, renderer and HUD. No complete drive or online timing validation is claimed.",
+  "checks": [
+    {
+      "name": "straight-start",
+      "index": 0,
+      "lookSphere": false,
+      "projection": {
+        "x": 0.6996241142753119,
+        "y": 0.2365945132787861,
+        "z": 0.9996818094416496
+      },
+      "hud": {
+        "x": 10,
+        "y": 150,
+        "width": 370,
+        "height": 114
+      },
+      "state": {
+        "experience": "game",
+        "sphere": {
+          "position": [
+            230,
+            38,
+            -1110
+          ],
+          "radius": 38,
+          "originalPattern": true,
+          "reducedMotion": true
+        },
+        "course": "neon_city",
+        "campus": "tsudanuma",
+        "loaded": true,
+        "regionMode": true,
+        "regionLoading": false,
+        "region": {
+          "course": "neon_city",
+          "progress": 0,
+          "roadDistance": 0,
+          "theme": "fictional game",
+          "campusesLoaded": [
+            "pop-tsudanuma",
+            "pop-narashino"
+          ]
+        },
+        "mode": "bus",
+        "speed": 0,
+        "yaw": 0,
+        "position": {
+          "x": 0,
+          "z": 0,
+          "y": 1.4
+        },
+        "pressed": [],
+        "axes": {
+          "brake": false,
+          "accelerate": false,
+          "throttle": 0,
+          "steer": 0,
+          "lift": 0
+        },
+        "cameraOrbit": {
+          "yaw": 0,
+          "pitch": 0
+        },
+        "paused": false,
+        "disposed": false,
+        "blocked": "",
+        "carVisible": false,
+        "planeVisible": false,
+        "busVisible": true,
+        "camera": [
+          0,
+          4.574531938489468,
+          18.86336408122346
+        ],
+        "target": [
+          0,
+          2.3,
+          0
+        ],
+        "triangles": 6670
+      }
+    },
+    {
+      "name": "straight-mid",
+      "index": 110,
+      "lookSphere": true,
+      "projection": {
+        "x": -1.0006050660411566E-15,
+        "y": 0.280555793915434,
+        "z": 0.9993490622539802
+      },
+      "hud": {
+        "x": 10,
+        "y": 150,
+        "width": 370,
+        "height": 114
+      },
+      "state": {
+        "experience": "game",
+        "sphere": {
+          "position": [
+            230,
+            38,
+            -1110
+          ],
+          "radius": 38,
+          "originalPattern": true,
+          "reducedMotion": true
+        },
+        "course": "neon_city",
+        "campus": "tsudanuma",
+        "loaded": true,
+        "regionMode": true,
+        "regionLoading": false,
+        "region": {
+          "course": "neon_city",
+          "progress": 590.328,
+          "roadDistance": 0,
+          "theme": "fictional game",
+          "campusesLoaded": [
+            "pop-tsudanuma",
+            "pop-narashino"
+          ]
+        },
+        "mode": "bus",
+        "speed": 0,
+        "yaw": 0,
+        "position": {
+          "x": 0,
+          "z": -590.328,
+          "y": 1.4
+        },
+        "pressed": [],
+        "axes": {
+          "brake": false,
+          "accelerate": false,
+          "throttle": 0,
+          "steer": 0,
+          "lift": 0
+        },
+        "cameraOrbit": {
+          "yaw": -0.4166720839986687,
+          "pitch": 0
+        },
+        "paused": false,
+        "disposed": false,
+        "blocked": "",
+        "carVisible": false,
+        "planeVisible": false,
+        "busVisible": true,
+        "camera": [
+          -7.634371607434298,
+          4.574531938489468,
+          -573.0785688609626
+        ],
+        "target": [
+          0,
+          2.3,
+          -590.328
+        ],
+        "triangles": 5770
+      }
+    },
+    {
+      "name": "chicane-approach",
+      "index": 205,
+      "lookSphere": false,
+      "projection": {
+        "x": 5.547132170389802,
+        "y": 0.6591373566927436,
+        "z": 0.9964835417665597
+      },
+      "hud": {
+        "x": 10,
+        "y": 150,
+        "width": 370,
+        "height": 114
+      },
+      "state": {
+        "experience": "game",
+        "sphere": {
+          "position": [
+            230,
+            38,
+            -1110
+          ],
+          "radius": 38,
+          "originalPattern": true,
+          "reducedMotion": true
+        },
+        "course": "neon_city",
+        "campus": "tsudanuma",
+        "loaded": true,
+        "regionMode": true,
+        "regionLoading": false,
+        "region": {
+          "course": "neon_city",
+          "progress": 1100.096375324851,
+          "roadDistance": 0,
+          "theme": "fictional game",
+          "campusesLoaded": [
+            "pop-tsudanuma",
+            "pop-narashino"
+          ]
+        },
+        "mode": "bus",
+        "speed": 0,
+        "yaw": -0.42997402536503077,
+        "position": {
+          "x": 22.011,
+          "z": -1097.067,
+          "y": 1.4
+        },
+        "pressed": [],
+        "axes": {
+          "brake": false,
+          "accelerate": false,
+          "throttle": 0,
+          "steer": 0,
+          "lift": 0
+        },
+        "cameraOrbit": {
+          "yaw": 0,
+          "pitch": 0
+        },
+        "paused": false,
+        "disposed": false,
+        "blocked": "",
+        "carVisible": false,
+        "planeVisible": false,
+        "busVisible": true,
+        "camera": [
+          14.147859646634723,
+          4.574531938489468,
+          -1079.9206438785359
+        ],
+        "target": [
+          22.011,
+          2.3,
+          -1097.067
+        ],
+        "triangles": 3486
+      }
+    },
+    {
+      "name": "near-sphere",
+      "index": 245,
+      "lookSphere": true,
+      "projection": {
+        "x": 8.617785123563313E-15,
+        "y": 0.7789152487866452,
+        "z": 0.995576931309312
+      },
+      "hud": {
+        "x": 10,
+        "y": 150,
+        "width": 370,
+        "height": 114
+      },
+      "state": {
+        "experience": "game",
+        "sphere": {
+          "position": [
+            230,
+            38,
+            -1110
+          ],
+          "radius": 38,
+          "originalPattern": true,
+          "reducedMotion": true
+        },
+        "course": "neon_city",
+        "campus": "tsudanuma",
+        "loaded": true,
+        "regionMode": true,
+        "regionLoading": false,
+        "region": {
+          "course": "neon_city",
+          "progress": 1314.7095157021233,
+          "roadDistance": 0,
+          "theme": "fictional game",
+          "campusesLoaded": [
+            "pop-tsudanuma",
+            "pop-narashino"
+          ]
+        },
+        "mode": "bus",
+        "speed": 0,
+        "yaw": 2.976413362368348,
+        "position": {
+          "x": 156.096,
+          "z": -1094.842,
+          "y": 1.4
+        },
+        "pressed": [],
+        "axes": {
+          "brake": false,
+          "accelerate": false,
+          "throttle": 0,
+          "steer": 0,
+          "lift": 0
+        },
+        "cameraOrbit": {
+          "yaw": -4.344911366772579,
+          "pitch": 0
+        },
+        "paused": false,
+        "disposed": false,
+        "blocked": "",
+        "carVisible": false,
+        "planeVisible": false,
+        "busVisible": true,
+        "camera": [
+          137.61730926692906,
+          4.574531938489468,
+          -1091.0519481201034
+        ],
+        "target": [
+          156.096,
+          2.3,
+          -1094.842
+        ],
+        "triangles": 5326
+      }
+    }
+  ],
+  "errors": [],
+  "actualPedalDrive": {
+    "position": {
+      "x": 0,
+      "z": -1.5014999999999998,
+      "y": 1.4
+    },
+    "speed": 4.549999999999999,
+    "camera": [
+      0,
+      4.574531938489468,
+      17.738325699277002
+    ],
+    "mode": "bus"
+  },
+  "landscape": {
+    "projection": {
+      "x": 0.14938572216099558,
+      "y": 0.2365945132787861,
+      "z": 0.9996818094416496
+    },
+    "hud": {
+      "x": 8,
+      "y": 108,
+      "width": 310,
+      "height": 115
+    },
+    "screen": {
+      "x": 485.04077475194015,
+      "y": 148.86406991063672
+    }
+  },
+  "rendering": "Single desktop Chrome software WebGL with genuine drawing, 10fps QA cap. Pose/orbit injection is only in a separate QA bundle; production has no qaPose API."
+}

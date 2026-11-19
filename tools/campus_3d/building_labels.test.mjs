@@ -1,0 +1,7 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+import {verifiedBuilding,placeLabelCandidates} from './building_labels.mjs';
+test('only explicit campus-numbered GLB IDs approved by official plans receive labels',()=>{
+ for(const [file,campus,count]of [['tsudanuma-campus.glb','tsudanuma',9],['shinnarashino-campus.glb','narashino',13]]){const b=fs.readFileSync(new URL(`../../assets/models/campus/${file}`,import.meta.url)),gltf=JSON.parse(b.subarray(20,20+b.readUInt32LE(12)).toString());const labels=gltf.nodes.map(n=>verifiedBuilding(n.extras)).filter(Boolean);assert.equal(labels.length,count);assert(labels.every(l=>l.campus===campus));assert.deepEqual(labels.map(l=>l.number).sort((a,b)=>a-b),Array.from({length:count},(_,i)=>i+1));}
+ assert.equal(verifiedBuilding({building_id:'Dorm_Men_Main',campus:'Shin-Narashino'}),null);assert.equal(verifiedBuilding({building_id:'14',campus:'Shin-Narashino'}),null);assert.equal(verifiedBuilding({building_id:'2'}),null);
+});
+test('nearest readable labels avoid each other, controls, back-facing and offscreen anchors',()=>{const candidates=[{id:1,x:100,y:100,depth:.5,distance:30},{id:2,x:103,y:105,depth:.5,distance:80},{id:3,x:220,y:100,depth:.5,distance:20},{id:4,x:320,y:220,depth:2,distance:1},{id:5,x:20,y:400,depth:.5,distance:2}];assert.deepEqual(placeLabelCandidates(candidates,{width:390,height:844,occupied:[{x:185,y:75,width:80,height:50}]}).map(l=>l.id),[1]);});

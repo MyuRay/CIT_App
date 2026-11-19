@@ -27,10 +27,10 @@ class UserService {
     try {
       SecureLogger.debug('👤 ユーザー情報作成開始: ${user.email}');
 
-      await _firestore.collection(_collection).doc(user.uid).set(
-        user.toJson(),
-        SetOptions(merge: true),
-      );
+      await _firestore
+          .collection(_collection)
+          .doc(user.uid)
+          .set(user.toJson(), SetOptions(merge: true));
 
       SecureLogger.debug('✅ ユーザー情報を作成しました: ${user.uid}');
     } catch (e) {
@@ -42,7 +42,11 @@ class UserService {
   /// ユーザー情報を取得
   static Future<AppUser?> getUser(String uid) async {
     try {
-      final doc = await _firestore.collection(_collection).doc(uid).get();
+      final collection =
+          FirebaseAuth.instance.currentUser?.uid == uid
+              ? _collection
+              : 'public_profiles';
+      final doc = await _firestore.collection(collection).doc(uid).get();
 
       if (doc.exists && doc.data() != null) {
         return AppUser.fromJson(doc.data()!);
@@ -357,7 +361,11 @@ class UserService {
 
   /// ユーザードキュメントをリアルタイム監視するストリーム
   static Stream<AppUser?> watchUser(String uid) {
-    return _firestore.collection(_collection).doc(uid).snapshots().map((doc) {
+    final collection =
+        FirebaseAuth.instance.currentUser?.uid == uid
+            ? _collection
+            : 'public_profiles';
+    return _firestore.collection(collection).doc(uid).snapshots().map((doc) {
       if (doc.exists && doc.data() != null) {
         try {
           return AppUser.fromJson(doc.data()!);

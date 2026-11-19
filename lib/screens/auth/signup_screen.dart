@@ -1,6 +1,7 @@
 import 'dart:async';
 import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+import '../../widgets/auth/email_delivery_help.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/providers/email_registration_provider.dart';
@@ -219,7 +220,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                               const SizedBox(height: 12),
                               AuthTextField(
                                 controller: _displayNameController,
-                                hintText: '表示名（掲示板・レビューなどに表示）',
+                                hintText: '表示名',
                                 prefixIcon: Icons.person_outline,
                                 enabled: !_isLoading,
                                 textInputAction: TextInputAction.next,
@@ -229,6 +230,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                                             ? '表示名は2文字以上で入力してください'
                                             : null,
                               ),
+                              const Padding(padding: EdgeInsets.only(top: 8),
+                                child: Text('マイページ、Cwitter、掲示板コメント欄、学食レビューなどで表示されます。', style: TextStyle(fontSize: 12))),
                               const SizedBox(height: 12),
                               AuthTextField(
                                 controller: _passwordController,
@@ -352,6 +355,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                                   '$_sentTo に送信しました。受信トレイと迷惑メールを確認してください。',
                                 ),
                               ),
+                              const SizedBox(height: 12),
+                              const EmailDeliveryHelp(),
                               const SizedBox(height: 12),
                               ExpansionTile(
                                 tilePadding: EdgeInsets.zero,

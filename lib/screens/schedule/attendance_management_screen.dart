@@ -1,3 +1,6 @@
+import '../../models/schedule/academic_term.dart';
+import '../../widgets/schedule/academic_term_selector.dart';
+import '../../services/schedule/schedule_service.dart';
 import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
@@ -9,9 +12,14 @@ import '../../services/schedule/attendance_service.dart';
 import '../../services/schedule/lecture_period_service.dart';
 
 class AttendanceManagementScreen extends StatefulWidget {
-  const AttendanceManagementScreen({super.key, required this.schedule});
+  const AttendanceManagementScreen({
+    super.key,
+    required this.schedule,
+    this.onSettingsChanged,
+  });
 
   final Schedule schedule;
+  final VoidCallback? onSettingsChanged;
 
   @override
   State<AttendanceManagementScreen> createState() =>
@@ -20,8 +28,11 @@ class AttendanceManagementScreen extends StatefulWidget {
 
 class _AttendanceManagementScreenState
     extends State<AttendanceManagementScreen> {
+  late String _semester = widget.schedule.semester;
   static const int _weekCount = AttendanceSession.weekCount;
   LecturePeriodSettings? _lecturePeriod;
+  bool _loadingPeriod = true;
+  String? _periodError;
 
   @override
   void initState() {
@@ -30,22 +41,153 @@ class _AttendanceManagementScreenState
   }
 
   Future<void> _loadLecturePeriod() async {
-    final settings = await LecturePeriodService.getLecturePeriod();
-    if (!mounted) return;
-    setState(() => _lecturePeriod = settings);
+    try {
+      final settings = await LecturePeriodService.getLecturePeriod();
+      if (!mounted) return;
+      setState(() {
+        _lecturePeriod = settings;
+        _loadingPeriod = false;
+        _periodError = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingPeriod = false;
+        _periodError = '講義期間を読み込めませんでした';
+      });
+    }
+  }
+
+  AppBar _appBar() => AppBar(
+    title: Text(
+      '出欠管理 ($_semester)',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    ),
+    actions: [
+      IconButton(
+        tooltip: '年度・学期を設定',
+        onPressed: _chooseTerm,
+        icon: const Icon(Icons.date_range),
+      ),
+    ],
+  );
+
+  Future<void> _chooseTerm() async {
+    var term =
+        AcademicTerm.parse(_semester) ??
+        AcademicTerm(AcademicTerm.currentYear(), false);
+    var saving = false;
+    String? error;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (ctx) => StatefulBuilder(
+            builder:
+                (ctx, update) => PopScope(
+                  canPop: !saving,
+                  child: AlertDialog(
+                    title: const Text('出欠管理の年度・学期'),
+                    content: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AcademicTermSelector(
+                            value: term,
+                            onChanged:
+                                saving
+                                    ? (_) {}
+                                    : (value) => update(() => term = value!),
+                          ),
+                          if (error != null)
+                            Text(
+                              error!,
+                              style: TextStyle(
+                                color: Theme.of(ctx).colorScheme.error,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: saving ? null : () => Navigator.pop(ctx),
+                        child: const Text('キャンセル'),
+                      ),
+                      FilledButton(
+                        onPressed:
+                            saving
+                                ? null
+                                : () async {
+                                  update(() {
+                                    saving = true;
+                                    error = null;
+                                  });
+                                  try {
+                                    await ScheduleService.setSemester(
+                                      widget.schedule.id,
+                                      term.label,
+                                    );
+                                    if (!ctx.mounted || !mounted) return;
+                                    setState(() => _semester = term.label);
+                                    widget.onSettingsChanged?.call();
+                                    Navigator.pop(ctx);
+                                    await _loadLecturePeriod();
+                                  } catch (_) {
+                                    if (ctx.mounted)
+                                      update(() {
+                                        saving = false;
+                                        error = '設定を保存できませんでした。もう一度お試しください。';
+                                      });
+                                  }
+                                },
+                        child: Text(saving ? '保存中…' : '設定'),
+                      ),
+                    ],
+                  ),
+                ),
+          ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final semesterStartDate = _resolveSemesterStartDate();
+    final semesterStartDate = _lecturePeriod?.startDateForSemester(_semester);
+    if (_loadingPeriod || semesterStartDate == null) {
+      return Scaffold(
+        appBar: _appBar(),
+        body: Center(
+          child:
+              _loadingPeriod
+                  ? const CircularProgressIndicator()
+                  : Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_periodError ?? '${_semester}の講義開始日が設定されていません'),
+                        const SizedBox(height: 12),
+                        FilledButton.icon(
+                          onPressed: _chooseTerm,
+                          icon: const Icon(Icons.date_range),
+                          label: const Text('年度・学期を設定'),
+                        ),
+                      ],
+                    ),
+                  ),
+        ),
+      );
+    }
     final weeks = List<int>.generate(_weekCount, (index) => index);
     final classes = _collectClassRows(widget.schedule);
-    final endDate = semesterStartDate.add(
-      Duration(days: ((_weekCount - 1) * 7) + 6),
-    );
+    final configuredEnd = _lecturePeriod?.endDateForSemester(_semester);
+    final endDate =
+        configuredEnd ??
+        semesterStartDate.add(Duration(days: ((_weekCount - 1) * 7) + 6));
 
     return Scaffold(
-      appBar: AppBar(title: Text('出欠管理 (${widget.schedule.semester})')),
+      appBar: _appBar(),
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: AttendanceService.watchScheduleAttendanceRecords(
           userId: widget.schedule.userId,
@@ -144,6 +286,8 @@ class _AttendanceManagementScreenState
                                           weekdayKey: row.weekdayKey,
                                           weekIndex: weekIndex,
                                         );
+                                    final inPeriod =
+                                        !targetDate.isAfter(endDate);
                                     final key =
                                         '${row.classId}|${_dateKey(targetDate)}';
                                     final slotKey =
@@ -153,17 +297,26 @@ class _AttendanceManagementScreenState
                                         recordMapBySlot[slotKey];
                                     final status = cellRecord?.status;
                                     return DataCell(
-                                      _statusCell(context, status),
-                                      onTap: () async {
-                                        await _editAttendanceCell(
-                                          context: context,
-                                          row: row,
-                                          attendanceDate: targetDate,
-                                          currentStatus: status,
-                                          existingRecordId:
-                                              cellRecord?.recordId,
-                                        );
-                                      },
+                                      inPeriod
+                                          ? _statusCell(
+                                            context,
+                                            status,
+                                            targetDate,
+                                          )
+                                          : const Text('期間外'),
+                                      onTap:
+                                          !inPeriod
+                                              ? null
+                                              : () async {
+                                                await _editAttendanceCell(
+                                                  context: context,
+                                                  row: row,
+                                                  attendanceDate: targetDate,
+                                                  currentStatus: status,
+                                                  existingRecordId:
+                                                      cellRecord?.recordId,
+                                                );
+                                              },
                                     );
                                   }),
                                 ],
@@ -190,18 +343,6 @@ class _AttendanceManagementScreenState
         },
       ),
     );
-  }
-
-  DateTime _resolveSemesterStartDate() {
-    final semester = widget.schedule.semester;
-    final isFall = semester.contains('後期');
-    final base =
-        isFall
-            ? _lecturePeriod?.fallStartDate
-            : _lecturePeriod?.springStartDate ??
-                _lecturePeriod?.lectureStartDate;
-    final date = base ?? DateTime.now();
-    return DateTime(date.year, date.month, date.day);
   }
 
   List<_AttendanceClassRow> _collectClassRows(Schedule schedule) {
@@ -238,12 +379,22 @@ class _AttendanceManagementScreenState
     return rows;
   }
 
-  Widget _statusCell(BuildContext context, String? status) {
+  Widget _statusCell(BuildContext context, String? status, DateTime date) {
     final style = AttendanceStatusStyle.fromValue(status);
-    return Icon(
-      style.icon,
-      color: AppColors.accent(context, style.color),
-      size: 18,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '${date.month}/${date.day}',
+          style: Theme.of(context).textTheme.labelSmall,
+        ),
+        const SizedBox(height: 4),
+        Icon(
+          style.icon,
+          color: AppColors.accent(context, style.color),
+          size: 18,
+        ),
+      ],
     );
   }
 
@@ -307,7 +458,7 @@ class _AttendanceManagementScreenState
       builder:
           (dialogContext) => AlertDialog(
             title: Text(
-              '${row.subjectName}\n${_formatDate(attendanceDate)} の出欠を編集',
+              '${row.subjectName}\n${_semester}\n${_formatDate(attendanceDate)} の出欠を編集',
             ),
             content: Wrap(
               spacing: 10,
@@ -316,8 +467,12 @@ class _AttendanceManagementScreenState
                 for (final status in AttendanceStatusStyle.values)
                   AttendanceStatusChip(
                     status: status,
-                    selected: AttendanceStatusStyle.fromValue(currentStatus) == status,
-                    onSelected: () => Navigator.of(dialogContext).pop(status.value ?? ''),
+                    selected:
+                        AttendanceStatusStyle.fromValue(currentStatus) ==
+                        status,
+                    onSelected:
+                        () =>
+                            Navigator.of(dialogContext).pop(status.value ?? ''),
                   ),
               ],
             ),

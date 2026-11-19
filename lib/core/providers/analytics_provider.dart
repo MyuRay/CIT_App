@@ -50,7 +50,7 @@ final analyticsSessionSyncProvider = Provider<void>((ref) {
                   ? AnalyticsAccountState.verified
                   : AnalyticsAccountState.unverified,
           accountCreatedAt: user?.metadata.creationTime,
-          campus: settings.preferredBusCampus,
+          campus: settings.effectivePreferredBusCampus,
           themeMode: ref.read(themeModeProvider),
           fontSize: settings.appFontSize,
           lectureReminders: settings.scheduleNotificationEnabled,

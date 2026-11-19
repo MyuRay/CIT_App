@@ -24,7 +24,7 @@ import kotlin.math.min
 class TodayScheduleWidgetProvider : HomeWidgetProvider() {
     companion object {
         private const val TAG = "TodayScheduleWidget"
-        private const val MAX_PERIODS = 10
+        private const val MAX_PERIODS = 15
     }
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray, data: SharedPreferences) {

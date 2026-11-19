@@ -1,0 +1,46 @@
+{
+  "backend": "actual game core with serialized in-memory transactions; no Firebase connection",
+  "checks": {
+    "earlySessionQueued": true,
+    "tileQualityDialog": true,
+    "portraitAnalogCameraReleaseLayout": true,
+    "landscapeAnalogCameraReleaseLayout": true,
+    "countdownResetInvalidates": true,
+    "realCoreTwoClientCommonStartGhosts": true,
+    "cancelLeaveClearsGhostAndNoRestart": true
+  },
+  "errors": [],
+  "synchronizedRenderLimit": "Draw calls suppressed during synchronized phase to avoid software GPU >1.5s stalls; individual scene rendering verified above.",
+  "ghosts": [
+    [
+      {
+        "playerId": "8a0fe2c6ad5cde31a18a",
+        "position": [
+          52.71104125711501,
+          18.873044103579883,
+          -108.35839233811215
+        ],
+        "target": [
+          52.71104125711501,
+          18.873044103579883,
+          -108.35839233811215
+        ]
+      }
+    ],
+    [
+      {
+        "playerId": "555a2275cdc4e1ef0185",
+        "position": [
+          52.71104125711501,
+          18.873044103579883,
+          -108.35839233811215
+        ],
+        "target": [
+          52.71104125711501,
+          18.873044103579883,
+          -108.35839233811215
+        ]
+      }
+    ]
+  ]
+}

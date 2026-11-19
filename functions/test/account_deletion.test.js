@@ -34,3 +34,10 @@ test('only this bucket and user-upload paths can enter file cleanup', () => {
     'https://storage.googleapis.com/test-bucket/profile_images/u/a.jpg']}, 'test-bucket'),
   ['bulletin_images/a.jpg', 'profile_images/u/a.jpg']);
 });
+
+test('private inquiry attachments are cleaned up by conversation owner, including operator replies', () => {
+  const {ownedPath} = require('../account_deletion');
+  assert.equal(ownedPath('contact_chat_images/student/operator/message/0.jpg', 'student'), true);
+  assert.equal(ownedPath('contact_chat_images/student/operator/message/0.jpg', 'operator'), false);
+  assert.equal(ownedPath('contact_chat_images/student2/student/message/0.jpg', 'student'), false);
+});

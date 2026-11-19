@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'ad_slot_position.dart';
 
 /// [items] を [interval] 件ごとに [adBuilder] のウィジェットを差し込む
 List<Widget> interleaveWidgetsWithBannerAds<T>({
@@ -6,6 +7,7 @@ List<Widget> interleaveWidgetsWithBannerAds<T>({
   required int interval,
   required Widget Function(T item) itemBuilder,
   required Widget Function() adBuilder,
+  int positionOffset = 0,
   EdgeInsetsGeometry adPadding = const EdgeInsets.only(bottom: 8),
 }) {
   if (items.isEmpty || interval <= 0) {
@@ -16,7 +18,15 @@ List<Widget> interleaveWidgetsWithBannerAds<T>({
   for (var i = 0; i < items.length; i++) {
     result.add(itemBuilder(items[i]));
     if ((i + 1) % interval == 0) {
-      result.add(Padding(padding: adPadding, child: adBuilder()));
+      result.add(
+        Padding(
+          padding: adPadding,
+          child: AdSlotPosition(
+            index: positionOffset + result.length + 1,
+            child: adBuilder(),
+          ),
+        ),
+      );
     }
   }
   return result;
@@ -27,6 +37,7 @@ List<Widget> interleaveWidgetListWithBannerAds({
   required List<Widget> items,
   required int interval,
   required Widget ad,
+  int positionOffset = 0,
   EdgeInsetsGeometry adPadding = const EdgeInsets.only(bottom: 8),
 }) {
   if (items.isEmpty || interval <= 0) return items;
@@ -35,7 +46,15 @@ List<Widget> interleaveWidgetListWithBannerAds({
   for (var i = 0; i < items.length; i++) {
     result.add(items[i]);
     if ((i + 1) % interval == 0) {
-      result.add(Padding(padding: adPadding, child: ad));
+      result.add(
+        Padding(
+          padding: adPadding,
+          child: AdSlotPosition(
+            index: positionOffset + result.length + 1,
+            child: ad,
+          ),
+        ),
+      );
     }
   }
   return result;

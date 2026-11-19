@@ -164,7 +164,8 @@ struct FullScheduleView: View {
     var body: some View {
         let days = entry.snapshot.days
         let dayCount = days[5].isEmpty ? 5 : 6
-        let maxPeriod = min(10, max(5, days.flatMap { $0 }.map { $0.endPeriod }.max() ?? 5))
+        let savedPeriodCount = entry.snapshot.periodCount ?? entry.snapshot.timeSlots?.map { $0.period }.max() ?? 10
+        let maxPeriod = min(15, max(savedPeriodCount > 10 ? savedPeriodCount : 5, days.flatMap { $0 }.map { $0.endPeriod }.max() ?? 5))
         VStack(alignment: .leading, spacing: 10) {
             WidgetHeading(title: entry.snapshot.scheduleTitle ?? "週間時間割", icon: "square.grid.3x3")
             if !entry.snapshot.available {

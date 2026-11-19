@@ -40,15 +40,26 @@ import 'cwitter_body_text.dart';
 import 'cwitter_recweet_confirmation_dialog.dart';
 import 'cwitter_reaction_list_sheet.dart';
 import 'cwitter_reply_sheet.dart';
+import 'cwitter_id_requirement.dart';
+import 'cwitter_quote_composer.dart';
+import 'cwitter_quoted_post.dart';
+import 'cwitter_pin_action.dart';
+import '../../../core/providers/cwitter_pin_provider.dart';
 
 import '../../../screens/user_block/block_confirmation_dialog.dart';
 
 class CwitterPostCard extends ConsumerWidget {
-  const CwitterPostCard({super.key, required this.post, this.recweet});
+  const CwitterPostCard({
+    super.key,
+    required this.post,
+    this.recweet,
+    this.showPinnedLabel = false,
+  });
 
   final CwitterPost post;
 
   final CwitterRecweet? recweet;
+  final bool showPinnedLabel;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -108,6 +119,10 @@ class CwitterPostCard extends ConsumerWidget {
     });
 
     final isOwner = uid != null && uid == post.authorId;
+    final isPinned =
+        isOwner &&
+        ref.watch(cwitterPinnedPostIdProvider(uid)).valueOrNull == post.id;
+    final pinSaving = isOwner && ref.watch(cwitterPinSavingProvider(uid));
 
     final isAdmin = ref.watch(isAdminProvider);
 
@@ -131,6 +146,21 @@ class CwitterPostCard extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
 
           children: [
+            if (showPinnedLabel) ...[
+              Row(
+                children: [
+                  Icon(Icons.push_pin, size: 14, color: mutedColor),
+                  const SizedBox(width: 6),
+                  Text(
+                    '固定されたCweet',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: mutedColor,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
             if (recweet != null) ...[
               _RecweetBanner(recweet: recweet!),
 
@@ -139,73 +169,54 @@ class CwitterPostCard extends ConsumerWidget {
 
             CwitterAuthorHeader.fromPost(
               post,
-
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-
-                children: [
-                  Text(
-                    formatCommunityRelativeTime(post.createdAt),
-
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: mutedColor,
-                    ),
-                  ),
-
-                  CwitterMoreMenu(
-                    isOwner: isOwner,
-
-                    onDeletePost:
-                        isOwner
-                            ? () async {
-                              await CwitterService.deletePost(
-                                postId: post.id,
-
-                                userId: uid,
-                              );
-
-                              ref
-                                  .read(cwitterFeedProvider.notifier)
-                                  .removePost(post.id);
-                            }
-                            : null,
-
-                    onReport:
-                        isOwner
-                            ? null
-                            : () => showCwitterPostReportDialog(
-                              context,
-
-                              post: post,
-                            ),
-
-                    onBlock:
-                        isOwner
-                            ? null
-                            : () => showBlockConfirmationDialog(
-                              context,
-
-                              blockedUserId: post.authorId,
-
-                              blockedUserName: post.displayName,
-
-                              blockedUserCwitterId: post.cwitterId,
-                            ),
-
-                    onBan:
-                        (!isAdmin || isOwner || uid == null)
-                            ? null
-                            : () => showAdminBanDialog(
-                              context,
-
-                              targetUserId: post.authorId,
-
-                              targetLabel: '@${post.cwitterId}',
-
-                              adminId: uid,
-                            ),
-                  ),
-                ],
+              trailing: CwitterMoreMenu(
+                isOwner: isOwner,
+                isPinned: isPinned,
+                pinEnabled: !pinSaving,
+                onPin:
+                    isOwner
+                        ? () => changeCwitterPin(
+                          context,
+                          ref,
+                          post: post,
+                          pinned: !isPinned,
+                        )
+                        : null,
+                onDeletePost:
+                    isOwner
+                        ? () async {
+                          await CwitterService.deletePost(
+                            postId: post.id,
+                            userId: uid,
+                          );
+                          ref
+                              .read(cwitterFeedProvider.notifier)
+                              .removePost(post.id);
+                        }
+                        : null,
+                onReport:
+                    isOwner
+                        ? null
+                        : () =>
+                            showCwitterPostReportDialog(context, post: post),
+                onBlock:
+                    isOwner
+                        ? null
+                        : () => showBlockConfirmationDialog(
+                          context,
+                          blockedUserId: post.authorId,
+                          blockedUserName: post.displayName,
+                          blockedUserCwitterId: post.cwitterId,
+                        ),
+                onBan:
+                    (!isAdmin || isOwner || uid == null)
+                        ? null
+                        : () => showAdminBanDialog(
+                          context,
+                          targetUserId: post.authorId,
+                          targetLabel: '@${post.cwitterId}',
+                          adminId: uid,
+                        ),
               ),
             ),
 
@@ -234,177 +245,244 @@ class CwitterPostCard extends ConsumerWidget {
               CwitterPollWidget(post: post),
             ],
 
+            if (post.quotedPostId != null) ...[
+              const SizedBox(height: 12),
+              CwitterQuotedPost(
+                postId: post.quotedPostId!,
+                onOpen: (original) => CwitterReplySheet.show(context, original),
+              ),
+            ],
             const SizedBox(height: 10),
 
-            Align(
-              alignment: Alignment.centerRight,
-
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-
-                children: [
-                  _ActionButton(
-                    icon: Icons.chat_bubble_outline,
-
-                    activeIcon: Icons.chat_bubble,
-
-                    count: replyCount,
-
-                    color: mutedColor,
-
-                    activeColor: const Color(0xFF4CAF50),
-
-                    onTap: () => CwitterReplySheet.show(context, post),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    formatCommunityRelativeTime(post.createdAt),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: mutedColor,
+                    ),
                   ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  flex: 3,
+                  fit: FlexFit.tight,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
 
-                  const SizedBox(width: 16),
+                      children: [
+                        _ActionButton(
+                          icon: Icons.chat_bubble_outline,
 
-                  _ActionButton(
-                    icon: Icons.repeat,
+                          activeIcon: Icons.chat_bubble,
 
-                    activeIcon: Icons.repeat,
+                          count: replyCount,
 
-                    count: recweetCount,
+                          color: mutedColor,
 
-                    color: mutedColor,
+                          activeColor: const Color(0xFF4CAF50),
 
-                    activeColor: const Color(0xFF4CAF50),
+                          onTap: () => CwitterReplySheet.show(context, post),
+                        ),
 
-                    isActive: isRecweeted,
+                        const SizedBox(width: 16),
 
-                    onLongPress:
-                        recweetCount > 0
-                            ? () => CwitterReactionListSheet.show(
-                              context,
+                        _ActionButton(
+                          icon: Icons.repeat,
 
-                              postId: post.id,
+                          activeIcon: Icons.repeat,
 
-                              kind: CwitterReactionListKind.recweets,
-                            )
-                            : null,
+                          count: recweetCount,
 
-                    onTap:
-                        uid == null || appUser == null || !appUser.hasCwitterId
-                            ? null
-                            : () async {
-                              final notifier = ref.read(
-                                cwitterRecweetOverrideProvider.notifier,
-                              );
-                              final nextRecweeted = !isRecweeted;
-                              final nextCount =
-                                  nextRecweeted
-                                      ? recweetCount + 1
-                                      : (recweetCount > 0
-                                          ? recweetCount - 1
-                                          : 0);
+                          color: mutedColor,
 
-                              if (!isRecweeted) {
-                                final confirmed =
-                                    await showCwitterRecweetConfirmationDialog(
-                                      context,
-                                      post: post,
+                          activeColor: const Color(0xFF4CAF50),
+
+                          isActive: isRecweeted,
+
+                          onLongPress:
+                              recweetCount > 0
+                                  ? () => CwitterReactionListSheet.show(
+                                    context,
+
+                                    postId: post.id,
+
+                                    kind: CwitterReactionListKind.recweets,
+                                  )
+                                  : null,
+
+                          onTap:
+                              uid == null ||
+                                      appUser == null ||
+                                      !appUser.hasCwitterId
+                                  ? () => promptCwitterIdRegistration(context, ref, action: 'recweet')
+                                  : () async {
+                                    final action =
+                                        await showCwitterRecweetActions(
+                                          context,
+                                          isRecweeted: isRecweeted,
+                                        );
+                                    if (action == null || !context.mounted)
+                                      return;
+                                    if (action == CwitterRecweetAction.quote) {
+                                      final posted =
+                                          await CwitterQuoteComposer.show(
+                                            context,
+                                            post,
+                                          );
+                                      if (!posted || !context.mounted) return;
+                                      ref
+                                          .read(cwitterFeedProvider.notifier)
+                                          .refresh();
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('引用recweetしました'),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    final notifier = ref.read(
+                                      cwitterRecweetOverrideProvider.notifier,
                                     );
-                                if (!confirmed || !context.mounted) return;
-                              }
+                                    final nextRecweeted = !isRecweeted;
+                                    final nextCount =
+                                        nextRecweeted
+                                            ? recweetCount + 1
+                                            : (recweetCount > 0
+                                                ? recweetCount - 1
+                                                : 0);
 
-                              notifier.apply(
-                                postId: post.id,
-                                isRecweeted: nextRecweeted,
-                                recweetCount: nextCount,
-                              );
+                                    if (!isRecweeted) {
+                                      final confirmed =
+                                          await showCwitterRecweetConfirmationDialog(
+                                            context,
+                                            post: post,
+                                          );
+                                      if (!confirmed || !context.mounted)
+                                        return;
+                                    }
 
-                              try {
-                                await CwitterService.toggleRecweet(
-                                  postId: post.id,
-                                  userId: uid,
-                                  displayName: appUser.displayName,
-                                  cwitterId: appUser.cwitterId!,
-                                  originalAuthorId: post.authorId,
-                                  profileImageUrl: appUser.profileImageUrl,
-                                );
-                              } catch (e) {
-                                notifier.revert(post.id);
-                                if (!context.mounted) return;
-                                if (maybeShowBanNotice(context, e)) return;
-                                ScaffoldMessenger.of(
-                                  context,
-                                ).showSnackBar(SnackBar(content: Text('$e')));
-                              }
-                            },
+                                    notifier.apply(
+                                      postId: post.id,
+                                      isRecweeted: nextRecweeted,
+                                      recweetCount: nextCount,
+                                    );
+
+                                    try {
+                                      await CwitterService.toggleRecweet(
+                                        postId: post.id,
+                                        userId: uid,
+                                        displayName: appUser.displayName,
+                                        cwitterId: appUser.cwitterId!,
+                                        originalAuthorId: post.authorId,
+                                        profileImageUrl:
+                                            appUser.profileImageUrl,
+                                      );
+                                    } catch (e) {
+                                      notifier.revert(post.id);
+                                      if (!context.mounted) return;
+                                      if (maybeShowBanNotice(context, e))
+                                        return;
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(content: Text('$e')),
+                                      );
+                                    }
+                                  },
+                        ),
+
+                        const SizedBox(width: 16),
+
+                        _ActionButton(
+                          icon: Icons.favorite_border,
+
+                          activeIcon: Icons.favorite,
+
+                          count: likeCount,
+
+                          color: mutedColor,
+
+                          activeColor: Colors.pinkAccent,
+
+                          isActive: isLiked,
+
+                          onLongPress:
+                              likeCount > 0
+                                  ? () => CwitterReactionListSheet.show(
+                                    context,
+
+                                    postId: post.id,
+
+                                    kind: CwitterReactionListKind.likes,
+                                  )
+                                  : null,
+
+                          onTap:
+                              uid == null ||
+                                      appUser == null ||
+                                      !appUser.hasCwitterId
+                                  ? () => promptCwitterIdRegistration(context, ref, action: 'いいね')
+                                  : () async {
+                                    final notifier = ref.read(
+                                      cwitterLikeOverrideProvider.notifier,
+                                    );
+
+                                    final nextLiked = !isLiked;
+
+                                    final nextCount =
+                                        nextLiked
+                                            ? likeCount + 1
+                                            : (likeCount > 0
+                                                ? likeCount - 1
+                                                : 0);
+
+                                    notifier.apply(
+                                      postId: post.id,
+
+                                      isLiked: nextLiked,
+
+                                      likeCount: nextCount,
+                                    );
+
+                                    try {
+                                      await CwitterService.toggleLike(
+                                        postId: post.id,
+
+                                        userId: uid,
+
+                                        likerDisplayName: appUser.displayName,
+
+                                        likerCwitterId: appUser.cwitterId!,
+                                      );
+                                    } catch (e) {
+                                      notifier.revert(post.id);
+
+                                      if (!context.mounted) return;
+
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text('いいねに失敗しました: $e'),
+                                        ),
+                                      );
+                                    }
+                                  },
+                        ),
+                      ],
+                    ),
                   ),
-
-                  const SizedBox(width: 16),
-
-                  _ActionButton(
-                    icon: Icons.favorite_border,
-
-                    activeIcon: Icons.favorite,
-
-                    count: likeCount,
-
-                    color: mutedColor,
-
-                    activeColor: Colors.pinkAccent,
-
-                    isActive: isLiked,
-
-                    onLongPress:
-                        likeCount > 0
-                            ? () => CwitterReactionListSheet.show(
-                              context,
-
-                              postId: post.id,
-
-                              kind: CwitterReactionListKind.likes,
-                            )
-                            : null,
-
-                    onTap:
-                        uid == null || appUser == null || !appUser.hasCwitterId
-                            ? null
-                            : () async {
-                              final notifier = ref.read(
-                                cwitterLikeOverrideProvider.notifier,
-                              );
-
-                              final nextLiked = !isLiked;
-
-                              final nextCount =
-                                  nextLiked
-                                      ? likeCount + 1
-                                      : (likeCount > 0 ? likeCount - 1 : 0);
-
-                              notifier.apply(
-                                postId: post.id,
-
-                                isLiked: nextLiked,
-
-                                likeCount: nextCount,
-                              );
-
-                              try {
-                                await CwitterService.toggleLike(
-                                  postId: post.id,
-
-                                  userId: uid,
-
-                                  likerDisplayName: appUser.displayName,
-
-                                  likerCwitterId: appUser.cwitterId!,
-                                );
-                              } catch (e) {
-                                notifier.revert(post.id);
-
-                                if (!context.mounted) return;
-
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('いいねに失敗しました: $e')),
-                                );
-                              }
-                            },
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ),

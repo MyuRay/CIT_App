@@ -15,6 +15,8 @@ bool isOutsideHomeTimetableLecturePeriod({
     return !endDay.isBefore(startDay);
   }
 
+  if (settings.periods.isNotEmpty) return !settings.containsDate(date);
+
   if (!hasValidRange(settings.springStartDate, settings.springEndDate) &&
       !hasValidRange(settings.fallStartDate, settings.fallEndDate)) {
     return false;

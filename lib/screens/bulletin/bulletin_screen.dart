@@ -11,7 +11,9 @@ import 'bulletin_post_detail_screen.dart';
 import 'bulletin_post_form_screen.dart';
 
 class BulletinScreen extends ConsumerStatefulWidget {
-  const BulletinScreen({super.key});
+  const BulletinScreen({super.key, this.categoriesAnchorKey, this.postAnchorKey});
+  final GlobalKey? categoriesAnchorKey;
+  final GlobalKey? postAnchorKey;
   @override
   ConsumerState<BulletinScreen> createState() => _BulletinScreenState();
 }
@@ -92,11 +94,13 @@ class _BulletinScreenState extends ConsumerState<BulletinScreen> {
             child:
                 compactAction
                     ? IconButton.filled(
+                      key: widget.postAnchorKey,
                       onPressed: _addPost,
                       icon: const Icon(Icons.edit_outlined),
                       tooltip: '投稿する',
                     )
                     : FilledButton.icon(
+                      key: widget.postAnchorKey,
                       onPressed: _addPost,
                       icon: const Icon(Icons.edit_outlined, size: 18),
                       label: const Text('投稿する'),
@@ -116,7 +120,7 @@ class _BulletinScreenState extends ConsumerState<BulletinScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
                 child: Row(
                   children: [
-                    _category(null, 'すべて', Icons.grid_view_rounded),
+                    KeyedSubtree(key: widget.categoriesAnchorKey, child: _category(null, 'すべて', Icons.grid_view_rounded)),
                     for (final category in BulletinCategories.all) ...[
                       const SizedBox(width: 8),
                       _category(

@@ -9,6 +9,11 @@
 # packages, and plugins designed to encourage good coding practices.
 analyzer:
   exclude:
+    # Firebase CLI ships Dart templates which are not part of the Flutter app.
+    - node_modules/**
+    - functions/node_modules/**
+    - security-functions/node_modules/**
+    - game-functions/node_modules/**
     - build/**
     - build.setup-backup-*/**
     - .dart_tool.setup-backup-*/**

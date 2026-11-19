@@ -94,8 +94,11 @@ Future<ExcelImportReviewResult?> showExcelImportReviewDialog(
                           ),
                           const Expanded(
                             child: Text(
-                              '抽出精度の改善に協力する（任意）。氏名・学籍番号・元のファイル名を除いた時間割と修正内容を提供します。',
-                              style: TextStyle(fontSize: 12),
+                              '抽出精度の改善に協力する（任意）\n'
+                              '時間割部分のExcel・抽出結果・修正内容・解析時の警告を、運営へ提供します。'
+                              '氏名・学籍番号の欄と元のファイル名は除きますが、提供者のユーザーID（UID）と紐付けて保存します。\n'
+                              'チェックを外しても時間割を取り込めます。',
+                              style: TextStyle(fontSize: 14),
                             ),
                           ),
                         ],
@@ -182,7 +185,7 @@ Future<ExcelImportReviewResult?> showExcelImportReviewDialog(
                               ),
                             );
                           },
-                  child: const Text('この内容で適用'),
+                  child: Text(provideTrainingData ? '提供して取り込む' : '提供せず取り込む'),
                 ),
               ],
             );

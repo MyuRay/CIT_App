@@ -97,24 +97,30 @@ class CwitterAuthorHeader extends ConsumerWidget {
       displayName,
     );
 
-    final defaultNameColumn = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CwitterAuthorNameRow(
-          displayName: resolvedName,
-          cwitterId: cwitterId,
-          tags: tags,
-          compact: true,
-          onTagTap: (tag) => Navigator.of(context).push(
+    final metadataStyle = theme.textTheme.bodySmall?.copyWith(
+      color: mutedColor,
+    );
+    final authorName = CwitterAuthorNameRow(
+      displayName: resolvedName,
+      cwitterId: cwitterId,
+      tags: tags,
+      compact: true,
+      onTagTap:
+          (tag) => Navigator.of(context).push(
             MaterialPageRoute<void>(
               builder: (_) => CwitterHashtagUsersScreen(tag: tag),
             ),
           ),
-        ),
+    );
+    final defaultNameColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        authorName,
         CwitterHandleText(
           cwitterId: cwitterId,
           showOfficialTag: false,
-          style: theme.textTheme.bodySmall?.copyWith(color: mutedColor),
+          style: metadataStyle,
         ),
       ],
     );

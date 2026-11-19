@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../models/schedule/schedule_model.dart';
 import '../../models/schedule/attendance_session.dart';
@@ -29,7 +30,9 @@ class AttendanceClassSummary {
 }
 
 class AttendanceService {
-  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  @visibleForTesting
+  static FirebaseFirestore? firestoreOverride;
+  static FirebaseFirestore get _firestore => firestoreOverride ?? FirebaseFirestore.instance;
   static const String _collection = 'attendance_records';
 
   static Future<AttendanceMarkResult> markAttendanceFromTap({
@@ -57,7 +60,7 @@ class AttendanceService {
     }
 
     final lecturePeriod = await LecturePeriodService.getLecturePeriod();
-    if (lecturePeriod == null || !lecturePeriod.containsDate(current)) {
+    if (lecturePeriod == null || !lecturePeriod.containsDateForSemester(current, schedule.semester)) {
       return const AttendanceMarkResult(
         success: false,
         message: '講義期間外のため出欠を記録できません',

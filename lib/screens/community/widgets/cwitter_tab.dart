@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import '../../../core/theme/app_colors.dart';
 
 import 'package:flutter/material.dart';
@@ -21,6 +23,7 @@ import 'admin_ban_dialog.dart';
 import 'cwitter_avatar.dart';
 import 'cwitter_post_images_grid.dart';
 import 'cwitter_id_setup_view.dart';
+import 'cwitter_id_requirement.dart';
 import 'cwitter_post_card.dart';
 import 'cwitter_posting_guidelines_dialog.dart';
 import 'cwitter_profile_screen.dart';
@@ -28,6 +31,25 @@ import '../../../widgets/ads/in_app_ad_banner_slot.dart';
 import '../../../widgets/ads/in_app_ad_intervals.dart';
 import '../../../widgets/ads/in_app_ad_list_inserter.dart';
 import 'package:cit_app/models/ads/in_app_ad_model.dart';
+
+const _composerPlaceholders = [
+  'いま何してる？',
+  '学食混んでる？',
+  'CITにゃんこ見た？',
+  '図書館空いてる？',
+  '今日の昼食何食べた？',
+  '空きコマ誰かいない？',
+  '一緒に昼食行かない？',
+  '今日の試験どうだった？',
+  '卒論進んでる？',
+  '今の学バス混んでる？',
+  '今日何か変わったことあった？',
+  '空きコマは何してる？',
+  '食堂の席空いてる？',
+  '今日講義で分からないところあった？',
+  '千葉工大あるあるって？',
+  'おすすめの勉強場所は？',
+];
 
 class CwitterTab extends ConsumerStatefulWidget {
   const CwitterTab({super.key, this.isActiveTab = true});
@@ -45,15 +67,19 @@ class _CwitterTabState extends ConsumerState<CwitterTab>
   final _scrollController = ScrollController();
   final _pendingImages = <XFile>[];
   bool _isPosting = false;
+  late final CwitterComposerBackGateNotifier _composerBackGate;
   bool _composerExpanded = false;
   bool _pollEnabled = false;
   late final List<TextEditingController> _pollOptionControllers;
+  late String _composerPlaceholder;
   final Object _composerTapGroup = Object();
   CwitterFeedTab _feedTab = CwitterFeedTab.everyone;
   bool _showNewPostsBanner = false;
+  bool _showScrollToTop = false;
   int? _feedSnapshotCreatedAtMs;
   bool _isHandlingComposerBack = false;
   static const _feedTopThreshold = 48.0;
+  static const _scrollToTopThreshold = 400.0;
 
   bool get _isComposerInputActive =>
       _composerExpanded || _composerFocusNode.hasFocus;
@@ -78,6 +104,8 @@ class _CwitterTabState extends ConsumerState<CwitterTab>
   @override
   void initState() {
     super.initState();
+    _composerBackGate = ref.read(cwitterComposerBackGateProvider.notifier);
+    _composerPlaceholder = _pickComposerPlaceholder();
     _pollOptionControllers = List.generate(
       CwitterPoll.minOptions,
       (_) => TextEditingController(),
@@ -100,9 +128,26 @@ class _CwitterTabState extends ConsumerState<CwitterTab>
         );
   }
 
+  String _pickComposerPlaceholder({String? current}) {
+    if (_composerPlaceholders.length <= 1) {
+      return _composerPlaceholders.first;
+    }
+
+    final random = Random();
+    var next = _composerPlaceholders[random.nextInt(_composerPlaceholders.length)];
+    while (next == current) {
+      next = _composerPlaceholders[random.nextInt(_composerPlaceholders.length)];
+    }
+    return next;
+  }
+
   void _onFeedScroll() {
     if (!_scrollController.hasClients) return;
     final position = _scrollController.position;
+    final showScrollToTop = position.pixels > _scrollToTopThreshold;
+    if (_showScrollToTop != showScrollToTop) {
+      setState(() => _showScrollToTop = showScrollToTop);
+    }
 
     if (position.pixels <= _feedTopThreshold) {
       _syncFeedSnapshotAtTop();
@@ -179,6 +224,15 @@ class _CwitterTabState extends ConsumerState<CwitterTab>
       _showNewPostsBanner = false;
       _feedSnapshotCreatedAtMs = _resolveFeedSnapshotMs();
     });
+  }
+
+  Future<void> _scrollToTop() async {
+    if (!_scrollController.hasClients) return;
+    await _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   void _onComposerFocusChange() {
@@ -318,7 +372,8 @@ class _CwitterTabState extends ConsumerState<CwitterTab>
 
   @override
   void dispose() {
-    ref.read(cwitterComposerBackGateProvider.notifier).clear();
+    // Provider updates must happen after widget teardown, including account switches.
+    Future.microtask(_composerBackGate.clear);
     _scrollController.removeListener(_onFeedScroll);
     _scrollController.dispose();
     _composerFocusNode.removeListener(_onComposerFocusChange);
@@ -410,9 +465,7 @@ class _CwitterTabState extends ConsumerState<CwitterTab>
     final appUser = ref.read(currentAppUserStreamProvider).valueOrNull;
     final uid = ref.read(currentUserIdProvider);
     if (appUser == null || uid == null || !appUser.hasCwitterId) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Cwitter IDを設定してください')));
+      await promptCwitterIdRegistration(context, ref, action: '投稿');
       return;
     }
 
@@ -541,8 +594,9 @@ class _CwitterTabState extends ConsumerState<CwitterTab>
             ),
           ),
       data: (appUser) {
-        if (appUser == null || !appUser.hasCwitterId) {
-          return const CwitterIdSetupView();
+        if (appUser == null) return const CwitterIdSetupView();
+        if (!appUser.hasCwitterId && !ref.watch(cwitterIdSetupDeferredProvider)) {
+          return CwitterIdSetupView(onLater: () => deferCwitterIdSetup(ref, isMounted: () => mounted));
         }
         return BackButtonListener(
           onBackButtonPressed: () async {
@@ -660,6 +714,8 @@ class _CwitterTabState extends ConsumerState<CwitterTab>
           setState(() {
             _showNewPostsBanner = false;
             _feedSnapshotCreatedAtMs = _resolveFeedSnapshotMs();
+            _composerPlaceholder =
+                _pickComposerPlaceholder(current: _composerPlaceholder);
           });
         }
       },
@@ -670,7 +726,12 @@ class _CwitterTabState extends ConsumerState<CwitterTab>
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              12,
+              16,
+              88 + MediaQuery.paddingOf(context).bottom,
+            ),
             children: [
               Card(
                 elevation: 0,
@@ -683,9 +744,22 @@ class _CwitterTabState extends ConsumerState<CwitterTab>
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child:
-                      _isComposerExpanded
-                          ? _buildExpandedComposer(context, appUser)
-                          : _buildCollapsedComposer(context, appUser),
+                      !appUser.hasCwitterId
+                          ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Text('CweetID未設定でも投稿を閲覧できます'),
+                              const SizedBox(height: 8),
+                              FilledButton.tonalIcon(
+                                onPressed: () => promptCwitterIdRegistration(context, ref, action: '投稿'),
+                                icon: const Icon(Icons.person_add_outlined),
+                                label: const Text('CweetIDを設定して参加する'),
+                              ),
+                            ],
+                          )
+                          : _isComposerExpanded
+                              ? _buildExpandedComposer(context, appUser)
+                              : _buildCollapsedComposer(context, appUser),
                 ),
               ),
               const SizedBox(height: 12),
@@ -719,6 +793,29 @@ class _CwitterTabState extends ConsumerState<CwitterTab>
               left: 0,
               right: 0,
               child: Center(child: _NewCweetsBanner(onTap: _showLatestCweets)),
+            ),
+          if (_showScrollToTop && !isEmpty)
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: SafeArea(
+                top: false,
+                left: false,
+                child: Material(
+                  elevation: 4,
+                  shadowColor: Colors.black.withValues(alpha: 0.2),
+                  shape: const CircleBorder(),
+                  color: theme.brightness == Brightness.dark
+                      ? colorScheme.surfaceContainerHigh
+                      : Colors.white,
+                  child: IconButton(
+                    onPressed: _scrollToTop,
+                    tooltip: '一番上に戻る',
+                    icon: const Icon(Icons.keyboard_arrow_up),
+                    color: AppColors.accent(context, const Color(0xFF2E7D32)),
+                  ),
+                ),
+              ),
             ),
         ],
       ),
@@ -793,7 +890,7 @@ class _CwitterTabState extends ConsumerState<CwitterTab>
                   vertical: 12,
                 ),
                 child: Text(
-                  'Cweetを入力',
+                  _composerPlaceholder,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -835,7 +932,7 @@ class _CwitterTabState extends ConsumerState<CwitterTab>
                   maxLength: 280,
                   enabled: !_isPosting,
                   decoration: InputDecoration(
-                    hintText: 'Cweetを入力',
+                    hintText: _composerPlaceholder,
                     filled: true,
                     fillColor: colorScheme.surfaceContainerHighest.withValues(
                       alpha: 0.5,

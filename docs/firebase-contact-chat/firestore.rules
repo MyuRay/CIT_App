@@ -1,0 +1,1794 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Server-only Discord notification receipts.
+    match /discord_notifications/{document=**} { allow read, write: if false; }
+    function isActiveAccount() {
+      return request.auth != null && !exists(/databases/$(database)/documents/account_deletion_jobs/$(request.auth.uid));
+    }
+
+
+    // 認証メール（小文字化。Firebase Auth の token.email は大小混在のことがある）
+    function authEmailLower() {
+      return isActiveAccount() && request.auth.token.email != null
+        ? request.auth.token.email.lower()
+        : '';
+    }
+
+    // 許可ドメイン: 旧ドメイン + 新ドメイン（@chibatech.ac.jp 含む）
+    function isAllowedCitEmailDomain() {
+      return authEmailLower().matches('.*@s\\.chibakoudai\\.jp$')
+        || authEmailLower().matches('.*@p\\.chibakoudai\\.jp$')
+        || authEmailLower().matches('.*@chibatech\\.ac\\.jp$');
+    }
+
+    // CITユーザー判定（一般機能・管理者機能の前提）
+    function isCITUser() {
+      return isActiveAccount()
+        && request.auth.token.email != null
+        && request.auth.token.get('email_verified', false) == true
+        && isAllowedCitEmailDomain();
+    }
+
+    // 管理者判定（admin_permissions に isAdmin: true が必要）
+    // ドメインは isCITUser() 側で別途チェックするコレクションもある
+    function isAdmin() {
+      return isCITUser()
+        && exists(/databases/$(database)/documents/admin_permissions/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admin_permissions/$(request.auth.uid)).data.get('isAdmin', false) == true;
+    }
+
+    // 管理者または本人のリソース読み取り
+    function isOwnerOrAdmin(userId) {
+      return isActiveAccount()
+        && (request.auth.uid == userId || isAdmin());
+    }
+
+    // 垢BAN判定（banned_users/{uid} が存在し、永久 or 期限内）
+    function isBanned() {
+      return isActiveAccount()
+        && exists(/databases/$(database)/documents/banned_users/$(request.auth.uid))
+        && (
+          get(/databases/$(database)/documents/banned_users/$(request.auth.uid)).data.get('permanent', false) == true
+          || !(
+            get(/databases/$(database)/documents/banned_users/$(request.auth.uid)).data.get('expiresAt', null)
+              is timestamp
+          )
+          || get(/databases/$(database)/documents/banned_users/$(request.auth.uid)).data.expiresAt > request.time
+        );
+    }
+
+    // Cwitter ID（半角英数字・_ ・小文字 3〜10 文字。ドキュメントIDも同形式）
+    function isValidCwitterIdLower(id) {
+      return id is string && id.matches('^[a-z0-9_]{3,10}$');
+    }
+
+    // users の cwitterId は初回設定のみ変更可
+    function cwitterIdFieldValidOnUpdate() {
+      let diff = request.resource.data.diff(resource.data);
+      return !diff.changedKeys().hasAny(['cwitterId'])
+        || (
+          (resource.data.get('cwitterId', '') == '' || resource.data.get('cwitterId', null) == null)
+          && isValidCwitterIdLower(request.resource.data.cwitterId)
+        )
+        || request.resource.data.cwitterId == resource.data.get('cwitterId', '');
+    }
+
+    // users の cwitterBio（自己紹介）は 160 文字以内
+    function cwitterBioFieldValidOnUpdate() {
+      let diff = request.resource.data.diff(resource.data);
+      return !diff.changedKeys().hasAny(['cwitterBio'])
+        || (
+          request.resource.data.cwitterBio is string
+          && request.resource.data.cwitterBio.size() <= 160
+        );
+    }
+
+    function cwitterTagValid(tag) {
+      return tag is string
+        && tag.size() > 0
+        && tag.size() <= 20;
+    }
+
+    function cwitterTagsFieldValidOnUpdate() {
+      let diff = request.resource.data.diff(resource.data);
+      return !diff.changedKeys().hasAny(['cwitterTags'])
+        || (
+          request.resource.data.cwitterTags is list
+          && request.resource.data.cwitterTags.size() <= 2
+          && (request.resource.data.cwitterTags.size() == 0
+            || cwitterTagValid(request.resource.data.cwitterTags[0]))
+          && (request.resource.data.cwitterTags.size() < 2
+            || cwitterTagValid(request.resource.data.cwitterTags[1]))
+        );
+    }
+
+    function cwitterSocialLinkValueValid(value) {
+      return value is string
+        && value.size() > 0
+        && value.size() <= 200;
+    }
+
+    function cwitterSocialLinksFieldValidOnUpdate() {
+      let diff = request.resource.data.diff(resource.data);
+      return !diff.changedKeys().hasAny(['cwitterSocialLinks'])
+        || (
+          request.resource.data.cwitterSocialLinks is map
+          && request.resource.data.cwitterSocialLinks.size() <= 4
+          && request.resource.data.cwitterSocialLinks.keys().hasOnly(
+            ['instagram', 'x', 'discord', 'github']
+          )
+          && (!('instagram' in request.resource.data.cwitterSocialLinks)
+            || cwitterSocialLinkValueValid(request.resource.data.cwitterSocialLinks.instagram))
+          && (!('x' in request.resource.data.cwitterSocialLinks)
+            || cwitterSocialLinkValueValid(request.resource.data.cwitterSocialLinks.x))
+          && (!('discord' in request.resource.data.cwitterSocialLinks)
+            || cwitterSocialLinkValueValid(request.resource.data.cwitterSocialLinks.discord))
+          && (!('github' in request.resource.data.cwitterSocialLinks)
+            || cwitterSocialLinkValueValid(request.resource.data.cwitterSocialLinks.github))
+        );
+    }
+
+    // 投稿者が設定済みの Cwitter ID と一致するか
+    function authorOwnsCwitterId(cwitterId) {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('cwitterId', '') == cwitterId;
+    }
+
+    // Cwitter 投稿・返信に付与する登録メール（Auth のメールと一致）
+    function cwitterAuthorEmailValidOnCreate() {
+      return request.resource.data.authorEmail is string
+        && request.resource.data.authorEmail.size() > 0
+        && request.resource.data.authorEmail == authEmailLower();
+    }
+
+    function bulletinContentFields() {
+      return ['title', 'description', 'imageUrl', 'imageUrls', 'thumbAlignX', 'thumbAlignY', 'thumbScale',
+        'externalUrl', 'category', 'expiresAt', 'authorName', 'isActive',
+        'allowComments', 'pinRequested', 'pinRequestedAt', 'isCoupon',
+        'couponMaxUses', 'submittedAt', 'updatedAt'];
+    }
+
+    function bulletinOwnerUpdate() {
+      let changes = request.resource.data.diff(resource.data).affectedKeys();
+      return resource.data.authorId == request.auth.uid
+        && changes.hasOnly(bulletinContentFields().concat(
+          ['approvalStatus', 'approvedAt', 'approvedBy']))
+        && (!changes.hasAny(['approvalStatus', 'approvedAt', 'approvedBy'])
+          || (request.resource.data.approvalStatus == 'pending'
+            && request.resource.data.get('approvedAt', null) == null
+            && request.resource.data.get('approvedBy', null) == null));
+    }
+
+    function validSponsorship() {
+      return request.resource.data.get('isSponsored', false) is bool
+        && request.resource.data.get('sponsorName', '') is string
+        && request.resource.data.get('sponsorName', '').size() <= 80
+        && (!request.resource.data.get('isSponsored', false)
+          || request.resource.data.get('sponsorName', '').size() > 0);
+    }
+
+    function bulletinAdminUpdate() {
+      return isAdmin()
+        && validSponsorship()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+          bulletinContentFields().concat(['isPinned', 'approvalStatus',
+            'approvedAt', 'approvedBy', 'rejectionReason', 'pinRejectedReason',
+            'isSponsored', 'sponsorName']))
+        && request.resource.data.approvalStatus in ['pending', 'approved', 'rejected'];
+    }
+
+    // 掲示板投稿のルール
+    match /bulletin_posts/{postId} {
+      // 認証済みCITユーザーのみ読み取り可能
+      allow read: if isCITUser();
+
+      // 認証済みCITユーザーのみ作成可能
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.resource.data.authorId == request.auth.uid
+        && validSponsorship()
+        && (isAdmin() || (request.resource.data.approvalStatus == 'pending'
+          && request.resource.data.get('isSponsored', false) == false
+          && request.resource.data.get('sponsorName', '') == ''
+          && request.resource.data.get('isPinned', false) == false
+          && request.resource.data.get('approvedAt', null) == null
+          && request.resource.data.get('approvedBy', null) == null))
+        && request.resource.data.get('viewCount', 0) == 0
+        && request.resource.data.get('couponUsedCount', 0) == 0
+        && (request.resource.data.get('couponUsedBy', null) == null
+          || request.resource.data.couponUsedBy == {});
+
+      allow update: if isCITUser()
+        && (bulletinOwnerUpdate() || bulletinAdminUpdate()
+          || isViewCountOnlyUpdate() || isCouponUseUpdate());
+
+      // 作成者または管理者のみ削除可能
+      allow delete: if isCITUser()
+        && isActiveAccount()
+        && (resource.data.authorId == request.auth.uid || isAdmin());
+    }
+
+    // 掲示板コメントのルール
+    match /bulletin_comments/{commentId} {
+      allow read: if isCITUser();
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.resource.data.authorId == request.auth.uid
+        && hasRequiredCommentFields();
+
+      // コメント作者のみが削除・編集可能
+      allow delete: if isCITUser()
+        && isActiveAccount()
+        && resource.data.authorId == request.auth.uid;
+
+      // いいね操作は認証済みCITユーザーなら誰でも可能、その他の更新は作者のみ
+      allow update: if isCITUser()
+        && isActiveAccount()
+        && (resource.data.authorId == request.auth.uid || isLikeOnlyUpdate());
+    }
+
+    // reports コレクション用のルール（修正）
+    match /reports/{reportId} {
+      // 認証済みCITユーザーのみが通報を作成可能
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.resource.data.reporterId == request.auth.uid
+        && hasRequiredReportFields();
+
+      // 管理者のみが通報を読み取り・更新可能
+      allow read, update: if isAdmin();
+    }
+
+    // hidden_posts コレクション用のルール
+    match /hidden_posts/{hiddenId} {
+      // 認証済みCITユーザーのみが非表示投稿を作成可能
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.resource.data != null
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredHiddenPostFields();
+
+      // 自分の非表示投稿のみ削除可能
+      allow delete: if isCITUser()
+        && isActiveAccount()
+        && resource.data.userId == request.auth.uid;
+
+      // 自分の非表示投稿のみ読み取り可能
+      allow read: if isCITUser()
+        && isActiveAccount()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // hidden_comments コレクション用のルール
+    match /hidden_comments/{hiddenId} {
+      // 認証済みCITユーザーのみが非表示コメントを作成可能
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.resource.data != null
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredHiddenCommentFields();
+
+      // 自分の非表示コメントのみ削除可能
+      allow delete: if isCITUser()
+        && isActiveAccount()
+        && resource.data.userId == request.auth.uid;
+
+      // 自分の非表示コメントのみ読み取り可能
+      allow read: if isCITUser()
+        && isActiveAccount()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // blocked_users コレクション用のルール
+    match /blocked_users/{blockedId} {
+      // 認証済みCITユーザーのみがユーザーブロックを作成可能
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.resource.data != null
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredBlockedUserFields();
+
+      // 自分のブロックのみ削除可能
+      allow delete: if isCITUser()
+        && isActiveAccount()
+        && resource.data.userId == request.auth.uid;
+
+      // 自分のブロックのみ読み取り可能（相手側は被ブロック判定のため blockedUserId も可）
+      allow read: if isCITUser()
+        && isActiveAccount()
+        && (
+          resource.data.userId == request.auth.uid
+          || resource.data.blockedUserId == request.auth.uid
+        );
+    }
+
+    // 通知のルール（個人向け通知）
+    match /notifications/{notificationId} {
+      allow read: if isCITUser()
+        && isActiveAccount()
+        && resource.data.userId == request.auth.uid;
+
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && hasRequiredNotificationFields();
+
+      allow update: if isCITUser()
+        && isActiveAccount()
+        && resource.data.userId == request.auth.uid;
+
+      allow delete: if isCITUser()
+        && isActiveAccount()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // 全体通知のルール
+    match /global_notifications/{notificationId} {
+      allow read: if isCITUser();
+      allow write: if isAdmin();
+    }
+
+    // サークル・部活一覧（Cloud Functions同期データ）
+    match /club_organizations/{clubId} {
+      // アプリ表示用: 認証済みCITユーザーは読み取り可能
+      allow read: if isCITUser();
+      // 同期はCloud Functions(Admin SDK)で実施するためクライアント書き込みは禁止
+      allow write: if false;
+    }
+
+    // サークル同期メタ情報
+    match /app_metadata/{docId} {
+      allow read: if isCITUser();
+      allow write: if false;
+    }
+
+    // FCMトークンのルール
+    match /user_tokens/{userId} {
+      allow read, write: if isCITUser()
+        && isActiveAccount()
+        && userId == request.auth.uid;
+      allow read: if isActiveAccount() && userId == request.auth.uid;
+      allow update: if isActiveAccount() && userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmToken'])
+        && !('fcmToken' in request.resource.data);
+
+      match /devices/{installationId} {
+        allow read, delete: if isActiveAccount() && request.auth.uid == userId;
+        allow create, update: if isCITUser() && request.auth.uid == userId
+          && request.resource.data.keys().hasOnly(['fcmToken', 'platform', 'updatedAt'])
+          && request.resource.data.fcmToken is string
+          && request.resource.data.fcmToken.size() > 0;
+      }
+    }
+
+    // バス情報のルール
+    match /bus_information/{document} {
+      allow read: if isCITUser();
+      allow write: if isAdmin();
+    }
+
+    // バス情報のサブコレクション（運行期間）
+    match /bus_information/{busId}/operation_periods/{periodId} {
+      allow read: if isCITUser();
+      allow write: if isAdmin();
+    }
+
+    // バス情報のサブコレクション（バス路線）
+    match /bus_information/{busId}/bus_routes/{routeId} {
+      allow read: if isCITUser();
+      allow write: if isAdmin();
+    }
+
+    // ユーザー設定（通知の受信設定など）
+    match /user_settings/{userId} {
+      allow read: if isCITUser() && request.auth.uid == userId;
+      allow create, update: if isCITUser()
+        && request.auth.uid == userId
+        && isValidNotificationPreferencesUpdate();
+      allow delete: if isCITUser() && request.auth.uid == userId;
+    }
+
+    function isOwnCitProfile(userId) {
+      return isActiveAccount() && request.auth.uid == userId
+        && isAllowedCitEmailDomain();
+    }
+
+    // 認証前の本人プロフィール作成は許可するが、認証情報の自己申告は不可。
+    function profileAuthFieldsValid() {
+      let data = request.resource.data;
+      let verified = request.auth.token.get('email_verified', false);
+      return (!('uid' in data) || data.uid == request.auth.uid)
+        && (!('email' in data) || data.email.lower() == authEmailLower())
+        && (!('emailVerified' in data) || data.emailVerified == verified)
+        && (!('isEmailVerified' in data) || data.isEmailVerified == verified);
+    }
+
+    // ユーザー管理のルール
+    match /users/{userId} {
+      allow read: if isOwnCitProfile(userId) || isAdmin();
+      allow create: if isOwnCitProfile(userId) && profileAuthFieldsValid();
+      allow update: if isOwnCitProfile(userId)
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(
+          ['uid', 'email', 'emailVerified', 'isEmailVerified']) || profileAuthFieldsValid())
+        && cwitterIdFieldValidOnUpdate()
+        && cwitterBioFieldValidOnUpdate()
+        && cwitterTagsFieldValidOnUpdate()
+        && cwitterSocialLinksFieldValidOnUpdate();
+      allow delete: if isCITUser() && request.auth.uid == userId;
+    }
+
+    // Cwitter ID 予約（ドキュメントID = 小文字化したID。重複防止）
+    match /public_profiles/{userId} {
+      allow read: if isCITUser();
+      allow write: if false;
+    }
+
+    match /cwitter_ids/{cwitterId} {
+      allow read: if isCITUser();
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == request.resource.data.uid
+        && isValidCwitterIdLower(cwitterId)
+        && request.resource.data.cwitterId == cwitterId
+        && request.resource.data.keys().hasAll(['uid', 'cwitterId', 'createdAt']);
+      allow update, delete: if false;
+    }
+
+    // Cwitter 投稿のいいねのみ更新
+    function isCwitterLikeOnlyUpdate() {
+      return request.resource.data.keys().hasAll(resource.data.keys())
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['likedBy', 'likeCount']);
+    }
+
+    // Cwitter 投稿の返信数のみ更新（±1）
+    function isCwitterReplyCountOnlyUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['replyCount'])
+        && (
+          request.resource.data.replyCount == resource.data.replyCount + 1
+          || (
+            request.resource.data.replyCount == resource.data.replyCount - 1
+            && request.resource.data.replyCount >= 0
+          )
+        );
+    }
+
+    // Cwitter 投稿の recweet 数のみ更新（±1）
+    function isCwitterRecweetCountOnlyUpdate() {
+      let before = ('recweetCount' in resource.data) && resource.data.recweetCount is int
+        ? resource.data.recweetCount
+        : 0;
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['recweetCount'])
+        && request.resource.data.recweetCount is int
+        && (
+          request.resource.data.recweetCount == before + 1
+          || (
+            request.resource.data.recweetCount == before - 1
+            && request.resource.data.recweetCount >= 0
+          )
+        );
+    }
+
+    // ちばちゃんねる カテゴリ
+    function chibaChannelCategoryValid(category) {
+      return category is string
+        && category in [
+          '雑談', '時事ニュース', 'キャンパス', '勉強', '就活・バイト', 'サークル',
+          'イベント', 'ゲーム・趣味', 'エンタメ', '相談', '生活'
+        ];
+    }
+
+    function chibaChannelAuthorEmailValidOnCreate() {
+      return request.resource.data.authorEmail is string
+        && request.resource.data.authorEmail.size() > 0
+        && request.resource.data.authorEmail == authEmailLower();
+    }
+
+    function isChibaChannelCommentCountOnlyUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['commentCount'])
+        && request.resource.data.commentCount is int
+        && (
+          request.resource.data.commentCount == resource.data.commentCount + 1
+          || (
+            request.resource.data.commentCount == resource.data.commentCount - 1
+            && request.resource.data.commentCount >= 0
+          )
+        );
+    }
+
+    function chibaChannelAnonymousIdValid(id) {
+      return id is string && id.size() == 8 && id.matches('^[a-zA-Z0-9]{8}$');
+    }
+
+    function chibaChannelCommentBodyValidOnCreate() {
+      return request.resource.data.body is string
+        && request.resource.data.body.size() <= 1000;
+    }
+
+    function chibaChannelCommentImageUrlsValid(data) {
+      return ('imageUrls' in data)
+        && data.imageUrls is list
+        && data.imageUrls.size() > 0
+        && data.imageUrls.size() <= 4;
+    }
+
+    function chibaChannelCommentContentValidOnCreate() {
+      let body = request.resource.data.body;
+      let hasText = body is string && body.size() > 0;
+      let hasImages = chibaChannelCommentImageUrlsValid(request.resource.data);
+      return hasText || hasImages;
+    }
+
+    function isChibaChannelCommentSoftDeleteUpdate() {
+      let diff = request.resource.data.diff(resource.data);
+      return resource.data.authorId == request.auth.uid
+        && resource.data.get('isDeleted', false) != true
+        && request.resource.data.isDeleted == true
+        && request.resource.data.body == ''
+        && diff.changedKeys().hasOnly(['isDeleted', 'body', 'imageUrls'])
+        && request.resource.data.imageUrls is list
+        && request.resource.data.imageUrls.size() == 0;
+    }
+
+    function isChibaChannelThreadActivityUpdate() {
+      let diff = request.resource.data.diff(resource.data);
+      return diff.changedKeys().hasOnly(['commentCount', 'lastActivityAt'])
+        && request.resource.data.commentCount is int
+        && request.resource.data.lastActivityAt is timestamp
+        && (
+          request.resource.data.commentCount == resource.data.commentCount + 1
+          || (
+            request.resource.data.commentCount == resource.data.commentCount - 1
+            && request.resource.data.commentCount >= 0
+          )
+        );
+    }
+
+    function cwitterPollOptionValidOnCreate(option) {
+      return option is map
+        && option.keys().hasAll(['id', 'text', 'voteCount'])
+        && option.id is string
+        && option.text is string
+        && option.text.size() > 0
+        && option.text.size() <= 50
+        && option.voteCount is int
+        && option.voteCount == 0;
+    }
+
+    function cwitterPollOptionsValidOnCreate(options) {
+      return options is list
+        && options.size() >= 2
+        && options.size() <= 4
+        && cwitterPollOptionValidOnCreate(options[0])
+        && cwitterPollOptionValidOnCreate(options[1])
+        && (options.size() < 3 || cwitterPollOptionValidOnCreate(options[2]))
+        && (options.size() < 4 || cwitterPollOptionValidOnCreate(options[3]));
+    }
+
+    function cwitterPollValidOnCreate() {
+      return ('poll' in request.resource.data)
+        && request.resource.data.poll is map
+        && request.resource.data.poll.keys().hasAll(['options', 'votedBy'])
+        && request.resource.data.poll.votedBy is map
+        && request.resource.data.poll.votedBy.size() == 0
+        && cwitterPollOptionsValidOnCreate(request.resource.data.poll.options);
+    }
+
+    function cwitterPollVoteTotal(poll) {
+      return poll.options[0].voteCount
+        + poll.options[1].voteCount
+        + (poll.options.size() > 2 ? poll.options[2].voteCount : 0)
+        + (poll.options.size() > 3 ? poll.options[3].voteCount : 0);
+    }
+
+    function cwitterPollOptionUnchanged(beforeOption, afterOption) {
+      return beforeOption.id == afterOption.id
+        && beforeOption.text == afterOption.text;
+    }
+
+    function cwitterPollOptionVoteTransition(beforeOption, afterOption, selected) {
+      return cwitterPollOptionUnchanged(beforeOption, afterOption)
+        || (beforeOption.id == selected
+          && afterOption.id == beforeOption.id
+          && afterOption.text == beforeOption.text
+          && afterOption.voteCount == beforeOption.voteCount + 1);
+    }
+
+    function cwitterPollVoteTransitionValid(beforePoll, afterPoll, selected) {
+      return cwitterPollOptionVoteTransition(
+          beforePoll.options[0], afterPoll.options[0], selected)
+        && cwitterPollOptionVoteTransition(
+          beforePoll.options[1], afterPoll.options[1], selected)
+        && (beforePoll.options.size() < 3
+          || cwitterPollOptionVoteTransition(
+            beforePoll.options[2], afterPoll.options[2], selected))
+        && (beforePoll.options.size() < 4
+          || cwitterPollOptionVoteTransition(
+            beforePoll.options[3], afterPoll.options[3], selected));
+    }
+
+    function isCwitterPollVoteOnlyUpdate() {
+      let beforePoll = resource.data.poll;
+      let afterPoll = request.resource.data.poll;
+      let uid = request.auth.uid;
+      let selected = afterPoll.votedBy[uid];
+      return ('poll' in resource.data)
+        && ('poll' in request.resource.data)
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['poll'])
+        && beforePoll.options.size() == afterPoll.options.size()
+        && beforePoll.options.size() >= 2
+        && beforePoll.options.size() <= 4
+        && !(uid in beforePoll.votedBy)
+        && (uid in afterPoll.votedBy)
+        && selected is string
+        && afterPoll.votedBy.size() == beforePoll.votedBy.size() + 1
+        && cwitterPollVoteTotal(afterPoll) == cwitterPollVoteTotal(beforePoll) + 1
+        && cwitterPollVoteTransitionValid(beforePoll, afterPoll, selected);
+    }
+
+    function cwitterPostContentValidOnCreate() {
+      let body = request.resource.data.body;
+      let hasText = body is string && body.size() > 0;
+      let hasImages = cwitterPostImageUrlsValid(request.resource.data);
+      let hasPoll = cwitterPollValidOnCreate();
+      return hasText || hasImages || hasPoll;
+    }
+
+    function cwitterPostImageUrlsValid(data) {
+      return ('imageUrls' in data)
+        && data.imageUrls is list
+        && data.imageUrls.size() > 0
+        && data.imageUrls.size() <= 4;
+    }
+
+    function cwitterPostBodyValidOnCreate() {
+      return request.resource.data.body is string
+        && request.resource.data.body.size() <= 280;
+    }
+
+    function cwitterReplyContentValidOnCreate() {
+      let body = request.resource.data.body;
+      let hasText = body is string && body.size() > 0;
+      let hasImages = cwitterPostImageUrlsValid(request.resource.data);
+      return hasText || hasImages;
+    }
+
+    function cwitterReplyBodyValidOnCreate() {
+      return request.resource.data.body is string
+        && request.resource.data.body.size() <= 280;
+    }
+
+    // Cwitter 投稿
+    match /cwitter_posts/{postId} {
+      allow read: if isCITUser();
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == request.resource.data.authorId
+        && authorOwnsCwitterId(request.resource.data.cwitterId)
+        && isValidCwitterIdLower(request.resource.data.cwitterId)
+        && !isBanned()
+        && cwitterPostBodyValidOnCreate()
+        && cwitterPostContentValidOnCreate()
+        && (!('poll' in request.resource.data) || !('imageUrls' in request.resource.data))
+        && request.resource.data.displayName is string
+        && cwitterAuthorEmailValidOnCreate()
+        && request.resource.data.keys().hasAll([
+          'authorId', 'authorEmail', 'cwitterId', 'displayName', 'body', 'createdAt',
+          'replyCount', 'likeCount', 'recweetCount', 'likedBy'
+        ]);
+      allow update: if isCITUser()
+        && isActiveAccount()
+        && (
+          resource.data.authorId == request.auth.uid
+          || isCwitterLikeOnlyUpdate()
+          || isCwitterReplyCountOnlyUpdate()
+          || isCwitterRecweetCountOnlyUpdate()
+          || isCwitterPollVoteOnlyUpdate()
+        );
+      allow delete: if isCITUser()
+        && isActiveAccount()
+        && resource.data.authorId == request.auth.uid;
+
+      // Cwitter 返信
+      match /replies/{replyId} {
+        allow read: if isCITUser();
+        allow create: if isCITUser()
+          && isActiveAccount()
+          && request.auth.uid == request.resource.data.authorId
+          && authorOwnsCwitterId(request.resource.data.cwitterId)
+          && isValidCwitterIdLower(request.resource.data.cwitterId)
+          && !isBanned()
+          && cwitterReplyBodyValidOnCreate()
+          && cwitterReplyContentValidOnCreate()
+          && request.resource.data.displayName is string
+          && cwitterAuthorEmailValidOnCreate()
+          && request.resource.data.keys().hasAll([
+            'authorId', 'authorEmail', 'cwitterId', 'displayName', 'body', 'createdAt'
+          ]);
+        allow delete: if isCITUser()
+          && isActiveAccount()
+          && resource.data.authorId == request.auth.uid;
+        allow update: if false;
+      }
+    }
+
+    // Cwitter 返信インデックス（プロフィールの投稿一覧で返信を引くため）
+    match /cwitter_replies/{replyIndexId} {
+      allow read: if isCITUser();
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == request.resource.data.authorId
+        && authorOwnsCwitterId(request.resource.data.cwitterId)
+        && isValidCwitterIdLower(request.resource.data.cwitterId)
+        && request.resource.data.postId is string
+        && request.resource.data.replyId is string
+        && !isBanned()
+        && cwitterReplyBodyValidOnCreate()
+        && cwitterReplyContentValidOnCreate()
+        && request.resource.data.displayName is string
+        && cwitterAuthorEmailValidOnCreate()
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.keys().hasAll([
+          'postId', 'replyId', 'authorId', 'authorEmail', 'cwitterId',
+          'displayName', 'body', 'createdAt'
+        ]);
+      allow delete: if isCITUser()
+        && isActiveAccount()
+        && resource.data.authorId == request.auth.uid;
+      allow update: if false;
+    }
+
+    // ちばちゃんねる スレッド
+    match /chiba_channel_threads/{threadId} {
+      allow read: if isCITUser();
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == request.resource.data.authorId
+        && chibaChannelAuthorEmailValidOnCreate()
+        && !isBanned()
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 80
+        && chibaChannelCategoryValid(request.resource.data.category)
+        && request.resource.data.commentCount == 0
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.lastActivityAt is timestamp
+        && request.resource.data.keys().hasAll([
+          'title', 'category', 'authorId', 'authorEmail', 'commentCount',
+          'createdAt', 'lastActivityAt'
+        ]);
+      allow update: if isCITUser()
+        && isActiveAccount()
+        && (
+          isChibaChannelCommentCountOnlyUpdate()
+          || isChibaChannelThreadActivityUpdate()
+        );
+      allow delete: if isCITUser()
+        && isActiveAccount()
+        && (resource.data.authorId == request.auth.uid || isAdmin());
+
+      match /comments/{commentId} {
+        allow read: if isCITUser();
+        allow create: if isCITUser()
+          && isActiveAccount()
+          && request.auth.uid == request.resource.data.authorId
+          && chibaChannelAuthorEmailValidOnCreate()
+          && !isBanned()
+          && chibaChannelCommentBodyValidOnCreate()
+          && chibaChannelCommentContentValidOnCreate()
+          && chibaChannelAnonymousIdValid(request.resource.data.anonymousId)
+          && request.resource.data.commentNumber is int
+          && request.resource.data.commentNumber > 0
+          && request.resource.data.createdAt is timestamp
+          && (!('inReplyToCommentNumber' in request.resource.data)
+            || (request.resource.data.inReplyToCommentNumber is int
+              && request.resource.data.inReplyToCommentNumber > 0))
+          && (!('inReplyToCommentId' in request.resource.data)
+            || request.resource.data.inReplyToCommentId is string)
+          && (!('imageUrls' in request.resource.data)
+            || chibaChannelCommentImageUrlsValid(request.resource.data))
+          && request.resource.data.keys().hasAll([
+            'authorId', 'authorEmail', 'body', 'commentNumber', 'anonymousId', 'createdAt'
+          ]);
+        allow delete: if isCITUser()
+          && isActiveAccount()
+          && (
+            resource.data.authorId == request.auth.uid
+            || isAdmin()
+            || get(/databases/$(database)/documents/chiba_channel_threads/$(threadId)).data.authorId == request.auth.uid
+          );
+        allow update: if isCITUser()
+          && isActiveAccount()
+          && (
+            isChibaChannelCommentSoftDeleteUpdate()
+            || isAdmin()
+          );
+      }
+
+      match /anonymous_ids/{userId} {
+        // Thread ownership does not grant access to other posters' identities.
+        allow get: if isCITUser() && (request.auth.uid == userId || isAdmin());
+        allow list: if isAdmin();
+        allow create: if isCITUser()
+          && isActiveAccount()
+          && request.auth.uid == userId
+          && exists(/databases/$(database)/documents/chiba_channel_threads/$(threadId))
+          && chibaChannelAnonymousIdValid(request.resource.data.anonymousId)
+          && !isBanned()
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.keys().hasAll(['anonymousId', 'createdAt']);
+        allow update: if false;
+        allow delete: if isCITUser()
+          && isActiveAccount()
+          && (
+            isAdmin()
+          );
+      }
+    }
+
+    // Cwitter いいね一覧（プロフィールの「いいね」タブ用）
+    match /users/{userId}/cwitter_likes/{postId} {
+      allow read: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == userId;
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasAll(['likedAt']);
+      allow delete: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == userId;
+      allow update: if false;
+    }
+
+    // Cwitter recweet（collection group クエリ用）
+    match /{path=**}/cwitter_recweets/{postId} {
+      allow read: if isCITUser();
+    }
+
+    // Cwitter recweet
+    match /users/{userId}/cwitter_recweets/{postId} {
+      allow read: if isCITUser();
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == userId
+        && !isBanned()
+        && request.resource.data.postId == postId
+        && request.resource.data.originalAuthorId is string
+        && request.resource.data.displayName is string
+        && request.resource.data.cwitterId is string;
+      allow delete: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == userId;
+      allow update: if false;
+    }
+
+    // Cwitter フォロー（フォロー中リスト）
+    match /users/{userId}/cwitter_following/{targetId} {
+      allow read: if isCITUser();
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == userId
+        && request.auth.uid != targetId;
+      allow delete: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == userId;
+      allow update: if false;
+    }
+
+    // Cwitter フォロワー（collection group クエリ用・月間フォロワー増加ランキング等）
+    match /{path=**}/cwitter_followers/{followerId} {
+      allow read: if isCITUser();
+    }
+
+    // Cwitter フォロワー
+    match /users/{userId}/cwitter_followers/{followerId} {
+      allow read: if isCITUser();
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == followerId
+        && request.auth.uid != userId;
+      allow delete: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == followerId;
+      allow update: if false;
+    }
+
+    function isValidCwitterFollowStatsCreate(userId) {
+      let followerCount = request.resource.data.get('followerCount', 0);
+      let followingCount = request.resource.data.get('followingCount', 0);
+
+      return followerCount >= 0
+        && followingCount >= 0
+        && (
+          (
+            request.auth.uid == userId
+            && followingCount == 1
+            && followerCount == 0
+          )
+          || (
+            request.auth.uid != userId
+            && followerCount == 1
+            && followingCount == 0
+          )
+        );
+    }
+
+    function isValidCwitterFollowStatsUpdate(userId) {
+      return (
+        request.auth.uid == userId
+        && request.resource.data.diff(resource.data).changedKeys()
+          .hasOnly(['followingCount'])
+        && request.resource.data.get('followingCount', 0) >= 0
+        && (
+          request.resource.data.followingCount
+            == resource.data.get('followingCount', 0) + 1
+          || request.resource.data.followingCount
+            == resource.data.get('followingCount', 0) - 1
+        )
+      ) || (
+        request.auth.uid != userId
+        && request.resource.data.diff(resource.data).changedKeys()
+          .hasOnly(['followerCount'])
+        && request.resource.data.get('followerCount', 0) >= 0
+        && (
+          request.resource.data.followerCount
+            == resource.data.get('followerCount', 0) + 1
+          || request.resource.data.followerCount
+            == resource.data.get('followerCount', 0) - 1
+        )
+      );
+    }
+
+    // Cwitter フォロー数（users/{uid}/cwitter_social/stats）
+    match /users/{userId}/cwitter_social/{docId} {
+      allow read: if isCITUser();
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && docId == 'stats'
+        && isValidCwitterFollowStatsCreate(userId);
+      allow update: if isCITUser()
+        && isActiveAccount()
+        && docId == 'stats'
+        && isValidCwitterFollowStatsUpdate(userId);
+      allow delete: if false;
+    }
+
+    // Cwitter 投稿・返信 / ちばちゃんねるレスの連投防止
+    match /users/{userId}/rate_limits/{limitKey} {
+      allow read: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == userId;
+      allow create, update: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == userId
+        && (limitKey == 'cwitter_post'
+          || limitKey == 'cwitter_reply'
+          || limitKey == 'chiba_channel_comment')
+        && request.resource.data.windowStart is timestamp
+        && request.resource.data.count is int
+        && request.resource.data.count >= 1
+        && (
+          (limitKey == 'chiba_channel_comment'
+            && request.resource.data.count <= 3)
+          || ((limitKey == 'cwitter_post' || limitKey == 'cwitter_reply')
+            && request.resource.data.count <= 2)
+        )
+        && (!('updatedAt' in request.resource.data)
+          || request.resource.data.updatedAt is timestamp);
+      allow delete: if false;
+    }
+
+    // 人数だけを共有する。個人のお気に入り一覧は引き続き本人専用。
+    match /cafeteria_favorite_stats/{targetId} {
+      allow read: if isCITUser();
+      allow write: if false;
+    }
+
+    // 学食お気に入りのルール（サブコレクション）
+    match /users/{userId}/cafeteria_favorites/{favoriteId} {
+      // 読み取り: 自分のお気に入りのみ
+      allow read: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == userId;
+
+      // 作成: 自分のお気に入りのみ、必須フィールドを満たすこと
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == userId
+        && hasRequiredCafeteriaFavoriteFields();
+
+      // 更新: 自分のお気に入りのみ
+      allow update: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == userId
+        && resource.data.userId == request.auth.uid
+        && hasRequiredCafeteriaFavoriteFields();
+
+      // 削除: 自分のお気に入りのみ
+      allow delete: if isCITUser()
+        && isActiveAccount()
+        && request.auth.uid == userId;
+    }
+
+    // 管理者のルール
+    match /admins/{adminId} {
+      allow read, write: if isAdmin();
+    }
+
+    // 垢BAN（運営のみが作成・解除可能。本人と管理者が読み取り可能）
+    match /banned_users/{bannedUserId} {
+      allow read: if isActiveAccount()
+        && (request.auth.uid == bannedUserId || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    // BAN中ユーザーの投稿を全員から非表示にするための公開索引。
+    // 理由などの機微情報は含まず UID と期限のみ。認証済みユーザーは読み取り可、書き込みは管理者のみ。
+    match /moderation/{docId} {
+      allow read: if isActiveAccount();
+      allow write: if isAdmin();
+    }
+
+    // 管理者権限のルール
+    match /admin_permissions/{adminId} {
+      // 自分の権限か、管理者なら読み取り可能
+      allow read: if isCITUser()
+        && isActiveAccount()
+        && (request.auth.uid == adminId
+            || (exists(/databases/$(database)/documents/admin_permissions/$(request.auth.uid))
+                && get(/databases/$(database)/documents/admin_permissions/$(request.auth.uid)).data.get('isAdmin', false) == true));
+
+      // 管理者のみが作成・更新可能
+      allow create, update: if isCITUser()
+        && isActiveAccount()
+        && exists(/databases/$(database)/documents/admin_permissions/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admin_permissions/$(request.auth.uid)).data.get('isAdmin', false) == true
+        && hasRequiredAdminPermissionFields();
+
+      // 管理者のみが削除可能
+      allow delete: if isCITUser()
+        && isActiveAccount()
+        && exists(/databases/$(database)/documents/admin_permissions/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admin_permissions/$(request.auth.uid)).data.get('isAdmin', false) == true;
+    }
+
+    // アプリ設定（講義期間）
+    match /app_settings/lecture_period {
+      // ホーム時間割で週表示に使うため、認証済みCITユーザーは読み取り可
+      allow read: if isCITUser();
+      // 管理者機能からのみ更新可
+      allow write: if isAdmin();
+    }
+
+    // 学年暦イベント（ホーム表示 + 管理者編集）
+    match /academic_calendar_events/{eventId} {
+      allow read: if isCITUser();
+      allow write: if isAdmin();
+    }
+
+    // 時間割のルール
+    match /schedules/{scheduleId} {
+      allow read: if isCITUser()
+        && isActiveAccount()
+        && resource.data.userId == request.auth.uid;
+
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredScheduleFields();
+
+      allow update: if isCITUser()
+        && isActiveAccount()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+
+      allow delete: if isCITUser()
+        && isActiveAccount()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // Personal assignments. Even administrators cannot read another user's tasks.
+    match /users/{userId}/assignments/{assignmentId} {
+      function owner() { return isCITUser() && request.auth.uid == userId; }
+      function validAssignment() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['title', 'notes', 'dueAt', 'hasDueTime', 'course', 'isCompleted', 'createdAt', 'updatedAt'])
+          && d.keys().hasAll(['title', 'notes', 'dueAt', 'hasDueTime', 'course', 'isCompleted', 'createdAt', 'updatedAt'])
+          && d.title is string && d.title.size() > 0 && d.title.size() <= 120
+          && !d.title.matches('[\\s]*')
+          && d.notes is string && d.notes.size() <= 4000
+          && d.dueAt is timestamp && d.hasDueTime is bool && d.isCompleted is bool
+          && d.createdAt is timestamp && d.updatedAt == request.time
+          && (d.course == null || (d.course is map
+            && d.course.keys().hasOnly(['scheduleId', 'classId', 'subjectName', 'semester'])
+            && d.course.scheduleId is string && d.course.scheduleId.size() > 0 && d.course.scheduleId.size() <= 128
+            && d.course.classId is string && d.course.classId.size() > 0 && d.course.classId.size() <= 128
+            && d.course.subjectName is string && d.course.subjectName.size() > 0 && d.course.subjectName.size() <= 300
+            && d.course.semester is string && d.course.semester.size() <= 100));
+      }
+      allow read, delete: if owner();
+      allow create: if owner() && validAssignment() && request.resource.data.createdAt == request.time;
+      allow update: if owner() && validAssignment() && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    // 出欠記録
+    match /attendance_records/{recordId} {
+      allow read: if isOwnerOrAdmin(resource.data.userId);
+
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredAttendanceFields();
+
+      allow update: if isCITUser()
+        && isActiveAccount()
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredAttendanceFields();
+
+      allow delete: if isCITUser()
+        && isActiveAccount()
+        && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // Excel抽出精度向上用データ（ユーザー同意時のみ）
+    match /excel_import_training_submissions/{submissionId} {
+      // 学習用途の生データを含むため、閲覧は管理者のみ
+      allow read: if isAdmin();
+
+      // 提供データの作成は本人のみ
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredExcelImportTrainingFields();
+
+      allow update, delete: if isAdmin();
+    }
+
+    // お問い合わせフォームのルール
+    // BEGIN CONTACT CHAT RULES
+    // Authenticate once per request; keep room/message checks within the rules budget.
+    function isContactChatUser() {
+      return request.auth != null
+        && request.auth.token.get('email_verified', false) == true
+        && request.auth.token.get('email', '') is string
+        && request.auth.token.email.lower().matches('^[^@]+@(s\\.chibakoudai\\.jp|p\\.chibakoudai\\.jp|chibatech\\.ac\\.jp)$')
+        && !exists(/databases/$(database)/documents/account_deletion_jobs/$(request.auth.uid));
+    }
+    // All callers first require isContactChatUser().
+    function canManageContactChats() {
+      let path = /databases/$(database)/documents/admin_permissions/$(request.auth.uid);
+      let permissions = exists(path) ? get(path).data : {};
+      return permissions.get('isAdmin', false) == true
+        || permissions.get('canViewContacts', false) == true;
+    }
+
+    match /contact_chats/{uid} {
+      function canAccessChat() {
+        return isContactChatUser() && (request.auth.uid == uid || canManageContactChats());
+      }
+      function validSummary(d) {
+        return d.keys().hasOnly(['userId', 'displayName', 'email', 'createdAt', 'updatedAt',
+          'lastMessageId', 'lastMessage', 'lastSenderRole', 'messageCount',
+          'userMessageCount', 'adminMessageCount', 'userReadCount', 'adminReadCount', 'status'])
+          && d.userId == uid && d.displayName is string && d.displayName.size() <= 100
+          && d.email is string && d.createdAt is timestamp && d.updatedAt is timestamp
+          && d.lastMessageId is string && d.lastMessageId.size() > 0
+          && d.lastMessageId.matches('^[^/]+$')
+          && d.lastMessage is string && d.lastMessage.size() > 0 && d.lastMessage.size() <= 2000
+          && d.lastSenderRole in ['user', 'admin']
+          && d.status in ['pending', 'in_progress', 'resolved']
+          && d.messageCount is int && d.userMessageCount is int && d.adminMessageCount is int
+          && d.userReadCount is int && d.adminReadCount is int
+          && d.userMessageCount >= 0 && d.adminMessageCount >= 0
+          && d.messageCount == d.userMessageCount + d.adminMessageCount
+          && d.userReadCount >= 0 && d.userReadCount <= d.adminMessageCount
+          && d.adminReadCount >= 0 && d.adminReadCount <= d.userMessageCount;
+      }
+      function validImages(d, messageId) {
+        let images = d.get('imagePaths', []);
+        let prefix = 'contact_chat_images/' + uid + '/' + request.auth.uid + '/' + messageId + '/';
+        return images is list && images.size() <= 4
+          && (images.size() < 1 || images[0] == prefix + '0.jpg')
+          && (images.size() < 2 || images[1] == prefix + '1.jpg')
+          && (images.size() < 3 || images[2] == prefix + '2.jpg')
+          && (images.size() < 4 || images[3] == prefix + '3.jpg');
+      }
+      function hasNewMessage(d) {
+        let path = /databases/$(database)/documents/contact_chats/$(uid)/messages/$(d.lastMessageId);
+        let message = getAfter(path).data;
+        return !exists(path) && existsAfter(path)
+          && (message.text.size() > 0 ? message.text : '📷 画像') == d.lastMessage
+          && message.senderRole == d.lastSenderRole
+          && message.senderId == request.auth.uid && message.sequence == d.messageCount
+          && d.updatedAt == request.time;
+      }
+      function validSend() {
+        let d = request.resource.data;
+        let old = resource.data;
+        return d.messageCount == old.messageCount + 1
+          && d.diff(old).affectedKeys().hasOnly(['updatedAt', 'lastMessageId', 'lastMessage',
+            'lastSenderRole', 'messageCount', 'userMessageCount', 'adminMessageCount', 'status'])
+          && validSummary(d)
+          && ((d.lastSenderRole == 'user' && request.auth.uid == uid
+              && d.userMessageCount == old.userMessageCount + 1
+              && d.adminMessageCount == old.adminMessageCount && d.status == 'pending')
+            || (d.lastSenderRole == 'admin' && canManageContactChats()
+              && d.adminMessageCount == old.adminMessageCount + 1
+              && d.userMessageCount == old.userMessageCount && d.status == 'in_progress'))
+          && hasNewMessage(d);
+      }
+      function validRead(key, total) {
+        let d = request.resource.data;
+        return d.diff(resource.data).affectedKeys().hasOnly([key])
+          && d[key] is int && d[key] >= resource.data[key] && d[key] <= resource.data[total];
+      }
+      allow get, list: if canAccessChat();
+      allow create: if isContactChatUser() && request.auth.uid == uid
+        && validSummary(request.resource.data)
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.userMessageCount == 1
+        && request.resource.data.adminMessageCount == 0
+        && request.resource.data.userReadCount == 0 && request.resource.data.adminReadCount == 0
+        && request.resource.data.status == 'pending' && request.resource.data.lastSenderRole == 'user'
+        && hasNewMessage(request.resource.data);
+      allow update: if canAccessChat() && (
+        (request.auth.uid == uid && validRead('userReadCount', 'adminMessageCount'))
+        || (canManageContactChats() && validRead('adminReadCount', 'userMessageCount'))
+        || (canManageContactChats()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          && request.resource.data.status in ['pending', 'in_progress', 'resolved'])
+        || validSend());
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        function validMessage() {
+          let d = request.resource.data;
+          let path = /databases/$(database)/documents/contact_chats/$(uid);
+          let after = getAfter(path).data;
+          let previousCount = exists(path) ? get(path).data.messageCount : 0;
+          return d.keys().hasOnly(['userId', 'senderId', 'senderRole',
+              'text', 'sequence', 'senderSequence', 'createdAt', 'imagePaths'])
+            && d.userId == uid && d.senderId == request.auth.uid
+            && d.createdAt == request.time && d.text is string && d.text.size() <= 2000
+            && validImages(d, messageId)
+            && (d.text.size() > 0 || d.get('imagePaths', []).size() > 0)
+            && d.sequence is int && d.senderSequence is int
+            && ((d.senderRole == 'user' && request.auth.uid == uid)
+              || (d.senderRole == 'admin' && canManageContactChats()))
+            && after.lastMessageId == messageId
+            && after.lastMessage == (d.text.size() > 0 ? d.text : '📷 画像')
+            && after.lastSenderRole == d.senderRole && after.messageCount == d.sequence
+            && d.senderSequence == (d.senderRole == 'user' ? after.userMessageCount : after.adminMessageCount)
+            && d.sequence == previousCount + 1;
+        }
+        allow read: if canAccessChat();
+        allow create: if canAccessChat() && validMessage();
+        allow update, delete: if false;
+      }
+    }
+    // Support diagnostics are private; public profile reads do not include them.
+    match /users/{userId}/support_info/{documentId} {
+      function supportOperator() {
+        let permissions = get(/databases/$(database)/documents/admin_permissions/$(request.auth.uid)).data;
+        return permissions.get('isAdmin', false) == true
+          || permissions.get('canViewContacts', false) == true
+          || permissions.get('canManageUsers', false) == true;
+      }
+      function validAppInfo() {
+        let data = request.resource.data;
+        return data.keys().hasOnly(['os', 'osVersion', 'platform', 'appVersion', 'buildNumber', 'packageName', 'locale', 'updatedAt'])
+          && data.os is string && data.os.size() <= 240
+          && data.osVersion is string && data.osVersion.size() <= 240
+          && data.platform is string && data.platform.size() <= 240
+          && data.appVersion is string && data.appVersion.size() <= 240
+          && data.buildNumber is string && data.buildNumber.size() <= 240
+          && data.packageName is string && data.packageName.size() <= 240
+          && data.locale is string && data.locale.size() <= 240
+          && data.updatedAt == request.time;
+      }
+      allow read: if isContactChatUser() && documentId == 'client'
+        && (request.auth.uid == userId || supportOperator());
+      allow create, update: if isContactChatUser() && request.auth.uid == userId
+        && documentId == 'client' && validAppInfo();
+      allow delete: if isContactChatUser() && request.auth.uid == userId;
+    }
+    // END CONTACT CHAT RULES
+
+    match /contact_forms/{contactId} {
+      // 認証済みCITユーザーのみがお問い合わせを作成可能
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredContactFormFields();
+
+      // 自分のお問い合わせのみ読み取り可能、または管理者は全て読み取り可能
+      allow read: if isOwnerOrAdmin(resource.data.userId);
+
+      // 管理者のみがお問い合わせを更新可能（ステータス変更、回答追加など）
+      allow update: if isAdmin();
+
+      // 管理者のみがお問い合わせを削除可能
+      allow delete: if isAdmin();
+    }
+
+    // 学食レビューのルール（新規追加）
+    match /cafeteria_reviews/{reviewId} {
+      // 読み取り: 認証済みCITユーザー
+      allow read: if isCITUser();
+
+      // 作成: 本人のみ、必須フィールドを満たすこと
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredCafeteriaReviewFields();
+
+      // 更新: 本人のみ、固定フィールドは不変、評価値など限定的に変更可
+      allow update: if isCITUser() && hasValidCafeteriaReviewUpdate();
+
+      // 削除: 本人または管理者
+      allow delete: if isCITUser()
+        && isActiveAccount()
+        && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // 学食メニュー情報のルール（新規追加）
+    match /cafeteria_menu_items/{itemId} {
+      // 読み取り: 認証済みCITユーザー
+      allow read: if isCITUser() || isAdmin();
+
+      // 作成: 認証済みCITユーザー、必須フィールドを満たすこと
+      allow create: if isCITUser()
+        && isActiveAccount()
+        && hasRequiredCafeteriaMenuItemFields();
+
+      // 閲覧数(viewCount)を1増やす更新は全認証ユーザーに許可
+      allow update: if isAdmin()
+        || (
+          isCITUser()
+          && isActiveAccount()
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['viewCount'])
+          && request.resource.data.viewCount is int
+          && (
+            (resource.data.viewCount is int && request.resource.data.viewCount == resource.data.viewCount + 1)
+            || (!(resource.data.viewCount is int) && request.resource.data.viewCount == 1)
+          )
+        );
+
+      // 削除は管理者のみ
+      allow delete: if isAdmin();
+    }
+
+    // Advertising events contain aggregate attributes only, never email or UID.
+    match /ad_events/{eventId} {
+      allow read: if isAdmin();
+      allow create: if isCITUser() && validAdEvent();
+      allow update, delete: if false;
+    }
+
+    function validAdEvent() {
+      let event = request.resource.data;
+      let ad = get(/databases/$(database)/documents/in_app_ads/$(event.adId)).data;
+      return event.keys().hasAll(['adId', 'placement', 'grade', 'kind', 'slotIndex', 'createdAt'])
+        && event.keys().hasOnly(['adId', 'placement', 'grade', 'kind', 'slotIndex', 'createdAt'])
+        && event.adId is string && event.adId.size() >= 1 && event.adId.size() <= 128
+        && event.kind in ['impression', 'click']
+        && event.grade in ['1', '2', '3', '4', '5_plus', 'unknown']
+        && event.placement in ['home_top', 'cafeteria', 'schedule_bottom', 'profile_top', 'cwitter_feed', 'chiba_channel_thread_list', 'chiba_channel_thread_replies']
+        && event.slotIndex is int && event.slotIndex >= 0 && event.slotIndex <= 99999
+        && event.createdAt == request.time
+        && ad.isActive == true && event.placement == ad.targetType
+        && (ad.get('targetGrades', []).size() == 0 || event.grade in ad.targetGrades)
+        && (ad.get('startAt', null) == null || ad.startAt <= request.time)
+        && (ad.get('endAt', null) == null || ad.endAt >= request.time);
+    }
+
+    // アプリ内広告のルール
+    match /in_app_ads/{adId} {
+      // 読み取り: 認証済みCITユーザー
+      allow read: if isCITUser();
+
+      // 作成・更新: 管理者のみ
+      allow create, update: if isAdmin()
+        && isActiveAccount()
+        && hasRequiredInAppAdFields();
+
+      // 削除: 管理者のみ
+      allow delete: if isAdmin()
+        && isActiveAccount();
+    }
+
+    // ヘルパー関数
+    function isValidCITUser() {
+      return isCITUser();
+    }
+
+    function isOwner(resource) {
+      return isActiveAccount() && resource.data.authorId == request.auth.uid;
+    }
+
+    function isViewCountOnlyUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount'])
+        && request.resource.data.viewCount is int
+        && request.resource.data.viewCount == resource.data.get('viewCount', 0) + 1;
+    }
+
+    function isLikeOnlyUpdate() {
+      return request.resource.data.keys().hasAll(resource.data.keys())
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['likedBy', 'likeCount']);
+    }
+
+    // クーポン使用のみを厳密に許可するヘルパー（投稿者以外でも可）
+    // 変更できるのは couponUsedCount と couponUsedBy のみ。
+    // 自分の使用回数を +1 し、合計も +1 であること、上限超過しないことを検証。
+    function isCouponUseUpdate() {
+      let before = resource.data.get('couponUsedBy', null) is map
+        ? resource.data.couponUsedBy : {};
+      let after = request.resource.data.get('couponUsedBy', {});
+      let used = before.get(request.auth.uid, 0);
+      let maximum = resource.data.get('couponMaxUses', null);
+      return resource.data.get('isCoupon', false) == true
+        && resource.data.get('isActive', true) == true
+        && resource.data.get('approvalStatus', '') == 'approved'
+        && (resource.data.get('expiresAt', null) == null || resource.data.expiresAt > request.time)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['couponUsedCount', 'couponUsedBy'])
+        && after is map
+        && after.diff(before).affectedKeys().hasOnly([request.auth.uid])
+        && after.get(request.auth.uid, 0) == used + 1
+        && request.resource.data.couponUsedCount == resource.data.get('couponUsedCount', 0) + 1
+        && (!(maximum is int) || after[request.auth.uid] <= maximum);
+    }
+
+    function hasRequiredCommentFields() {
+      return request.resource.data.keys().hasAll(['postId', 'content', 'authorId', 'authorName', 'createdAt'])
+        && request.resource.data.postId is string
+        && request.resource.data.content is string
+        && request.resource.data.authorId is string
+        && request.resource.data.authorName is string
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    function hasRequiredNotificationFields() {
+      return request.resource.data.keys().hasAll(['userId', 'type', 'title', 'message', 'createdAt'])
+        && request.resource.data.userId is string
+        && request.resource.data.type is string
+        && request.resource.data.title is string
+        && request.resource.data.message is string
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    function hasRequiredScheduleFields() {
+			return request.resource.data.keys().hasAll(['id','userId','semester','timetable','timeSlots','createdAt','updatedAt'])
+				&& request.resource.data.id is string
+				&& request.resource.data.userId is string
+				&& request.resource.data.semester is string
+				&& request.resource.data.timetable is map
+				&& (request.resource.data.timeSlots is map || request.resource.data.timeSlots is list)
+				&& request.resource.data.createdAt is timestamp
+				&& request.resource.data.updatedAt is timestamp;
+		}
+
+    function hasRequiredAdminPermissionFields() {
+      return request.resource.data.keys().hasAll(['userId', 'isAdmin', 'grantedAt', 'grantedBy'])
+        && request.resource.data.userId is string
+        && request.resource.data.isAdmin is bool
+        && request.resource.data.grantedAt is timestamp
+        && request.resource.data.grantedBy is string;
+    }
+
+    // 通報必須フィールド確認関数（新規追加）
+    function hasRequiredReportFields() {
+      return request.resource.data.keys().hasAll([
+          'type', 'targetId', 'reporterId', 'reporterName', 'reason', 'status', 'createdAt'
+        ])
+        && request.resource.data.type is string
+        && request.resource.data.targetId is string
+        && request.resource.data.reporterId is string
+        && request.resource.data.reporterName is string
+        && request.resource.data.reason is string
+        && request.resource.data.status is string
+        && request.resource.data.createdAt is timestamp
+        && cwitterReportFieldsValidOnCreate()
+        && chibaChannelReportFieldsValidOnCreate();
+    }
+
+    function chibaChannelReportFieldsValidOnCreate() {
+      let isChiba = request.resource.data.type == 'chiba_channel_comment';
+      return !isChiba
+        || (
+          request.resource.data.keys().hasAll([
+            'reporterEmail', 'targetContent', 'targetAuthorId', 'targetAuthorName',
+            'targetAuthorEmail', 'targetPostId', 'source'
+          ])
+          && request.resource.data.reporterEmail is string
+          && request.resource.data.reporterEmail.size() > 0
+          && request.resource.data.reporterEmail == authEmailLower()
+          && request.resource.data.targetContent is string
+          && request.resource.data.targetContent.size() > 0
+          && request.resource.data.targetAuthorId is string
+          && request.resource.data.targetAuthorName is string
+          && request.resource.data.targetAuthorEmail is string
+          && request.resource.data.targetPostId is string
+          && request.resource.data.source is string
+          && request.resource.data.source == 'chiba_channel'
+        );
+    }
+
+    function cwitterReportFieldsValidOnCreate() {
+      let isCwitter = request.resource.data.type == 'cwitter_post'
+        || request.resource.data.type == 'cwitter_reply';
+      return !isCwitter
+        || (
+          request.resource.data.keys().hasAll([
+            'reporterEmail', 'targetContent', 'targetAuthorId', 'targetAuthorName',
+            'targetAuthorEmail', 'targetAuthorCwitterId', 'targetPostId', 'source'
+          ])
+          && request.resource.data.reporterEmail is string
+          && request.resource.data.reporterEmail.size() > 0
+          && request.resource.data.reporterEmail == authEmailLower()
+          && request.resource.data.targetContent is string
+          && request.resource.data.targetContent.size() > 0
+          && request.resource.data.targetAuthorId is string
+          && request.resource.data.targetAuthorName is string
+          && request.resource.data.targetAuthorEmail is string
+          && request.resource.data.targetAuthorCwitterId is string
+          && request.resource.data.targetPostId is string
+          && request.resource.data.source is string
+          && request.resource.data.source == 'cwitter'
+        );
+    }
+
+    // 非表示投稿必須フィールド確認関数（新規追加）
+    function hasRequiredHiddenPostFields() {
+      return request.resource.data.keys().hasAll(['postId', 'userId', 'reason', 'hiddenAt'])
+        && request.resource.data.postId is string
+        && request.resource.data.userId is string
+        && request.resource.data.reason is string
+        && request.resource.data.hiddenAt is timestamp;
+    }
+
+    // 非表示コメント必須フィールド確認関数（新規追加）
+    function hasRequiredHiddenCommentFields() {
+      return request.resource.data.keys().hasAll(['commentId', 'postId', 'userId', 'reason', 'hiddenAt'])
+        && request.resource.data.commentId is string
+        && request.resource.data.postId is string
+        && request.resource.data.userId is string
+        && request.resource.data.reason is string
+        && request.resource.data.hiddenAt is timestamp;
+    }
+
+    // ブロックユーザー必須フィールド確認関数（新規追加）
+    function hasRequiredBlockedUserFields() {
+      return request.resource.data.keys().hasAll(['blockedUserId', 'blockedUserName', 'userId', 'reason', 'blockedAt'])
+        && request.resource.data.blockedUserId is string
+        && request.resource.data.blockedUserName is string
+        && request.resource.data.userId is string
+        && request.resource.data.reason is string
+        && request.resource.data.blockedAt is timestamp;
+    }
+
+    // お問い合わせフォーム必須フィールド確認関数（新規追加）
+    function hasRequiredContactFormFields() {
+      return request.resource.data.keys().hasAll(['userId', 'userEmail', 'category', 'title', 'message', 'status', 'deviceInfo', 'appInfo', 'createdAt'])
+        && request.resource.data.userId is string
+        && request.resource.data.userEmail is string
+        && request.resource.data.category is string
+        && request.resource.data.title is string
+        && request.resource.data.message is string
+        && request.resource.data.status is string
+        && request.resource.data.deviceInfo is map
+        && request.resource.data.appInfo is map
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    // 学食レビュー必須フィールド確認関数（新規追加）
+    function hasRequiredCafeteriaReviewFields() {
+      return request.resource.data.keys().hasAll(['cafeteriaId','taste','volume','recommend','userId','userName','createdAt'])
+        && request.resource.data.cafeteriaId is string
+        && (
+          request.resource.data.cafeteriaId == 'tsudanuma' ||
+          request.resource.data.cafeteriaId == 'narashino_1f' ||
+          request.resource.data.cafeteriaId == 'narashino_2f'
+        )
+        && request.resource.data.taste is int
+        && request.resource.data.volume is int
+        && request.resource.data.recommend is int
+        && request.resource.data.taste >= 1 && request.resource.data.taste <= 5
+        && request.resource.data.volume >= 1 && request.resource.data.volume <= 5
+        && request.resource.data.recommend >= 1 && request.resource.data.recommend <= 5
+        && request.resource.data.userId is string
+        && request.resource.data.userName is string
+        && request.resource.data.createdAt is timestamp
+        // 任意フィールドの型チェック（null も許容: クライアント実装で null を送る場合があるため）
+        && (!('menuName' in request.resource.data) || (request.resource.data.menuName is string || request.resource.data.menuName == null))
+        && (!('comment' in request.resource.data) || (request.resource.data.comment is string || request.resource.data.comment == null))
+        // 量の性別（任意）: 'male' または 'female' のみ許可
+        && (
+          !('volumeGender' in request.resource.data)
+          || (
+            (request.resource.data.volumeGender == null)
+            || (request.resource.data.volumeGender is string
+                && (request.resource.data.volumeGender == 'male' || request.resource.data.volumeGender == 'female'))
+          )
+        );
+    }
+    
+    // 学食レビュー更新許可判定（本人のみ、変更できるキーと値を制限）
+    function hasValidCafeteriaReviewUpdate() {
+      return isActiveAccount()
+        && resource.data.userId == request.auth.uid
+        // 固定フィールドは不変
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.cafeteriaId == resource.data.cafeteriaId
+        && request.resource.data.menuName == resource.data.menuName
+        // 変更可能なキーのみ変更されていること
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(
+             ['taste','volume','recommend','comment','userName','volumeGender']
+           )
+        // 値のバリデーション
+        && request.resource.data.taste is int && request.resource.data.taste >= 1 && request.resource.data.taste <= 5
+        && request.resource.data.volume is int && request.resource.data.volume >= 1 && request.resource.data.volume <= 5
+        && request.resource.data.recommend is int && request.resource.data.recommend >= 1 && request.resource.data.recommend <= 5
+        && (!('comment' in request.resource.data) || (request.resource.data.comment is string || request.resource.data.comment == null))
+        && request.resource.data.userName is string
+        && (
+          !('volumeGender' in request.resource.data)
+          || request.resource.data.volumeGender == null
+          || (request.resource.data.volumeGender is string &&
+              (request.resource.data.volumeGender == 'male' || request.resource.data.volumeGender == 'female'))
+        );
+    }
+
+    // 学食メニュー必須フィールド確認関数（新規追加）
+    function hasRequiredCafeteriaMenuItemFields() {
+      return request.resource.data.keys().hasAll(['cafeteriaId','menuName'])
+        && request.resource.data.cafeteriaId is string
+        && (
+          request.resource.data.cafeteriaId == 'tsudanuma' ||
+          request.resource.data.cafeteriaId == 'narashino_1f' ||
+          request.resource.data.cafeteriaId == 'narashino_2f'
+        )
+        && request.resource.data.menuName is string
+        // 任意: 価格・画像URL（null も許容）
+        && (!('price' in request.resource.data) || (request.resource.data.price is int || request.resource.data.price == null))
+        && (!('photoUrl' in request.resource.data) || (request.resource.data.photoUrl is string || request.resource.data.photoUrl == null));
+    }
+
+    function hasRequiredInAppAdFields() {
+      return validSponsorship()
+        && (!('targetGrades' in request.resource.data) || (
+          request.resource.data.targetGrades is list
+          && request.resource.data.targetGrades.size() <= 6
+          && request.resource.data.targetGrades.hasOnly(['1', '2', '3', '4', '5_plus', 'unknown'])
+        ))
+        && request.resource.data.keys().hasAll([
+          'title','body','targetType','actionType','actionPayload','isActive','weight'
+        ])
+        && request.resource.data.title is string
+        && request.resource.data.body is string
+        && request.resource.data.targetType is string
+        && request.resource.data.actionType is string
+        && request.resource.data.actionPayload is string
+        && request.resource.data.isActive is bool
+        && request.resource.data.weight is int
+        && request.resource.data.weight >= 1
+        && (!('imageUrl' in request.resource.data) || request.resource.data.imageUrl is string || request.resource.data.imageUrl == null)
+        && (!('ctaText' in request.resource.data) || request.resource.data.ctaText is string || request.resource.data.ctaText == null)
+        && (!('startAt' in request.resource.data) || request.resource.data.startAt is timestamp || request.resource.data.startAt == null)
+        && (!('endAt' in request.resource.data) || request.resource.data.endAt is timestamp || request.resource.data.endAt == null);
+    }
+
+    // 出欠記録必須フィールド確認関数
+    function hasRequiredAttendanceFields() {
+      return request.resource.data.keys().hasAll([
+          'userId',
+          'scheduleId',
+          'classId',
+          'subjectName',
+          'weekdayKey',
+          'startPeriod',
+          'duration',
+          'status',
+          'attendanceDate',
+          'recordedAt'
+        ])
+        && request.resource.data.userId is string
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.scheduleId is string
+        && request.resource.data.classId is string
+        && request.resource.data.subjectName is string
+        && request.resource.data.weekdayKey is string
+        && (
+          request.resource.data.weekdayKey == 'monday' ||
+          request.resource.data.weekdayKey == 'tuesday' ||
+          request.resource.data.weekdayKey == 'wednesday' ||
+          request.resource.data.weekdayKey == 'thursday' ||
+          request.resource.data.weekdayKey == 'friday' ||
+          request.resource.data.weekdayKey == 'saturday'
+        )
+        && request.resource.data.startPeriod is int
+        && request.resource.data.startPeriod >= 1
+        && request.resource.data.startPeriod <= 10
+        && request.resource.data.duration is int
+        && request.resource.data.duration >= 1
+        && request.resource.data.duration <= 10
+        && request.resource.data.status is string
+        && (
+          request.resource.data.status == 'present' ||
+          request.resource.data.status == 'late' ||
+          request.resource.data.status == 'absent' ||
+          request.resource.data.status == 'cancelled'
+        )
+        && request.resource.data.attendanceDate is timestamp
+        && request.resource.data.recordedAt is timestamp;
+    }
+
+    // Excel抽出精度向上データ必須フィールド確認
+    function hasRequiredExcelImportTrainingFields() {
+      return request.resource.data.keys().hasAll([
+          'userId',
+          'originalFileName',
+          'storagePath',
+          'storageUrl',
+          'consentForTraining',
+          'providedAt',
+          'autoEntryCount',
+          'reviewedEntryCount',
+          'parserWarnings',
+          'autoExtractedEntries',
+          'reviewedEntries'
+        ])
+        && request.resource.data.userId is string
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.originalFileName is string
+        && request.resource.data.storagePath is string
+        && request.resource.data.storageUrl is string
+        && (!('cellDumpStoragePath' in request.resource.data) || request.resource.data.cellDumpStoragePath is string)
+        && (!('cellDumpStorageUrl' in request.resource.data) || request.resource.data.cellDumpStorageUrl is string)
+        && request.resource.data.consentForTraining == true
+        && request.resource.data.providedAt is timestamp
+        && request.resource.data.autoEntryCount is int
+        && request.resource.data.reviewedEntryCount is int
+        && request.resource.data.autoEntryCount >= 0
+        && request.resource.data.reviewedEntryCount >= 0
+        && request.resource.data.parserWarnings is list
+        && request.resource.data.autoExtractedEntries is list
+        && request.resource.data.reviewedEntries is list
+        // 1ドキュメント上限を超えにくくするため数を制限
+        && request.resource.data.autoExtractedEntries.size() <= 200
+        && request.resource.data.reviewedEntries.size() <= 200
+        && request.resource.data.parserWarnings.size() <= 200;
+    }
+
+    // 通知受信設定の更新内容を検証
+    function isValidNotificationPreferencesUpdate() {
+      return (!('notificationPreferences' in request.resource.data)
+          || request.resource.data.notificationPreferences is map)
+        && (!('updatedAt' in request.resource.data)
+          || request.resource.data.updatedAt is timestamp);
+    }
+
+    // 学食お気に入り必須フィールド確認関数
+    function hasRequiredCafeteriaFavoriteFields() {
+      return request.resource.data.keys().hasAll(['userId', 'type', 'createdAt'])
+        && request.resource.data.userId is string
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.type is string
+        && (request.resource.data.type == 'cafeteria' || request.resource.data.type == 'menu')
+        && request.resource.data.createdAt is timestamp
+        // type == 'cafeteria' の場合は cafeteriaId が必要
+        && (
+          (request.resource.data.type == 'cafeteria' && request.resource.data.cafeteriaId is string)
+          || (request.resource.data.type == 'menu' && (
+            request.resource.data.menuItemId is string
+            || request.resource.data.menuName is string
+          ))
+        )
+        // 任意フィールドの型チェック
+        && (!('cafeteriaId' in request.resource.data) || request.resource.data.cafeteriaId is string || request.resource.data.cafeteriaId == null)
+        && (!('menuItemId' in request.resource.data) || request.resource.data.menuItemId is string || request.resource.data.menuItemId == null)
+        && (!('menuName' in request.resource.data) || request.resource.data.menuName is string || request.resource.data.menuName == null);
+    }
+  }
+}

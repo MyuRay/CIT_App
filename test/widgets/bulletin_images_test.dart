@@ -70,6 +70,7 @@ void main() {
         ),
       ),
     );
+    await tester.runAsync(() => precacheImage(MemoryImage(photo), tester.element(find.byType(Scaffold).first)));
     await tester.pumpAndSettle();
   }
 

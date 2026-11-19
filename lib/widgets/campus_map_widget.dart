@@ -1,9 +1,11 @@
+import '../screens/classroom_map/campus_bus_game_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../core/providers/firebase_campus_provider.dart';
 import 'common/animated_image_placeholder.dart';
 import 'common/safe_cached_network_image.dart';
 import 'campus_map_image.dart';
+import '../screens/classroom_map/campus_3d_screen.dart';
 
 class CampusMapWidget extends ConsumerWidget {
   final String campus;
@@ -45,6 +47,7 @@ class CampusMapWidget extends ConsumerWidget {
               textAlign: TextAlign.center,
             ),
           ),
+        if (showTitle) Campus3dMapButton(campus: campus),
       ],
     );
   }
@@ -486,7 +489,6 @@ class _FullScreenCampusMapDialogState
       ),
     );
   }
-
 }
 
 class FloorMapWidget extends ConsumerWidget {
@@ -633,4 +635,43 @@ String _displayNameFor(String campusKey) {
     default:
       return campusKey;
   }
+}
+
+class Campus3dMapButton extends StatelessWidget {
+  const Campus3dMapButton({super.key, required this.campus});
+  final String campus;
+  @override
+  Widget build(BuildContext context) => OutlinedButton(
+    onPressed:
+        () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => Campus3dScreen(initialCampusId: campus),
+          ),
+        ),
+    child: const Text('3Dマップ', textAlign: TextAlign.center),
+  );
+}
+
+class CampusBusGameButton extends StatelessWidget {
+  const CampusBusGameButton({super.key});
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: double.infinity,
+    child: FilledButton(
+      onPressed:
+          () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const CampusBusGameScreen(),
+            ),
+          ),
+      style: FilledButton.styleFrom(
+        backgroundColor: const Color(0xffad3155),
+        foregroundColor: Colors.white,
+      ),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Text('学バスタイムアタック', textAlign: TextAlign.center),
+      ),
+    ),
+  );
 }

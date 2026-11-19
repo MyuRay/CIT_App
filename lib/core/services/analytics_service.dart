@@ -222,6 +222,10 @@ class AnalyticsService {
     if (AdPlacement.values.any((value) => value.name == placement)) {
       safe['placement'] = placement!;
     }
+    final grade = parameters?['grade'];
+    if (const ['1','2','3','4','5_plus','unknown'].contains(grade)) safe['grade'] = grade!;
+    final slot = parameters?['slot_index'];
+    if (slot is int && slot >= 0 && slot <= 99999) safe['slot_index'] = slot;
     final action = parameters?['action_type'];
     if (const ['external', 'bulletin'].contains(action)) {
       safe['action_type'] = action!;

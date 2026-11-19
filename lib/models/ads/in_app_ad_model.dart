@@ -88,6 +88,7 @@ class InAppAd {
     this.weight = 1,
     this.isSponsored = false,
     this.sponsorName = '',
+    this.targetGrades = const [],
   });
 
   factory InAppAd.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -109,6 +110,7 @@ class InAppAd {
       weight: (data['weight'] as num?)?.toInt() ?? 1,
       isSponsored: data['isSponsored'] == true,
       sponsorName: (data['sponsorName'] as String?)?.trim() ?? '',
+      targetGrades: _readTargetGrades(data),
     );
   }
 
@@ -126,6 +128,9 @@ class InAppAd {
   final int weight;
   final bool isSponsored;
   final String sponsorName;
+  final List<String> targetGrades;
+  bool matchesGrade(String grade) =>
+      targetGrades.isEmpty || targetGrades.contains(grade);
 
   bool isEligible(DateTime now) {
     if (!isActive) return false;
@@ -149,6 +154,7 @@ class InAppAd {
     int? weight,
     bool? isSponsored,
     String? sponsorName,
+    List<String>? targetGrades,
   }) {
     return InAppAd(
       id: id ?? this.id,
@@ -165,11 +171,13 @@ class InAppAd {
       weight: weight ?? this.weight,
       isSponsored: isSponsored ?? this.isSponsored,
       sponsorName: sponsorName ?? this.sponsorName,
+      targetGrades: targetGrades ?? this.targetGrades,
     );
   }
 
   Map<String, dynamic> toFirestore() {
     return {
+      'targetGrades': targetGrades,
       'title': title,
       'body': body,
       'imageUrl': imageUrl,
@@ -195,4 +203,14 @@ DateTime? _timestampToDate(dynamic value) {
     return DateTime.tryParse(value);
   }
   return null;
+}
+
+List<String> _readTargetGrades(Map<String, dynamic> data) {
+  if (!data.containsKey('targetGrades')) return const [];
+  final raw = data['targetGrades'];
+  // A malformed restriction must never silently turn into an all-user campaign.
+  if (raw is! List || raw.any((value) => value is! String)) {
+    return const ['invalid'];
+  }
+  return List<String>.unmodifiable(raw.cast<String>());
 }

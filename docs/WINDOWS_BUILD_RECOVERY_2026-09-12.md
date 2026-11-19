@@ -2,6 +2,24 @@
 
 確認日: 2026-09-12
 
+## 2026-11-17: cleanMergeDebugAssetsがフォルダーを削除できない
+
+利用者のエラーは `:app:cleanMergeDebugAssets` の `Unable to delete directory .../mergeDebugAssets`。元の生成フォルダーと子ディレクトリにOneDriveのクラウド用ReparsePoint属性が付いていた。ロックしているプロセス自体は特定していない。
+
+ビルド停止後に該当フォルダーだけを `mergeDebugAssets.recovery-<日時>` へ退避し、元の場所を空の通常ディレクトリとして再作成した。復旧後、その空ディレクトリを削除・再作成できることを確認した。元のキャッシュは保持している。
+
+再発時はビルドを停止してプロジェクト直下で次を実行し、Android Studioから再実行する。
+
+```powershell
+.\scripts\repair_android_assets.ps1
+```
+
+このスクリプトはCIT_Appの生成アセットのパスだけを対象とし、削除せずに退避する。別ディレクトリを指すジャンクション・シンボリックリンクを検出した場合は停止する。
+
+同じソースを使った作業用コピーではDartコンパイルを通過したが、全アーキテクチャ向けのAndroidビルドは検証環境のネットワーク制限によるFlutterエンジンJARの取得失敗で停止した。キャッシュ復旧後の利用者環境でのAPK生成・起動完了は未確認。ルートのDart解析が拾っていたFirebase CLIのサンプルは `analysis_options.yaml` で解析対象から除外し、アプリのコンパイルエラーがないことを確認した。
+
+現行手順は下記「2026-09-30」を参照。以前のAppDataへのジャンクション方式は廃止した。
+
 ## 発生した問題
 
 Android Studioからの起動が `:app:cleanMergeDebugAssets` で失敗した。`build/app/intermediates/assets/debug/mergeDebugAssets` 以下の生成物を削除できなかった。
@@ -37,6 +55,30 @@ MicrosoftはOneDriveの同期でシンボリックリンク／ジャンクショ
 検証後はFlutter CLIのデバッグ接続だけを切り離し、実機上のアプリは起動したままにした。Android Studioから次回の実行を開始できる状態。
 
 ## 次回の使い方
+
+### 2026-09-30: 再起動しても `.dart_tool` の作成エラーが続く場合
+
+Android Studio再起動後も同じ `errno = 3` が発生し、IDEログには `Unable to delete dill or write params` が残った。リンク先は存在し、Android Studioと同じ `C:\flutter` のSDKでも、IDE外からのパッケージ取得は成功した。
+
+`.dart_tool` のジャンクションを `.dart_tool.setup-backup-<日時>` に名前変更して保持し、元の場所には通常のディレクトリを作成した。その後のAndroid Studio実行はパッケージ取得を通過し、同じ構造の `build` で作成エラーになった。
+
+Windowsの `GetFinalPathNameByHandle` で確認すると、見かけの `%LOCALAPPDATA%\CIT_App\build-cache` は、Codexからは `%LOCALAPPDATA%\Packages\OpenAI.Codex_2p2nqsd0c76g0\LocalCache\Local\CIT_App\build-cache` に転送されていた。Codexのファイル存在確認だけではAndroid Studioからの可視性を保証できない。
+
+`build` と `android/.gradle` も旧リンクを保管して通常のディレクトリへ戻した。リンク先の既存キャッシュは削除していない。`C:\flutter\bin\flutter.bat --no-version-check pub get --offline` は終了コード0で成功し、`pubspec.lock` のSHA-256も変化していない。
+
+`scripts/prepare_windows_build.ps1` も修正し、3つの生成フォルダーを通常のプロジェクト内ディレクトリとして扱う。旧スクリプトで作成した既知のジャンクションは、同スクリプトを再実行するとバックアップを保持して通常のディレクトリに置き換わる。別の場所を指すリンクは変更せず停止する。`CacheRoot` は旧リンクの照合にのみ使用し、新しい外部キャッシュは作らない。
+
+修復後、Android Studioと同じ `C:\flutter` で `flutter build apk --debug --no-pub` が成功（終了コード0、約281秒）。APKは `build/app/outputs/flutter-apk/app-debug.apk` に生成された。セットアップスクリプトは合成環境で3つの旧リンクを復旧でき、再実行してもバックアップが増えないこと、旧キャッシュの内容を保持することも確認した。
+
+続けて利用者がAndroid Studioの実行ボタンで再実行し、「起動できた」と確認した。直近のIDEログでも、以前の `Unable to delete dill or write params` は再実行時に発生していない。
+
+再発時は、ビルドを停止してプロジェクト直下のPowerShellから実行する。
+
+```powershell
+Set-Location 'C:\Users\mmura\OneDrive\Desktop\CIT_App'
+.\scripts\prepare_windows_build.ps1
+& 'C:\flutter\bin\flutter.bat' --no-version-check pub get --offline
+```
 
 ### 2026-09-16: Android Studioだけで `.dart_tool` の作成に失敗した場合
 

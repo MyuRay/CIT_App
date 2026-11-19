@@ -11,6 +11,18 @@
       "source": "functions",
       "codebase": "default",
       "runtime": "nodejs20"
+    },
+    {
+      "source": "security-functions",
+      "codebase": "security",
+      "runtime": "nodejs22",
+      "ignore": ["node_modules", ".git", "test", "*.log", ".env*"]
+    },
+    {
+      "source": "game-functions",
+      "codebase": "campus-game",
+      "runtime": "nodejs22",
+      "ignore": ["node_modules", ".git", "test", "*.log", ".env*"]
     }
   ]
 }

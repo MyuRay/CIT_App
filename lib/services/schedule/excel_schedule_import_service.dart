@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:excel/excel.dart';
+import '../../core/utils/period_time_resolver.dart';
 
 import '../../models/schedule/schedule_model.dart';
 import 'excel_import_semester.dart';
@@ -272,7 +273,7 @@ class ExcelScheduleImportService {
 
     final updated =
         clearExisting
-            ? DefaultTimeSlots.createEmptyTimetable()
+            ? DefaultTimeSlots.createEmptyTimetable(periodCount: schedule.periodCount)
             : _copyTimetable(schedule.timetable);
 
     int applied = 0;
@@ -281,12 +282,12 @@ class ExcelScheduleImportService {
         warnings.add('空の講義名エントリをスキップしました。');
         continue;
       }
-      if (e.startPeriod < 1 || e.startPeriod > 10 || e.duration < 1) {
+      if (!PeriodTimeResolver.isValidPeriod(e.startPeriod) || e.duration < 1) {
         warnings.add('${e.subjectName}: 時限情報が不正なためスキップしました。');
         continue;
       }
       final end = e.startPeriod + e.duration - 1;
-      if (end > 10) {
+      if (end > PeriodTimeResolver.maxPeriod) {
         warnings.add(
           '${e.subjectName}: ${e.startPeriod}限開始で${e.duration}コマは範囲外です。',
         );
@@ -335,7 +336,13 @@ class ExcelScheduleImportService {
       name: schedule.name,
       semester: schedule.semester,
       timetable: updated,
-      timeSlots: schedule.timeSlots,
+      timeSlots: [
+        for (final slot in DefaultTimeSlots.forPeriodCount(
+          Schedule(id: schedule.id, userId: schedule.userId, semester: schedule.semester,
+            timetable: updated, timeSlots: schedule.timeSlots).periodCount,
+        ))
+          schedule.timeSlots.firstWhere((old) => old.period == slot.period, orElse: () => slot),
+      ],
       createdAt: schedule.createdAt,
       updatedAt: DateTime.now(),
     );

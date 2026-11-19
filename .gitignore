@@ -40,6 +40,7 @@ migrate_working_dir/
 # Temporary backups created while repairing the local build environment
 /build.setup-backup-*/
 /node_modules/
+/.firebase/
 /.dart_tool.setup-backup-*/
 
 # Symbolication related
@@ -86,3 +87,7 @@ email-prefixes-summary.csv
 *.diff
 ersmmuracit_app
 ChatGPT*.png
+
+# Nested tooling dependencies and reproducible map download inputs
+**/node_modules/
+/tools/campus_3d/data/

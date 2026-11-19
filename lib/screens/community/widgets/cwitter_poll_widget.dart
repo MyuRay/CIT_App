@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'cwitter_id_requirement.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../../core/providers/schedule_provider.dart';
@@ -25,6 +26,10 @@ class _CwitterPollWidgetState extends ConsumerState<CwitterPollWidget> {
     final uid = ref.read(currentUserIdProvider);
     if (uid == null) return;
     if (_poll.hasVoted(uid) || _isVoting) return;
+    if (!hasCurrentCwitterIdentity(ref)) {
+      await promptCwitterIdRegistration(context, ref, action: '投票');
+      return;
+    }
 
     setState(() => _isVoting = true);
     try {

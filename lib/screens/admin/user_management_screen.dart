@@ -1,3 +1,4 @@
+import '../../widgets/admin/admin_user_info_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -282,6 +283,11 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                       ),
                     ],
                   ),
+                ),
+                IconButton(
+                  tooltip: 'アプリ・端末情報',
+                  icon: const Icon(Icons.info_outline),
+                  onPressed: () => showAdminUserInfo(context, user.uid),
                 ),
                 PopupMenuButton<String>(
                   tooltip: 'ユーザー情報をコピー',

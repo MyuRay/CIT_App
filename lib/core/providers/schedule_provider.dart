@@ -11,6 +11,11 @@ import '../../services/widget/home_widgets_service.dart';
 import '../../services/schedule/schedule_notification_service.dart';
 import 'settings_provider.dart';
 
+final scheduleEditingProvider = StateProvider<bool>((ref) {
+  ref.watch(currentUserIdProvider);
+  return false;
+});
+
 // グローバルなホーム画面リフレッシュ通知プロバイダー
 final homeRefreshNotifierProvider = StateProvider<int>((ref) => 0);
 
@@ -299,8 +304,11 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<Schedule?>> {
       final notificationEnabled = ref.read(scheduleNotificationEnabledProvider);
       if (!notificationEnabled) return;
 
-      final schedule = await ScheduleService.getScheduleByUserId(_userId);
-      if (schedule != null) {
+      final schedule = await ScheduleService.getSelectedScheduleByUserId(
+        _userId,
+        selectedScheduleId: ref.read(selectedScheduleIdProvider),
+      );
+      if (schedule != null && ref.read(scheduleNotificationEnabledProvider)) {
         await ScheduleNotificationService.scheduleWeeklyNotifications(schedule);
       }
     } catch (_) {
@@ -404,11 +412,11 @@ final weeklyScheduleProvider =
         final daySchedule = schedule.timetable[weekday];
         if (daySchedule != null) {
           weeklySchedule[weekday] = List.generate(
-            10,
+            schedule.periodCount,
             (index) => daySchedule[index + 1],
           );
         } else {
-          weeklySchedule[weekday] = List.filled(10, null);
+          weeklySchedule[weekday] = List.filled(schedule.periodCount, null);
         }
       }
 
@@ -478,9 +486,9 @@ final dayScheduleProvider = Provider.family<List<ScheduleClass?>, String>((
     data: (schedule) {
       if (schedule == null) return List.filled(10, null);
       final daySchedule = schedule.timetable[weekdayKey];
-      if (daySchedule == null) return List.filled(10, null);
+      if (daySchedule == null) return List.filled(schedule.periodCount, null);
 
-      return List.generate(10, (index) => daySchedule[index + 1]);
+      return List.generate(schedule.periodCount, (index) => daySchedule[index + 1]);
     },
     loading: () => List.filled(10, null),
     error: (_, __) => List.filled(10, null),

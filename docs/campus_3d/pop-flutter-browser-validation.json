@@ -1,0 +1,17 @@
+{
+  "checks": {
+    "buildingDetailHostBack": true,
+    "bothCampusNumberLabelsRendered": true,
+    "mapBackReturnsLauncher": true,
+    "separateGameRendered": true,
+    "fullscreenRetainsGame": true,
+    "gameBridgeOpensFlutterPanel": true,
+    "landscapeRetainsViewer": true,
+    "gameBackReturnsLauncher": true
+  },
+  "errors": [],
+  "posts": [],
+  "limits": [
+    "Desktop Chrome software WebGL at mobile viewports; no physical Android or iOS device. Later operation checks suppress drawing after genuine rendering."
+  ]
+}

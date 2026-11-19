@@ -19,7 +19,8 @@ import android.content.SharedPreferences
 
 class FullScheduleWidgetProvider : HomeWidgetProvider() {
     companion object {
-        private const val MAX_PERIODS = 10
+        private const val DEFAULT_PERIODS = 10
+        private const val MAX_PERIODS = 15
         private const val ROW_GAP_DP = 2
         // AppWidgetOptions の高さはdp単位。高さに応じて表示行数を決める。
         private fun getMaxSlotsForHeight(heightDp: Int): Int {
@@ -32,7 +33,7 @@ class FullScheduleWidgetProvider : HomeWidgetProvider() {
                 heightDp < 310 -> 7
                 heightDp < 350 -> 8
                 heightDp < 390 -> 9
-                else -> MAX_PERIODS
+                else -> DEFAULT_PERIODS
             }
         }
     }
@@ -85,6 +86,8 @@ class FullScheduleWidgetProvider : HomeWidgetProvider() {
 
             if (weekly != null && weekly.isNotEmpty()) {
                 val obj = JSONObject(weekly)
+                val periodCount = obj.optInt("periodCount", DEFAULT_PERIODS)
+                    .coerceIn(DEFAULT_PERIODS, MAX_PERIODS)
                 // Use the smaller orientation so rows fit in portrait too.
                 val maxHeightDp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN && options != null) {
                     options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 340)
@@ -93,18 +96,18 @@ class FullScheduleWidgetProvider : HomeWidgetProvider() {
                 val showEmptyRows = densitySlots >= 6
                 // 科目名が潰れにくいよう、教室表示はかなり高い時だけ有効化
                 val showRoom = densitySlots >= 9
-                // タイトル/曜日行ぶんを引いた残りを10限で割って、縦を使い切る行高を算出
+                // タイトル/曜日行ぶんを引いた残りを、保存済みの時限数で割る。
                 val estimatedHeaderDp = (36 + 20 * context.resources.configuration.fontScale.coerceAtLeast(1f)).toInt()
-                val needsResize = maxHeightDp < estimatedHeaderDp + 24 * MAX_PERIODS + ROW_GAP_DP * (MAX_PERIODS - 1)
+                val needsResize = maxHeightDp < estimatedHeaderDp + 24 * periodCount + ROW_GAP_DP * (periodCount - 1)
                 views.setViewVisibility(R.id.weekly_grid, if (needsResize) android.view.View.GONE else android.view.View.VISIBLE)
                 views.setViewVisibility(R.id.weekly_resize_hint, if (needsResize) android.view.View.VISIBLE else android.view.View.GONE)
-                val slotHeightDp = ((maxHeightDp - estimatedHeaderDp - (ROW_GAP_DP * (MAX_PERIODS - 1))) / MAX_PERIODS)
+                val slotHeightDp = ((maxHeightDp - estimatedHeaderDp - (ROW_GAP_DP * (periodCount - 1))) / periodCount)
                     .coerceIn(24, 64)
                 populateWeekly(
                     context,
                     views,
                     obj,
-                    MAX_PERIODS,
+                    periodCount,
                     showEmptyRows,
                     showRoom,
                     slotHeightDp
@@ -153,7 +156,7 @@ class FullScheduleWidgetProvider : HomeWidgetProvider() {
         )
 
         views.removeAllViews(periodsListId)
-        for (period in 1..MAX_PERIODS) {
+        for (period in 1..maxSlots) {
             views.addView(periodsListId, createPeriodRow(context, period, slotHeightDp, weekly))
         }
 
@@ -173,7 +176,7 @@ class FullScheduleWidgetProvider : HomeWidgetProvider() {
             for (j in 0 until arr.length()) {
                 val item = arr.getJSONObject(j)
                 val period = item.optInt("period", 0)
-                if (period in 1..MAX_PERIODS) {
+                if (period in 1..maxSlots) {
                     classByPeriod[period] = item
                 }
             }

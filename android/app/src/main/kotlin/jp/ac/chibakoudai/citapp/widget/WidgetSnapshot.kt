@@ -50,11 +50,12 @@ internal object WidgetSnapshot {
         val calendar = Calendar.getInstance(japan).apply { timeInMillis = now }
         return calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
     }
-    fun timeMinutes(value: String): Int? {
+    fun timeMinutes(value: String, allowEndOfDay: Boolean = false): Int? {
         val parts = value.split(":")
         if (parts.size != 2) return null
         val hour = parts[0].toIntOrNull() ?: return null
         val minute = parts[1].toIntOrNull() ?: return null
+        if (allowEndOfDay && hour == 24 && minute == 0) return 24 * 60
         return if (hour in 0..23 && minute in 0..59) hour * 60 + minute else null
     }
     fun today(data: SharedPreferences, now: Long = System.currentTimeMillis()): JSONObject {
@@ -70,12 +71,13 @@ internal object WidgetSnapshot {
         for (i in 0 until classes.length()) {
             val item = classes.getJSONObject(i)
             val start = timeMinutes(item.optString("startTime")) ?: continue
-            val end = timeMinutes(item.optString("endTime")) ?: continue
+            val end = timeMinutes(item.optString("endTime"), allowEndOfDay = true) ?: continue
             if (minutes(now) in start until end) currentPeriod = item.optInt("period")
         }
         return JSONObject().apply {
             put("classes", classes)
             put("timeSlots", weekly.optJSONArray("timeSlots") ?: JSONArray())
+            put("periodCount", weekly.optInt("periodCount", 10))
             put("hasSchedule", weekly.optBoolean("hasSchedule", false))
             put("weekday", listOf("月", "火", "水", "木", "金", "土", "日")[index])
             put("date", "${calendar.get(Calendar.MONTH) + 1}/${calendar.get(Calendar.DAY_OF_MONTH)}")

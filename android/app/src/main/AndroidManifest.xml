@@ -15,7 +15,7 @@
     <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" tools:node="remove" />
     <uses-permission android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION" tools:node="remove" />
     
-    <!-- Photo picker only: remove merged broad media permissions for Play policy compliance -->
+    <!-- Picking uses the photo picker; saving needs write access only on Android 9 and older. -->
     <uses-permission
         android:name="android.permission.READ_MEDIA_IMAGES"
         tools:node="remove" />
@@ -27,7 +27,8 @@
         tools:node="remove" />
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        tools:node="remove" />
+        android:maxSdkVersion="28"
+        tools:replace="android:maxSdkVersion" />
 
     <!-- Push notification permission (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
@@ -36,6 +37,7 @@
         android:label="CIT App"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
+        android:networkSecurityConfig="@xml/campus_network_security_config"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules">
         <meta-data android:name="google_analytics_adid_collection_enabled" android:value="false" />

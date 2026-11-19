@@ -1,3 +1,4 @@
+import '../../widgets/bulletin/bulletin_category_image.dart';
 import '../../models/bulletin/bulletin_image_draft.dart';
 import '../../services/bulletin/bulletin_image_save_session.dart';
 import '../../widgets/bulletin/bulletin_image_picker.dart';
@@ -79,6 +80,9 @@ class _BulletinPostFormScreenState
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            AnimatedBuilder(animation: _images, builder: (context, _) => _images.images.isEmpty
+              ? Column(children: [AspectRatio(aspectRatio: 16/9, child: ClipRRect(borderRadius: BorderRadius.circular(12), child: BulletinCategoryImage(category: _selectedCategory))), const SizedBox(height: 8), const Text('画像未設定の場合は、このカテゴリ画像が自動で表示されます。'), const SizedBox(height: 12)])
+              : const SizedBox.shrink()),
             BulletinImagePicker(
               draft: _images,
               enabled: !_isLoading,
@@ -854,6 +858,9 @@ class _BulletinPostEditScreenState
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            AnimatedBuilder(animation: _images, builder: (context, _) => _images.images.isEmpty
+              ? Column(children: [AspectRatio(aspectRatio: 16/9, child: ClipRRect(borderRadius: BorderRadius.circular(12), child: BulletinCategoryImage(category: _selectedCategory))), const SizedBox(height: 8), const Text('画像未設定の場合は、このカテゴリ画像が自動で表示されます。'), const SizedBox(height: 12)])
+              : const SizedBox.shrink()),
             BulletinImagePicker(
               draft: _images,
               enabled: !_isLoading,

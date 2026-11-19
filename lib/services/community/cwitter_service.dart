@@ -1,3 +1,4 @@
+import 'cwitter_liked_posts_reader.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -19,6 +20,7 @@ import '../../models/community/cwitter_recweet.dart';
 import '../../models/community/cwitter_reply.dart';
 import '../../models/community/cwitter_social_platform.dart';
 import 'cwitter_post_image_service.dart';
+import 'cwitter_post_writer.dart';
 import 'user_ban_service.dart';
 import '../common/user_post_rate_limit.dart';
 import '../users/user_block_service.dart';
@@ -589,17 +591,19 @@ class CwitterService {
   }
 
   static Future<List<Map<String, dynamic>?>> _fetchUserDataBatch(
-    List<String> userIds,
-  ) async {
+    List<String> userIds, {
+    FirebaseFirestore? firestore,
+  }) async {
     if (userIds.isEmpty) return const [];
 
+    final db = firestore ?? _firestore;
     final results = <Map<String, dynamic>?>[];
     for (var i = 0; i < userIds.length; i += _hashtagUserFetchBatchSize) {
       final end = math.min(i + _hashtagUserFetchBatchSize, userIds.length);
       final batch = userIds.sublist(i, end);
       final snaps = await Future.wait(
         batch.map(
-          (uid) => _firestore.collection(_usersCollection).doc(uid).get(),
+          (uid) => db.collection('public_profiles').doc(uid).get(),
         ),
       );
       for (final snap in snaps) {
@@ -816,12 +820,14 @@ class CwitterService {
   }
 
   /// Cwitter ID・表示名でユーザーを検索（部分一致・大文字小文字無視）
-  static Future<List<CwitterFollowUser>> searchUsersByCwitterId(
-    String rawQuery,
-  ) async {
+  static Future<List<CwitterFollowUser>> searchUsers(
+    String rawQuery, {
+    FirebaseFirestore? firestore,
+  }) async {
     final needle = _normalizeSearchNeedle(rawQuery);
     if (needle.isEmpty) return const [];
 
+    final db = firestore ?? _firestore;
     final results = <CwitterFollowUser>[];
     final seenUserIds = <String>{};
     QueryDocumentSnapshot<Map<String, dynamic>>? cursor;
@@ -829,33 +835,37 @@ class CwitterService {
 
     while (results.length < _searchUserResultLimit &&
         scanned < _searchUserMaxScan) {
-      var idQuery = _firestore
+      var idQuery = db
           .collection(_idsCollection)
-          .orderBy(FieldPath.documentId)
-          .limit(_searchUserPageSize);
+          .orderBy(FieldPath.documentId);
       if (cursor != null) {
         idQuery = idQuery.startAfterDocument(cursor);
       }
 
-      final snap = await idQuery.get();
+      final snap = await idQuery
+          .limit(math.min(_searchUserPageSize, _searchUserMaxScan - scanned))
+          .get();
       if (snap.docs.isEmpty) break;
 
+      scanned += snap.docs.length;
+      final userIds = <String>[];
       for (final doc in snap.docs) {
-        scanned++;
-        if (scanned > _searchUserMaxScan) break;
-
         final uid = doc.data()['uid']?.toString();
-        if (uid == null || uid.isEmpty || seenUserIds.contains(uid)) {
+        if (uid == null || uid.isEmpty || !seenUserIds.add(uid)) {
           continue;
         }
+        userIds.add(uid);
+      }
 
-        // ID の部分一致を先に判定（大文字小文字は doc.id が小文字のため needle も小文字）
-        if (!doc.id.contains(needle)) continue;
-
-        final user = await _fetchFollowUser(uid);
+      // IDで先に絞ると表示名だけに一致する人が落ちるため、現在の
+      // プロフィールをまとめて読み、IDと表示名を同じ条件で照合する。
+      final dataList = await _fetchUserDataBatch(userIds, firestore: db);
+      for (var i = 0; i < userIds.length; i++) {
+        final data = dataList[i];
+        if (data == null) continue;
+        final user = _followUserFromData(userIds[i], data);
         if (user == null || !_userMatchesSearch(user, needle)) continue;
 
-        seenUserIds.add(uid);
         results.add(user);
         if (results.length >= _searchUserResultLimit) break;
       }
@@ -1354,7 +1364,7 @@ class CwitterService {
 
   static Future<CwitterFollowUser?> _fetchFollowUser(String userId) async {
     final userSnap =
-        await _firestore.collection(_usersCollection).doc(userId).get();
+        await _firestore.collection('public_profiles').doc(userId).get();
     if (!userSnap.exists) return null;
 
     return _followUserFromData(userId, userSnap.data()!);
@@ -1647,23 +1657,7 @@ class CwitterService {
     String userId, {
     int limit = 50,
   }) {
-    return _userLikesRef(
-      userId,
-    ).orderBy('likedAt', descending: true).limit(limit).snapshots().asyncMap((
-      likesSnap,
-    ) async {
-      if (likesSnap.docs.isEmpty) return <CwitterPost>[];
-
-      final posts = <CwitterPost>[];
-      for (final likeDoc in likesSnap.docs) {
-        final postSnap =
-            await _firestore.collection(_postsCollection).doc(likeDoc.id).get();
-        if (postSnap.exists) {
-          posts.add(CwitterPost.fromFirestore(postSnap));
-        }
-      }
-      return posts;
-    });
+    return CwitterLikedPostsReader(_firestore).watch(userId, limit: limit);
   }
 
   static Future<void> createPost({
@@ -1675,6 +1669,7 @@ class CwitterService {
     String? profileImageUrl,
     List<XFile>? imageFiles,
     List<String>? pollOptions,
+    String? quotedPostId,
   }) async {
     await UserBanService.requireNotBanned(authorId);
 
@@ -1698,17 +1693,47 @@ class CwitterService {
       );
     }
 
+    String? quotedAuthorId;
+    if (quotedPostId != null) {
+      if (parseCwitterQuotedPostId(quotedPostId) == null ||
+          _auth.currentUser?.uid != authorId) {
+        throw const CwitterQuoteUnavailableException();
+      }
+      final source = await _firestore.collection(_postsCollection).doc(quotedPostId).get();
+      quotedAuthorId = source.data()?['authorId'] as String?;
+      if (!source.exists || quotedAuthorId == null || quotedAuthorId.isEmpty) {
+        throw const CwitterQuoteUnavailableException();
+      }
+      // 状態確認に失敗した場合は投稿を中断し、未確認のまま引用しない。
+      if (authorId != quotedAuthorId) {
+        final blocks = await Future.wait([
+          _firestore.collection('blocked_users')
+              .where('userId', isEqualTo: authorId)
+              .where('blockedUserId', isEqualTo: quotedAuthorId).limit(1).get(),
+          _firestore.collection('blocked_users')
+              .where('userId', isEqualTo: quotedAuthorId)
+              .where('blockedUserId', isEqualTo: authorId).limit(1).get(),
+        ]);
+        if (blocks.any((result) => result.docs.isNotEmpty)) {
+          throw const CwitterQuoteUnavailableException();
+        }
+      }
+      final moderation = await _firestore.collection('moderation').doc('banned_index').get();
+      final bannedUsers = moderation.data()?['users'];
+      final ban = bannedUsers is Map ? bannedUsers[quotedAuthorId] : null;
+      final expiresAt = ban is Map ? ban['expiresAt'] : null;
+      if (ban is Map && (ban['permanent'] == true ||
+          (expiresAt is Timestamp && DateTime.now().isBefore(expiresAt.toDate())))) {
+        throw const CwitterQuoteUnavailableException();
+      }
+    }
+
     final email = _currentAuthEmailLower(fallback: authorEmail);
     if (email.isEmpty) {
       throw ArgumentError('登録メールアドレスを取得できませんでした');
     }
 
     final postRef = _firestore.collection(_postsCollection).doc();
-    final rateLimitRef = UserPostRateLimit.ref(
-      _firestore,
-      userId: authorId,
-      limitKey: UserPostRateLimit.cwitterPostKey,
-    );
     final now = DateTime.now();
 
     final data = <String, dynamic>{
@@ -1722,6 +1747,7 @@ class CwitterService {
       'likeCount': 0,
       'recweetCount': 0,
       'likedBy': <String, dynamic>{},
+      if (quotedPostId != null) 'quotedPostId': quotedPostId,
     };
     if (profileImageUrl != null && profileImageUrl.trim().isNotEmpty) {
       data['profileImageUrl'] = profileImageUrl.trim();
@@ -1748,16 +1774,14 @@ class CwitterService {
             ).toMap();
       }
 
-      await _firestore.runTransaction((transaction) async {
-        await UserPostRateLimit.enforceInTransaction(
-          transaction: transaction,
-          rateLimitRef: rateLimitRef,
-          now: now,
-          rateLimitException: const CwitterPostRateLimitException(),
-        );
-
-        transaction.set(postRef, data);
-      });
+      await writeCwitterPost(
+        firestore: _firestore,
+        postRef: postRef,
+        data: data,
+        now: now,
+        quotedAuthorId: quotedAuthorId,
+        rateLimitException: const CwitterPostRateLimitException(),
+      );
     } catch (e) {
       if (uploadedImageUrls != null) {
         await CwitterPostImageService.deletePostImages(

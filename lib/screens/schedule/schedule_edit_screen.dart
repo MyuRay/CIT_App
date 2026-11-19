@@ -156,6 +156,7 @@ class _ScheduleEditScreenState extends ConsumerState<ScheduleEditScreen> {
     final timeSlots = ref.watch(timeSlotsProvider);
     final periodSlot = timeSlots.firstWhere(
       (slot) => slot.period == widget.period,
+      orElse: () => TimeSlot.forPeriod(widget.period),
     );
     final weekdayName = _weekdayNames[widget.weekdayKey] ?? widget.weekdayKey;
 
@@ -247,37 +248,11 @@ class _ScheduleEditScreenState extends ConsumerState<ScheduleEditScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildDurationButton(1, '1時間', Icons.schedule),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildDurationButton(
-                            2,
-                            '2時間連続',
-                            Icons.schedule,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildDurationButton(
-                            3,
-                            '3時間連続',
-                            Icons.schedule,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildDurationButton(
-                            4,
-                            '4時間連続',
-                            Icons.schedule,
-                          ),
-                        ),
-                      ],
-                    ),
+                    Wrap(spacing: 8, runSpacing: 8, children: [
+                      for (var duration = 1; duration <= 5; duration++)
+                        SizedBox(width: 104, child: _buildDurationButton(duration,
+                          duration == 1 ? '1時間' : duration.toString() + '時間連続', Icons.schedule)),
+                    ]),
                     if (_selectedDuration > 1) ...[
                       const SizedBox(height: 8),
                       Container(
@@ -694,6 +669,7 @@ class _ScheduleEditScreenState extends ConsumerState<ScheduleEditScreen> {
     final timeSlots = ref.watch(timeSlotsProvider);
     final startSlot = timeSlots.firstWhere(
       (slot) => slot.period == widget.period,
+      orElse: () => TimeSlot.forPeriod(widget.period),
     );
     final endPeriod = widget.period + _selectedDuration - 1;
     final endSlot = timeSlots.firstWhere(

@@ -341,14 +341,12 @@ class ChibaChannelService {
       await _deleteCommentImagesFromDoc(doc);
     }
 
-    final anonSnap = await threadRef.collection('anonymous_ids').get();
     final batch = _firestore.batch();
     for (final doc in commentsSnap.docs) {
       batch.delete(doc.reference);
     }
-    for (final doc in anonSnap.docs) {
-      batch.delete(doc.reference);
-    }
+    // Private identity mappings are removed by the server after thread deletion.
+    // A thread owner must not enumerate other users' identities.
     batch.delete(threadRef);
     await batch.commit();
   }

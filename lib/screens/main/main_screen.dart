@@ -9,8 +9,10 @@ import '../../core/providers/assignment_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/admin_provider.dart';
+import '../../core/providers/admin_navigation_provider.dart';
+import '../admin/admin_dashboard_screen.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/providers/bulletin_provider.dart';
 import '../../core/providers/community_tab_provider.dart';
@@ -18,10 +20,13 @@ import '../../core/providers/cwitter_composer_back_provider.dart';
 import '../../core/providers/cwitter_provider.dart';
 import '../../core/providers/legal_consent_provider.dart';
 import '../../core/providers/schedule_provider.dart';
+import '../../core/providers/home_feature_intro_provider.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../models/schedule/schedule_model.dart';
 import '../../services/schedule/attendance_availability.dart';
 import '../../services/auth/tab_tutorial_progress.dart';
+import '../../services/auth/my_page_relocation_progress.dart';
+import '../../widgets/home/my_page_relocation_guide.dart';
 import '../../services/schedule/attendance_service.dart';
 import '../../services/schedule/class_notification_payload.dart';
 import '../../services/schedule/schedule_notification_service.dart';
@@ -35,7 +40,6 @@ import '../bulletin/bulletin_screen.dart';
 import '../community/community_screen.dart';
 import '../home/home_screen.dart';
 import '../legal/community_legal_update_consent_gate.dart';
-import '../profile/simple_profile_screen.dart';
 import '../schedule/attendance_qr_reader_screen.dart';
 import '../schedule/schedule_screen.dart';
 import 'widgets/main_navigation_bar.dart';
@@ -50,7 +54,8 @@ class MainScreen extends ConsumerStatefulWidget {
   ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends ConsumerState<MainScreen> {
+class _MainScreenState extends ConsumerState<MainScreen>
+    with WidgetsBindingObserver {
   int _currentIndex = 0;
   final Set<int> _visitedTabIndices = <int>{};
   bool _didCheckTabTutorial = false;
@@ -59,17 +64,33 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   int _lastTutorialReplaySignal = 0;
   bool _didCheckEmailMigrationPrompt = false;
   bool _isEmailMigrationPromptShowing = false;
+  final _profileAvatarAnchorKey = GlobalKey(debugLabel: 'homeMyPageAvatar');
+  final _homeMenuAnchorKey = GlobalKey(debugLabel: 'homeMenu');
+  int _communityGuideIndex = 0;
+  final _controlGuideKeys = {
+    for (final name in ['semester', 'assignment', 'attendance', 'scheduleEdit',
+      'share', 'saturday', 'excelImport', 'communitySwitch', 'chibaTab', 'communitySearch', 'categories', 'bulletinPost'])
+      name: GlobalKey(debugLabel: name),
+  };
+  final _navigationGuideKeys = List.generate(MainNavigation.destinationCount,
+      (index) => GlobalKey(debugLabel: 'navigationGuide$index'));
+  final _myPageGuideShownUsers = <String>{};
+  Timer? _myPageGuideTimer;
+  bool _isMyPageGuideShowing = false;
 
   StreamSubscription<String>? _notificationTapSub;
   StreamSubscription<void>? _pushTapSub;
   bool _handlingNotificationTap = false;
   bool _didBootstrapScheduleNotifications = false;
 
-  int get safeCurrentIndex => MainNavigation.normalizeIndex(_currentIndex);
+  int get safeCurrentIndex => _currentIndex == MainNavigation.adminIndex &&
+      ref.read(currentUserAdminProvider).valueOrNull?.isAdmin == true
+          ? MainNavigation.adminIndex : MainNavigation.normalizeIndex(_currentIndex);
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _currentIndex = MainNavigation.normalizeIndex(widget.initialTabIndex);
     _visitedTabIndices.add(_currentIndex);
     _pushTapSub = NotificationService.taps.changes.listen((_) => _consumePushTap());
@@ -87,6 +108,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(ref.read(analyticsServiceProvider).showMainTab(safeCurrentIndex));
+      if (safeCurrentIndex == MainNavigation.homeIndex) {
+        ref.read(homeTabVisitSignalProvider.notifier).update((s) => s + 1);
+      }
       final pending = ScheduleNotificationService.consumePendingLaunchPayload();
       if (pending != null) {
         _handleScheduleNotificationPayload(pending);
@@ -97,6 +121,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _myPageGuideTimer?.cancel();
     _notificationTapSub?.cancel();
     _pushTapSub?.cancel();
     _notificationTapSub = null;
@@ -135,7 +161,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         return;
       }
     } catch (_) {}
-
     final pushTarget = NotificationTarget.tryParse(payload);
     if (pushTarget != null) {
       NotificationService.taps.add(pushTarget);
@@ -270,16 +295,22 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
       // 通知サービス初期化が main.dart の遅延処理で実行されるため、少しだけ待つ。
       await Future<void>.delayed(const Duration(seconds: 3));
-      if (!mounted) return;
+      if (!mounted ||
+          ref.read(currentUserIdProvider) != userId ||
+          !ref.read(scheduleNotificationEnabledProvider)) {
+        return;
+      }
 
-      final schedules = await ScheduleService.getAllSchedulesByUserId(userId);
-      if (schedules.isEmpty) return;
-      final selectedId = ref.read(selectedScheduleIdProvider);
-      final schedule =
-          (selectedId != null
-              ? schedules.where((s) => s.id == selectedId).firstOrNull
-              : null) ??
-          schedules.first;
+      final schedule = await ScheduleService.getSelectedScheduleByUserId(
+        userId,
+        selectedScheduleId: ref.read(selectedScheduleIdProvider),
+      );
+      if (!mounted ||
+          schedule == null ||
+          ref.read(currentUserIdProvider) != userId ||
+          !ref.read(scheduleNotificationEnabledProvider)) {
+        return;
+      }
       await ScheduleNotificationService.scheduleWeeklyNotifications(schedule);
       SecureLogger.debug('🔁 起動時の授業通知再予約 完了 (scheduleId=${schedule.id})');
     } catch (e) {
@@ -367,7 +398,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   void _selectTab(int index) {
-    final nextIndex = MainNavigation.normalizeIndex(index);
+    final nextIndex = index == MainNavigation.adminIndex &&
+        ref.read(currentUserAdminProvider).valueOrNull?.isAdmin == true
+            ? MainNavigation.adminIndex : MainNavigation.normalizeIndex(index);
     if (_currentIndex == nextIndex && _visitedTabIndices.contains(nextIndex)) {
       return;
     }
@@ -376,6 +409,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       _visitedTabIndices.add(nextIndex);
     });
     unawaited(ref.read(analyticsServiceProvider).showMainTab(nextIndex));
+    if (nextIndex == MainNavigation.homeIndex) {
+      ref.read(homeTabVisitSignalProvider.notifier).update((s) => s + 1);
+    }
   }
 
   Widget _buildTabScreen(int index) {
@@ -386,11 +422,30 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final screen = switch (index) {
       MainNavigation.homeIndex => HomeScreen(
         onNavigateToSchedule: _navigateToSchedule,
+        profileAvatarAnchorKey: _profileAvatarAnchorKey,
+        homeMenuAnchorKey: _homeMenuAnchorKey,
       ),
-      MainNavigation.scheduleIndex => const ScheduleScreen(),
-      MainNavigation.communityIndex => const CommunityScreen(),
-      MainNavigation.bulletinIndex => const BulletinScreen(),
-      MainNavigation.profileIndex => const SimpleProfileScreen(),
+      MainNavigation.scheduleIndex => ScheduleScreen(
+        semesterAnchorKey: _controlGuideKeys['semester'],
+        assignmentAnchorKey: _controlGuideKeys['assignment'],
+        attendanceAnchorKey: _controlGuideKeys['attendance'],
+        editAnchorKey: _controlGuideKeys['scheduleEdit'],
+        shareAnchorKey: _controlGuideKeys['share'],
+        saturdayAnchorKey: _controlGuideKeys['saturday'],
+        excelImportAnchorKey: _controlGuideKeys['excelImport'],
+      ),
+      MainNavigation.communityIndex => CommunityScreen(
+        tutorialActive: _isTabTutorialShowing,
+        guideTabIndex: _isTabTutorialShowing ? _communityGuideIndex : null,
+        chibaAnchorKey: _controlGuideKeys['chibaTab'],
+        switchAnchorKey: _controlGuideKeys['communitySwitch'],
+        searchAnchorKey: _controlGuideKeys['communitySearch'],
+      ),
+      MainNavigation.bulletinIndex => BulletinScreen(
+        categoriesAnchorKey: _controlGuideKeys['categories'],
+        postAnchorKey: _controlGuideKeys['bulletinPost'],
+      ),
+      MainNavigation.adminIndex => const AdminDashboardScreen(),
       _ => const SizedBox.shrink(),
     };
 
@@ -404,7 +459,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     return IndexedStack(
       index: safeCurrentIndex,
       children: List<Widget>.generate(
-        MainNavigation.destinationCount,
+        MainNavigation.destinationCount + 1,
         _buildTabScreen,
       ),
     );
@@ -420,6 +475,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final hasLegalConsent = ref.watch(hasAcceptedCurrentLegalConsentProvider);
 
     return authState.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
       data: (user) {
         if (user == null) {
           // ユーザーが未認証の場合は空のコンテナ（ルーターがリダイレクトを処理）
@@ -429,6 +486,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         if (_tutorialUserId != user.uid) {
           _tutorialUserId = user.uid;
           _didCheckTabTutorial = false;
+          _didCheckEmailMigrationPrompt = false;
         }
         ref.listen<bool>(hasAcceptedCurrentLegalConsentProvider, (prev, next) {
           if (prev == false && next == true) {
@@ -437,6 +495,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         });
         if (hasLegalConsent) {
           _scheduleTabTutorialIfNeeded();
+          _scheduleMyPageRelocationGuide();
         }
         if (!_didBootstrapScheduleNotifications) {
           _didBootstrapScheduleNotifications = true;
@@ -448,7 +507,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         if (hasLegalConsent && !_didCheckEmailMigrationPrompt) {
           _didCheckEmailMigrationPrompt = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _maybeShowLegacyEmailMigrationPrompt(user.email);
+            _maybeShowLegacyEmailMigrationPrompt(user.uid, user.email);
           });
         }
         if (tutorialReplaySignal != _lastTutorialReplaySignal) {
@@ -491,6 +550,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Widget _buildMainContent() {
     // 掲示板の最新投稿日と最終既読時刻からバッジ表示を判定
     final prefs = ref.watch(sharedPreferencesProvider);
+    final managementVisible = ref.watch(currentUserAdminProvider).valueOrNull?.isAdmin == true &&
+        ref.watch(adminTabVisibleProvider);
+    ref.listen<bool>(adminTabVisibleProvider, (_, visible) {
+      if (!visible && _currentIndex == MainNavigation.adminIndex) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _selectTab(MainNavigation.homeIndex);
+        });
+      }
+    });
     final lastSeenMs = prefs.getInt('bulletin_last_seen_at') ?? 0;
     final latestCreatedAt =
         ref.watch(bulletinLatestPostCreatedAtProvider).valueOrNull;
@@ -513,6 +581,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           return;
         }
 
+        if (_currentIndex == MainNavigation.scheduleIndex && ref.read(scheduleEditingProvider)) {
+          ref.read(scheduleEditingProvider.notifier).state = false;
+          return;
+        }
         // ホーム画面以外の場合はホームに戻る
         if (_currentIndex == MainNavigation.scheduleIndex &&
             ref.read(assignmentViewOpenProvider)) {
@@ -534,6 +606,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       child: Scaffold(
         body: _buildTabStack(),
         bottomNavigationBar: MainNavigationBar(
+          tutorialAnchorKeys: _navigationGuideKeys,
+          showAdminTab: managementVisible,
           selectedIndex: safeCurrentIndex,
           hasNewCommunityPosts: showCommunityNew,
           hasNewBulletinPosts: showBulletinNew,
@@ -597,13 +671,83 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         false;
   }
 
-  Future<void> _maybeShowLegacyEmailMigrationPrompt(String? email) async {
-    if (!mounted || _isEmailMigrationPromptShowing) return;
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _scheduleMyPageRelocationGuide();
+      ref.invalidate(assignmentReminderSyncProvider);
+      if (ref.read(scheduleNotificationEnabledProvider)) unawaited(_bootstrapScheduleNotifications());
+    } else {
+      _myPageGuideTimer?.cancel();
+      _myPageGuideTimer = null;
+    }
+  }
+
+  void _scheduleMyPageRelocationGuide() {
+    if (!mounted || _myPageGuideTimer != null || _isMyPageGuideShowing) return;
+    if (safeCurrentIndex != MainNavigation.homeIndex) return;
+    if (!ref.read(hasAcceptedCurrentLegalConsentProvider)) return;
+    final uid = ref.read(authStateProvider).valueOrNull?.uid;
+    if (uid == null || _myPageGuideShownUsers.contains(uid)) return;
+    final progress = MyPageRelocationProgress(ref.read(sharedPreferencesProvider));
+    if (!progress.shouldShow(uid)) return;
+
+    _myPageGuideTimer = Timer(const Duration(milliseconds: 550), () async {
+      _myPageGuideTimer = null;
+      if (!mounted) return;
+      if (ref.read(authStateProvider).valueOrNull?.uid != uid) {
+        _scheduleMyPageRelocationGuide();
+        return;
+      }
+      if (safeCurrentIndex != MainNavigation.homeIndex ||
+          !ref.read(hasAcceptedCurrentLegalConsentProvider)) {
+        return;
+      }
+      final lifecycle = WidgetsBinding.instance.lifecycleState;
+      if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return;
+      if (_isTabTutorialShowing || _isEmailMigrationPromptShowing ||
+          ModalRoute.of(context)?.isCurrent != true) {
+        _scheduleMyPageRelocationGuide();
+        return;
+      }
+
+      _isMyPageGuideShowing = true;
+      _myPageGuideShownUsers.add(uid);
+      try {
+        final acknowledged = await showMyPageRelocationGuide(
+          context,
+          avatarKey: _profileAvatarAnchorKey,
+        );
+        if (acknowledged) {
+          await progress.markSeen(uid);
+        } else {
+          _myPageGuideShownUsers.remove(uid);
+        }
+      } catch (_) {
+        SecureLogger.warning('マイページの移動案内を完了できませんでした');
+      } finally {
+        _isMyPageGuideShowing = false;
+      }
+    });
+  }
+
+  Future<void> _maybeShowLegacyEmailMigrationPrompt(
+    String uid,
+    String? email,
+  ) async {
+    if (!mounted || _isEmailMigrationPromptShowing || _tutorialUserId != uid) {
+      return;
+    }
     if (!LegacyEmailMigrationDialog.shouldShow(email)) return;
 
     _isEmailMigrationPromptShowing = true;
     try {
-      await LegacyEmailMigrationDialog.showIfNeeded(context, email: email);
+      await LegacyEmailMigrationDialog.showIfNeeded(
+        context,
+        uid: uid,
+        email: email,
+        preferences: ref.read(sharedPreferencesProvider),
+      );
     } finally {
       _isEmailMigrationPromptShowing = false;
       if (mounted && _didCheckTabTutorial) {
@@ -630,35 +774,93 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   Future<void> _maybeStartTabTutorial({bool force = false}) async {
-    if (!mounted || _isTabTutorialShowing || _isEmailMigrationPromptShowing) return;
+    if (!mounted || _isTabTutorialShowing || _isEmailMigrationPromptShowing || _isMyPageGuideShowing) return;
     if (!ref.read(hasAcceptedCurrentLegalConsentProvider)) return;
-    final prefs = ref.read(sharedPreferencesProvider);
+    if (ModalRoute.of(context)?.isCurrent != true) return;
     final uid = ref.read(authStateProvider).valueOrNull?.uid;
     if (uid == null) return;
-    final progress = TabTutorialProgress(prefs);
+    final progress = TabTutorialProgress(ref.read(sharedPreferencesProvider));
     if (!force && !progress.shouldShow(uid)) return;
 
     _isTabTutorialShowing = true;
+    final previousTab = safeCurrentIndex;
+    final previousEditing = ref.read(scheduleEditingProvider);
+    final previousAssignments = ref.read(assignmentViewOpenProvider);
+    var explainedMyPage = false;
+    ControlTutorialStep step(int tab, GlobalKey anchor, String title, String description, {int communityTab = 0, bool scheduleEditing = false}) =>
+      ControlTutorialStep(anchor: anchor, title: title, description: description,
+        onEnter: () async {
+          if (mounted && ref.read(authStateProvider).valueOrNull?.uid == uid) {
+            if (tab == MainNavigation.communityIndex) setState(() => _communityGuideIndex = communityTab);
+            if (tab == MainNavigation.scheduleIndex) {
+              ref.read(assignmentViewOpenProvider.notifier).state = false;
+              ref.read(scheduleEditingProvider.notifier).state = scheduleEditing;
+            }
+            _selectTab(tab);
+          }
+        });
     try {
-      final destination = await showDialog<TutorialDestination>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => VisualTabTutorial(
-          initialCampus: ref.read(preferredBusCampusProvider),
-          onSaveCampus: ref.read(setPreferredBusCampusProvider),
+      final completed = await showVisualTabTutorial(
+        context,
+        isCurrentSession: () => mounted && ref.read(authStateProvider).valueOrNull?.uid == uid,
+        onStepShown: (step) {
+          if (identical(step.anchor, _profileAvatarAnchorKey)) explainedMyPage = true;
+        },
+        closingStep: step(
+          MainNavigation.homeIndex,
+          _profileAvatarAnchorKey,
+          'チュートリアルの確認方法',
+          'このチュートリアルはマイページからいつでも確認可能です',
         ),
+        steps: [
+          step(MainNavigation.homeIndex, _navigationGuideKeys[MainNavigation.homeIndex],
+            'ホーム', '天気・時間割・課題・学バスなど、大学生活に必要な情報をまとめて確認できます。'),
+          step(MainNavigation.homeIndex, _homeMenuAnchorKey,
+            'ホームをカスタマイズ', '右上のメニューから「ホームカードを編集」を開くと、カードの表示や並び順を変更できます。'),
+          step(MainNavigation.scheduleIndex, _navigationGuideKeys[MainNavigation.scheduleIndex],
+            '時間割・課題管理', 'このタブで時間割と課題を管理します。タブをダブルタップしても、時間割と課題管理を切り替えられます。'),
+          step(MainNavigation.scheduleIndex, _controlGuideKeys['semester']!,
+            '時間割を追加・切り替え', 'ここから時間割を追加したり、登録済みの時間割へ切り替えられます。年度・前期後期を設定すると、出欠管理に対応した日付が表示されます。'),
+          step(MainNavigation.scheduleIndex, _controlGuideKeys['scheduleEdit']!,
+            '講義を登録・編集', '鉛筆ボタンで編集モードを開き、空いているマスに講義を登録できます。講義の変更や、時限の拡張・削除も編集モードから行えます。'),
+          step(MainNavigation.scheduleIndex, _controlGuideKeys['saturday']!,
+            '土曜日の表示・非表示', '編集モードでは、このボタンで時間割の土曜日を表示・非表示にできます。土曜日の講義データは、非表示にしても残ります。', scheduleEditing: true),
+          step(MainNavigation.scheduleIndex, _controlGuideKeys['excelImport']!,
+            'Excelから時間割をインポート', '編集モードのこのボタンから、大学の学生時間割表のExcelファイルを取り込めます。ファイルを選び、学期と保存先を指定し、プレビューで内容を確認してから適用します。', scheduleEditing: true),
+          step(MainNavigation.scheduleIndex, _controlGuideKeys['assignment']!,
+            '課題を管理', '「課題」で課題一覧を開き、提出期限や完了状況を管理できます。「時間割」を押すと元の表示に戻ります。'),
+          step(MainNavigation.scheduleIndex, _controlGuideKeys['attendance']!,
+            '出欠を記録', '講義ごとの出席・欠席・遅刻を記録できます。年度・前期後期に合わせた講義期間を選び、日付ごとに確認できます。'),
+          step(MainNavigation.scheduleIndex, _controlGuideKeys['share']!,
+            '時間割を保存・共有', '共有ボタンから時間割を画像として保存したり、友だちに共有できます。'),
+          step(MainNavigation.communityIndex, _controlGuideKeys['communitySwitch']!,
+            'Cwitterとちばちゃんねる', '上のタブで切り替えます。下の交流ボタンをダブルタップしても切り替えられます。CwitterはCweetIDをあとで設定して投稿を読むこともでき、投稿・いいねなどの操作時に登録を案内します。'),
+          step(MainNavigation.communityIndex, _controlGuideKeys['communitySearch']!,
+            'Cwitterを検索', '虫眼鏡から投稿やユーザーを検索できます。気になる話題や友だちを探してみてください。'),
+          step(MainNavigation.communityIndex, _controlGuideKeys['chibaTab']!,
+            'ちばちゃんねる', '匿名で大学生活の話題を相談・交流できます。スレッドを開いて内容や返信を確認し、ご利用についての案内を読んでから投稿してください。', communityTab: 1),
+          step(MainNavigation.bulletinIndex, _controlGuideKeys['categories']!,
+            '掲示板で情報を探す', 'カテゴリを選ぶと、お知らせ・募集などを絞り込めます。投稿を開くと詳しい内容やコメントを確認できます。'),
+          step(MainNavigation.bulletinIndex, _controlGuideKeys['bulletinPost']!,
+            '掲示板への掲載を申請', '右上の投稿ボタンから掲載を申請できます。イベントやメンバーの募集、卒業論文のアンケート集めにもご利用いただけます。'),
+          step(MainNavigation.homeIndex, _profileAvatarAnchorKey,
+            'マイページとお問い合わせ', 'ホーム左上のアイコンから開けます。「便利な機能・カスタマイズ」でテーマやTipsの表示を設定でき、使い方ガイドも見直せます。運営への連絡は「お問い合わせ」からどうぞ。'),
+        ],
       );
-      if (!mounted || ref.read(authStateProvider).valueOrNull?.uid != uid) return;
-      await progress.markSeen(uid);
-      if (mounted && destination != null) {
-        if (destination.tabIndex == MainNavigation.scheduleIndex) {
-          ref.read(assignmentViewOpenProvider.notifier).state =
-              destination.showAssignments;
+      if (completed && mounted && ref.read(authStateProvider).valueOrNull?.uid == uid) {
+        await progress.markSeen(uid);
+        if (explainedMyPage) {
+          _myPageGuideShownUsers.add(uid);
+          await MyPageRelocationProgress(progress.preferences).markSeen(uid);
         }
-        _selectTab(destination.tabIndex);
       }
     } finally {
       _isTabTutorialShowing = false;
+      if (mounted && ref.read(authStateProvider).valueOrNull?.uid == uid) {
+        ref.read(scheduleEditingProvider.notifier).state = previousEditing;
+        ref.read(assignmentViewOpenProvider.notifier).state = previousAssignments;
+        _selectTab(previousTab);
+      }
     }
   }
 }

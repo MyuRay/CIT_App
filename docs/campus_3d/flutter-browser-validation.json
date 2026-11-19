@@ -1,0 +1,38 @@
+{
+  "checks": {
+    "campusSwitch": true,
+    "campusStartsWithoutAutomaticRegionEntry": true,
+    "recoveredDemQualityVisible": true,
+    "qualityOverlayBackPreservesMap": true,
+    "legacyDialogFallbackClosesWithBack": true,
+    "countdownGoInIframe": true,
+    "fullscreenPreservesBusScene": true,
+    "fullscreenEscapePreservesRoute": true,
+    "webHostBridgeOpensFlutterPanel": true,
+    "landscapeFrameSurvives": true,
+    "backDisposesViewAndReturnsToLauncher": true
+  },
+  "errors": [],
+  "networkPosts": [],
+  "backControls": [
+    {
+      "role": "button",
+      "label": null,
+      "text": "Back"
+    },
+    {
+      "role": "button",
+      "label": null,
+      "text": "Back"
+    },
+    {
+      "role": "button",
+      "label": null,
+      "text": "Back"
+    }
+  ],
+  "renderLimit": "Campus switch, regional view and quality screenshot render with software WebGL; subsequent navigation/countdown checks suppress draw calls while keeping actual Flutter/iframe event handling and timers. Not a real-device GPU test.",
+  "testedAtUtc": "2026-10-04T15:42:04.317230+00:00",
+  "previewMainDartJsSha256": "b6afdcf9b59c071fef654aa7e467d05219e8872f3d9be6e5794dd2a6ecc0bb10",
+  "verificationScope": "Latest Flutter QA entry point with real local GLBs and offline region; no Firebase initialization or production requests. Back uses one exact host Back control after tooltip expires; fullscreen uses exact visible role/button text to avoid tooltip duplication."
+}

@@ -10,6 +10,9 @@ enum WidgetClock {
     static func dayIndex(_ date: Date) -> Int { (calendar.component(.weekday, from: date) + 5) % 7 }
     static func time(_ value: String, on date: Date) -> Date? {
         let parts = value.split(separator: ":").compactMap { Int($0) }
+        if parts.count == 2 && parts[0] == 24 && parts[1] == 0 {
+            return calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: date))
+        }
         guard parts.count == 2, (0...23).contains(parts[0]), (0...59).contains(parts[1]) else { return nil }
         return calendar.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: date)
     }
@@ -51,6 +54,7 @@ struct WidgetTimeSlot: Decodable {
 }
 
 struct ScheduleSnapshot: Decodable {
+    var periodCount: Int? = nil
     var schemaVersion: Int? = nil
     var hasSchedule: Bool? = nil
     var scheduleTitle: String? = nil

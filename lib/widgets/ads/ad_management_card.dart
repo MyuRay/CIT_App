@@ -1,3 +1,4 @@
+import '../../models/ads/ad_audience.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/ads/ad_management_query.dart';
@@ -105,6 +106,11 @@ class AdManagementCard extends StatelessWidget {
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
+            Text(
+              ad.targetGrades.isEmpty
+                  ? '対象：全員'
+                  : '対象：${ad.targetGrades.map(adGradeLabel).join('・')}',
+            ),
             if (ad.isSponsored)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),

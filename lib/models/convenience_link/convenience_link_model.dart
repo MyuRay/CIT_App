@@ -50,10 +50,15 @@ class ConvenienceLink {
 
   // JSON serialization
   factory ConvenienceLink.fromJson(Map<String, dynamic> json) {
+    final savedUrl = json['url'] as String;
     return ConvenienceLink(
       id: json['id'] as String,
       title: json['title'] as String,
-      url: json['url'] as String,
+      // 保存済みの旧証明書発行URLも新しいURLに更新する。
+      url:
+          savedUrl == 'https://conveni.is.it-chiba.ac.jp/cert/z/z_login.html'
+              ? PresetLinks.certificateUrl
+              : savedUrl,
       iconName: json['iconName'] as String,
       color: json['color'] as String,
       order: json['order'] as int? ?? 0,
@@ -187,6 +192,9 @@ class LinkColors {
 
 // プリセットリンク
 class PresetLinks {
+  static const String certificateUrl =
+      'https://conveni.is.chibatech.ac.jp/cert/z/z_login.html';
+
   static List<ConvenienceLink> get defaultLinks => [
     ConvenienceLink(
       id: 'preset_official',
@@ -223,7 +231,7 @@ class PresetLinks {
     ConvenienceLink(
       id: 'preset_certificate',
       title: '証明書発行',
-      url: 'https://conveni.is.it-chiba.ac.jp/cert/z/z_login.html',
+      url: certificateUrl,
       iconName: 'document',
       color: 'teal',
       order: 5,

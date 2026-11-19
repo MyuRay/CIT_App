@@ -1,5 +1,7 @@
 import '../../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'cwitter_id_requirement.dart';
+import 'cwitter_id_setup_view.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
@@ -7,6 +9,7 @@ import '../../../core/providers/user_provider.dart';
 import '../../../core/providers/cwitter_follow_counts_override_provider.dart';
 import '../../../core/providers/cwitter_like_override_provider.dart';
 import '../../../core/providers/cwitter_provider.dart';
+import '../../../core/providers/cwitter_pin_provider.dart';
 import '../../../core/providers/schedule_provider.dart';
 import '../../../core/providers/user_block_provider.dart';
 import '../../../core/providers/admin_provider.dart';
@@ -16,6 +19,7 @@ import '../../../models/community/cwitter_post.dart';
 import '../../../models/community/cwitter_profile_activity.dart';
 import '../../../models/community/cwitter_profile_user.dart';
 import '../../../models/user/user_model.dart';
+import '../../../widgets/profile/display_name_editor.dart';
 import 'cwitter_activity_card.dart';
 import 'cwitter_author_name_row.dart';
 import 'cwitter_avatar.dart';
@@ -106,7 +110,7 @@ class _CwitterProfileScreenState extends ConsumerState<CwitterProfileScreen>
     if (isMyPage && (appUser == null || !appUser.hasCwitterId)) {
       return Scaffold(
         appBar: AppBar(title: const Text('マイページ')),
-        body: const Center(child: Text('Cwitter IDを設定してください')),
+        body: CwitterIdSetupView(onRegistered: () {}),
       );
     }
 
@@ -241,6 +245,7 @@ class _CwitterProfileScreenState extends ConsumerState<CwitterProfileScreen>
                   controller: _tabController,
                   children: [
                     _ActivityTab(
+                      profileUserId: profileUser.authorId,
                       provider: activityProvider,
                       emptyMessage: 'まだCweet・返信・recweetがありません',
                       onRefresh: () async {
@@ -271,6 +276,7 @@ class _CwitterProfileScreenState extends ConsumerState<CwitterProfileScreen>
                   ],
                 )
                 : _ActivityTab(
+                  profileUserId: profileUser.authorId,
                   provider: activityProvider,
                   emptyMessage: 'まだCweet・返信・recweetがありません',
                   onRefresh: () async {
@@ -392,7 +398,6 @@ class _ProfileHeader extends ConsumerWidget {
     final showFollowButton =
         !isSelf &&
         currentUid != null &&
-        ref.watch(hasCwitterIdProvider) &&
         !isHidden;
 
     return Container(
@@ -461,6 +466,21 @@ class _ProfileHeader extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 12),
+              if (isSelf) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: () => showDisplayNameEditor(
+                      context,
+                      ref,
+                      currentDisplayName: resolvedName,
+                    ),
+                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    label: const Text('表示名を編集'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               _ProfileTagsSection(
                 authorId: profileUser.authorId,
                 initialTags: profileUser.tags,
@@ -508,10 +528,11 @@ class _ProfileHeader extends ConsumerWidget {
                   final cweetCount =
                       cweetCountsAsync.valueOrNull?.totalCount ?? 0;
 
-                  return Row(
+                  return Wrap(
+                    spacing: 20,
+                    runSpacing: 8,
                     children: [
                       _FollowCountLabel(count: cweetCount, label: 'Cweet'),
-                      const SizedBox(width: 20),
                       _FollowCountLabel(
                         count: displayCounts.followingCount,
                         label: 'フォロー中',
@@ -528,7 +549,6 @@ class _ProfileHeader extends ConsumerWidget {
                           );
                         },
                       ),
-                      const SizedBox(width: 20),
                       _FollowCountLabel(
                         count: displayCounts.followerCount,
                         label: 'フォロワー',
@@ -1061,6 +1081,10 @@ class _FollowButtonState extends ConsumerState<_FollowButton> {
 
   Future<void> _toggleFollow(bool currentlyFollowing) async {
     if (_isUpdating) return;
+    if (!hasCurrentCwitterIdentity(ref)) {
+      await promptCwitterIdRegistration(context, ref, action: 'フォロー');
+      return;
+    }
 
     final targetFollowing = !currentlyFollowing;
     final countsNotifier = ref.read(
@@ -1210,12 +1234,14 @@ class _FollowButtonState extends ConsumerState<_FollowButton> {
 
 class _ActivityTab extends ConsumerWidget {
   const _ActivityTab({
+    required this.profileUserId,
     required this.provider,
     required this.emptyMessage,
     required this.onRefresh,
   });
 
   final ProviderListenable<AsyncValue<List<CwitterProfileActivity>>> provider;
+  final String profileUserId;
   final String emptyMessage;
   final Future<void> Function() onRefresh;
 
@@ -1224,6 +1250,10 @@ class _ActivityTab extends ConsumerWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final activityAsync = ref.watch(provider);
+    final pinnedAsync = ref.watch(visibleCwitterPinnedPostProvider(profileUserId));
+    final pinnedPost = !pinnedAsync.isLoading && !pinnedAsync.hasError
+        ? pinnedAsync.valueOrNull
+        : null;
 
     return activityAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -1234,7 +1264,7 @@ class _ActivityTab extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('読み込みに失敗しました: $error'),
+                  const Text('読み込めませんでした。通信状態を確認して再試行してください。'),
                   const SizedBox(height: 12),
                   ElevatedButton(
                     onPressed: onRefresh,
@@ -1245,7 +1275,10 @@ class _ActivityTab extends ConsumerWidget {
             ),
           ),
       data: (activities) {
-        if (activities.isEmpty) {
+        final remaining = pinnedPost == null
+            ? activities
+            : activities.where((item) => item.post?.id != pinnedPost.id).toList();
+        if (remaining.isEmpty && pinnedPost == null) {
           return RefreshIndicator(
             onRefresh: onRefresh,
             child: ListView(
@@ -1273,10 +1306,19 @@ class _ActivityTab extends ConsumerWidget {
           child: ListView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            itemCount: activities.length,
-            itemBuilder:
-                (context, index) =>
-                    CwitterActivityCard(activity: activities[index]),
+            itemCount: remaining.length + (pinnedPost == null ? 0 : 1),
+            itemBuilder: (context, index) {
+              if (pinnedPost != null && index == 0) {
+                return CwitterPostCard(
+                  key: ValueKey('pinned-${pinnedPost.id}'),
+                  post: pinnedPost,
+                  showPinnedLabel: true,
+                );
+              }
+              return CwitterActivityCard(
+                activity: remaining[index - (pinnedPost == null ? 0 : 1)],
+              );
+            },
           ),
         );
       },
@@ -1310,7 +1352,7 @@ class _PostsTab extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('読み込みに失敗しました: $error'),
+                  const Text('読み込めませんでした。通信状態を確認して再試行してください。'),
                   const SizedBox(height: 12),
                   ElevatedButton(
                     onPressed: onRefresh,

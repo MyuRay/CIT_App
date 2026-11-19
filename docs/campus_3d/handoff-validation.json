@@ -1,0 +1,62 @@
+{
+  "recordedAtUtc": "2026-10-04T18:13:06.908755+00:00",
+  "repository": "C:\\Users\\mmura\\OneDrive\\Desktop\\CIT_App",
+  "implementationFrozen": true,
+  "commitPushDeployPerformed": false,
+  "tests": {
+    "flutterScopedPassed": 38,
+    "portableVisualFixtureRecheckPassed": 1,
+    "nodePassed": 46,
+    "backendUnitPassed": 25,
+    "sequentialEmulatorPassed": 9
+  },
+  "newFlutterAnalysis": "No issues in6 scoped items",
+  "broaderAnalysis": "0 errors,5 existing warnings and10 infos (not a clean pass)",
+  "normalWebBuild": "passed; optional Wasm dry-run failed in existing image4.3.0 dependency",
+  "androidDebugApkBuild": "passed; existing Gradle/AGP/Kotlin deprecation warnings",
+  "assetParity": {
+    "count": 67,
+    "allMatch": true,
+    "apkBytes": 285939004
+  },
+  "gitDiffCheck": "passed",
+  "flutterMapNavigationChecksPassed": 8,
+  "realWebGlMobileInput": "6 vehicle/orientation combinations passed with scripted CDP multitouch; software GPU",
+  "cleanup": "Actual exported handler twice, expiry/live+permanent data preservation/idempotence passed in9-test suite; scheduler delivery untested",
+  "fullTwoClientUiE2E": "NOT PASSED end-to-end. Earlier both verified finishes passed; ranking/render wait and reload/code-rejoin/missing-name guide still need one complete run.",
+  "latestUiFailure": "Blue final trace400 Reach the finish after local finish. Original guards retained. Possible recovery clock-anchor/finish freshness mismatch; not confirmed without final sample payload.",
+  "latestUiErrorRequests": [
+    {
+      "client": 1,
+      "action": "trace",
+      "status": 400,
+      "durationMs": 186,
+      "error": "Reach the finish",
+      "traceT": 65584
+    }
+  ],
+  "activeProcesses": {
+    "browser": "none",
+    "build": "none",
+    "localDemoEmulators": "root PTY session39440: Auth9198,Functions5018,Firestore8188; only loopback; left running for continuation"
+  },
+  "remaining": [
+    "Investigate final finish trace after recovery: bus_game resets online.localStart at response receipt; server finish requires serverElapsed-lastT<=2000. QA instrumentation now logs final sample/lastT without auth headers.",
+    "Run staging/bus/flutter_two_client_qa.cjs to complete ranking UI/reload-code rejoin/missing-name guide; QA waits real response and scrolls ranking; bounded UI recovery handles12sec trace timeouts.",
+    "Physical Android/iOS GPU/touch, iOS build, production E2E and scheduler delivery remain unverified/undeployed."
+  ],
+  "limits": [
+    "Two-client completion uses QA-only18m/s centreline movement; draw suppression after genuine first game frame; independent real WebGL control checks are separate.",
+    "Home screenshot uses exact production card rendering methods in offline fixture with empty map image slots.",
+    "Campus exterior/heights estimated; DEM97.7301% source/2.2699% interpolated."
+  ],
+  "librarySave": {
+    "status": "blocked",
+    "error": "Library prepare_uploads is not available",
+    "attempts": 1,
+    "alternateUploadPerformed": false,
+    "filesRemainLocal": true
+  },
+  "supersededBy": "final-validation.json",
+  "resolvedOutcome": "Recovery clock bug fixed;12 continuous two-Flutter checks passed;normalWeb/APK rebuilt;67 assets match;emulators stopped."
+}

@@ -36,6 +36,26 @@ service firebase.storage {
         ).data.isAdmin == true;
     }
 
+    // BEGIN CONTACT CHAT IMAGE RULES
+    // Private inquiry images. At most two Firestore lookups per request.
+    function isContactImageOperator() {
+      let p = firestore.get(/databases/(default)/documents/admin_permissions/$(request.auth.uid)).data;
+      return p.get('isAdmin', false) == true || p.get('canViewContacts', false) == true;
+    }
+    function canAccessContactImages(uid) {
+      return isCITUser() && request.auth.token.get('email_verified', false) == true
+        && (request.auth.uid == uid || isContactImageOperator());
+    }
+    match /contact_chat_images/{uid}/{senderId}/{messageId}/{fileName} {
+      allow read: if canAccessContactImages(uid);
+      allow create: if canAccessContactImages(uid) && request.auth.uid == senderId
+        && fileName.matches('^[0-3]\\.jpg$')
+        && request.resource.size > 0 && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+      allow update: if false;
+      allow delete: if canAccessContactImages(uid) && request.auth.uid == senderId;
+    }
+    // END CONTACT CHAT IMAGE RULES
     // プロフィール表示アイコン（本人のみ書き込み・削除）
     match /profile_images/{userId}/{fileName} {
       allow read: if isCITUser();

@@ -151,6 +151,22 @@ final currentAppUserStreamProvider = StreamProvider<AppUser?>((ref) {
   return UserService.watchUser(uid);
 });
 
+/// Remember browsing without an ID for this account on this device.
+final cwitterIdSetupDeferredProvider = StateProvider<bool>((ref) {
+  final uid = ref.watch(currentUserIdProvider);
+  return uid != null && ref.watch(sharedPreferencesProvider)
+      .getBool('cwitter_id_setup_deferred:$uid') == true;
+});
+
+Future<void> deferCwitterIdSetup(WidgetRef ref, {required bool Function() isMounted}) async {
+  final uid = ref.read(currentUserIdProvider);
+  if (uid == null) return;
+  await ref.read(sharedPreferencesProvider).setBool('cwitter_id_setup_deferred:$uid', true);
+  if (isMounted() && ref.read(currentUserIdProvider) == uid) {
+    ref.read(cwitterIdSetupDeferredProvider.notifier).state = true;
+  }
+}
+
 /// Cwitter ID 設定済みか
 final hasCwitterIdProvider = Provider<bool>((ref) {
   final user = ref.watch(currentAppUserStreamProvider).valueOrNull;

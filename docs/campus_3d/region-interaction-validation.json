@@ -1,0 +1,115 @@
+{
+  "fullscreenPreservesScene": true,
+  "fullscreenExit": true,
+  "fullscreenEscape": true,
+  "tsudanuma": {
+    "regionLoaded": {
+      "lon": 140.02120585220953,
+      "lat": 35.688934806366916,
+      "elevation": 15.378554941639834,
+      "terrainEstimated": false,
+      "campusesLoaded": [
+        "tsudanuma"
+      ],
+      "road": ""
+    },
+    "collisionTriangles": 90878,
+    "portrait-car": {
+      "controlsFit": true,
+      "simultaneousSticks": true,
+      "thirdFingerCamera": true,
+      "outsideReleasesOnlyOwner": true,
+      "cancelNeutral": true,
+      "extraFingerIgnored": true,
+      "resetHeld": true
+    },
+    "portrait-plane": {
+      "controlsFit": true,
+      "simultaneousSticks": true,
+      "thirdFingerCamera": true,
+      "outsideReleasesOnlyOwner": true,
+      "cancelNeutral": true,
+      "extraFingerIgnored": true,
+      "resetHeld": true
+    },
+    "landscape-car": {
+      "controlsFit": true,
+      "simultaneousSticks": true,
+      "thirdFingerCamera": true,
+      "outsideReleasesOnlyOwner": true,
+      "cancelNeutral": true,
+      "extraFingerIgnored": true,
+      "resetHeld": true
+    },
+    "landscape-plane": {
+      "controlsFit": true,
+      "simultaneousSticks": true,
+      "thirdFingerCamera": true,
+      "outsideReleasesOnlyOwner": true,
+      "cancelNeutral": true,
+      "extraFingerIgnored": true,
+      "resetHeld": true
+    },
+    "rotationClearsInput": true,
+    "heldModeClears": true,
+    "routeSelection": true,
+    "freeSwipe": true
+  },
+  "narashino": {
+    "regionLoaded": {
+      "lon": 140.0146262633704,
+      "lat": 35.66138952076799,
+      "elevation": 5.53,
+      "terrainEstimated": true,
+      "campusesLoaded": [
+        "narashino"
+      ],
+      "road": ""
+    },
+    "collisionTriangles": 146348,
+    "portrait-car": {
+      "controlsFit": true,
+      "simultaneousSticks": true,
+      "thirdFingerCamera": true,
+      "outsideReleasesOnlyOwner": true,
+      "cancelNeutral": true,
+      "extraFingerIgnored": true,
+      "resetHeld": true
+    },
+    "portrait-plane": {
+      "controlsFit": true,
+      "simultaneousSticks": true,
+      "thirdFingerCamera": true,
+      "outsideReleasesOnlyOwner": true,
+      "cancelNeutral": true,
+      "extraFingerIgnored": true,
+      "resetHeld": true
+    },
+    "landscape-car": {
+      "controlsFit": true,
+      "simultaneousSticks": true,
+      "thirdFingerCamera": true,
+      "outsideReleasesOnlyOwner": true,
+      "cancelNeutral": true,
+      "extraFingerIgnored": true,
+      "resetHeld": true
+    },
+    "landscape-plane": {
+      "controlsFit": true,
+      "simultaneousSticks": true,
+      "thirdFingerCamera": true,
+      "outsideReleasesOnlyOwner": true,
+      "cancelNeutral": true,
+      "extraFingerIgnored": true,
+      "resetHeld": true
+    },
+    "rotationClearsInput": true,
+    "heldModeClears": true,
+    "routeSelection": true,
+    "freeSwipe": true
+  },
+  "pauseNeutral": true,
+  "heldFlutterResetClears": true,
+  "heldBackRemovesViewer": true,
+  "pageErrors": []
+}
