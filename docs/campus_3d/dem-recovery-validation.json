@@ -1,0 +1,255 @@
+{
+  "attempts": [
+    {
+      "exitCode": 0,
+      "httpStatus": "200",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29127/12904.png",
+      "validPng": true,
+      "retrievedAt": "2026-10-04T14:23:52.3012145Z",
+      "headersFile": "dem15-29127-12904.png.headers",
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only",
+      "file": "dem15-29127-12904.png"
+    },
+    {
+      "exitCode": 0,
+      "httpStatus": "200",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29127/12905.png",
+      "validPng": true,
+      "retrievedAt": "2026-10-04T14:23:52.4112869Z",
+      "headersFile": "dem15-29127-12905.png.headers",
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only",
+      "file": "dem15-29127-12905.png"
+    },
+    {
+      "exitCode": 0,
+      "httpStatus": "200",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12901.png",
+      "validPng": true,
+      "retrievedAt": "2026-10-04T14:23:52.5285518Z",
+      "headersFile": "dem15-29128-12901.png.headers",
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only",
+      "file": "dem15-29128-12901.png"
+    },
+    {
+      "exitCode": 0,
+      "httpStatus": "200",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12902.png",
+      "validPng": true,
+      "retrievedAt": "2026-10-04T14:23:52.6532844Z",
+      "headersFile": "dem15-29128-12902.png.headers",
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only",
+      "file": "dem15-29128-12902.png"
+    },
+    {
+      "exitCode": 0,
+      "httpStatus": "200",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12903.png",
+      "validPng": true,
+      "retrievedAt": "2026-10-04T14:23:52.7652977Z",
+      "headersFile": "dem15-29128-12903.png.headers",
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only",
+      "file": "dem15-29128-12903.png"
+    },
+    {
+      "exitCode": 0,
+      "httpStatus": "200",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12905.png",
+      "validPng": true,
+      "retrievedAt": "2026-10-04T14:23:52.8761089Z",
+      "headersFile": "dem15-29128-12905.png.headers",
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only",
+      "file": "dem15-29128-12905.png"
+    },
+    {
+      "exitCode": 0,
+      "httpStatus": "200",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12906.png",
+      "validPng": true,
+      "retrievedAt": "2026-10-04T14:23:52.9682441Z",
+      "headersFile": "dem15-29128-12906.png.headers",
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only",
+      "file": "dem15-29128-12906.png"
+    },
+    {
+      "exitCode": 0,
+      "httpStatus": "200",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12904.png",
+      "validPng": true,
+      "retrievedAt": "2026-10-04T14:23:53.0958185Z",
+      "headersFile": "dem15-29129-12904.png.headers",
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only",
+      "file": "dem15-29129-12904.png"
+    },
+    {
+      "exitCode": 0,
+      "httpStatus": "200",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12906.png",
+      "validPng": true,
+      "retrievedAt": "2026-10-04T14:23:53.202212Z",
+      "headersFile": "dem15-29129-12906.png.headers",
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only",
+      "file": "dem15-29129-12906.png"
+    },
+    {
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29127/12903.png",
+      "headersFile": "dem5b15-29127-12903.png.headers",
+      "httpStatus": "200",
+      "retrievedAt": "2026-10-04T14:28:33.2087015Z",
+      "validPng": true,
+      "file": "dem5b15-29127-12903.png",
+      "exitCode": 0,
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+    },
+    {
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14563/6451.png",
+      "headersFile": "dem14-14563-6451.png.headers",
+      "httpStatus": "200",
+      "retrievedAt": "2026-10-04T14:28:33.3708218Z",
+      "validPng": true,
+      "file": "dem14-14563-6451.png",
+      "exitCode": 0,
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+    },
+    {
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29128/12903.png",
+      "headersFile": "dem5b15-29128-12903.png.headers",
+      "httpStatus": "404",
+      "retrievedAt": "2026-10-04T14:28:33.4848351Z",
+      "validPng": false,
+      "file": "dem5b15-29128-12903.png",
+      "exitCode": 22,
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+    },
+    {
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14564/6451.png",
+      "headersFile": "dem14-14564-6451.png.headers",
+      "httpStatus": "200",
+      "retrievedAt": "2026-10-04T14:28:33.6049772Z",
+      "validPng": true,
+      "file": "dem14-14564-6451.png",
+      "exitCode": 0,
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+    },
+    {
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14563/6452.png",
+      "headersFile": "dem14-14563-6452.png.headers",
+      "httpStatus": "200",
+      "retrievedAt": "2026-10-04T14:28:33.7945258Z",
+      "validPng": true,
+      "file": "dem14-14563-6452.png",
+      "exitCode": 0,
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+    },
+    {
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29128/12904.png",
+      "headersFile": "dem5b15-29128-12904.png.headers",
+      "httpStatus": "200",
+      "retrievedAt": "2026-10-04T14:28:34.2881510Z",
+      "validPng": true,
+      "file": "dem5b15-29128-12904.png",
+      "exitCode": 0,
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+    },
+    {
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14564/6452.png",
+      "headersFile": "dem14-14564-6452.png.headers",
+      "httpStatus": "200",
+      "retrievedAt": "2026-10-04T14:28:34.3921941Z",
+      "validPng": true,
+      "file": "dem14-14564-6452.png",
+      "exitCode": 0,
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+    },
+    {
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29129/12904.png",
+      "headersFile": "dem5b15-29129-12904.png.headers",
+      "httpStatus": "404",
+      "retrievedAt": "2026-10-04T14:28:34.6201755Z",
+      "validPng": false,
+      "file": "dem5b15-29129-12904.png",
+      "exitCode": 22,
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+    },
+    {
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29127/12905.png",
+      "headersFile": "dem5b15-29127-12905.png.headers",
+      "httpStatus": "200",
+      "retrievedAt": "2026-10-04T14:28:34.7754588Z",
+      "validPng": true,
+      "file": "dem5b15-29127-12905.png",
+      "exitCode": 0,
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+    },
+    {
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29128/12905.png",
+      "headersFile": "dem5b15-29128-12905.png.headers",
+      "httpStatus": "200",
+      "retrievedAt": "2026-10-04T14:28:34.9806167Z",
+      "validPng": true,
+      "file": "dem5b15-29128-12905.png",
+      "exitCode": 0,
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+    },
+    {
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29129/12905.png",
+      "headersFile": "dem5b15-29129-12905.png.headers",
+      "httpStatus": "200",
+      "retrievedAt": "2026-10-04T14:28:35.5329431Z",
+      "validPng": true,
+      "file": "dem5b15-29129-12905.png",
+      "exitCode": 0,
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+    },
+    {
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29127/12906.png",
+      "headersFile": "dem5b15-29127-12906.png.headers",
+      "httpStatus": "200",
+      "retrievedAt": "2026-10-04T14:28:35.9321364Z",
+      "validPng": true,
+      "file": "dem5b15-29127-12906.png",
+      "exitCode": 0,
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+    },
+    {
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14563/6453.png",
+      "headersFile": "dem14-14563-6453.png.headers",
+      "httpStatus": "200",
+      "retrievedAt": "2026-10-04T14:28:36.1519615Z",
+      "validPng": true,
+      "file": "dem14-14563-6453.png",
+      "exitCode": 0,
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+    },
+    {
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29128/12906.png",
+      "headersFile": "dem5b15-29128-12906.png.headers",
+      "httpStatus": "200",
+      "retrievedAt": "2026-10-04T14:28:36.5460619Z",
+      "validPng": true,
+      "file": "dem5b15-29128-12906.png",
+      "exitCode": 0,
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+    },
+    {
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14564/6453.png",
+      "headersFile": "dem14-14564-6453.png.headers",
+      "httpStatus": "200",
+      "retrievedAt": "2026-10-04T14:28:37.7983197Z",
+      "validPng": true,
+      "file": "dem14-14564-6453.png",
+      "exitCode": 0,
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+    },
+    {
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29129/12906.png",
+      "headersFile": "dem5b15-29129-12906.png.headers",
+      "httpStatus": "200",
+      "retrievedAt": "2026-10-04T14:28:38.2673735Z",
+      "validPng": true,
+      "file": "dem5b15-29129-12906.png",
+      "exitCode": 0,
+      "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+    }
+  ],
+  "diagnosis": "Prior Python OpenSSL/WinError10054 and PowerShell TLS resets could not identify a permanent origin failure. Normal Schannel HTTPS requests retested without bypass flags."
+}

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../../models/notification/notification_model.dart';
+
 /// Only identifiers and routing metadata are carried in local notification data.
 class NotificationTarget {
   const NotificationTarget(this.data);
@@ -16,6 +18,7 @@ class NotificationTarget {
     'fromUserId',
     'fromCwitterId',
     'globalNotificationId',
+    'contactId',
   ];
 
   factory NotificationTarget.fromData(Map<String, dynamic> input) {
@@ -23,6 +26,26 @@ class NotificationTarget {
       for (final key in _keys)
         if (input[key] is String && (input[key] as String).isNotEmpty)
           key: input[key] as String,
+    });
+  }
+
+  factory NotificationTarget.fromNotification(AppNotification notification) {
+    final extra = notification.data ?? const <String, dynamic>{};
+    return NotificationTarget.fromData({
+      ...extra,
+      'notificationId': notification.id,
+      'userId': notification.userId,
+      'type':
+          extra['type'] == 'contact_response'
+              ? 'contact_response'
+              : notification.type.id,
+      'postId': notification.postId ?? extra['postId'],
+      // Bulletin replies store the parent comment separately from the reply ID.
+      'commentId':
+          extra['parentCommentId'] ??
+          notification.commentId ??
+          extra['commentId'],
+      'fromUserId': notification.fromUserId ?? extra['fromUserId'],
     });
   }
 

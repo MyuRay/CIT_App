@@ -1,10 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
-import '../firebase/storage_direct_url.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'cafeteria_photo_uploader.dart';
 import 'dart:io';
 import '../../models/cafeteria/cafeteria_menu_item_model.dart';
-import 'cafeteria_image_preparer.dart';
 
 class CafeteriaMenuItemService {
   static final _col = FirebaseFirestore.instance.collection(
@@ -92,32 +92,13 @@ class CafeteriaMenuItemService {
     String cafeteriaId,
     String menuName,
   ) async {
-    try {
-      final prepared = await CafeteriaImagePreparer.prepare(
-        await imageFile.readAsBytes(),
-        filename: imageFile.path,
-      );
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final safeMenuName = menuName.replaceAll(RegExp(r'[/\\]'), '_');
-      final fileName =
-          '${cafeteriaId}_${safeMenuName}_$timestamp.${prepared.extension}';
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('cafeteria_menu_images')
-          .child(fileName);
-
-      final token = StorageDirectUrl.newDownloadToken();
-      final uploadTask = ref.putData(
-        prepared.bytes,
-        SettableMetadata(
-          contentType: prepared.contentType,
-          customMetadata: {'firebaseStorageDownloadTokens': token},
-        ),
-      );
-      final snapshot = await uploadTask;
-      return StorageDirectUrl.mediaWithToken(snapshot.ref.fullPath, token);
-    } catch (e) {
-      throw Exception('画像のアップロードに失敗しました: $e');
-    }
+    return CafeteriaPhotoUploader(
+      auth: FirebaseAuth.instance,
+      storage: FirebaseStorage.instance,
+    ).upload(
+      await imageFile.readAsBytes(),
+      filename: imageFile.path,
+      cafeteriaId: cafeteriaId,
+    );
   }
 }

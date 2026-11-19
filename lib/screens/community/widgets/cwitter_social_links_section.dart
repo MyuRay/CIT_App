@@ -1,8 +1,10 @@
 import '../../../core/theme/app_colors.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/providers/cwitter_provider.dart';
@@ -30,6 +32,7 @@ class CwitterSocialLinksSection extends ConsumerStatefulWidget {
 class _CwitterSocialLinksSectionState
     extends ConsumerState<CwitterSocialLinksSection> {
   bool _isSaving = false;
+  bool _isOpening = false;
 
   Map<String, String> get _links {
     final asyncLinks =
@@ -94,16 +97,89 @@ class _CwitterSocialLinksSectionState
     String value,
   ) async {
     final url = platform.resolveLaunchUrl(value);
+    if (platform == CwitterSocialPlatform.discord) {
+      if (url == null) {
+        if (widget.isSelf) {
+          await _showEditDialog(platform);
+        } else {
+          await _showUnlinkedDiscord(value);
+        }
+        return;
+      }
+      await _openDiscordUrl(url);
+      return;
+    }
     if (url != null) {
       await launchExternalUrlWithConfirmation(context, url);
       return;
     }
+  }
 
+  Future<void> _openDiscordUrl(String url) async {
+    if (_isOpening) return;
+    setState(() => _isOpening = true);
+    try {
+      final uri = Uri.parse(url);
+      // Discord's /users/* universal links open the profile in its mobile app.
+      // Try the browser only when no app can handle the link. On web, launch
+      // immediately while the original user gesture is still active.
+      for (final mode in [
+        if (!kIsWeb) LaunchMode.externalNonBrowserApplication,
+        LaunchMode.externalApplication,
+      ]) {
+        try {
+          if (await launchUrl(uri, mode: mode)) return;
+        } catch (_) {
+          // Android throws when the app is absent; iOS can return false.
+        }
+        if (!mounted) return;
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Discordを開けませんでした。もう一度お試しください')),
+      );
+    } finally {
+      if (mounted) setState(() => _isOpening = false);
+    }
+  }
+
+  Future<void> _showUnlinkedDiscord(String value) async {
+    final copy = await showDialog<bool>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            scrollable: true,
+            title: const Text('Discordのプロフィールを開けません'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'プロフィールを開くためのリンクが未登録です。'
+                  '本人が数字のユーザーIDまたはプロフィールURLを登録すると開けるようになります。',
+                ),
+                const SizedBox(height: 12),
+                SelectableText(value),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('閉じる'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('登録内容をコピー'),
+              ),
+            ],
+          ),
+    );
+    if (copy != true || !mounted) return;
     await Clipboard.setData(ClipboardData(text: value));
-    if (!context.mounted) return;
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text('${platform.label} IDをコピーしました')));
+    ).showSnackBar(const SnackBar(content: Text('Discordの登録内容をコピーしました')));
   }
 
   Future<void> _handleIconTap(
@@ -151,7 +227,7 @@ class _CwitterSocialLinksSectionState
                 platform: platform,
                 value: _links[platform.storageKey],
                 isSelf: widget.isSelf,
-                isSaving: _isSaving,
+                isSaving: _isSaving || _isOpening,
                 onTap:
                     () => _handleIconTap(
                       context,
@@ -210,7 +286,12 @@ class _SocialLinkEditDialogState extends State<_SocialLinkEditDialog> {
 
   void _save() {
     if (_formKey.currentState?.validate() != true) return;
-    Navigator.of(context).pop(_controller.text.trim());
+    final value = _controller.text.trim();
+    Navigator.of(context).pop(
+      widget.platform == CwitterSocialPlatform.discord && value.isNotEmpty
+          ? widget.platform.resolveLaunchUrl(value)
+          : value,
+    );
   }
 
   void _delete() {
@@ -226,27 +307,45 @@ class _SocialLinkEditDialogState extends State<_SocialLinkEditDialog> {
     final platform = widget.platform;
 
     return AlertDialog(
+      scrollable: true,
       title: Text('${platform.label} を設定'),
       content: Form(
         key: _formKey,
-        child: TextFormField(
-          controller: _controller,
-          autofocus: true,
-          maxLength: AppConstants.cwitterSocialLinkMaxLength,
-          decoration: InputDecoration(
-            labelText: platform.label,
-            hintText: platform.inputHint,
-            helperText: platform.inputHelper,
-            border: const OutlineInputBorder(),
-          ),
-          validator: (value) {
-            final trimmed = (value ?? '').trim();
-            if (trimmed.length > AppConstants.cwitterSocialLinkMaxLength) {
-              return '${AppConstants.cwitterSocialLinkMaxLength}文字以内で入力してください';
-            }
-            return null;
-          },
-          onFieldSubmitted: (_) => _save(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextFormField(
+              controller: _controller,
+              autofocus: true,
+              maxLength: AppConstants.cwitterSocialLinkMaxLength,
+              decoration: InputDecoration(
+                labelText: platform.label,
+                hintText: platform.inputHint,
+                hintMaxLines: 2,
+                errorMaxLines: 4,
+                border: const OutlineInputBorder(),
+              ),
+              validator: (value) {
+                final trimmed = (value ?? '').trim();
+                if (trimmed.length > AppConstants.cwitterSocialLinkMaxLength) {
+                  return '${AppConstants.cwitterSocialLinkMaxLength}文字以内で入力してください';
+                }
+                if (platform == CwitterSocialPlatform.discord &&
+                    trimmed.isNotEmpty &&
+                    platform.resolveLaunchUrl(trimmed) == null) {
+                  return '数字のユーザーIDまたはDiscordのプロフィールURLを入力してください';
+                }
+                return null;
+              },
+              onFieldSubmitted: (_) => _save(),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              platform.inputHelper,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
         ),
       ),
       actions: [
@@ -255,7 +354,8 @@ class _SocialLinkEditDialogState extends State<_SocialLinkEditDialog> {
         TextButton(onPressed: _cancel, child: const Text('キャンセル')),
         FilledButton(
           onPressed: _save,
-          style: FilledButton.styleFrom(foregroundColor: AppColors.onColor(const Color(0xFF4CAF50)),
+          style: FilledButton.styleFrom(
+            foregroundColor: AppColors.onColor(const Color(0xFF4CAF50)),
             backgroundColor: const Color(0xFF4CAF50),
           ),
           child: const Text('保存'),

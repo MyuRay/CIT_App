@@ -6,8 +6,8 @@ abstract final class MainNavigation {
   static const scheduleIndex = 1;
   static const communityIndex = 2;
   static const bulletinIndex = 3;
-  static const profileIndex = 4;
-  static const destinationCount = 5;
+  static const destinationCount = 4;
+  static const adminIndex = 4;
 
   static int normalizeIndex(int index) {
     return index >= 0 && index < destinationCount ? index : homeIndex;
@@ -19,11 +19,15 @@ class MainNavigationBar extends StatelessWidget {
     super.key,
     required this.selectedIndex,
     required this.onDestinationSelected,
+    this.tutorialAnchorKeys,
+    this.showAdminTab = false,
     this.hasNewCommunityPosts = false,
     this.hasNewBulletinPosts = false,
   });
 
   final int selectedIndex;
+  final bool showAdminTab;
+  final List<GlobalKey>? tutorialAnchorKeys;
   final ValueChanged<int> onDestinationSelected;
   final bool hasNewCommunityPosts;
   final bool hasNewBulletinPosts;
@@ -35,51 +39,65 @@ class MainNavigationBar extends StatelessWidget {
       // Keep the default compact while allowing larger labels to wrap. This is
       // content height only; the system navigation inset is handled separately.
       height: MediaQuery.textScalerOf(context).scale(64).clamp(64.0, 88.0),
-      selectedIndex: MainNavigation.normalizeIndex(selectedIndex),
+      selectedIndex:
+          showAdminTab && selectedIndex == MainNavigation.adminIndex
+              ? MainNavigation.adminIndex
+              : MainNavigation.normalizeIndex(selectedIndex),
       onDestinationSelected: onDestinationSelected,
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       destinations: [
-        const NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home),
+        NavigationDestination(
+          icon: Icon(
+            selectedIndex == MainNavigation.homeIndex
+                ? Icons.home
+                : Icons.home_outlined,
+            key: tutorialAnchorKeys?[MainNavigation.homeIndex],
+          ),
           label: 'ホーム',
         ),
-        const NavigationDestination(
-          icon: Icon(Icons.calendar_today_outlined),
-          selectedIcon: Icon(Icons.calendar_today),
+        NavigationDestination(
+          icon: Icon(
+            selectedIndex == MainNavigation.scheduleIndex
+                ? Icons.calendar_today
+                : Icons.calendar_today_outlined,
+            key: tutorialAnchorKeys?[MainNavigation.scheduleIndex],
+          ),
           label: '時間割',
         ),
         NavigationDestination(
-          icon: _DestinationIcon(
-            icon: Icons.groups_outlined,
-            label: '交流',
-            hasNewContent: hasNewCommunityPosts,
-          ),
-          selectedIcon: _DestinationIcon(
-            icon: Icons.groups,
-            label: '交流',
-            hasNewContent: hasNewCommunityPosts,
+          icon: KeyedSubtree(
+            key: tutorialAnchorKeys?[MainNavigation.communityIndex],
+            child: _DestinationIcon(
+              icon:
+                  selectedIndex == MainNavigation.communityIndex
+                      ? Icons.groups
+                      : Icons.groups_outlined,
+              label: '交流',
+              hasNewContent: hasNewCommunityPosts,
+            ),
           ),
           label: '交流',
         ),
         NavigationDestination(
-          icon: _DestinationIcon(
-            icon: Icons.campaign_outlined,
-            label: '掲示板',
-            hasNewContent: hasNewBulletinPosts,
-          ),
-          selectedIcon: _DestinationIcon(
-            icon: Icons.campaign,
-            label: '掲示板',
-            hasNewContent: hasNewBulletinPosts,
+          icon: KeyedSubtree(
+            key: tutorialAnchorKeys?[MainNavigation.bulletinIndex],
+            child: _DestinationIcon(
+              icon:
+                  selectedIndex == MainNavigation.bulletinIndex
+                      ? Icons.campaign
+                      : Icons.campaign_outlined,
+              label: '掲示板',
+              hasNewContent: hasNewBulletinPosts,
+            ),
           ),
           label: '掲示板',
         ),
-        const NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person),
-          label: 'マイページ',
-        ),
+        if (showAdminTab)
+          const NavigationDestination(
+            icon: Icon(Icons.admin_panel_settings_outlined),
+            selectedIcon: Icon(Icons.admin_panel_settings),
+            label: '管理',
+          ),
       ],
     );
   }

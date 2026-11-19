@@ -1,3 +1,5 @@
+import '../../models/bulletin/bulletin_model.dart';
+import 'bulletin_category_image.dart';
 import 'package:flutter/material.dart';
 import '../common/interactive_fullscreen_image_viewer.dart';
 import '../common/safe_cached_network_image.dart';
@@ -7,8 +9,10 @@ class BulletinImageGallery extends StatefulWidget {
     super.key,
     required this.imageUrls,
     this.imageBuilder,
+    this.category,
   });
   final List<String> imageUrls;
+  final BulletinCategory? category;
   final Widget Function(String url)? imageBuilder;
   @override
   State<BulletinImageGallery> createState() => _BulletinImageGalleryState();
@@ -25,7 +29,14 @@ class _BulletinImageGalleryState extends State<BulletinImageGallery> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.imageUrls.isEmpty) return const SizedBox.shrink();
+    if (widget.imageUrls.isEmpty) {
+      return widget.category == null
+          ? const SizedBox.shrink()
+          : AspectRatio(
+            aspectRatio: 16 / 9,
+            child: BulletinCategoryImage(category: widget.category!),
+          );
+    }
     return Column(
       children: [
         AspectRatio(

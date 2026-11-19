@@ -1,3 +1,4 @@
+import 'bulletin_category_image.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -73,13 +74,12 @@ class BulletinFeedCard extends ConsumerWidget {
           children: [
             if (post.isSponsored)
               SponsorBanner(name: post.sponsorName, compact: true),
-            if (post.imageUrl.isNotEmpty)
-              AspectRatio(
+            AspectRatio(
                 aspectRatio: 16 / 9,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    BulletinThumbnail(
+                    if (post.imageUrl.isEmpty) BulletinCategoryImage(category: post.category) else BulletinThumbnail(
                       imageUrl: post.imageUrl,
                       crop: BulletinCrop(
                         x: post.thumbAlignX,

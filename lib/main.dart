@@ -6,6 +6,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'core/providers/user_app_info_provider.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -46,7 +47,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   SecureLogger.debug('バックグラウンド通知イベントを受信しました');
 }
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   FlutterError.onError = (details) {
@@ -166,46 +167,8 @@ Future<Widget> _initializeApp() async {
       SecureLogger.debug('🔔 バックグラウンド通知ハンドラーを設定しました');
     }
 
-    // Firebase Auth永続化設定の強化
+    // Firebase restores its persisted session; the UI observes the auth stream.
     final auth = FirebaseAuth.instance;
-    try {
-      SecureLogger.debug('Firebase Auth永続化設定開始');
-
-      // 認証状態の復元をより確実にするための待機
-      SecureLogger.debug('認証状態復元を待機中...');
-
-      // authStateChanges を一度だけ監視して認証状態が安定するまで待つ
-      bool authStateResolved = false;
-      User? resolvedUser;
-
-      final subscription = auth.authStateChanges().listen((user) {
-        if (!authStateResolved) {
-          resolvedUser = user;
-          authStateResolved = true;
-          SecureLogger.debug('認証状態解決: ${user != null ? user.uid : "未ログイン"}');
-        }
-      });
-
-      // 最大3秒まで認証状態の復元を待つ
-      int waitCount = 0;
-      while (!authStateResolved && waitCount < 30) {
-        await Future.delayed(const Duration(milliseconds: 100));
-        waitCount++;
-      }
-
-      await subscription.cancel();
-
-      if (authStateResolved) {
-        SecureLogger.debug(
-          'Firebase Auth認証状態復元完了: ${resolvedUser != null ? "ログイン済み" : "未ログイン"}',
-        );
-      } else {
-        SecureLogger.debug('⚠️ Firebase Auth認証状態復元がタイムアウトしました');
-      }
-    } catch (persistenceError) {
-      SecureLogger.debug('Firebase Auth永続化設定警告: $persistenceError');
-      // 永続化設定エラーでもアプリは継続
-    }
 
     // SDK の認証状態と食い違う旧アプリ独自のログイン表示キャッシュを整理
     await AuthStorageReconciler.reconcileAfterFirebaseInit();
@@ -217,15 +180,7 @@ Future<Widget> _initializeApp() async {
       SecureLogger.debug('✅ ユーザーメール: ${currentUser.email}');
       SecureLogger.debug('✅ メール認証済み: ${currentUser.emailVerified}');
 
-      // ログイン済みユーザーのプッシュ通知を初期化
-      try {
-        SecureLogger.debug('🔔 プッシュ通知サービス初期化開始');
-        await NotificationService.initialize();
-        SecureLogger.debug('🔔 プッシュ通知サービス初期化完了');
-      } catch (notificationError) {
-        SecureLogger.debug('⚠️ プッシュ通知初期化エラー: $notificationError');
-        // プッシュ通知エラーでもアプリは継続
-      }
+      // Notification registration runs after the first usable frame.
     } else {
       SecureLogger.debug('❌ 既存ユーザーセッションなし（未ログイン状態）');
     }
@@ -396,6 +351,11 @@ void _initializeBackgroundServices() {
       // メニュー自動更新（端末側タイマー）は MenuSchedulerService.scheduledUpdatesEnabled で制御
       MenuSchedulerService.startScheduledUpdates();
 
+      if (FirebaseAuth.instance.currentUser != null) {
+        unawaited(NotificationService.initialize().catchError((Object _) {
+          SecureLogger.debug('通知サービスの初期化を再開時に再試行します');
+        }));
+      }
       if (!kIsWeb) {
         // ホームウィジェットとローカル講義通知はモバイル専用。
         await HomeWidgetsService.initialize();
@@ -475,6 +435,7 @@ class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
         SecureLogger.debug('🔄 アプリ再開: 認証状態を確認中...');
         // アプリが再開された時に認証状態を強制チェック
         _checkAuthenticationOnResume();
+        ref.invalidate(userAppInfoSyncProvider);
         break;
       case AppLifecycleState.paused:
         SecureLogger.debug('⏸️ アプリ一時停止: 最終アクセス時刻を更新');
@@ -504,7 +465,7 @@ class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
       // onTokenRefresh を取りこぼし、サーバーが古いトークンに送って
       // 「通知が来ない」状態になるのを防ぐ。
       if (FirebaseAuth.instance.currentUser != null) {
-        NotificationService.refreshTokenRegistration();
+        unawaited(NotificationService.initialize().catchError((Object _) {}));
       }
     } catch (e) {
       SecureLogger.debug('⚠️ アプリ再開時認証チェックエラー: $e');
@@ -524,6 +485,7 @@ class _CITAppState extends ConsumerState<CITApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     ref.watch(authSessionSyncProvider);
+    ref.watch(userAppInfoSyncProvider);
     ref.watch(analyticsSessionSyncProvider);
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);

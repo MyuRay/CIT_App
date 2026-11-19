@@ -4,6 +4,7 @@ const {
   onDocumentCreated,
   onDocumentUpdated,
   onDocumentWritten,
+  onDocumentDeleted,
 } = require('firebase-functions/v2/firestore');
 const {onSchedule} = require('firebase-functions/v2/scheduler');
 const {onRequest} = require('firebase-functions/v2/https');
@@ -13,6 +14,8 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 
 admin.initializeApp();
+const {createChibaPrivateCleanup} = require('./chiba_private_cleanup');
+const {createPublicProfileSync} = require('./public_profiles');
 const {createAdminAuthorizer, retiredBulkVerification} = require('./admin_http');
 const {getUserTokenEntries, removeInvalidToken} = require('./device_tokens');
 const authorizeAdmin = createAdminAuthorizer({auth: admin.auth(), firestore: admin.firestore()});
@@ -26,12 +29,33 @@ const REGION = (
 
 setGlobalOptions({region: REGION});
 
+const syncPublicProfile = createPublicProfileSync({db: admin.firestore()});
+exports.syncPublicProfile = onDocumentWritten({document: 'users/{uid}', retry: true},
+  event => syncPublicProfile(event.params.uid));
+
+const cleanupChibaPrivate = createChibaPrivateCleanup({db: admin.firestore()});
+exports.cleanupChibaPrivateMappings = onDocumentDeleted({
+  document: 'chiba_channel_threads/{threadId}', retry: true, timeoutSeconds: 300,
+}, event => cleanupChibaPrivate(event.params.threadId));
+
 const {beforeUserCreated} = require('firebase-functions/v2/identity');
 const {requireVerifiedRegistration} = require('./verified_registration');
 exports.requireVerifiedEmailBeforeCreate = beforeUserCreated(requireVerifiedRegistration);
 
 const {JOBS: DELETION_JOBS, createDeletionApi, createDeletionWorker} = require('./account_deletion');
-const deletionWorker = createDeletionWorker({auth: admin.auth(), db: admin.firestore(), bucket: admin.storage().bucket()});
+const {createDiscordNotifications, maskNotificationEmail} = require('./discord_notifications');
+const discordNotifications = createDiscordNotifications({
+  db: admin.firestore(), auth: admin.auth(), http: axios, getWebhook,
+  getHistoricalWebhooks: () => {
+    const values = JSON.parse(process.env.DISCORD_WEBHOOK_URLS_FOR_DELETION || '[]');
+    if (!Array.isArray(values) || values.some(value => typeof value !== 'string')) {
+      throw Error('Invalid historical Discord webhook configuration');
+    }
+    return values;
+  },
+});
+const deletionWorker = createDeletionWorker({auth: admin.auth(), db: admin.firestore(),
+  bucket: admin.storage().bucket(), purgeDiscord: discordNotifications.purgeUser});
 exports.deleteMyAccount = onRequest({timeoutSeconds: 60, cors: true},
     createDeletionApi({auth: admin.auth(), db: admin.firestore()}));
 exports.processAccountDeletion = onDocumentCreated({document: `${DELETION_JOBS}/{uid}`, retry: true, timeoutSeconds: 540, memory: '512MiB'},
@@ -105,7 +129,17 @@ async function postToDiscord(webhookUrl, payload) {
   try {
     await axios.post(webhookUrl, payload, {timeout: 8000});
   } catch (err) {
-    console.error('Failed to post to Discord:', err?.response?.status || err?.message);
+    console.error('Failed to post to Discord:', err?.response?.status || 'network-error');
+  }
+}
+
+async function postUserNotification(kind, payload, event, userIds) {
+  try {
+    await discordNotifications.send(kind, payload, {userIds, eventId: event.id});
+  } catch (_) {
+    // Detailed HTTP errors can contain the webhook token or the message body.
+    // A durable receipt keeps successful/uncertain writes eligible for deletion.
+    console.error('User Discord notification failed; inspect server-only receipts.', kind);
   }
 }
 
@@ -133,16 +167,7 @@ function embed({
 
 // メールアドレスをマスクする関数（@前の最初の3文字だけ表示、残りは*で表示）
 function maskEmail(email) {
-  if (!email || email === '（未設定）' || !email.includes('@')) {
-    return email;
-  }
-  const [localPart, domain] = email.split('@');
-  if (localPart.length <= 3) {
-    return email; // 3文字以下の場合はそのまま
-  }
-  const visiblePart = localPart.substring(0, 3);
-  const maskedPart = '*'.repeat(localPart.length - 3);
-  return `${visiblePart}${maskedPart}@${domain}`;
+  return maskNotificationEmail(email);
 }
 
 function clampDiscordText(text, maxLen = 1024) {
@@ -358,9 +383,39 @@ exports.notifyUserCreated = onDocumentCreated('users/{uid}', async (event) => {
     ],
   });
 
-  await postToDiscord(getWebhook('users'), payload);
+  await postUserNotification('users', payload, event, [uid]);
 });
 
+// Support messages remain in a single per-user conversation.
+const {createChatReplyHandler} = require('./contact_chat');
+exports.notifyContactChatMessage = onDocumentCreated(
+  'contact_chats/{uid}/messages/{messageId}', async (event) => {
+    const message = event.data?.data();
+    if (!message) return;
+    const {uid, messageId} = event.params;
+    const db = admin.firestore();
+    if (message.senderRole === 'admin') {
+      await createChatReplyHandler({db,
+        serverTimestamp: () => admin.firestore.FieldValue.serverTimestamp()})(uid, messageId, message);
+      return;
+    }
+    if (message.senderRole !== 'user' || message.senderId !== uid || message.userId !== uid) return;
+    const [room, deletion] = await Promise.all([
+      db.collection('contact_chats').doc(uid).get(),
+      db.collection('account_deletion_jobs').doc(uid).get(),
+    ]);
+    if (!room.exists || deletion.exists) return;
+    await postUserNotification('contacts', embed({
+      title: '💬 お問い合わせにメッセージ',
+      description: 'アプリのお問い合わせ管理から返信できます。',
+      color: 0x5865f2,
+      fields: [
+        {name: 'ユーザー', value: String(room.data().displayName || uid).slice(0, 1024)},
+        {name: 'ユーザーID', value: uid},
+        {name: 'メッセージ', value: String(message.text || (message.imagePaths?.length ? '📷 画像' : '')).slice(0, 1024) || '（本文なし）'},
+      ],
+    }), event, [uid]);
+  });
 exports.notifyContactCreated = onDocumentCreated('contact_forms/{id}', async (event) => {
   const snap = event.data;
   if (!snap) return;
@@ -379,12 +434,12 @@ exports.notifyContactCreated = onDocumentCreated('contact_forms/{id}', async (ev
       {name: 'カテゴリー', value: String(category), inline: true},
       {name: '件名', value: String(subject), inline: true},
       {name: 'ユーザーID', value: String(userId), inline: true},
-      {name: 'メール', value: String(email), inline: true},
+      {name: 'メール', value: maskEmail(email), inline: true},
       {name: 'ドキュメントID', value: event.params.id, inline: false},
     ],
   });
 
-  await postToDiscord(getWebhook('contacts'), payload);
+  await postUserNotification('contacts', payload, event, [userId]);
 });
 
 // 掲示板: 提出時（承認待ち）に通知
@@ -412,7 +467,7 @@ exports.notifyBulletinSubmitted = onDocumentCreated('bulletin_posts/{id}', async
     ],
   });
 
-  await postToDiscord(getWebhook('bulletin'), payload);
+  await postUserNotification('bulletin', payload, event, [p.authorId]);
 });
 
 // 掲示板: 承認ステータスが pending になった／ピン留め依頼が入ったら通知
@@ -483,7 +538,7 @@ exports.notifyBulletinPendingOnUpdate = onDocumentUpdated('bulletin_posts/{id}',
       ],
     });
 
-    await postToDiscord(getWebhook('coupon'), payload);
+    await postUserNotification('coupon', payload, event, [after.authorId, usedByUserId]);
   }
 
   // Discord通知
@@ -504,7 +559,7 @@ exports.notifyBulletinPendingOnUpdate = onDocumentUpdated('bulletin_posts/{id}',
       ],
     });
 
-    await postToDiscord(getWebhook('bulletin'), payload);
+    await postUserNotification('bulletin', payload, event, [after.authorId]);
   }
 
   // 承認された場合、投稿者に個人通知を送る
@@ -540,6 +595,7 @@ exports.notifyBulletinCommentCreated = onDocumentCreated('bulletin_comments/{id}
   // 投稿情報を取得
   let postTitle = '（タイトル不明）';
   let postAuthor = '（投稿者不明）';
+  let postAuthorId;
   try {
     if (postId) {
       const postDoc = await admin.firestore().collection('bulletin_posts').doc(postId).get();
@@ -547,6 +603,7 @@ exports.notifyBulletinCommentCreated = onDocumentCreated('bulletin_comments/{id}
         const postData = postDoc.data();
         postTitle = postData?.title || '（タイトル不明）';
         postAuthor = postData?.authorName || postData?.authorId || '（投稿者不明）';
+        postAuthorId = postData?.authorId;
       }
     }
   } catch (error) {
@@ -572,7 +629,7 @@ exports.notifyBulletinCommentCreated = onDocumentCreated('bulletin_comments/{id}
     ],
   });
 
-  await postToDiscord(getWebhook('comment'), payload);
+  await postUserNotification('comment', payload, event, [comment.authorId, postAuthorId]);
 });
 
 // Cwitter: 新規Cweet作成時にDiscord通知
@@ -582,7 +639,7 @@ exports.notifyCwitterPostCreated = onDocumentCreated('cwitter_posts/{id}', async
 
   const post = snap.data() || {};
   const payload = buildCwitterPostDiscordPayload(post, event.params.id);
-  await postToDiscord(getWebhook('cwitter'), payload);
+  await postUserNotification('cwitter', payload, event, [post.authorId]);
 });
 
 // Cwitter: 返信作成時にDiscord通知
@@ -617,7 +674,7 @@ exports.notifyCwitterReplyCreated = onDocumentCreated(
         reply,
         replyId,
       });
-      await postToDiscord(getWebhook('cwitter'), payload);
+      await postUserNotification('cwitter', payload, event, [reply.authorId, originalPost.authorId]);
 
       const replyAuthorId = String(reply.authorId || '').trim();
       const postAuthorId = String(originalPost.authorId || '').trim();
@@ -744,7 +801,7 @@ exports.notifyChibaChannelThreadCreated = onDocumentCreated(
         ],
       });
 
-      await postToDiscord(getWebhook('chiba_channel_thread'), payload);
+      await postUserNotification('chiba_channel_thread', payload, event, [authorId]);
     },
 );
 
@@ -770,6 +827,7 @@ exports.notifyChibaChannelCommentCreated = onDocumentCreated(
         : 'なし';
 
       let threadTitle = '（タイトル不明）';
+      let threadAuthorId;
       try {
         const threadDoc = await admin.firestore()
             .collection('chiba_channel_threads')
@@ -777,6 +835,7 @@ exports.notifyChibaChannelCommentCreated = onDocumentCreated(
             .get();
         if (threadDoc.exists) {
           threadTitle = threadDoc.data()?.title || threadTitle;
+          threadAuthorId = threadDoc.data()?.authorId;
         }
       } catch (error) {
         console.error('ちばちゃんねるスレッド取得に失敗:', error);
@@ -810,7 +869,7 @@ exports.notifyChibaChannelCommentCreated = onDocumentCreated(
         fields,
       });
 
-      await postToDiscord(getWebhook('chiba_channel_reply'), payload);
+      await postUserNotification('chiba_channel_reply', payload, event, [comment.authorId, threadAuthorId]);
     },
 );
 
@@ -897,7 +956,9 @@ exports.notifyReportCreated = onDocumentCreated('reports/{id}', async (event) =>
     ],
   });
 
-  await postToDiscord(getWebhook('report'), payload);
+  await postUserNotification('report', payload, event, [
+    report.reporterId, report.targetAuthorId, report.type === 'user' ? report.targetId : undefined,
+  ]);
 });
 
 // 学食メニュー画像の自動更新（毎日 8:00 AM JST）
@@ -1780,8 +1841,9 @@ exports.sendPushNotification = onDocumentCreated('notifications/{notificationId}
       },
       data: {
         notificationId: event.params.notificationId,
-        type: notification.type || 'general',
+        type: notification.data?.type === 'contact_response' ? 'contact_response' : (notification.type || 'general'),
         source: String(notification.data?.source || ''),
+        contactId: String(notification.data?.contactId || ''),
         userId: String(userId),
         fromUserId: String(notification.fromUserId || ''),
         fromCwitterId: String(notification.data?.fromCwitterId || ''),

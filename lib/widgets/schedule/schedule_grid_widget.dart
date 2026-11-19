@@ -10,6 +10,7 @@ import '../../models/schedule/schedule_model.dart';
 import '../../models/schedule/attendance_session.dart';
 import '../../services/schedule/attendance_service.dart';
 import '../../services/schedule/schedule_class_edit.dart';
+import '../../core/utils/period_time_resolver.dart';
 
 class _DraggedScheduleClass {
   const _DraggedScheduleClass(
@@ -54,6 +55,8 @@ class ScheduleGridWidget extends StatefulWidget {
   final bool showSaturday;
   final bool forceFullHeight;
   final bool enableScroll;
+  final Future<void> Function()? onAddPeriod;
+  final Future<void> Function()? onRemovePeriod;
 
   const ScheduleGridWidget({
     super.key,
@@ -73,6 +76,8 @@ class ScheduleGridWidget extends StatefulWidget {
     this.showSaturday = true,
     this.forceFullHeight = false,
     this.enableScroll = true,
+    this.onAddPeriod,
+    this.onRemovePeriod,
   });
 
   @override
@@ -109,6 +114,7 @@ class _ScheduleGridWidgetState extends State<ScheduleGridWidget> {
   Timer? _scrollTimer;
   bool _moved = false;
   bool _saving = false;
+  bool _addingPeriod = false;
   double _cellWidth = 0;
   List<double> _rowEdges = const [];
 
@@ -262,7 +268,10 @@ class _ScheduleGridWidgetState extends State<ScheduleGridWidget> {
     final error = _dropError(_drag!, target);
     final scheme = Theme.of(context).colorScheme;
     final color = error == null ? scheme.primary : scheme.error;
-    final end = (target.period - 1 + _drag!.lesson.duration).clamp(0, 10);
+    final end = (target.period - 1 + _drag!.lesson.duration).clamp(
+      0,
+      schedule.periodCount,
+    );
     return Positioned(
       left:
           35 +
@@ -334,7 +343,7 @@ class _ScheduleGridWidgetState extends State<ScheduleGridWidget> {
         );
         final cellWidth = remainingWidth / columnCount;
 
-        final rowHeights = List<double>.generate(10, (index) {
+        final rowHeights = List<double>.generate(schedule.periodCount, (index) {
           final period = index + 1;
           final hasClass = displayWeekdays.any(
             (weekday) => schedule.timetable[weekday.name]?[period] != null,
@@ -348,8 +357,11 @@ class _ScheduleGridWidgetState extends State<ScheduleGridWidget> {
           return baseCellHeight + additionalHeight;
         });
 
-        final cumulativeHeights = List<double>.filled(11, 0);
-        for (var i = 0; i < 10; i++) {
+        final cumulativeHeights = List<double>.filled(
+          schedule.periodCount + 1,
+          0,
+        );
+        for (var i = 0; i < schedule.periodCount; i++) {
           cumulativeHeights[i + 1] = cumulativeHeights[i] + rowHeights[i];
         }
         final totalHeight = cumulativeHeights.last;
@@ -424,6 +436,56 @@ class _ScheduleGridWidgetState extends State<ScheduleGridWidget> {
                     ),
               ),
             ),
+            if (isEditMode &&
+                !forceFullHeight &&
+                widget.onAddPeriod != null &&
+                schedule.periodCount < PeriodTimeResolver.maxPeriod)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: IconButton.outlined(
+                  key: const ValueKey('schedule-add-period'),
+                  tooltip: '${schedule.periodCount + 1}限を追加',
+                  onPressed:
+                      _addingPeriod || _saving
+                          ? null
+                          : () async {
+                            setState(() => _addingPeriod = true);
+                            try {
+                              await widget.onAddPeriod!();
+                            } catch (_) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('時限を追加できませんでした。もう一度お試しください。'),
+                                ),
+                              );
+                            } finally {
+                              if (mounted) {
+                                setState(() => _addingPeriod = false);
+                              }
+                            }
+                          },
+                  icon:
+                      _addingPeriod
+                          ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : const Icon(Icons.add),
+                ),
+              ),
+            if (isEditMode && !forceFullHeight && widget.onRemovePeriod != null && schedule.periodCount > PeriodTimeResolver.defaultPeriodCount)
+              Padding(padding: const EdgeInsets.only(bottom: 8), child: TextButton.icon(
+                key: const ValueKey('schedule-remove-period'), icon: const Icon(Icons.remove_circle_outline),
+                label: Text('${schedule.periodCount}限を削除'),
+                onPressed: _addingPeriod || _saving ? null : () async {
+                  setState(() => _addingPeriod = true);
+                  try { await widget.onRemovePeriod!(); }
+                  catch (error) { if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('時限を削除できませんでした: $error'))); }
+                  finally { if (mounted) setState(() => _addingPeriod = false); }
+                },
+              )),
           ],
         );
 
@@ -498,7 +560,7 @@ class _ScheduleGridWidgetState extends State<ScheduleGridWidget> {
   ) {
     return Positioned.fill(
       child: Column(
-        children: List.generate(10, (periodIndex) {
+        children: List.generate(rowHeights.length, (periodIndex) {
           return Container(
             height: rowHeights[periodIndex],
             decoration: BoxDecoration(
@@ -564,7 +626,7 @@ class _ScheduleGridWidgetState extends State<ScheduleGridWidget> {
       left: 0,
       top: 0,
       child: Column(
-        children: List.generate(10, (periodIndex) {
+        children: List.generate(rowHeights.length, (periodIndex) {
           final period = periodIndex + 1;
           final timeSlot = schedule.timeSlots.firstWhere(
             (slot) => slot.period == period,
@@ -583,11 +645,16 @@ class _ScheduleGridWidgetState extends State<ScheduleGridWidget> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  '$period',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    '$period',
+                    maxLines: 1,
+                    softWrap: false,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -623,7 +690,7 @@ class _ScheduleGridWidgetState extends State<ScheduleGridWidget> {
     final List<Widget> cells = [];
     final Set<String> processedCells = {}; // 既に処理済みのセル（連続講義対応）
 
-    for (int periodIndex = 0; periodIndex < 10; periodIndex++) {
+    for (int periodIndex = 0; periodIndex < rowHeights.length; periodIndex++) {
       final period = periodIndex + 1;
 
       for (
@@ -654,7 +721,10 @@ class _ScheduleGridWidgetState extends State<ScheduleGridWidget> {
           );
         } else if (scheduleClass.isStartCell) {
           // 講義セル（開始セル）
-          final duration = scheduleClass.duration;
+          final duration = scheduleClass.duration.clamp(
+            1,
+            rowHeights.length - periodIndex,
+          );
           final cellHeightEffective =
               cumulativeHeights[periodIndex + duration] -
               cumulativeHeights[periodIndex];
@@ -1080,7 +1150,10 @@ class _ScheduleGridWidgetState extends State<ScheduleGridWidget> {
       builder:
           (dialogContext) => ScheduleClassDetailDialog(
             lesson: scheduleClass,
-            onAddAssignment: widget.onAddAssignment == null ? null : () => widget.onAddAssignment!(scheduleClass),
+            onAddAssignment:
+                widget.onAddAssignment == null
+                    ? null
+                    : () => widget.onAddAssignment!(scheduleClass),
             dayLabel: weekdayNames[weekdayKey] ?? weekdayKey,
             periodRange: periodRange,
             timeRange: timeRange,

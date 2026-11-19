@@ -5,7 +5,10 @@
   "scripts": {
     "test": "npm run test:rules",
     "test:rules": "firebase emulators:exec --only firestore --project demo-cit-review --config firebase.test.json \"node --test test/firestore/*.test.cjs\"",
-    "test:auth": "firebase emulators:exec --only auth --project demo-cit-registration --config firebase.auth.test.json \"node --test test/auth/*.test.cjs\""
+    "test:auth": "firebase emulators:exec --only auth --project demo-cit-registration --config firebase.auth.test.json \"node --test test/auth/*.test.cjs\"",
+    "deploy:contact-chat": "node scripts/deploy_contact_chat.cjs --deploy",
+    "test:contact-chat-deploy": "node --test test/services/contact/deploy_contact_chat.test.cjs",
+    "test:contact-chat-rules": "firebase emulators:exec --only firestore,storage --project demo-cit-contact-chat --config firebase.contact-chat-test.json \"node --test --test-concurrency=1 test/firestore/contact_chat.rules.test.cjs test/storage/contact_chat.rules.test.cjs\""
   },
   "keywords": [],
   "author": "",

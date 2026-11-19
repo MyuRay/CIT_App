@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/cafeteria/cafeteria_review_model.dart';
 import '../../services/cafeteria/cafeteria_review_service.dart';
+import '../../services/cafeteria/cafeteria_review_day.dart';
 import '../../services/user/user_service.dart';
 
 // 一覧取得（ストリーム）
@@ -13,30 +14,33 @@ final cafeteriaReviewsProvider =
       return CafeteriaReviewService.streamReviews(cafeteriaId);
     });
 
+final cafeteriaReviewNowProvider = Provider<DateTime Function()>(
+  (ref) => DateTime.now,
+);
+
+// Both the home indicator and menu list roll over together at Japan midnight.
+final cafeteriaReviewDayProvider =
+    Provider.autoDispose<({DateTime start, DateTime end})>((ref) {
+      final now = ref.watch(cafeteriaReviewNowProvider)();
+      final day = cafeteriaReviewDayBounds(now);
+      final timer = Timer(
+        day.end.difference(now) + const Duration(seconds: 1),
+        ref.invalidateSelf,
+      );
+      ref.onDispose(timer.cancel);
+      return day;
+    });
+
 // 本日の学食レビューが存在するか
 final todayCafeteriaReviewExistsProvider = StreamProvider.autoDispose<bool>((
   ref,
 ) {
-  final now = DateTime.now();
-  final todayStart = DateTime(now.year, now.month, now.day);
-  final tomorrowStart = todayStart.add(const Duration(days: 1));
-
-  // 日付が変わったタイミングでプロバイダを更新
-  final refreshDelay =
-      tomorrowStart.difference(now) + const Duration(seconds: 1);
-  Timer? timer;
-  if (refreshDelay > Duration.zero) {
-    timer = Timer(refreshDelay, () => ref.invalidateSelf());
-    ref.onDispose(() => timer?.cancel());
-  }
+  final day = ref.watch(cafeteriaReviewDayProvider);
 
   final query = FirebaseFirestore.instance
       .collection('cafeteria_reviews')
-      .where(
-        'createdAt',
-        isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart),
-      )
-      .where('createdAt', isLessThan: Timestamp.fromDate(tomorrowStart))
+      .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(day.start))
+      .where('createdAt', isLessThan: Timestamp.fromDate(day.end))
       .limit(1);
 
   return query.snapshots().map((snap) => snap.docs.isNotEmpty);

@@ -1,6 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Server-only Discord message receipts; never expose identifiers to clients.
+    match /discord_notifications/{document=**} { allow read, write: if false; }
+    // Campus game data is accessed through authenticated server validation.
+    match /campusGamePrivate/{document=**} { allow read, write: if false; }
+    match /campusGameBoards/{document=**} { allow read, write: if false; }
+
     function isActiveAccount() {
       return request.auth != null && !exists(/databases/$(database)/documents/account_deletion_jobs/$(request.auth.uid));
     }
@@ -402,20 +408,39 @@ service cloud.firestore {
     }
 
     // ユーザー管理のルール
+    function cwitterPinValid() {
+      let postId = request.resource.data.get('cwitterPinnedPostId', null);
+      return postId == null || (
+        isCITUser() && !isBanned()
+        && postId is string
+        && postId.matches('^[A-Za-z0-9_-]{1,128}$')
+        && exists(/databases/$(database)/documents/cwitter_posts/$(postId))
+        && get(/databases/$(database)/documents/cwitter_posts/$(postId)).data.authorId == request.auth.uid
+      );
+    }
+
     match /users/{userId} {
-      allow read: if isCITUser() || isOwnCitProfile(userId);
-      allow create: if isOwnCitProfile(userId) && profileAuthFieldsValid();
+      allow read: if isOwnCitProfile(userId) || isAdmin();
+      allow create: if isOwnCitProfile(userId) && profileAuthFieldsValid()
+        && cwitterPinValid();
       allow update: if isOwnCitProfile(userId)
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(
           ['uid', 'email', 'emailVerified', 'isEmailVerified']) || profileAuthFieldsValid())
         && cwitterIdFieldValidOnUpdate()
         && cwitterBioFieldValidOnUpdate()
         && cwitterTagsFieldValidOnUpdate()
-        && cwitterSocialLinksFieldValidOnUpdate();
+        && cwitterSocialLinksFieldValidOnUpdate()
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['cwitterPinnedPostId'])
+          || cwitterPinValid());
       allow delete: if isCITUser() && request.auth.uid == userId;
     }
 
     // Cwitter ID 予約（ドキュメントID = 小文字化したID。重複防止）
+    match /public_profiles/{userId} {
+      allow read: if isCITUser();
+      allow write: if false;
+    }
+
     match /cwitter_ids/{cwitterId} {
       allow read: if isCITUser();
       allow create: if isCITUser()
@@ -798,10 +823,13 @@ service cloud.firestore {
       }
 
       match /anonymous_ids/{userId} {
-        allow read: if isCITUser();
+        // Thread ownership does not grant access to other posters' identities.
+        allow get: if isCITUser() && (request.auth.uid == userId || isAdmin());
+        allow list: if isAdmin();
         allow create: if isCITUser()
           && isActiveAccount()
           && request.auth.uid == userId
+          && exists(/databases/$(database)/documents/chiba_channel_threads/$(threadId))
           && chibaChannelAnonymousIdValid(request.resource.data.anonymousId)
           && !isBanned()
           && request.resource.data.createdAt is timestamp
@@ -811,7 +839,6 @@ service cloud.firestore {
           && isActiveAccount()
           && (
             isAdmin()
-            || get(/databases/$(database)/documents/chiba_channel_threads/$(threadId)).data.authorId == request.auth.uid
           );
       }
     }
@@ -1135,6 +1162,155 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // BEGIN CONTACT CHAT RULES
+    // Authenticate once per request; keep room/message checks within the rules budget.
+    function isContactChatUser() {
+      return request.auth != null
+        && request.auth.token.get('email_verified', false) == true
+        && request.auth.token.get('email', '') is string
+        && request.auth.token.email.lower().matches('^[^@]+@(s\\.chibakoudai\\.jp|p\\.chibakoudai\\.jp|chibatech\\.ac\\.jp)$')
+        && !exists(/databases/$(database)/documents/account_deletion_jobs/$(request.auth.uid));
+    }
+    // All callers first require isContactChatUser().
+    function canManageContactChats() {
+      let path = /databases/$(database)/documents/admin_permissions/$(request.auth.uid);
+      let permissions = exists(path) ? get(path).data : {};
+      return permissions.get('isAdmin', false) == true
+        || permissions.get('canViewContacts', false) == true;
+    }
+
+    match /contact_chats/{uid} {
+      function canAccessChat() {
+        return isContactChatUser() && (request.auth.uid == uid || canManageContactChats());
+      }
+      function validSummary(d) {
+        return d.keys().hasOnly(['userId', 'displayName', 'email', 'createdAt', 'updatedAt',
+          'lastMessageId', 'lastMessage', 'lastSenderRole', 'messageCount',
+          'userMessageCount', 'adminMessageCount', 'userReadCount', 'adminReadCount', 'status'])
+          && d.userId == uid && d.displayName is string && d.displayName.size() <= 100
+          && d.email is string && d.createdAt is timestamp && d.updatedAt is timestamp
+          && d.lastMessageId is string && d.lastMessageId.size() > 0
+          && d.lastMessageId.matches('^[^/]+$')
+          && d.lastMessage is string && d.lastMessage.size() > 0 && d.lastMessage.size() <= 2000
+          && d.lastSenderRole in ['user', 'admin']
+          && d.status in ['pending', 'in_progress', 'resolved']
+          && d.messageCount is int && d.userMessageCount is int && d.adminMessageCount is int
+          && d.userReadCount is int && d.adminReadCount is int
+          && d.userMessageCount >= 0 && d.adminMessageCount >= 0
+          && d.messageCount == d.userMessageCount + d.adminMessageCount
+          && d.userReadCount >= 0 && d.userReadCount <= d.adminMessageCount
+          && d.adminReadCount >= 0 && d.adminReadCount <= d.userMessageCount;
+      }
+      function validImages(d, messageId) {
+        let images = d.get('imagePaths', []);
+        let prefix = 'contact_chat_images/' + uid + '/' + request.auth.uid + '/' + messageId + '/';
+        return images is list && images.size() <= 4
+          && (images.size() < 1 || images[0] == prefix + '0.jpg')
+          && (images.size() < 2 || images[1] == prefix + '1.jpg')
+          && (images.size() < 3 || images[2] == prefix + '2.jpg')
+          && (images.size() < 4 || images[3] == prefix + '3.jpg');
+      }
+      function hasNewMessage(d) {
+        let path = /databases/$(database)/documents/contact_chats/$(uid)/messages/$(d.lastMessageId);
+        let message = getAfter(path).data;
+        return !exists(path) && existsAfter(path)
+          && (message.text.size() > 0 ? message.text : '📷 画像') == d.lastMessage
+          && message.senderRole == d.lastSenderRole
+          && message.senderId == request.auth.uid && message.sequence == d.messageCount
+          && d.updatedAt == request.time;
+      }
+      function validSend() {
+        let d = request.resource.data;
+        let old = resource.data;
+        return d.messageCount == old.messageCount + 1
+          && d.diff(old).affectedKeys().hasOnly(['updatedAt', 'lastMessageId', 'lastMessage',
+            'lastSenderRole', 'messageCount', 'userMessageCount', 'adminMessageCount', 'status'])
+          && validSummary(d)
+          && ((d.lastSenderRole == 'user' && request.auth.uid == uid
+              && d.userMessageCount == old.userMessageCount + 1
+              && d.adminMessageCount == old.adminMessageCount && d.status == 'pending')
+            || (d.lastSenderRole == 'admin' && canManageContactChats()
+              && d.adminMessageCount == old.adminMessageCount + 1
+              && d.userMessageCount == old.userMessageCount && d.status == 'in_progress'))
+          && hasNewMessage(d);
+      }
+      function validRead(key, total) {
+        let d = request.resource.data;
+        return d.diff(resource.data).affectedKeys().hasOnly([key])
+          && d[key] is int && d[key] >= resource.data[key] && d[key] <= resource.data[total];
+      }
+      allow get, list: if canAccessChat();
+      allow create: if isContactChatUser() && request.auth.uid == uid
+        && validSummary(request.resource.data)
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.userMessageCount == 1
+        && request.resource.data.adminMessageCount == 0
+        && request.resource.data.userReadCount == 0 && request.resource.data.adminReadCount == 0
+        && request.resource.data.status == 'pending' && request.resource.data.lastSenderRole == 'user'
+        && hasNewMessage(request.resource.data);
+      allow update: if canAccessChat() && (
+        (request.auth.uid == uid && validRead('userReadCount', 'adminMessageCount'))
+        || (canManageContactChats() && validRead('adminReadCount', 'userMessageCount'))
+        || (canManageContactChats()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          && request.resource.data.status in ['pending', 'in_progress', 'resolved'])
+        || validSend());
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        function validMessage() {
+          let d = request.resource.data;
+          let path = /databases/$(database)/documents/contact_chats/$(uid);
+          let after = getAfter(path).data;
+          let previousCount = exists(path) ? get(path).data.messageCount : 0;
+          return d.keys().hasOnly(['userId', 'senderId', 'senderRole',
+              'text', 'sequence', 'senderSequence', 'createdAt', 'imagePaths'])
+            && d.userId == uid && d.senderId == request.auth.uid
+            && d.createdAt == request.time && d.text is string && d.text.size() <= 2000
+            && validImages(d, messageId)
+            && (d.text.size() > 0 || d.get('imagePaths', []).size() > 0)
+            && d.sequence is int && d.senderSequence is int
+            && ((d.senderRole == 'user' && request.auth.uid == uid)
+              || (d.senderRole == 'admin' && canManageContactChats()))
+            && after.lastMessageId == messageId
+            && after.lastMessage == (d.text.size() > 0 ? d.text : '📷 画像')
+            && after.lastSenderRole == d.senderRole && after.messageCount == d.sequence
+            && d.senderSequence == (d.senderRole == 'user' ? after.userMessageCount : after.adminMessageCount)
+            && d.sequence == previousCount + 1;
+        }
+        allow read: if canAccessChat();
+        allow create: if canAccessChat() && validMessage();
+        allow update, delete: if false;
+      }
+    }
+    // Support diagnostics are private; public profile reads do not include them.
+    match /users/{userId}/support_info/{documentId} {
+      function supportOperator() {
+        let permissions = get(/databases/$(database)/documents/admin_permissions/$(request.auth.uid)).data;
+        return permissions.get('isAdmin', false) == true
+          || permissions.get('canViewContacts', false) == true
+          || permissions.get('canManageUsers', false) == true;
+      }
+      function validAppInfo() {
+        let data = request.resource.data;
+        return data.keys().hasOnly(['os', 'osVersion', 'platform', 'appVersion', 'buildNumber', 'packageName', 'locale', 'updatedAt'])
+          && data.os is string && data.os.size() <= 240
+          && data.osVersion is string && data.osVersion.size() <= 240
+          && data.platform is string && data.platform.size() <= 240
+          && data.appVersion is string && data.appVersion.size() <= 240
+          && data.buildNumber is string && data.buildNumber.size() <= 240
+          && data.packageName is string && data.packageName.size() <= 240
+          && data.locale is string && data.locale.size() <= 240
+          && data.updatedAt == request.time;
+      }
+      allow read: if isContactChatUser() && documentId == 'client'
+        && (request.auth.uid == userId || supportOperator());
+      allow create, update: if isContactChatUser() && request.auth.uid == userId
+        && documentId == 'client' && validAppInfo();
+      allow delete: if isContactChatUser() && request.auth.uid == userId;
+    }
+    // END CONTACT CHAT RULES
     // お問い合わせフォームのルール
     match /contact_forms/{contactId} {
       // 認証済みCITユーザーのみがお問い合わせを作成可能
@@ -1198,6 +1374,30 @@ service cloud.firestore {
 
       // 削除は管理者のみ
       allow delete: if isAdmin();
+    }
+
+    // Advertising events contain aggregate attributes only, never email or UID.
+    match /ad_events/{eventId} {
+      allow read: if isAdmin();
+      allow create: if isCITUser() && validAdEvent();
+      allow update, delete: if false;
+    }
+
+    function validAdEvent() {
+      let event = request.resource.data;
+      let ad = get(/databases/$(database)/documents/in_app_ads/$(event.adId)).data;
+      return event.keys().hasAll(['adId', 'placement', 'grade', 'kind', 'slotIndex', 'createdAt'])
+        && event.keys().hasOnly(['adId', 'placement', 'grade', 'kind', 'slotIndex', 'createdAt'])
+        && event.adId is string && event.adId.size() >= 1 && event.adId.size() <= 128
+        && event.kind in ['impression', 'click']
+        && event.grade in ['1', '2', '3', '4', '5_plus', 'unknown']
+        && event.placement in ['home_top', 'cafeteria', 'schedule_bottom', 'profile_top', 'cwitter_feed', 'chiba_channel_thread_list', 'chiba_channel_thread_replies']
+        && event.slotIndex is int && event.slotIndex >= 0 && event.slotIndex <= 99999
+        && event.createdAt == request.time
+        && ad.isActive == true && event.placement == ad.targetType
+        && (ad.get('targetGrades', []).size() == 0 || event.grade in ad.targetGrades)
+        && (ad.get('startAt', null) == null || ad.startAt <= request.time)
+        && (ad.get('endAt', null) == null || ad.endAt >= request.time);
     }
 
     // アプリ内広告のルール
@@ -1473,7 +1673,13 @@ service cloud.firestore {
     }
 
     function hasRequiredInAppAdFields() {
-      return validSponsorship() && request.resource.data.keys().hasAll([
+      return validSponsorship()
+        && (!('targetGrades' in request.resource.data) || (
+          request.resource.data.targetGrades is list
+          && request.resource.data.targetGrades.size() <= 6
+          && request.resource.data.targetGrades.hasOnly(['1', '2', '3', '4', '5_plus', 'unknown'])
+        ))
+        && request.resource.data.keys().hasAll([
           'title','body','targetType','actionType','actionPayload','isActive','weight'
         ])
         && request.resource.data.title is string
@@ -1520,10 +1726,11 @@ service cloud.firestore {
         )
         && request.resource.data.startPeriod is int
         && request.resource.data.startPeriod >= 1
-        && request.resource.data.startPeriod <= 10
+        && request.resource.data.startPeriod <= 15
         && request.resource.data.duration is int
         && request.resource.data.duration >= 1
-        && request.resource.data.duration <= 10
+        && request.resource.data.duration <= 15
+        && request.resource.data.startPeriod + request.resource.data.duration - 1 <= 15
         && request.resource.data.status is string
         && (
           request.resource.data.status == 'present' ||

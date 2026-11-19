@@ -2,9 +2,9 @@
 
 千葉工業大学の学生向けに、時間割・課題・出欠、学内交流、掲示板、学食、学バス、キャンパスマップをまとめたアプリです。Android・iOS・Web向けにFlutterで開発しています。
 
-**README更新日: 2026-11-17**。各ブランチのアプリ版数は `pubspec.yaml` を確認してください。ローカルでは2.5.0+86に向けた変更を準備しています。
+**ソース版数: 2.5.0+86**（`pubspec.yaml`）。README更新日: 2026-11-19。
 
-このREADMEには、マージ済みの機能とローカルで開発中の変更の両方を記載しています。開発中の変更は、対応するソースを含むブランチで利用できます。ストア公開版や本番Firebaseへの反映状況は、各機能の資料・リリース記録で確認してください。
+このREADMEはリポジトリ内の実装を説明しています。ストア公開版や本番Firebaseへの反映状況は、各機能の資料・リリース記録で確認してください。
 
 - [公式サイト](https://cit-app.com/)
 - [開発・運用の引き継ぎ資料](docs/handoff/README.md)
@@ -13,7 +13,7 @@
 
 ## 主な機能
 
-以下は開発中の実装を含む機能一覧です。お問い合わせチャット、3Dマップ、Cwitterの引用・検索・固定投稿、学年別広告分析などの追加実装は、各資料の反映条件を確認してください。
+お問い合わせチャット、Cwitterの一部機能、学年別広告分析などはFirebase側の設定やデータ移行も必要です。各資料の反映条件を確認してください。
 
 | 機能 | 内容 |
 | --- | --- |
@@ -28,7 +28,7 @@
 | マイページ・サポート | プロフィール・アバター、ホーム表示のカスタマイズ、ライト／ダークテーマ、使い方ガイドの再表示、画像付きお問い合わせチャット、通知設定、アカウント削除 |
 | 管理者機能 | 管理センター、投稿・通報・ユーザー・お問い合わせの管理、広告配信・学年別広告分析、講義期間・バス情報などの設定 |
 
-2.5.0の準備中ソースでは、学バスタイムアタックの入口を非表示にし、3Dマップの入口は維持しています。
+2.5.0では学バスタイムアタックの入口を非表示にしています。3Dマップは津田沼・新習志野のモデルと表示に必要なデータを同梱しています。
 
 ### 認証・登録
 
@@ -53,10 +53,10 @@ Cloud FirestoreのFlutterプラグインはローカル修正版を使用して�
 
 ### 必要な環境
 
-- Flutter / Dart SDK。`pubspec.yaml` のDart指定は `>=3.7.0-0 <4.0.0` です。実際に必要なSDKは、使用するブランチの `pubspec.lock` 末尾にある `sdks` を確認してください。2.5.0準備中の作業環境ではDart `>=3.13.0 <4.0.0`・Flutter `>=3.47.0` が必要で、最近のローカル検証にはFlutter 3.47.3を使用しています。
+- Flutter / Dart SDK。2.5.0+86の `pubspec.lock` はDart `>=3.13.0 <4.0.0`・Flutter `>=3.47.0` を要求します。Windowsでの検証にはFlutter 3.47.3を使用しています。
 - Android開発: Android Studio、Android SDK、Gradleに対応するJDK。
 - iOS開発: macOS、Xcode、CocoaPods、署名環境。
-- バックエンド・ルールテスト: Node.js / npm、Firebase CLI。`functions/` の実行環境はNode.js 20です。開発中の `security-functions/`・`game-functions/` はNode.js 22を使用します。
+- バックエンド・ルールテスト: Node.js / npm、Firebase CLI。`functions/` の実行環境はNode.js 20、`security-functions/`・`game-functions/` はNode.js 22です。
 - Firestore等のエミュレーター用Java。既存の検証ではJava 21を使用しています。
 
 依存関係は `pubspec.lock` と各 `package-lock.json`、Functionsのランタイムは `firebase.json` と各 `package.json` を基準にしてください。
@@ -78,7 +78,7 @@ npm ci
 npm ci --prefix functions
 ```
 
-開発中のセキュリティ監視・キャンパスゲームを含むブランチでは、それぞれ `npm ci --prefix security-functions`・`npm ci --prefix game-functions` も実行します。
+セキュリティ監視・キャンパスゲームのFunctionsを扱う場合は、それぞれ `npm ci --prefix security-functions`・`npm ci --prefix game-functions` も実行します。
 
 Windows PowerShellで `npm.ps1` が実行ポリシーにより停止する場合は、`npm` を `npm.cmd` に置き換えて実行できます。
 
@@ -94,6 +94,18 @@ Windows PowerShellで `npm.ps1` が実行ポリシーにより停止する場合
 | Web App Check | `--dart-define=FIREBASE_RECAPTCHA_SITE_KEY=...` で実際のサイトキーを指定 |
 
 WebのApp Checkはサイトキー未設定時に初期化をスキップします。利用先のApp Check強制設定に合わせて構成してください。メール登録のApp Links／Universal Linksや認証用Hostingは[専用資料](docs/EMAIL_REGISTRATION.md)を参照してください。
+
+### MacでiOSをビルドする
+
+既にクローンしている場合は、`main` の最新コミットを取り込みます。既存のCIT App用 `GoogleService-Info.plist` を `ios/Runner/` に配置し、以下を実行してください。
+
+```bash
+flutter pub get --enforce-lockfile
+(cd ios && pod install)
+open ios/Runner.xcworkspace
+```
+
+`pod install` はFlutterの依存関係に合わせてネイティブプラグインを追加します。実機確認や配布では、XcodeでRunnerとCITWidgetsに既存のチーム・署名を設定し、ウィジェット用のApp Groupも揃えてください。Macではシミュレーター向けに `flutter build ios --simulator`、署名設定後の配信用には `flutter build ipa` を使えます。Firebase設定ファイルと署名情報は既存の管理先から取得してください。
 
 ### コード生成・起動
 
@@ -124,7 +136,7 @@ flutter run -d chrome
 | `android/`・`ios/`・`web/` | プラットフォーム設定・ネイティブ実装 |
 | `assets/` | 画像、3Dモデル、同梱データ・音声 |
 | `functions/` | 通知、登録、プロフィール同期、アカウント削除等のFunctions |
-| `security-functions/`・`game-functions/` | 開発中のセキュリティ監視・キャンパスゲーム用Functions。対応する実装ブランチに配置 |
+| `security-functions/`・`game-functions/` | セキュリティ監視・キャンパスゲーム用Functions |
 | `firestore.rules`・`storage.rules` | アクセス制御。インデックスは `firestore.indexes.json` |
 | `legal/` | 利用規約・プライバシーポリシーの原稿 |
 | `test/` | Flutter、認証、Firestore・Storageルールなどのテスト |
@@ -148,7 +160,7 @@ npm run test:rules
 npm run test:auth
 ```
 
-開発中の機能を含むブランチでは、`npm test --prefix security-functions`・`npm test --prefix game-functions`・`npm run test:contact-chat-rules` も対象になります。
+セキュリティ監視・キャンパスゲーム・お問い合わせを変更した場合は、`npm test --prefix security-functions`・`npm test --prefix game-functions`・`npm run test:contact-chat-rules` も実行します。
 
 ルール・認証テストは各 `firebase.*test.json` と `demo-` で始まるテスト用プロジェクトを使用します。対象・前提条件は `package.json` のscriptsを確認してください。実機の通知、ウィジェット、メールリンク、iOS署名は別途端末で確認します。
 

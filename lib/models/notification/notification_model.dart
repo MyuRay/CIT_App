@@ -67,10 +67,13 @@ class AppNotification {
       fromUserId: json['fromUserId'] as String?,
       fromUserName: json['fromUserName'] as String?,
       createdAt: (json['createdAt'] as Timestamp).toDate(),
-      isRead: json['isRead'] as bool? ?? json['read'] as bool? ?? false,
+      isRead: readFlag(json),
       data: json['data'] as Map<String, dynamic>?,
     );
   }
+
+  static bool readFlag(Map<String, dynamic> json) =>
+      json['isRead'] as bool? ?? json['read'] as bool? ?? false;
 
   Map<String, dynamic> toJson() {
     return {

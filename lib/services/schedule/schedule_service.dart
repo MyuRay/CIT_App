@@ -7,22 +7,62 @@ import '../../models/schedule/academic_year_model.dart';
 class ScheduleService {
   @visibleForTesting
   static FirebaseFirestore? firestoreOverride;
-  static FirebaseFirestore get _firestore => firestoreOverride ?? FirebaseFirestore.instance;
+  static FirebaseFirestore get _firestore =>
+      firestoreOverride ?? FirebaseFirestore.instance;
   static const String _collection = 'schedules';
 
-  static Future<Schedule?> getSelectedScheduleByUserId(
-    String userId, {
-    String? selectedScheduleId,
-  }) async {
-    final schedules = await getAllSchedulesByUserId(userId);
-    if (schedules.isEmpty) return null;
-    for (final schedule in schedules) {
-      if (schedule.id == selectedScheduleId) return schedule;
-    }
-    return schedules.first;
+  /// Add one row against the latest document, retaining concurrent lesson edits.
+  static Future<Schedule> addPeriod({required String scheduleId}) async {
+    final document = _firestore.collection(_collection).doc(scheduleId);
+    return _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(document);
+      if (!snapshot.exists) throw StateError('対象の時間割が見つかりません');
+      final updated = Schedule.fromFirestore(snapshot).withAdditionalPeriod();
+      transaction.update(document, {
+        'timetable': updated.toJson()['timetable'],
+        'timeSlots': updated.toJson()['timeSlots'],
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      return updated;
+    });
   }
 
+  static Future<Schedule> removeLastPeriod({
+    required String scheduleId,
+    required int expectedPeriod,
+    bool removeClasses = false,
+  }) async {
+    final doc = _firestore.collection(_collection).doc(scheduleId);
+    return _firestore.runTransaction((tx) async {
+      final snapshot = await tx.get(doc);
+      if (!snapshot.exists) throw StateError('対象の時間割が見つかりません');
+      final latest = Schedule.fromFirestore(snapshot);
+      if (latest.periodCount != expectedPeriod)
+        throw StateError('時間割が更新されています。確認してから再操作してください');
+      final updated = latest.withoutLastPeriod(removeClasses: removeClasses);
+      tx.set(doc, {
+        ...snapshot.data()!,
+        ...updated.toJson(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      return updated;
+    });
+  }
 
+  static Future<void> setSemester(String scheduleId, String semester) async {
+    final doc = _firestore.collection(_collection).doc(scheduleId);
+    await _firestore.runTransaction((tx) async {
+      final snapshot = await tx.get(doc);
+      final data = snapshot.data();
+      if (data == null) throw StateError('対象の時間割が見つかりません');
+      tx.update(doc, {
+        'semester': semester,
+        if (data['name'] == null || data['name'] == '')
+          'name': data['semester'],
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
+  }
 
   /// 時間割を保存
   static Future<void> saveSchedule(Schedule schedule) async {
@@ -56,6 +96,19 @@ class ScheduleService {
       userId,
       currentAcademicYear,
     );
+  }
+
+  /// 時間割画面と同じ選択順で取得する。学期名による完全一致検索は使わない。
+  static Future<Schedule?> getSelectedScheduleByUserId(
+    String userId, {
+    String? selectedScheduleId,
+  }) async {
+    final schedules = await getAllSchedulesByUserId(userId);
+    if (schedules.isEmpty) return null;
+    for (final schedule in schedules) {
+      if (schedule.id == selectedScheduleId) return schedule;
+    }
+    return schedules.first;
   }
 
   /// 時間割を取得（ユーザーID・年度・学期別）
@@ -305,14 +358,19 @@ class ScheduleService {
       if (!snapshot.exists) throw StateError('対象の時間割が見つかりません');
       final schedule = Schedule.fromFirestore(snapshot);
       final timetable = applyScheduleClassEdit(
-        schedule: schedule, weekdayKey: weekdayKey, period: period,
-        replacement: scheduleClass, expectedClass: expectedClass,
+        schedule: schedule,
+        weekdayKey: weekdayKey,
+        period: period,
+        replacement: scheduleClass,
+        expectedClass: expectedClass,
       );
       transaction.update(document, {
         'timetable': {
-          for (final day in timetable.entries) day.key: {
-            for (final slot in day.value.entries) slot.key.toString(): slot.value?.toJson(),
-          },
+          for (final day in timetable.entries)
+            day.key: {
+              for (final slot in day.value.entries)
+                slot.key.toString(): slot.value?.toJson(),
+            },
         },
         'updatedAt': FieldValue.serverTimestamp(),
       });
@@ -335,21 +393,31 @@ class ScheduleService {
       if (!snapshot.exists) throw StateError('対象の時間割が見つかりません');
       final schedule = Schedule.fromFirestore(snapshot);
       final timetable = applyScheduleClassMove(
-        schedule: schedule, fromWeekdayKey: fromWeekdayKey, fromPeriod: fromPeriod,
-        toWeekdayKey: toWeekdayKey, toPeriod: toPeriod, expectedClass: expectedClass,
+        schedule: schedule,
+        fromWeekdayKey: fromWeekdayKey,
+        fromPeriod: fromPeriod,
+        toWeekdayKey: toWeekdayKey,
+        toPeriod: toPeriod,
+        expectedClass: expectedClass,
       );
       transaction.update(document, {
         'timetable': {
-          for (final day in timetable.entries) day.key: {
-            for (final cell in day.value.entries) cell.key.toString(): cell.value?.toJson(),
-          },
+          for (final day in timetable.entries)
+            day.key: {
+              for (final cell in day.value.entries)
+                cell.key.toString(): cell.value?.toJson(),
+            },
         },
         'updatedAt': FieldValue.serverTimestamp(),
       });
       return Schedule(
-        id: schedule.id, userId: schedule.userId, name: schedule.name,
-        semester: schedule.semester, timetable: timetable,
-        timeSlots: schedule.timeSlots, createdAt: schedule.createdAt,
+        id: schedule.id,
+        userId: schedule.userId,
+        name: schedule.name,
+        semester: schedule.semester,
+        timetable: timetable,
+        timeSlots: schedule.timeSlots,
+        createdAt: schedule.createdAt,
         updatedAt: DateTime.now(),
       );
     });
@@ -387,13 +455,15 @@ class ScheduleService {
       final day = schedule.timetable[weekdayKey] ?? {};
       final target = day[period];
       if (expectedClass != null &&
-          (target == null || !mapEquals(target.toJson(), expectedClass.toJson()))) {
+          (target == null ||
+              !mapEquals(target.toJson(), expectedClass.toJson()))) {
         throw StateError('この科目は別の操作で変更されました。時間割を更新してください');
       }
       if (target == null) return;
       transaction.update(document, {
         for (final slot in day.entries)
-          if (slot.value?.id == target.id) 'timetable.$weekdayKey.${slot.key}': null,
+          if (slot.value?.id == target.id)
+            'timetable.$weekdayKey.${slot.key}': null,
         'updatedAt': FieldValue.serverTimestamp(),
       });
     });
@@ -477,7 +547,9 @@ class ScheduleService {
         userId: schedule.userId,
         name: schedule.name,
         semester: schedule.semester,
-        timetable: DefaultTimeSlots.createEmptyTimetable(),
+        timetable: DefaultTimeSlots.createEmptyTimetable(
+          periodCount: schedule.periodCount,
+        ),
         timeSlots: schedule.timeSlots,
         createdAt: schedule.createdAt,
         updatedAt: DateTime.now(),

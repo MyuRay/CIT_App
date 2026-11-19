@@ -9,9 +9,9 @@ const GROUPS = ['bulletin_posts', 'bulletin_comments', 'cafeteria_reviews',
   'cwitter_followers', 'notifications', 'hidden_posts', 'hidden_comments',
   'blocked_users', 'contact_forms', 'schedules', 'attendance_records',
   'excel_import_training_submissions', 'cwitter_ids'];
-const PRIVATE = ['users', 'user_settings', 'user_tokens', 'admins', 'admin_permissions'];
+const PRIVATE = ['users', 'public_profiles', 'user_settings', 'user_tokens', 'admins', 'admin_permissions', 'contact_chats'];
 const PREFIXES = ['profile_images', 'cwitter_post_images', 'cwitter_reply_images',
-  'chiba_channel_comment_images', 'excel_import_training'];
+  'chiba_channel_comment_images', 'excel_import_training', 'contact_chat_images'];
 function ownedPath(path, uid) {
   return PREFIXES.some(p => path.startsWith(`${p}/${uid}/`)) ||
     path.startsWith(`bulletin_images/${uid}_`);
@@ -73,7 +73,7 @@ function createDeletionApi({auth, db, now = () => Date.now()}) {
   };
 }
 
-function createDeletionWorker({auth, db, bucket, now = () => Date.now()}) {
+function createDeletionWorker({auth, db, bucket, purgeDiscord = async () => true, now = () => Date.now()}) {
   return async uid => {
     if (typeof uid !== 'string' || !uid || uid.includes('/')) throw Error('Invalid job UID');
     const job = db.collection(JOBS).doc(uid);
@@ -162,6 +162,9 @@ function createDeletionWorker({auth, db, bucket, now = () => Date.now()}) {
         }
       }
       if (stage < GROUPS.length) return;
+      // External copies must finish before private data / Auth and the receipt
+      // tombstone are removed. A rate limit or in-flight notification is retried.
+      if (!await purgeDiscord(uid, {deadline})) return;
       // Remove private subcollections, including favorites, assignments, tokens.
       for (const root of PRIVATE) await db.recursiveDelete(db.collection(root).doc(uid));
       // User-namespaced uploads can include abandoned drafts with no document.

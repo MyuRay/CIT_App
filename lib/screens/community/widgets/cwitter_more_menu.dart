@@ -14,6 +14,9 @@ class CwitterMoreMenu extends ConsumerWidget {
     this.onReport,
     this.onBlock,
     this.onBan,
+    this.onPin,
+    this.isPinned = false,
+    this.pinEnabled = true,
     this.iconSize = 20,
     this.constraints = const BoxConstraints(minWidth: 32, minHeight: 32),
   });
@@ -23,6 +26,9 @@ class CwitterMoreMenu extends ConsumerWidget {
   final Future<void> Function()? onDeleteReply;
   final VoidCallback? onReport;
   final VoidCallback? onBlock;
+  final Future<void> Function()? onPin;
+  final bool isPinned;
+  final bool pinEnabled;
 
   /// 管理者のみに表示する「BANする」アクション
   final VoidCallback? onBan;
@@ -39,7 +45,8 @@ class CwitterMoreMenu extends ConsumerWidget {
     final isAdmin = ref.watch(isAdminProvider);
     final hasBan = onBan != null && isAdmin;
 
-    if (!_hasDelete && !_hasReport && !_hasBlock && !hasBan) {
+    final hasPin = isOwner && onPin != null;
+    if (!_hasDelete && !_hasReport && !_hasBlock && !hasBan && !hasPin) {
       return const SizedBox.shrink();
     }
 
@@ -57,6 +64,10 @@ class CwitterMoreMenu extends ConsumerWidget {
         constraints: constraints,
         icon: Icon(Icons.more_vert, size: iconSize, color: iconColor),
         onSelected: (value) async {
+          if (value == 'pin') {
+            if (hasPin && pinEnabled) await onPin!();
+            return;
+          }
           if (value == 'report') {
             onReport?.call();
             return;
@@ -115,6 +126,24 @@ class CwitterMoreMenu extends ConsumerWidget {
         },
         itemBuilder: (context) {
           final items = <PopupMenuEntry<String>>[];
+          if (hasPin) {
+            items.add(
+              PopupMenuItem(
+                value: 'pin',
+                enabled: pinEnabled,
+                child: Row(
+                  children: [
+                    Icon(
+                      isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(child: Text(isPinned ? '固定を解除' : 'プロフィールに固定')),
+                  ],
+                ),
+              ),
+            );
+          }
           if (_hasReport) {
             items.add(
               const PopupMenuItem(
@@ -145,13 +174,22 @@ class CwitterMoreMenu extends ConsumerWidget {
           }
           if (_hasDelete) {
             items.add(
-               PopupMenuItem(
+              PopupMenuItem(
                 value: 'delete',
                 child: Row(
                   children: [
-                    Icon(Icons.delete_outline, color: AppColors.accent(context, Colors.red), size: 20),
+                    Icon(
+                      Icons.delete_outline,
+                      color: AppColors.accent(context, Colors.red),
+                      size: 20,
+                    ),
                     SizedBox(width: 8),
-                    Text('削除', style: TextStyle(color: AppColors.accent(context, Colors.red))),
+                    Text(
+                      '削除',
+                      style: TextStyle(
+                        color: AppColors.accent(context, Colors.red),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -159,13 +197,22 @@ class CwitterMoreMenu extends ConsumerWidget {
           }
           if (hasBan) {
             items.add(
-               PopupMenuItem(
+              PopupMenuItem(
                 value: 'ban',
                 child: Row(
                   children: [
-                    Icon(Icons.gavel, color: AppColors.accent(context, Colors.red), size: 20),
+                    Icon(
+                      Icons.gavel,
+                      color: AppColors.accent(context, Colors.red),
+                      size: 20,
+                    ),
                     SizedBox(width: 8),
-                    Text('BANする', style: TextStyle(color: AppColors.accent(context, Colors.red))),
+                    Text(
+                      'BANする',
+                      style: TextStyle(
+                        color: AppColors.accent(context, Colors.red),
+                      ),
+                    ),
                   ],
                 ),
               ),

@@ -1,3 +1,5 @@
+import '../../services/notification/app_store_navigation.dart';
+import 'package:flutter/foundation.dart';
 import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -301,7 +303,7 @@ class GlobalNotificationListScreen extends ConsumerWidget {
     // 通知タイプに応じた処理
     switch (notification.type) {
       case NotificationType.appUpdate:
-        _showAppUpdateDialog(context, notification);
+        _openUrl(context, appStoreUrlForPlatform(defaultTargetPlatform).toString());
         break;
       case NotificationType.feature:
         if (notification.url != null) {
@@ -318,66 +320,6 @@ class GlobalNotificationListScreen extends ConsumerWidget {
       default:
         _showNotificationDialog(context, notification);
     }
-  }
-
-  void _showAppUpdateDialog(
-    BuildContext context,
-    GlobalNotification notification,
-  ) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Row(
-              children: [
-                Text(notification.emoji, style: const TextStyle(fontSize: 24)),
-                const SizedBox(width: 8),
-                Expanded(child: Text(notification.title)),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (notification.version != null) ...[
-                  Text(
-                    '最新バージョン: ${notification.version!}',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                Text(notification.message),
-                const SizedBox(height: 16),
-                 Text(
-                  'App Store または Google Play Store からアップデートしてください。',
-                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('後で'),
-              ),
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                     SnackBar(
-                      content: Text('ストア連携機能は近日実装予定です'),
-                      backgroundColor: AppColors.snackBarSurface(context, Colors.orange),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.system_update),
-                label: const Text('アップデート'),
-              ),
-            ],
-          ),
-    );
   }
 
   void _showNotificationDialog(
@@ -409,10 +351,8 @@ class GlobalNotificationListScreen extends ConsumerWidget {
   Future<void> _openUrl(BuildContext context, String url) async {
     try {
       final uri = Uri.parse(url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-      } else {
-        throw 'URLを開けませんでした';
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        throw StateError('URLを開けませんでした');
       }
     } catch (e) {
       if (context.mounted) {

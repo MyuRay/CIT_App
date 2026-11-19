@@ -25,7 +25,7 @@ Map<String, Map<int, ScheduleClass?>> applyScheduleClassMove({
   }
   if (latest.duration < 1 ||
       fromPeriod < 1 ||
-      fromPeriod + latest.duration - 1 > 10) {
+      fromPeriod + latest.duration - 1 > schedule.periodCount) {
     throw StateError('移動元の講義の時限を確認してください');
   }
   final timetable = {
@@ -46,6 +46,7 @@ Map<String, Map<int, ScheduleClass?>> applyScheduleClassMove({
       userId: schedule.userId,
       semester: schedule.semester,
       timetable: timetable,
+      timeSlots: schedule.timeSlots,
     ),
     weekdayKey: toWeekdayKey,
     period: toPeriod,
@@ -64,8 +65,8 @@ Map<String, Map<int, ScheduleClass?>> applyScheduleClassEdit({
   if (!Weekday.values.any((day) => day.name == weekdayKey) ||
       period < 1 ||
       replacement.duration < 1 ||
-      period + replacement.duration - 1 > 10) {
-    throw StateError('連続講義は1限から10限の範囲に収めてください');
+      period + replacement.duration - 1 > schedule.periodCount) {
+    throw StateError('連続講義は1限から${schedule.periodCount}限の範囲に収めてください');
   }
   final day = schedule.timetable[weekdayKey] ?? {};
   if (expectedClass != null) {

@@ -2,6 +2,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'cwitter_poll.dart';
 
+/// 引用先は同じ投稿コレクションの単一ドキュメントのみ。
+String? parseCwitterQuotedPostId(dynamic value) {
+  if (value is! String || !RegExp(r'^[A-Za-z0-9_-]{1,128}$').hasMatch(value)) {
+    return null;
+  }
+  return value;
+}
+
 class CwitterPost {
   const CwitterPost({
     required this.id,
@@ -18,6 +26,7 @@ class CwitterPost {
     this.authorEmail,
     this.imageUrls = const [],
     this.poll,
+    this.quotedPostId,
   });
 
   final String id;
@@ -36,11 +45,13 @@ class CwitterPost {
   final String? profileImageUrl;
   final List<String> imageUrls;
   final CwitterPoll? poll;
+  final String? quotedPostId;
 
   String get userHandle => '@$cwitterId';
 
   bool get hasImages => imageUrls.isNotEmpty;
   bool get hasPoll => poll?.hasPoll ?? false;
+  bool get isQuote => quotedPostId != null;
 
   bool isLikedBy(String? uid) => uid != null && likedBy[uid] == true;
 
@@ -66,6 +77,7 @@ class CwitterPost {
       authorEmail: data['authorEmail'] as String?,
       imageUrls: _parseImageUrls(data['imageUrls']),
       poll: _parsePoll(data['poll']),
+      quotedPostId: parseCwitterQuotedPostId(data['quotedPostId']),
     );
   }
 
@@ -98,6 +110,7 @@ class CwitterPost {
       'likedBy': likedBy,
       if (imageUrls.isNotEmpty) 'imageUrls': imageUrls,
       if (poll != null) 'poll': poll!.toMap(),
+      if (quotedPostId != null) 'quotedPostId': quotedPostId,
     };
   }
 

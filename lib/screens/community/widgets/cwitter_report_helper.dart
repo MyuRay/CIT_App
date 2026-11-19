@@ -124,13 +124,6 @@ Future<void> showCwitterUserReportDialog(
   }
 
   final targetEmail = await _resolveAuthorEmail(authorId, null);
-  if (targetEmail.isEmpty) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('ユーザーのメール情報を取得できず通報できませんでした')));
-    return;
-  }
 
   if (!context.mounted) return;
   await showReportDialog(

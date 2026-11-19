@@ -3,6 +3,46 @@ import 'package:flutter/material.dart';
 
 import '../../../models/community/cwitter_post.dart';
 
+enum CwitterRecweetAction { recweet, quote }
+
+Future<CwitterRecweetAction?> showCwitterRecweetActions(
+  BuildContext context, {
+  required bool isRecweeted,
+}) {
+  return showModalBottomSheet<CwitterRecweetAction>(
+    context: context,
+    showDragHandle: true,
+    builder:
+        (sheetContext) => SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.repeat),
+                  title: Text(isRecweeted ? 'recweetを取り消す' : 'recweet'),
+                  onTap:
+                      () => Navigator.pop(
+                        sheetContext,
+                        CwitterRecweetAction.recweet,
+                      ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.format_quote),
+                  title: const Text('引用recweet'),
+                  onTap:
+                      () => Navigator.pop(
+                        sheetContext,
+                        CwitterRecweetAction.quote,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ),
+  );
+}
+
 /// recweet 実行前の確認ダイアログ。`true` のとき recweet してよい。
 Future<bool> showCwitterRecweetConfirmationDialog(
   BuildContext context, {
@@ -21,7 +61,8 @@ Future<bool> showCwitterRecweetConfirmationDialog(
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: FilledButton.styleFrom(foregroundColor: AppColors.onColor(const Color(0xFF4CAF50)),
+            style: FilledButton.styleFrom(
+              foregroundColor: AppColors.onColor(const Color(0xFF4CAF50)),
               backgroundColor: const Color(0xFF4CAF50),
             ),
             child: const Text('recweet'),

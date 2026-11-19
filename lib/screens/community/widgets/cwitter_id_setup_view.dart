@@ -9,7 +9,10 @@ import '../../../services/community/cwitter_service.dart';
 import 'cwitter_profile_screen.dart';
 
 class CwitterIdSetupView extends ConsumerStatefulWidget {
-  const CwitterIdSetupView({super.key});
+  const CwitterIdSetupView({super.key, this.onLater, this.onRegistered});
+
+  final VoidCallback? onLater;
+  final VoidCallback? onRegistered;
 
   @override
   ConsumerState<CwitterIdSetupView> createState() => _CwitterIdSetupViewState();
@@ -66,6 +69,11 @@ class _CwitterIdSetupViewState extends ConsumerState<CwitterIdSetupView> {
       );
       if (!mounted) return;
 
+      if (widget.onRegistered != null) {
+        widget.onRegistered!();
+        return;
+      }
+
       await Navigator.of(context).push<void>(
         MaterialPageRoute(
           builder:
@@ -76,7 +84,7 @@ class _CwitterIdSetupViewState extends ConsumerState<CwitterIdSetupView> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Cwitter ID @$id を設定しました')));
+      ).showSnackBar(SnackBar(content: Text('CweetID @$id を設定しました')));
     } on CwitterIdAlreadyTakenException {
       if (!mounted) return;
       setState(() {
@@ -121,7 +129,7 @@ class _CwitterIdSetupViewState extends ConsumerState<CwitterIdSetupView> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Cwitter IDを設定',
+          'CweetIDを設定',
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),
@@ -129,7 +137,8 @@ class _CwitterIdSetupViewState extends ConsumerState<CwitterIdSetupView> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Cwitterを使うには、Cwitter内で使うIDの設定が必要です。\n'
+          '投稿やいいねなどに参加するにはCweetIDの設定が必要です。\n'
+          'IDを設定しなくても投稿を閲覧できます。\n'
           '半角英数字で3〜10文字で作成してください。',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: colorScheme.onSurface.withValues(alpha: 0.75),
@@ -137,6 +146,13 @@ class _CwitterIdSetupViewState extends ConsumerState<CwitterIdSetupView> {
           ),
           textAlign: TextAlign.center,
         ),
+        if (widget.onLater != null) ...[
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: _isSubmitting ? null : widget.onLater,
+            child: const Text('CweetIDをあとで設定する'),
+          ),
+        ],
         const SizedBox(height: 24),
         Card(
           elevation: 0,
@@ -156,7 +172,7 @@ class _CwitterIdSetupViewState extends ConsumerState<CwitterIdSetupView> {
                   TextFormField(
                     controller: _idController,
                     decoration: InputDecoration(
-                      labelText: 'Cwitter ID',
+                      labelText: 'CweetID',
                       hintText: '例: cit2024',
                       prefixText: '@',
                       helperText: AppConstants.cwitterIdInputHelper,
@@ -187,7 +203,7 @@ class _CwitterIdSetupViewState extends ConsumerState<CwitterIdSetupView> {
                     validator: (value) {
                       final raw = value?.trim() ?? '';
                       if (raw.isEmpty) {
-                        return 'Cwitter IDを入力してください';
+                        return 'CweetIDを入力してください';
                       }
                       if (!CwitterService.isValidCwitterIdFormat(raw)) {
                         return AppConstants.errorCwitterIdFormat;

@@ -1,0 +1,54 @@
+{
+  "tsudanuma": {
+    "loaded": true,
+    "src": "assets/assets/models/campus/tsudanuma-campus.glb",
+    "dimensions": {
+      "x": 268.3458023071289,
+      "y": 100.25,
+      "z": 343.9104309082031
+    },
+    "target": {
+      "x": -25.99618148803711,
+      "y": 48.875,
+      "z": -17.834091186523438
+    },
+    "orbit": {
+      "theta": 0,
+      "phi": 0.9599310885968813,
+      "radius": 696.0317573473627
+    },
+    "controls": true
+  },
+  "dragRotates": true,
+  "longPressMoves": true,
+  "releaseStops": true,
+  "wheelZoom": true,
+  "touchPinchZoom": true,
+  "touchTwoFingerPan": true,
+  "ascend": true,
+  "resetRestores": true,
+  "shinnarashino": {
+    "loaded": true,
+    "src": "assets/assets/models/campus/shinnarashino-campus.glb",
+    "dimensions": {
+      "x": 553.9482879638672,
+      "y": 44.200000047683716,
+      "z": 574.5721130371094
+    },
+    "target": {
+      "x": 21.461280822753906,
+      "y": 20.899999976158142,
+      "z": -2.7179718017578125
+    },
+    "orbit": {
+      "theta": 0,
+      "phi": 0.9599310885968813,
+      "radius": 1223.3755414841596
+    },
+    "controls": true
+  },
+  "switchBack": true,
+  "navigationBack": true,
+  "pageErrors": [],
+  "consoleMessages": []
+}

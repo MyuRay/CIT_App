@@ -8,6 +8,7 @@ import '../../widgets/campus/classroom_search_pilot_section.dart';
 // 後続PRで教室一覧タブを復帰する際に有効化
 // import 'classroom_map_list_tab.dart';
 import 'classroom_map_map_tab.dart';
+import 'campus_3d_screen.dart';
 
 /// 教室マップ画面の AppBar 高さ（`AppBar.toolbarHeight`）。
 /// 必要に応じてこの数値を変更してください（省略時の目安は [kToolbarHeight]）。
@@ -61,6 +62,20 @@ class _ClassroomMapScreenState extends ConsumerState<ClassroomMapScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        actions: [
+          IconButton(
+            tooltip: '3Dマップ',
+            icon: const Icon(Icons.view_in_ar_outlined),
+            onPressed:
+                () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder:
+                        (_) =>
+                            Campus3dScreen(initialCampusId: _selectedCampusId),
+                  ),
+                ),
+          ),
+        ],
         toolbarHeight: kClassroomMapAppBarToolbarHeight,
         title: const Text('教室マップ'),
         // 検索対象キャンパス切り替えはオフ（常に両キャンパスを検索）

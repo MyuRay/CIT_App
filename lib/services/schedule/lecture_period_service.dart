@@ -1,8 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../../models/schedule/lecture_period_model.dart';
 
 class LecturePeriodService {
-  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  @visibleForTesting
+  static FirebaseFirestore? firestoreOverride;
+  static FirebaseFirestore get _firestore =>
+      firestoreOverride ?? FirebaseFirestore.instance;
   static const String _collection = 'app_settings';
   static const String _docId = 'lecture_period';
 
@@ -53,6 +57,34 @@ class LecturePeriodService {
       'updatedAt': FieldValue.serverTimestamp(),
       if (updatedBy != null) 'updatedBy': updatedBy,
     }, SetOptions(merge: true));
+  }
+
+  static Future<void> savePeriod(
+    LecturePeriod period, {
+    String? updatedBy,
+    bool createOnly = false,
+  }) async {
+    if (!period.isValid)
+      throw ArgumentError('開始日・終了日を選択した年度内（4月〜翌3月）で設定してください');
+    final doc = _firestore.collection(_collection).doc(_docId);
+    await _firestore.runTransaction((tx) async {
+      final snapshot = await tx.get(doc);
+      final data = snapshot.data() ?? <String, dynamic>{};
+      if (createOnly &&
+          LecturePeriodSettings.fromMap(
+                data,
+              ).periodForSemester(period.term.label) !=
+              null)
+        throw StateError('この年度・学期は登録済みです。一覧から編集してください');
+      final periods = Map<String, dynamic>.from(data['periods'] as Map? ?? {});
+      periods[period.term.key] = period.toMap();
+      tx.set(doc, {
+        ...data,
+        'periods': periods,
+        'updatedAt': FieldValue.serverTimestamp(),
+        if (updatedBy != null) 'updatedBy': updatedBy,
+      });
+    });
   }
 
   static DateTime _dateOnly(DateTime date) {

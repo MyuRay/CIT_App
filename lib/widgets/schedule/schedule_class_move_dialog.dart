@@ -131,7 +131,7 @@ class _ScheduleClassMoveDialogState extends State<ScheduleClassMoveDialog> {
                 spacing: 8,
                 runSpacing: 4,
                 children: [
-                  for (var period = 1; period <= 10; period++)
+                  for (var period = 1; period <= widget.schedule.periodCount; period++)
                     ChoiceChip(
                       label: Text('$period限'),
                       selected: _period == period,

@@ -369,13 +369,14 @@ class _MenuCardsList extends ConsumerStatefulWidget {
 class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
   final _searchController = TextEditingController();
   String _query = '';
-  String _sortOption = 'recommend_desc';
+  String _sortOption = 'today_desc';
   String _popularityKeys = '';
 
   bool get _sortByFavorites =>
       _sortOption == 'popular_desc' || _sortOption == 'popular_asc';
 
   Future<void> _refresh() async {
+    ref.invalidate(cafeteriaReviewDayProvider);
     await Future.wait([
       ref.refresh(cafeteriaReviewsProvider(widget.cafeteriaId).future),
       ref.refresh(cafeteriaMenuItemsListProvider(widget.cafeteriaId).future),
@@ -464,6 +465,7 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
                       : InAppAdCard(
                         ad: ad!,
                         placement: AdPlacement.cafeteria,
+                        slotIndex: index + 1,
                         margin: EdgeInsets.zero,
                       ),
             );
@@ -482,10 +484,7 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
       );
     }
 
-    // 今日の日付を取得（時間は00:00:00に設定）
-    final today = DateTime.now();
-    final todayStart = DateTime(today.year, today.month, today.day);
-    final todayEnd = todayStart.add(const Duration(days: 1));
+    final day = ref.watch(cafeteriaReviewDayProvider);
 
     for (final review in reviews) {
       final name = (review.menuName ?? '').trim();
@@ -500,8 +499,8 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
       agg.addReview(review);
 
       // 今日のレビューかどうかをチェック
-      if (!review.createdAt.isBefore(todayStart) &&
-          review.createdAt.isBefore(todayEnd)) {
+      if (!review.createdAt.isBefore(day.start) &&
+          review.createdAt.isBefore(day.end)) {
         agg.hasReviewToday = true;
       }
     }
@@ -529,14 +528,22 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
             .where((agg) => q.isEmpty || agg.menuName.toLowerCase().contains(q))
             .toList();
 
-    // Apply the selected ordering to the entire list. Today's reviews remain
-    // visible on each card instead of overriding the selected ranking.
+    final prioritizeToday = _sortOption == 'today_desc';
     final sortByReviewCount = _sortOption == 'review_count_desc';
-    final others = filtered.toList();
+    final todayMenus =
+        prioritizeToday
+            ? filtered.where((menu) => menu.hasReviewToday).toList()
+            : <_MenuAgg>[];
+    final others =
+        filtered
+            .where((menu) => !prioritizeToday || !menu.hasReviewToday)
+            .toList();
 
     // ソートロジック
     int compareMenus(_MenuAgg a, _MenuAgg b) {
-      if (_sortOption == 'recommend_desc' || _sortOption == 'recommend_asc') {
+      if (prioritizeToday ||
+          _sortOption == 'recommend_desc' ||
+          _sortOption == 'recommend_asc') {
         if (a.count == 0 && b.count > 0) return 1;
         if (b.count == 0 && a.count > 0) return -1;
       }
@@ -599,7 +606,48 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
       menus.sort(compareMenus);
     }
 
+    sortMenus(todayMenus);
     sortMenus(others);
+
+    Widget sectionHeader(String label, {bool today = false}) {
+      final colors = Theme.of(context).colorScheme;
+      final foreground =
+          today ? colors.onPrimaryContainer : colors.onSurfaceVariant;
+      return SliverToBoxAdapter(
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color:
+                today
+                    ? colors.primaryContainer
+                    : colors.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: colors.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                today ? Icons.today_outlined : Icons.restaurant_menu,
+                size: 18,
+                color: foreground,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: foreground,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Column(
       children: [
@@ -663,6 +711,10 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
                     value: _sortOption,
                     isExpanded: true,
                     items: const [
+                      DropdownMenuItem(
+                        value: 'today_desc',
+                        child: Text('本日のレビューを優先'),
+                      ),
                       DropdownMenuItem(
                         value: 'recommend_desc',
                         child: Text('おすすめ順（評価が高い順）'),
@@ -767,59 +819,29 @@ class _MenuCardsListState extends ConsumerState<_MenuCardsList> {
                           ),
                           sliver: SliverMainAxisGroup(
                             slivers: [
-                              // その他のメニューセクション
-                              if (others.isNotEmpty) ...[
-                                SliverToBoxAdapter(
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          Theme.of(
-                                            context,
-                                          ).colorScheme.surfaceContainerHighest,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color:
-                                            Theme.of(
-                                              context,
-                                            ).colorScheme.outlineVariant,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.restaurant_menu,
-                                          size: 18,
-                                          color:
-                                              Theme.of(
-                                                context,
-                                              ).colorScheme.onSurfaceVariant,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Flexible(
-                                          child: Text(
-                                            sortByReviewCount
-                                                ? 'レビュー件数順 (${others.length}件)'
-                                                : _sortByFavorites
-                                                ? 'お気に入り人数順 (${others.length}件)'
-                                                : 'メニュー (${others.length}件)',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color:
-                                                  Theme.of(context)
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                              if (todayMenus.isNotEmpty) ...[
+                                sectionHeader(
+                                  '本日レビューされたメニュー (${todayMenus.length}件)',
+                                  today: true,
+                                ),
+                                const SliverToBoxAdapter(
+                                  child: SizedBox(height: 8),
+                                ),
+                                buildMenuRows(todayMenus),
+                                if (others.isNotEmpty)
+                                  const SliverToBoxAdapter(
+                                    child: SizedBox(height: 16),
                                   ),
+                              ],
+                              if (others.isNotEmpty) ...[
+                                sectionHeader(
+                                  sortByReviewCount
+                                      ? 'レビュー件数順 (${others.length}件)'
+                                      : _sortByFavorites
+                                      ? 'お気に入り人数順 (${others.length}件)'
+                                      : todayMenus.isNotEmpty
+                                      ? 'その他のメニュー (${others.length}件)'
+                                      : 'メニュー (${others.length}件)',
                                 ),
                                 const SliverToBoxAdapter(
                                   child: SizedBox(height: 8),

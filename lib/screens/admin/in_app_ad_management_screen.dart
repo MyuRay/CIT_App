@@ -1,3 +1,4 @@
+import 'ad_analytics_screen.dart';
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -84,6 +85,14 @@ class _InAppAdManagementScreenState
       appBar: AppBar(
         title: const Text('広告管理'),
         actions: [
+          IconButton(
+            tooltip: '広告分析',
+            icon: const Icon(Icons.bar_chart),
+            onPressed:
+                () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AdAnalyticsScreen()),
+                ),
+          ),
           IconButton(
             tooltip: '再読み込み',
             onPressed: () => ref.invalidate(inAppAdsStreamProvider),

@@ -1,0 +1,22 @@
+{
+  "note": "Earlier real two-client Flutter UI run (session9580) on same final JS46/backend25 source. Both server finishes passed; ranking UI assertion failed before rendered names became visible. Not a complete E2E pass.",
+  "checksPassed": [
+    "MyPage read-only canonical names",
+    "room creation/code join",
+    "503 disconnect/reconnect",
+    "shared server start",
+    "height-aware traces",
+    "name-change/opponent synchronization",
+    "server-selected checkpoint recovery",
+    "both verified server finishes"
+  ],
+  "serverElapsedMs": [
+    61410,
+    92758
+  ],
+  "recoveryCounts": [
+    0,
+    2
+  ],
+  "completeE2EPassed": false
+}

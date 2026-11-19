@@ -4,8 +4,9 @@ import 'package:flutter/services.dart';
 import '../legal/legal_documents.g.dart';
 
 class AppConstants {
+  static const bool campusBusTimeAttackEnabled = false;
   static const String appName = 'CIT App';
-  static const String appVersion = '2.3.3';
+  static const String appVersion = '2.5.0';
 
   static const String appDescriptionTitle = '千葉工業大学向け大学生活支援アプリ';
   static const String appDescriptionSubtitle = '時間割・掲示板・学食情報などを提供';

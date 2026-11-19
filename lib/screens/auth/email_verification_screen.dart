@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../widgets/auth/email_delivery_help.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
@@ -329,6 +330,8 @@ class _EmailVerificationScreenState
                 ),
               ),
               const SizedBox(height: 24),
+              const EmailDeliveryHelp(),
+              const SizedBox(height: 16),
               // ログアウトボタン
               TextButton(
                 onPressed: () async {

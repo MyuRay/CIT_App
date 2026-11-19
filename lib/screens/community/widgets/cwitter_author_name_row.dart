@@ -23,68 +23,77 @@ class CwitterAuthorNameRow extends StatelessWidget {
   final TextStyle? nameStyle;
   final ValueChanged<String>? onTagTap;
 
+  TextStyle? _resolveNameStyle(ThemeData theme) =>
+      nameStyle ??
+      theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isOfficial = AppConstants.isOfficialCwitterAccount(cwitterId);
-    final resolvedNameStyle =
-        nameStyle ??
-        theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold);
+    final resolvedNameStyle = _resolveNameStyle(theme);
 
     final limitedTags = tags.take(AppConstants.cwitterTagsMaxCount).toList();
 
-    // 表示名・公式タグ・各ハッシュタグを 1 つの Wrap にまとめることで、
-    // 文字サイズの都合でタグが折り返した場合も、2 個目以降が列の左端
-    // （＝ ID と同じ列）から並ぶようにする。
+    final name = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            displayName,
+            style: resolvedNameStyle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (isOfficial) ...[
+          const SizedBox(width: 6),
+          const CwitterOfficialTag(),
+        ],
+      ],
+    );
+    if (limitedTags.isEmpty) return name;
+
+    final tagStrip = SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var index = 0; index < limitedTags.length; index++) ...[
+            if (index > 0) const SizedBox(width: 6),
+            CwitterTagChip(
+              tag: limitedTags[index],
+              compact: compact,
+              onTap:
+                  onTagTap == null ? null : () => onTagTap!(limitedTags[index]),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    // 名前は実際に必要な幅だけ使い、残りをすべてタグに渡す。
+    // 長い名前には上限を設け、タグを折り返さずに表示領域を確保する。
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxNameWidth =
-            constraints.maxWidth.isFinite ? constraints.maxWidth : null;
-        final nameText = Text(
-          displayName,
-          style: resolvedNameStyle,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        );
-
-        return Wrap(
-          spacing: 6,
-          runSpacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
+        if (!constraints.hasBoundedWidth) {
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [name, const SizedBox(width: 6), tagStrip],
+          );
+        }
+        return Row(
           children: [
-            if (isOfficial)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child:
-                        maxNameWidth != null
-                            ? ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxWidth: maxNameWidth,
-                              ),
-                              child: nameText,
-                            )
-                            : nameText,
-                  ),
-                  const SizedBox(width: 6),
-                  const CwitterOfficialTag(),
-                ],
-              )
-            else if (maxNameWidth != null)
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: maxNameWidth),
-                child: nameText,
-              )
-            else
-              nameText,
-            ...limitedTags.map(
-              (tag) => CwitterTagChip(
-                tag: tag,
-                compact: compact,
-                onTap: onTagTap == null ? null : () => onTagTap!(tag),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth:
+                    (constraints.maxWidth - 6).clamp(0.0, double.infinity) *
+                    (isOfficial ? 0.5 : 0.4),
               ),
+              child: name,
             ),
+            const SizedBox(width: 6),
+            Expanded(child: tagStrip),
           ],
         );
       },

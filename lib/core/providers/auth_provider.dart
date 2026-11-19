@@ -268,12 +268,8 @@ class AuthService {
     }
     await user.updateDisplayName(newName);
     await user.reload();
-    // Firestoreのプロフィールも更新（存在しない場合はスキップ）
-    try {
-      await UserService.updateUserProfile(uid: user.uid, displayName: newName);
-    } catch (_) {
-      // Firestore側が未作成のケース等は無視
-    }
+    // 両画面が参照するプロフィールの保存まで完了してから成功を返す。
+    await UserService.updateUserProfile(uid: user.uid, displayName: newName);
   }
 
   // メール認証状態をチェック（ユーザー情報を再読み込み）

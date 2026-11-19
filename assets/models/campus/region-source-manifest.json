@@ -1,0 +1,2558 @@
+{
+  "originAlignment": "Tsudanuma origin inferred from matching existing GLB Site_Base and OSM way55680442. Narashino origin from GLB metadata. See alignment validation.",
+  "terrainSampleAnchors": [
+    {
+      "lonlat": [
+        140.021,
+        35.689
+      ],
+      "altitude": 15.59371634231278
+    },
+    {
+      "lonlat": [
+        140.015,
+        35.662
+      ],
+      "altitude": 5.542914120919306
+    }
+  ],
+  "downloadManifest": {
+    "retrievedAt": "2026-10-04T14:29:30.274406+00:00",
+    "files": [
+      {
+        "file": "photo16-58254-25803.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25803.jpg",
+        "source": "seamlessphoto",
+        "bytes": 22485,
+        "sha256": "fa79b11d7405eda23aed1ce596497a2799ce29de9ed9d58b7587d3237adee4c4"
+      },
+      {
+        "file": "photo16-58254-25804.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25804.jpg",
+        "source": "seamlessphoto",
+        "bytes": 24013,
+        "sha256": "7edf305c2035048dafeccf206cc68fa07a543d0cf8b091767407850c8509162b"
+      },
+      {
+        "file": "photo16-58254-25806.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25806.jpg",
+        "source": "seamlessphoto",
+        "bytes": 18011,
+        "sha256": "6b66d2b961fde17cc76c25afb8cd2e2a2cac8980891567128f502d60060de511"
+      },
+      {
+        "file": "photo16-58254-25807.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25807.jpg",
+        "source": "seamlessphoto",
+        "bytes": 14600,
+        "sha256": "758e947ebfdfb6ee219f0dfd56d0b8e213cb5cbfb472d835d07bcbe7f897c5f0"
+      },
+      {
+        "file": "photo16-58254-25808.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25808.jpg",
+        "source": "seamlessphoto",
+        "bytes": 20139,
+        "sha256": "96de1370dc2ac9949b4c7500296d933d5e8d944991b46a8f3c5c0bd57830e6b1"
+      },
+      {
+        "file": "photo16-58254-25811.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25811.jpg",
+        "source": "seamlessphoto",
+        "bytes": 11010,
+        "sha256": "b66643d887d51ef25ceaf94c269647cceb79470572e61212cd4a3aed07e21b04"
+      },
+      {
+        "file": "photo16-58254-25812.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25812.jpg",
+        "source": "seamlessphoto",
+        "bytes": 6773,
+        "sha256": "ae5d172d81eaf8c6d4da117c05ed987f7710a0c0e8cb5ebf26eacf98613ab231"
+      },
+      {
+        "file": "photo16-58255-25803.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25803.jpg",
+        "source": "seamlessphoto",
+        "bytes": 22901,
+        "sha256": "8ac1edd5316313ad636d527cb486e9e96cdf836601bc4548609080e64276033e"
+      },
+      {
+        "file": "photo16-58255-25804.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25804.jpg",
+        "source": "seamlessphoto",
+        "bytes": 23431,
+        "sha256": "de9258d8b8a3b092690a95312e9ff5edcd1f74efa4de1160f137e85d9ab8d38b"
+      },
+      {
+        "file": "photo16-58255-25805.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25805.jpg",
+        "source": "seamlessphoto",
+        "bytes": 24676,
+        "sha256": "3fb2adc5b93abc9c6457e51e22272f02710ea1a6c0ba8e0ea9b7a10447296c5e"
+      },
+      {
+        "file": "photo16-58255-25807.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25807.jpg",
+        "source": "seamlessphoto",
+        "bytes": 7303,
+        "sha256": "fe524fc3294219569c523bbb677431993318172de1dc55bb9b2dcff9ebd3cba5"
+      },
+      {
+        "file": "photo16-58255-25811.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25811.jpg",
+        "source": "seamlessphoto",
+        "bytes": 14427,
+        "sha256": "71a47afc49e04ee1c97f1305e4a25d9d36474c973755849ccd48fb5737043a0b"
+      },
+      {
+        "file": "photo16-58256-25804.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25804.jpg",
+        "source": "seamlessphoto",
+        "bytes": 21731,
+        "sha256": "2e7a156793e144ff4058d9d7bffbe522e26ec4bcf5f6d0546dcf9b14e48c4608"
+      },
+      {
+        "file": "photo16-58256-25807.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25807.jpg",
+        "source": "seamlessphoto",
+        "bytes": 21452,
+        "sha256": "7d8b4423e552d8ada5b784c02f412026fd58bd83291d5f1344ed5d4813461c00"
+      },
+      {
+        "file": "photo16-58256-25809.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25809.jpg",
+        "source": "seamlessphoto",
+        "bytes": 18921,
+        "sha256": "0f6d21d9760101bf59c54bc73aee92c5fd2fdc6051867b358d2ba84381cde418"
+      },
+      {
+        "file": "photo16-58257-25803.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25803.jpg",
+        "source": "seamlessphoto",
+        "bytes": 22633,
+        "sha256": "2884e5013bb41967f13f40ef4493967d41f7b9329418cf9f72fe8b98d791eb6b"
+      },
+      {
+        "file": "photo16-58257-25806.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25806.jpg",
+        "source": "seamlessphoto",
+        "bytes": 23069,
+        "sha256": "b3adf5cd567811679d45d387cf8774044a26be4fe3133a4359fea4dd9640ad3a"
+      },
+      {
+        "file": "photo16-58257-25807.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25807.jpg",
+        "source": "seamlessphoto",
+        "bytes": 23349,
+        "sha256": "21b1e673fcccbe870f3947b35e8e91c99f7bbd27f69777e8143e11a7ba3445c3"
+      },
+      {
+        "file": "photo16-58257-25808.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25808.jpg",
+        "source": "seamlessphoto",
+        "bytes": 21211,
+        "sha256": "537205c355f03f3567b7ce5e188decb53142f52295a9812641ad39cc7779f535"
+      },
+      {
+        "file": "photo16-58258-25804.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25804.jpg",
+        "source": "seamlessphoto",
+        "bytes": 22164,
+        "sha256": "1bf1d1f11b1ff2d1e3575ac3b12bdc583b6662fad1d3e2cd0a10757250c277c5"
+      },
+      {
+        "file": "photo16-58258-25805.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25805.jpg",
+        "source": "seamlessphoto",
+        "bytes": 22605,
+        "sha256": "c07b8a604242c482425ad272acac9dff1716dd3d5eb98b5488f9ba3d9d887a64"
+      },
+      {
+        "file": "photo16-58258-25807.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25807.jpg",
+        "source": "seamlessphoto",
+        "bytes": 22953,
+        "sha256": "66056950834cb0799c8559feacedb88da823120abe924c0067c98c0db7cb510f"
+      },
+      {
+        "file": "photo16-58258-25810.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25810.jpg",
+        "source": "seamlessphoto",
+        "bytes": 18806,
+        "sha256": "5f3404c8e828739476b7a6091532640e9bb710b0d049f7a68740456a6948d4c1"
+      },
+      {
+        "file": "photo16-58258-25811.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25811.jpg",
+        "source": "seamlessphoto",
+        "bytes": 18354,
+        "sha256": "ab4a2e098288293e0e520268ca8e8e6fc3295e32c7861c3bed72c10f2fc8ffb7"
+      },
+      {
+        "file": "photo16-58259-25803.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25803.jpg",
+        "source": "seamlessphoto",
+        "bytes": 23366,
+        "sha256": "ed702aafadd4346aac8b11bd228fd88c9bb972ade1af03a86b9ec52debbc69df"
+      },
+      {
+        "file": "photo16-58259-25804.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25804.jpg",
+        "source": "seamlessphoto",
+        "bytes": 23304,
+        "sha256": "296ccadc6a08750ce119b9fbc12035cf9996aef5e2abc66d2b0a8b6719694780"
+      },
+      {
+        "file": "photo16-58259-25805.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25805.jpg",
+        "source": "seamlessphoto",
+        "bytes": 23653,
+        "sha256": "5e462bf71da579130562f790baad24cd92f26c8a5b644176b5243a87bdb19cdb"
+      },
+      {
+        "file": "photo16-58259-25806.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25806.jpg",
+        "source": "seamlessphoto",
+        "bytes": 21641,
+        "sha256": "3df1f6357a25308f6b6227ac02ed6583c6d2080486cd80b1e23315409d154f33"
+      },
+      {
+        "file": "photo16-58259-25807.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25807.jpg",
+        "source": "seamlessphoto",
+        "bytes": 23152,
+        "sha256": "f6adcdefa881b30f936fc2bafd62f016798c01b6d41d11d2eabc2e2745706f57"
+      },
+      {
+        "file": "photo16-58259-25808.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25808.jpg",
+        "source": "seamlessphoto",
+        "bytes": 22582,
+        "sha256": "529b2073919f5ac93831b59982c9314f530a37ac160c3f49f32791dc46495a17"
+      },
+      {
+        "file": "photo16-58259-25811.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25811.jpg",
+        "source": "seamlessphoto",
+        "bytes": 18648,
+        "sha256": "2e6a52e4ba2720ea375f8b78be0a2367989e4a9ec351e056d1df45f2ebc4fc06"
+      },
+      {
+        "file": "photo16-58259-25812.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25812.jpg",
+        "source": "seamlessphoto",
+        "bytes": 19056,
+        "sha256": "31b3818f064759d413c9bd9f85787d4654a8e8b909de8ab3ea1ba1d13ca5900a"
+      },
+      {
+        "file": "photo18-233025-103242.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233025/103242.jpg",
+        "source": "seamlessphoto",
+        "bytes": 19022,
+        "sha256": "8bd05f8c44f2a7c0a6558d17ac9bc232fcb23fa4ac4bcb7dbae78d7e3d426b52"
+      },
+      {
+        "file": "photo18-233025-103243.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233025/103243.jpg",
+        "source": "seamlessphoto",
+        "bytes": 15289,
+        "sha256": "48e6899bb1b00675357a5f8cfba42e61ee71997e179184e304437de14179d8ea"
+      },
+      {
+        "file": "photo18-233026-103242.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233026/103242.jpg",
+        "source": "seamlessphoto",
+        "bytes": 12494,
+        "sha256": "e64390d665019d371fff2ea12d9fdc27cf0e93c5a3ccd09c518b5d27d236c42b"
+      },
+      {
+        "file": "photo18-233026-103244.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233026/103244.jpg",
+        "source": "seamlessphoto",
+        "bytes": 17985,
+        "sha256": "e687b9d574776617a89f3c5ab795014fb6db1c9fded77e8322031771210c01b2"
+      },
+      {
+        "file": "photo18-233027-103242.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233027/103242.jpg",
+        "source": "seamlessphoto",
+        "bytes": 16886,
+        "sha256": "871cbf7149c1f9a7f0ff146e3487794465970f5da9a60b1eed17420f5880f980"
+      },
+      {
+        "file": "photo18-233027-103243.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233027/103243.jpg",
+        "source": "seamlessphoto",
+        "bytes": 18003,
+        "sha256": "9c867f0637b36b95a46cd0b98aab35ccbc8fdc6e644bbec51a1e5d4241ca3f89"
+      },
+      {
+        "file": "photo18-233027-103244.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233027/103244.jpg",
+        "source": "seamlessphoto",
+        "bytes": 17189,
+        "sha256": "1c50eb953d04d9607b7f7d1754f48a79794f8019f920f29011bd596e50404fd6"
+      },
+      {
+        "file": "photo18-233027-103245.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233027/103245.jpg",
+        "source": "seamlessphoto",
+        "bytes": 15253,
+        "sha256": "5bc4315d52a644d94b576cf6af520224656b392be41e1bc1cc7665ef9a898346"
+      },
+      {
+        "file": "photo18-233028-103242.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233028/103242.jpg",
+        "source": "seamlessphoto",
+        "bytes": 20581,
+        "sha256": "9282c7e857c70cd404feb29b188b79493d34c06b078ab22140058c52623642e8"
+      },
+      {
+        "file": "photo18-233028-103243.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233028/103243.jpg",
+        "source": "seamlessphoto",
+        "bytes": 17641,
+        "sha256": "32260d92ec94ccd25446ac1c0f36c3a11e470fec0e12e4cb6d3a83b7a428e8ac"
+      },
+      {
+        "file": "photo18-233029-103244.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233029/103244.jpg",
+        "source": "seamlessphoto",
+        "bytes": 16176,
+        "sha256": "d1fedc699beac0970bbc785db6a4e66be1d8943199b06e445301a28bb8827cfb"
+      },
+      {
+        "file": "photo18-233030-103217.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233030/103217.jpg",
+        "source": "seamlessphoto",
+        "bytes": 19551,
+        "sha256": "4b9b5f509241a96d028e4afbc442bdc322ab5d4f95ec8585c08c05f2bf1f5919"
+      },
+      {
+        "file": "photo18-233030-103218.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233030/103218.jpg",
+        "source": "seamlessphoto",
+        "bytes": 17161,
+        "sha256": "63133c693eaf0b91f67446ed4ba0d05c637eda20c62306940517c8699d874e78"
+      },
+      {
+        "file": "photo18-233030-103219.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233030/103219.jpg",
+        "source": "seamlessphoto",
+        "bytes": 16451,
+        "sha256": "73d35e6a3582063e30bb24e98080ad7bce8fe7f09a6a0efa42bc20047ad55ef7"
+      },
+      {
+        "file": "photo18-233030-103220.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233030/103220.jpg",
+        "source": "seamlessphoto",
+        "bytes": 21174,
+        "sha256": "b3781e11f8d808571f74c9191e9a10664e819e834e1e9060d2d7f40b0cbf0216"
+      },
+      {
+        "file": "photo18-233031-103218.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233031/103218.jpg",
+        "source": "seamlessphoto",
+        "bytes": 18426,
+        "sha256": "e4c54536e149dc4f91ff878c071b2b8584eba83d3a8c421b60e36367e3d7581f"
+      },
+      {
+        "file": "photo18-233031-103219.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233031/103219.jpg",
+        "source": "seamlessphoto",
+        "bytes": 15969,
+        "sha256": "f75c3af3fc4fa54c559b75a34b8ea24d415fa29dd95d7d95c12c6e5ee0a76710"
+      },
+      {
+        "file": "photo18-233031-103220.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233031/103220.jpg",
+        "source": "seamlessphoto",
+        "bytes": 18570,
+        "sha256": "0ebb49fe825b583f40d9538ac128d21b4b5ca61e622520350277dffbd20c0f91"
+      },
+      {
+        "file": "photo18-233032-103217.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233032/103217.jpg",
+        "source": "seamlessphoto",
+        "bytes": 20706,
+        "sha256": "5afc01d59fc228246e5660c8d2ee00356f9336a2da241192eb59135f00167426"
+      },
+      {
+        "file": "photo18-233032-103218.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233032/103218.jpg",
+        "source": "seamlessphoto",
+        "bytes": 17715,
+        "sha256": "064abec2c693f5c9e92e425d3dbf3094465a2c0a4a2cadfeb0da68c041c0feb5"
+      },
+      {
+        "file": "photo18-233032-103219.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233032/103219.jpg",
+        "source": "seamlessphoto",
+        "bytes": 16145,
+        "sha256": "90a4d75cac4348287be1334313410fa69cace760e13af7630595a4b8d63f27c7"
+      },
+      {
+        "file": "photo18-233033-103221.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233033/103221.jpg",
+        "source": "seamlessphoto",
+        "bytes": 15696,
+        "sha256": "703bef628f0453b0f75d87e73b37b27c0baf6c6820a5159af4ab27c08ff4fe1b"
+      },
+      {
+        "file": "photo18-233034-103217.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233034/103217.jpg",
+        "source": "seamlessphoto",
+        "bytes": 18453,
+        "sha256": "2feb80ec9f495ffa2fea18b45f6e4046fa960cd11718cbdb3b3ed2a01fad8810"
+      },
+      {
+        "file": "photo18-233034-103218.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233034/103218.jpg",
+        "source": "seamlessphoto",
+        "bytes": 16547,
+        "sha256": "89a9385591bfa198632c165fcc81bbe2864ee0b890b443964d8120d3ac6c4b29"
+      },
+      {
+        "file": "photo18-233034-103219.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233034/103219.jpg",
+        "source": "seamlessphoto",
+        "bytes": 20006,
+        "sha256": "983a546ee79c1d30eddfed053884ee06dde758d2ff2c3ecf1d4a6b205d98f6e0"
+      },
+      {
+        "file": "photo18-233034-103220.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233034/103220.jpg",
+        "source": "seamlessphoto",
+        "bytes": 17956,
+        "sha256": "722174ad35857df3dd83fc2a861c534986fb9d7cf996ff72d54e343c68863770"
+      },
+      {
+        "file": "photo18-233034-103221.jpg",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233034/103221.jpg",
+        "source": "seamlessphoto",
+        "bytes": 18380,
+        "sha256": "e6dd867d8c04d7ed7ed7ed92eaab2d76268c9a1e34b8fafd5f860d3d25219210"
+      },
+      {
+        "file": "route-outward.json",
+        "url": "https://router.project-osrm.org/route/v1/driving/140.021963,35.689748;140.013750,35.663415?overview=full&geometries=geojson&steps=true",
+        "source": "OSRM",
+        "bytes": 9708,
+        "sha256": "f95bbe0d000c7bf87907aee51149aee4bdb682b9821094e8ed8709acc6633eae"
+      },
+      {
+        "file": "route-return.json",
+        "url": "https://router.project-osrm.org/route/v1/driving/140.013750,35.663415;140.021963,35.689748?overview=full&geometries=geojson&steps=true",
+        "source": "OSRM",
+        "bytes": 11788,
+        "sha256": "2ef231828fcf4c78a9a603be026fbb73df62ef08ded660e20d126b6181b8835f"
+      },
+      {
+        "file": "dem14-14563-6451.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14563/6451.png",
+        "source": "dem_png",
+        "z": 14,
+        "x": 14563,
+        "y": 6451,
+        "bytes": 36267,
+        "sha256": "883d5960ac5089b08cc116e7830c11e6a266846a95d2e59675cfbf9a8315d6c2"
+      },
+      {
+        "file": "dem14-14563-6452.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14563/6452.png",
+        "source": "dem_png",
+        "z": 14,
+        "x": 14563,
+        "y": 6452,
+        "bytes": 23481,
+        "sha256": "18b71bc5ca461d0e963b89731dd89ec3574ee0874165fea47bc91cb8f4af287d"
+      },
+      {
+        "file": "dem14-14563-6453.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14563/6453.png",
+        "source": "dem_png",
+        "z": 14,
+        "x": 14563,
+        "y": 6453,
+        "bytes": 4067,
+        "sha256": "8e0c236728e3bd5892c26707ae0605aeb897c7b281b3569daa5580654b208f57"
+      },
+      {
+        "file": "dem14-14564-6450.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14564/6450.png",
+        "source": "dem_png",
+        "z": 14,
+        "x": 14564,
+        "y": 6450,
+        "bytes": 57917,
+        "sha256": "6ad60cf01b06ef8f92560d80ea53aed8ff6e45ec7d4fe1fa9287b179657c99d4"
+      },
+      {
+        "file": "dem14-14564-6451.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14564/6451.png",
+        "source": "dem_png",
+        "z": 14,
+        "x": 14564,
+        "y": 6451,
+        "bytes": 47353,
+        "sha256": "f4a2dec13c3cfded69bae8226efe741d1c8554f75d6bc1d376e5828c72b75572"
+      },
+      {
+        "file": "dem14-14564-6452.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14564/6452.png",
+        "source": "dem_png",
+        "z": 14,
+        "x": 14564,
+        "y": 6452,
+        "bytes": 19704,
+        "sha256": "8233d84bcbfa66fe266b99f823b62e21672c9c3961768a959aeabdd77460f16d"
+      },
+      {
+        "file": "dem14-14564-6453.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14564/6453.png",
+        "source": "dem_png",
+        "z": 14,
+        "x": 14564,
+        "y": 6453,
+        "bytes": 15040,
+        "sha256": "daa511bae4f5960a5a6593a885deea589a031353678e940a4e21695a23e9800d"
+      },
+      {
+        "file": "dem15-29127-12901.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29127/12901.png",
+        "source": "dem5a_png",
+        "z": 15,
+        "x": 29127,
+        "y": 12901,
+        "bytes": 58261,
+        "sha256": "68a1689bbe4af1691387c152cc8cec1f0bd06b1db630cc271dc67169923533be"
+      },
+      {
+        "file": "dem15-29127-12902.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29127/12902.png",
+        "source": "dem5a_png",
+        "z": 15,
+        "x": 29127,
+        "y": 12902,
+        "bytes": 65319,
+        "sha256": "2e9d5c0be0b82f486078d309053ef459d569a2dcf9427867fd01ea96740b2ffd"
+      },
+      {
+        "file": "dem15-29127-12903.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29127/12903.png",
+        "source": "dem5a_png",
+        "z": 15,
+        "x": 29127,
+        "y": 12903,
+        "bytes": 44348,
+        "sha256": "907d604f9e4bba29dc478a395d9804730f5418b8c968316178200e6898f97a68"
+      },
+      {
+        "file": "dem15-29127-12904.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29127/12904.png",
+        "source": "dem5a_png",
+        "z": 15,
+        "x": 29127,
+        "y": 12904,
+        "bytes": 56726,
+        "sha256": "76cc90d53b50832f37959aced5aa933ff65438c0efd0b588031381893686d5f0"
+      },
+      {
+        "file": "dem15-29127-12905.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29127/12905.png",
+        "source": "dem5a_png",
+        "z": 15,
+        "x": 29127,
+        "y": 12905,
+        "bytes": 39811,
+        "sha256": "77b80c3dc69c9273eeb7344e210e819977a7d60d222548f4b671e175c2cf318f"
+      },
+      {
+        "file": "dem15-29127-12906.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29127/12906.png",
+        "source": "dem5a_png",
+        "z": 15,
+        "x": 29127,
+        "y": 12906,
+        "bytes": 6326,
+        "sha256": "925a0cd9f5e1364f2d82db1678a6f39ca6e4f9fd6dc5b1147bf2112c160a7a9b"
+      },
+      {
+        "file": "dem15-29128-12901.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12901.png",
+        "source": "dem5a_png",
+        "z": 15,
+        "x": 29128,
+        "y": 12901,
+        "bytes": 66614,
+        "sha256": "622730490a2ed55f95d29fdcce47704dfcc154ec763eb80ed13d960813bbe31b"
+      },
+      {
+        "file": "dem15-29128-12902.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12902.png",
+        "source": "dem5a_png",
+        "z": 15,
+        "x": 29128,
+        "y": 12902,
+        "bytes": 61939,
+        "sha256": "d1d9a05aaf8362b148e6ccd74846999978d289c5a382bf394c4cd9a71daf959c"
+      },
+      {
+        "file": "dem15-29128-12903.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12903.png",
+        "source": "dem5a_png",
+        "z": 15,
+        "x": 29128,
+        "y": 12903,
+        "bytes": 62533,
+        "sha256": "0f0d4f258c2882d82582b180f93b3015ae57c4dc8adafca173074002d9246385"
+      },
+      {
+        "file": "dem15-29128-12904.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12904.png",
+        "source": "dem5a_png",
+        "z": 15,
+        "x": 29128,
+        "y": 12904,
+        "bytes": 56028,
+        "sha256": "e8f334c2dfb80dd64b7e106916041908a516ac67b66322af042a90a252a3b09f"
+      },
+      {
+        "file": "dem15-29128-12905.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12905.png",
+        "source": "dem5a_png",
+        "z": 15,
+        "x": 29128,
+        "y": 12905,
+        "bytes": 56060,
+        "sha256": "86edc2cbfa6660b8a155146c6e4966474335c04d9f8533eb9f0bcf48ee9a6546"
+      },
+      {
+        "file": "dem15-29128-12906.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12906.png",
+        "source": "dem5a_png",
+        "z": 15,
+        "x": 29128,
+        "y": 12906,
+        "bytes": 14947,
+        "sha256": "091c2d2a0483cb56fe0de76f3f8ddbeb950f50879e7adc9ab6aa54aa92e239e7"
+      },
+      {
+        "file": "dem15-29129-12901.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12901.png",
+        "source": "dem5a_png",
+        "z": 15,
+        "x": 29129,
+        "y": 12901,
+        "bytes": 61822,
+        "sha256": "b31b5b0167294d827cba3875272f19bddd32d19354b46106a15654eb309ffb1d"
+      },
+      {
+        "file": "dem15-29129-12902.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12902.png",
+        "source": "dem5a_png",
+        "z": 15,
+        "x": 29129,
+        "y": 12902,
+        "bytes": 63682,
+        "sha256": "2a4dc838e4a24327c1613e6fbb6a87514e87d56b0c1879af6388b0c044bb0cda"
+      },
+      {
+        "file": "dem15-29129-12903.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12903.png",
+        "source": "dem5a_png",
+        "z": 15,
+        "x": 29129,
+        "y": 12903,
+        "bytes": 66027,
+        "sha256": "50f2076d0fb0d0c54e3279b4c18987bf42d69c70a3b04975e922bc758c6c6fc9"
+      },
+      {
+        "file": "dem15-29129-12904.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12904.png",
+        "source": "dem5a_png",
+        "z": 15,
+        "x": 29129,
+        "y": 12904,
+        "bytes": 59742,
+        "sha256": "a6f6914ae346077e4a59d1ed86a17e32933e53ae0d100d42661a78e24d0b5d78"
+      },
+      {
+        "file": "dem15-29129-12905.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12905.png",
+        "source": "dem5a_png",
+        "z": 15,
+        "x": 29129,
+        "y": 12905,
+        "bytes": 59521,
+        "sha256": "6a9943094ec44c36edb73e16d998c08d0430f1185f8914a31827260cfcf77396"
+      },
+      {
+        "file": "dem15-29129-12906.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12906.png",
+        "source": "dem5a_png",
+        "z": 15,
+        "x": 29129,
+        "y": 12906,
+        "bytes": 52896,
+        "sha256": "39f1a7b0e399588e4261fe93327751216cbcdd5ae2a09532b31d6a3b0d673f80"
+      },
+      {
+        "file": "dem5b15-29127-12903.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29127/12903.png",
+        "source": "dem5b_png",
+        "z": 15,
+        "x": 29127,
+        "y": 12903,
+        "bytes": 7778,
+        "sha256": "5a3c0c5d64aa3bbb759007ce5d9367090cee0210b91ec640516551247bc1dcc5"
+      },
+      {
+        "file": "dem5b15-29127-12904.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29127/12904.png",
+        "source": "dem5b_png",
+        "z": 15,
+        "x": 29127,
+        "y": 12904,
+        "bytes": 10593,
+        "sha256": "e96ea35e96f347a5af3674b48eba3a94aef42f71d7e76c95291f0a2d3b612282"
+      },
+      {
+        "file": "dem5b15-29127-12905.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29127/12905.png",
+        "source": "dem5b_png",
+        "z": 15,
+        "x": 29127,
+        "y": 12905,
+        "bytes": 39811,
+        "sha256": "9a9df64465af247f52491abdfec80f5d5882f58cb0963277cf6f1beb74884c29"
+      },
+      {
+        "file": "dem5b15-29127-12906.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29127/12906.png",
+        "source": "dem5b_png",
+        "z": 15,
+        "x": 29127,
+        "y": 12906,
+        "bytes": 6326,
+        "sha256": "925a0cd9f5e1364f2d82db1678a6f39ca6e4f9fd6dc5b1147bf2112c160a7a9b"
+      },
+      {
+        "file": "dem5b15-29128-12904.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29128/12904.png",
+        "source": "dem5b_png",
+        "z": 15,
+        "x": 29128,
+        "y": 12904,
+        "bytes": 1768,
+        "sha256": "01e4f6a8a94b40b10aa4bf3307c3fa28cc7a77803194756d5d25e9dbe6290f0f"
+      },
+      {
+        "file": "dem5b15-29128-12905.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29128/12905.png",
+        "source": "dem5b_png",
+        "z": 15,
+        "x": 29128,
+        "y": 12905,
+        "bytes": 20544,
+        "sha256": "5ce66ecc906e16fe910d3732f33b13e784095b2bbc8b68a36f4e749837e91f22"
+      },
+      {
+        "file": "dem5b15-29128-12906.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29128/12906.png",
+        "source": "dem5b_png",
+        "z": 15,
+        "x": 29128,
+        "y": 12906,
+        "bytes": 14947,
+        "sha256": "e591ddda3583ca0b03bfa8a97f8e8e23ccee4e613829d9b4abab7318aa7dc840"
+      },
+      {
+        "file": "dem5b15-29129-12905.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29129/12905.png",
+        "source": "dem5b_png",
+        "z": 15,
+        "x": 29129,
+        "y": 12905,
+        "bytes": 3880,
+        "sha256": "b981edb8253580b05f36e5da33e7720969a0a8149ba5ac002ae20a334eb6d9df"
+      },
+      {
+        "file": "dem5b15-29129-12906.png",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29129/12906.png",
+        "source": "dem5b_png",
+        "z": 15,
+        "x": 29129,
+        "y": 12906,
+        "bytes": 29030,
+        "sha256": "2d92f3793f1341fe5b57a789c0fd651545fed20d344cbcc47e1b41fa23cacb05"
+      }
+    ],
+    "failures": [
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25805.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25809.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25810.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25806.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25808.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25809.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25810.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25812.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25803.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25805.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25806.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25808.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25810.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25811.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25812.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25804.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25805.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25809.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25810.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25811.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25812.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25803.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25806.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25808.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25809.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25812.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25809.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25810.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233030/103221.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233031/103217.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233031/103221.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233032/103220.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233032/103221.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233033/103217.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233033/103218.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233033/103220.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233033/103219.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233025/103244.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233025/103245.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233025/103246.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233026/103243.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233026/103245.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233026/103246.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233027/103246.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233028/103244.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233028/103245.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233028/103246.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233029/103242.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233029/103245.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233029/103246.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233029/103243.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      }
+    ]
+  },
+  "osm": {
+    "timestamp": "2026-10-04T12:53:21Z",
+    "license": "ODbL 1.0",
+    "source": "https://overpass-api.de/api/interpreter",
+    "bbox": [
+      140.003,
+      35.656,
+      140.028,
+      35.694
+    ]
+  },
+  "licenseLinks": [
+    "https://maps.gsi.go.jp/development/ichiran.html",
+    "https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html",
+    "https://www.openstreetmap.org/copyright"
+  ],
+  "accuracyNotes": [
+    "DEM is ground elevation, not bridge deck or roof height.",
+    "Road width estimates are marked per feature.",
+    "Context building heights are measured only when OSM height is present, otherwise estimated.",
+    "Original campus building heights and facade layouts retain existing estimate notes.",
+    "OSRM routes are independent outward/return candidates, not legal driving instructions.",
+    "Complete source coverage does not remove DEM resampling, 20m render grid, OSM geometry, bridge-deck estimates, or inferred campus facade/height limitations."
+  ],
+  "actualDownloadedFiles": [
+    {
+      "file": "photo16-58254-25803.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25803.jpg",
+      "source": "seamlessphoto",
+      "bytes": 22485,
+      "sha256": "fa79b11d7405eda23aed1ce596497a2799ce29de9ed9d58b7587d3237adee4c4"
+    },
+    {
+      "file": "photo16-58254-25804.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25804.jpg",
+      "source": "seamlessphoto",
+      "bytes": 24013,
+      "sha256": "7edf305c2035048dafeccf206cc68fa07a543d0cf8b091767407850c8509162b"
+    },
+    {
+      "file": "photo16-58254-25806.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25806.jpg",
+      "source": "seamlessphoto",
+      "bytes": 18011,
+      "sha256": "6b66d2b961fde17cc76c25afb8cd2e2a2cac8980891567128f502d60060de511"
+    },
+    {
+      "file": "photo16-58254-25807.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25807.jpg",
+      "source": "seamlessphoto",
+      "bytes": 14600,
+      "sha256": "758e947ebfdfb6ee219f0dfd56d0b8e213cb5cbfb472d835d07bcbe7f897c5f0"
+    },
+    {
+      "file": "photo16-58254-25808.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25808.jpg",
+      "source": "seamlessphoto",
+      "bytes": 20139,
+      "sha256": "96de1370dc2ac9949b4c7500296d933d5e8d944991b46a8f3c5c0bd57830e6b1"
+    },
+    {
+      "file": "photo16-58254-25811.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25811.jpg",
+      "source": "seamlessphoto",
+      "bytes": 11010,
+      "sha256": "b66643d887d51ef25ceaf94c269647cceb79470572e61212cd4a3aed07e21b04"
+    },
+    {
+      "file": "photo16-58254-25812.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25812.jpg",
+      "source": "seamlessphoto",
+      "bytes": 6773,
+      "sha256": "ae5d172d81eaf8c6d4da117c05ed987f7710a0c0e8cb5ebf26eacf98613ab231"
+    },
+    {
+      "file": "photo16-58255-25803.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25803.jpg",
+      "source": "seamlessphoto",
+      "bytes": 22901,
+      "sha256": "8ac1edd5316313ad636d527cb486e9e96cdf836601bc4548609080e64276033e"
+    },
+    {
+      "file": "photo16-58255-25804.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25804.jpg",
+      "source": "seamlessphoto",
+      "bytes": 23431,
+      "sha256": "de9258d8b8a3b092690a95312e9ff5edcd1f74efa4de1160f137e85d9ab8d38b"
+    },
+    {
+      "file": "photo16-58255-25805.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25805.jpg",
+      "source": "seamlessphoto",
+      "bytes": 24676,
+      "sha256": "3fb2adc5b93abc9c6457e51e22272f02710ea1a6c0ba8e0ea9b7a10447296c5e"
+    },
+    {
+      "file": "photo16-58255-25807.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25807.jpg",
+      "source": "seamlessphoto",
+      "bytes": 7303,
+      "sha256": "fe524fc3294219569c523bbb677431993318172de1dc55bb9b2dcff9ebd3cba5"
+    },
+    {
+      "file": "photo16-58255-25811.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25811.jpg",
+      "source": "seamlessphoto",
+      "bytes": 14427,
+      "sha256": "71a47afc49e04ee1c97f1305e4a25d9d36474c973755849ccd48fb5737043a0b"
+    },
+    {
+      "file": "photo16-58256-25804.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25804.jpg",
+      "source": "seamlessphoto",
+      "bytes": 21731,
+      "sha256": "2e7a156793e144ff4058d9d7bffbe522e26ec4bcf5f6d0546dcf9b14e48c4608"
+    },
+    {
+      "file": "photo16-58256-25807.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25807.jpg",
+      "source": "seamlessphoto",
+      "bytes": 21452,
+      "sha256": "7d8b4423e552d8ada5b784c02f412026fd58bd83291d5f1344ed5d4813461c00"
+    },
+    {
+      "file": "photo16-58256-25809.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25809.jpg",
+      "source": "seamlessphoto",
+      "bytes": 18921,
+      "sha256": "0f6d21d9760101bf59c54bc73aee92c5fd2fdc6051867b358d2ba84381cde418"
+    },
+    {
+      "file": "photo16-58257-25803.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25803.jpg",
+      "source": "seamlessphoto",
+      "bytes": 22633,
+      "sha256": "2884e5013bb41967f13f40ef4493967d41f7b9329418cf9f72fe8b98d791eb6b"
+    },
+    {
+      "file": "photo16-58257-25806.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25806.jpg",
+      "source": "seamlessphoto",
+      "bytes": 23069,
+      "sha256": "b3adf5cd567811679d45d387cf8774044a26be4fe3133a4359fea4dd9640ad3a"
+    },
+    {
+      "file": "photo16-58257-25807.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25807.jpg",
+      "source": "seamlessphoto",
+      "bytes": 23349,
+      "sha256": "21b1e673fcccbe870f3947b35e8e91c99f7bbd27f69777e8143e11a7ba3445c3"
+    },
+    {
+      "file": "photo16-58257-25808.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25808.jpg",
+      "source": "seamlessphoto",
+      "bytes": 21211,
+      "sha256": "537205c355f03f3567b7ce5e188decb53142f52295a9812641ad39cc7779f535"
+    },
+    {
+      "file": "photo16-58258-25804.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25804.jpg",
+      "source": "seamlessphoto",
+      "bytes": 22164,
+      "sha256": "1bf1d1f11b1ff2d1e3575ac3b12bdc583b6662fad1d3e2cd0a10757250c277c5"
+    },
+    {
+      "file": "photo16-58258-25805.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25805.jpg",
+      "source": "seamlessphoto",
+      "bytes": 22605,
+      "sha256": "c07b8a604242c482425ad272acac9dff1716dd3d5eb98b5488f9ba3d9d887a64"
+    },
+    {
+      "file": "photo16-58258-25807.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25807.jpg",
+      "source": "seamlessphoto",
+      "bytes": 22953,
+      "sha256": "66056950834cb0799c8559feacedb88da823120abe924c0067c98c0db7cb510f"
+    },
+    {
+      "file": "photo16-58258-25810.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25810.jpg",
+      "source": "seamlessphoto",
+      "bytes": 18806,
+      "sha256": "5f3404c8e828739476b7a6091532640e9bb710b0d049f7a68740456a6948d4c1"
+    },
+    {
+      "file": "photo16-58258-25811.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25811.jpg",
+      "source": "seamlessphoto",
+      "bytes": 18354,
+      "sha256": "ab4a2e098288293e0e520268ca8e8e6fc3295e32c7861c3bed72c10f2fc8ffb7"
+    },
+    {
+      "file": "photo16-58259-25803.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25803.jpg",
+      "source": "seamlessphoto",
+      "bytes": 23366,
+      "sha256": "ed702aafadd4346aac8b11bd228fd88c9bb972ade1af03a86b9ec52debbc69df"
+    },
+    {
+      "file": "photo16-58259-25804.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25804.jpg",
+      "source": "seamlessphoto",
+      "bytes": 23304,
+      "sha256": "296ccadc6a08750ce119b9fbc12035cf9996aef5e2abc66d2b0a8b6719694780"
+    },
+    {
+      "file": "photo16-58259-25805.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25805.jpg",
+      "source": "seamlessphoto",
+      "bytes": 23653,
+      "sha256": "5e462bf71da579130562f790baad24cd92f26c8a5b644176b5243a87bdb19cdb"
+    },
+    {
+      "file": "photo16-58259-25806.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25806.jpg",
+      "source": "seamlessphoto",
+      "bytes": 21641,
+      "sha256": "3df1f6357a25308f6b6227ac02ed6583c6d2080486cd80b1e23315409d154f33"
+    },
+    {
+      "file": "photo16-58259-25807.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25807.jpg",
+      "source": "seamlessphoto",
+      "bytes": 23152,
+      "sha256": "f6adcdefa881b30f936fc2bafd62f016798c01b6d41d11d2eabc2e2745706f57"
+    },
+    {
+      "file": "photo16-58259-25808.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25808.jpg",
+      "source": "seamlessphoto",
+      "bytes": 22582,
+      "sha256": "529b2073919f5ac93831b59982c9314f530a37ac160c3f49f32791dc46495a17"
+    },
+    {
+      "file": "photo16-58259-25811.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25811.jpg",
+      "source": "seamlessphoto",
+      "bytes": 18648,
+      "sha256": "2e6a52e4ba2720ea375f8b78be0a2367989e4a9ec351e056d1df45f2ebc4fc06"
+    },
+    {
+      "file": "photo16-58259-25812.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25812.jpg",
+      "source": "seamlessphoto",
+      "bytes": 19056,
+      "sha256": "31b3818f064759d413c9bd9f85787d4654a8e8b909de8ab3ea1ba1d13ca5900a"
+    },
+    {
+      "file": "photo18-233025-103242.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233025/103242.jpg",
+      "source": "seamlessphoto",
+      "bytes": 19022,
+      "sha256": "8bd05f8c44f2a7c0a6558d17ac9bc232fcb23fa4ac4bcb7dbae78d7e3d426b52"
+    },
+    {
+      "file": "photo18-233025-103243.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233025/103243.jpg",
+      "source": "seamlessphoto",
+      "bytes": 15289,
+      "sha256": "48e6899bb1b00675357a5f8cfba42e61ee71997e179184e304437de14179d8ea"
+    },
+    {
+      "file": "photo18-233026-103242.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233026/103242.jpg",
+      "source": "seamlessphoto",
+      "bytes": 12494,
+      "sha256": "e64390d665019d371fff2ea12d9fdc27cf0e93c5a3ccd09c518b5d27d236c42b"
+    },
+    {
+      "file": "photo18-233026-103244.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233026/103244.jpg",
+      "source": "seamlessphoto",
+      "bytes": 17985,
+      "sha256": "e687b9d574776617a89f3c5ab795014fb6db1c9fded77e8322031771210c01b2"
+    },
+    {
+      "file": "photo18-233027-103242.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233027/103242.jpg",
+      "source": "seamlessphoto",
+      "bytes": 16886,
+      "sha256": "871cbf7149c1f9a7f0ff146e3487794465970f5da9a60b1eed17420f5880f980"
+    },
+    {
+      "file": "photo18-233027-103243.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233027/103243.jpg",
+      "source": "seamlessphoto",
+      "bytes": 18003,
+      "sha256": "9c867f0637b36b95a46cd0b98aab35ccbc8fdc6e644bbec51a1e5d4241ca3f89"
+    },
+    {
+      "file": "photo18-233027-103244.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233027/103244.jpg",
+      "source": "seamlessphoto",
+      "bytes": 17189,
+      "sha256": "1c50eb953d04d9607b7f7d1754f48a79794f8019f920f29011bd596e50404fd6"
+    },
+    {
+      "file": "photo18-233027-103245.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233027/103245.jpg",
+      "source": "seamlessphoto",
+      "bytes": 15253,
+      "sha256": "5bc4315d52a644d94b576cf6af520224656b392be41e1bc1cc7665ef9a898346"
+    },
+    {
+      "file": "photo18-233028-103242.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233028/103242.jpg",
+      "source": "seamlessphoto",
+      "bytes": 20581,
+      "sha256": "9282c7e857c70cd404feb29b188b79493d34c06b078ab22140058c52623642e8"
+    },
+    {
+      "file": "photo18-233028-103243.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233028/103243.jpg",
+      "source": "seamlessphoto",
+      "bytes": 17641,
+      "sha256": "32260d92ec94ccd25446ac1c0f36c3a11e470fec0e12e4cb6d3a83b7a428e8ac"
+    },
+    {
+      "file": "photo18-233029-103244.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233029/103244.jpg",
+      "source": "seamlessphoto",
+      "bytes": 16176,
+      "sha256": "d1fedc699beac0970bbc785db6a4e66be1d8943199b06e445301a28bb8827cfb"
+    },
+    {
+      "file": "photo18-233030-103217.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233030/103217.jpg",
+      "source": "seamlessphoto",
+      "bytes": 19551,
+      "sha256": "4b9b5f509241a96d028e4afbc442bdc322ab5d4f95ec8585c08c05f2bf1f5919"
+    },
+    {
+      "file": "photo18-233030-103218.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233030/103218.jpg",
+      "source": "seamlessphoto",
+      "bytes": 17161,
+      "sha256": "63133c693eaf0b91f67446ed4ba0d05c637eda20c62306940517c8699d874e78"
+    },
+    {
+      "file": "photo18-233030-103219.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233030/103219.jpg",
+      "source": "seamlessphoto",
+      "bytes": 16451,
+      "sha256": "73d35e6a3582063e30bb24e98080ad7bce8fe7f09a6a0efa42bc20047ad55ef7"
+    },
+    {
+      "file": "photo18-233030-103220.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233030/103220.jpg",
+      "source": "seamlessphoto",
+      "bytes": 21174,
+      "sha256": "b3781e11f8d808571f74c9191e9a10664e819e834e1e9060d2d7f40b0cbf0216"
+    },
+    {
+      "file": "photo18-233031-103218.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233031/103218.jpg",
+      "source": "seamlessphoto",
+      "bytes": 18426,
+      "sha256": "e4c54536e149dc4f91ff878c071b2b8584eba83d3a8c421b60e36367e3d7581f"
+    },
+    {
+      "file": "photo18-233031-103219.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233031/103219.jpg",
+      "source": "seamlessphoto",
+      "bytes": 15969,
+      "sha256": "f75c3af3fc4fa54c559b75a34b8ea24d415fa29dd95d7d95c12c6e5ee0a76710"
+    },
+    {
+      "file": "photo18-233031-103220.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233031/103220.jpg",
+      "source": "seamlessphoto",
+      "bytes": 18570,
+      "sha256": "0ebb49fe825b583f40d9538ac128d21b4b5ca61e622520350277dffbd20c0f91"
+    },
+    {
+      "file": "photo18-233032-103217.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233032/103217.jpg",
+      "source": "seamlessphoto",
+      "bytes": 20706,
+      "sha256": "5afc01d59fc228246e5660c8d2ee00356f9336a2da241192eb59135f00167426"
+    },
+    {
+      "file": "photo18-233032-103218.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233032/103218.jpg",
+      "source": "seamlessphoto",
+      "bytes": 17715,
+      "sha256": "064abec2c693f5c9e92e425d3dbf3094465a2c0a4a2cadfeb0da68c041c0feb5"
+    },
+    {
+      "file": "photo18-233032-103219.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233032/103219.jpg",
+      "source": "seamlessphoto",
+      "bytes": 16145,
+      "sha256": "90a4d75cac4348287be1334313410fa69cace760e13af7630595a4b8d63f27c7"
+    },
+    {
+      "file": "photo18-233033-103221.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233033/103221.jpg",
+      "source": "seamlessphoto",
+      "bytes": 15696,
+      "sha256": "703bef628f0453b0f75d87e73b37b27c0baf6c6820a5159af4ab27c08ff4fe1b"
+    },
+    {
+      "file": "photo18-233034-103217.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233034/103217.jpg",
+      "source": "seamlessphoto",
+      "bytes": 18453,
+      "sha256": "2feb80ec9f495ffa2fea18b45f6e4046fa960cd11718cbdb3b3ed2a01fad8810"
+    },
+    {
+      "file": "photo18-233034-103218.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233034/103218.jpg",
+      "source": "seamlessphoto",
+      "bytes": 16547,
+      "sha256": "89a9385591bfa198632c165fcc81bbe2864ee0b890b443964d8120d3ac6c4b29"
+    },
+    {
+      "file": "photo18-233034-103219.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233034/103219.jpg",
+      "source": "seamlessphoto",
+      "bytes": 20006,
+      "sha256": "983a546ee79c1d30eddfed053884ee06dde758d2ff2c3ecf1d4a6b205d98f6e0"
+    },
+    {
+      "file": "photo18-233034-103220.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233034/103220.jpg",
+      "source": "seamlessphoto",
+      "bytes": 17956,
+      "sha256": "722174ad35857df3dd83fc2a861c534986fb9d7cf996ff72d54e343c68863770"
+    },
+    {
+      "file": "photo18-233034-103221.jpg",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233034/103221.jpg",
+      "source": "seamlessphoto",
+      "bytes": 18380,
+      "sha256": "e6dd867d8c04d7ed7ed7ed92eaab2d76268c9a1e34b8fafd5f860d3d25219210"
+    },
+    {
+      "file": "route-outward.json",
+      "url": "https://router.project-osrm.org/route/v1/driving/140.021963,35.689748;140.013750,35.663415?overview=full&geometries=geojson&steps=true",
+      "source": "OSRM",
+      "bytes": 9708,
+      "sha256": "f95bbe0d000c7bf87907aee51149aee4bdb682b9821094e8ed8709acc6633eae"
+    },
+    {
+      "file": "route-return.json",
+      "url": "https://router.project-osrm.org/route/v1/driving/140.013750,35.663415;140.021963,35.689748?overview=full&geometries=geojson&steps=true",
+      "source": "OSRM",
+      "bytes": 11788,
+      "sha256": "2ef231828fcf4c78a9a603be026fbb73df62ef08ded660e20d126b6181b8835f"
+    },
+    {
+      "file": "dem14-14563-6451.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14563/6451.png",
+      "source": "dem_png",
+      "z": 14,
+      "x": 14563,
+      "y": 6451,
+      "bytes": 36267,
+      "sha256": "883d5960ac5089b08cc116e7830c11e6a266846a95d2e59675cfbf9a8315d6c2"
+    },
+    {
+      "file": "dem14-14563-6452.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14563/6452.png",
+      "source": "dem_png",
+      "z": 14,
+      "x": 14563,
+      "y": 6452,
+      "bytes": 23481,
+      "sha256": "18b71bc5ca461d0e963b89731dd89ec3574ee0874165fea47bc91cb8f4af287d"
+    },
+    {
+      "file": "dem14-14563-6453.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14563/6453.png",
+      "source": "dem_png",
+      "z": 14,
+      "x": 14563,
+      "y": 6453,
+      "bytes": 4067,
+      "sha256": "8e0c236728e3bd5892c26707ae0605aeb897c7b281b3569daa5580654b208f57"
+    },
+    {
+      "file": "dem14-14564-6450.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14564/6450.png",
+      "source": "dem_png",
+      "z": 14,
+      "x": 14564,
+      "y": 6450,
+      "bytes": 57917,
+      "sha256": "6ad60cf01b06ef8f92560d80ea53aed8ff6e45ec7d4fe1fa9287b179657c99d4"
+    },
+    {
+      "file": "dem14-14564-6451.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14564/6451.png",
+      "source": "dem_png",
+      "z": 14,
+      "x": 14564,
+      "y": 6451,
+      "bytes": 47353,
+      "sha256": "f4a2dec13c3cfded69bae8226efe741d1c8554f75d6bc1d376e5828c72b75572"
+    },
+    {
+      "file": "dem14-14564-6452.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14564/6452.png",
+      "source": "dem_png",
+      "z": 14,
+      "x": 14564,
+      "y": 6452,
+      "bytes": 19704,
+      "sha256": "8233d84bcbfa66fe266b99f823b62e21672c9c3961768a959aeabdd77460f16d"
+    },
+    {
+      "file": "dem14-14564-6453.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14564/6453.png",
+      "source": "dem_png",
+      "z": 14,
+      "x": 14564,
+      "y": 6453,
+      "bytes": 15040,
+      "sha256": "daa511bae4f5960a5a6593a885deea589a031353678e940a4e21695a23e9800d"
+    },
+    {
+      "file": "dem15-29127-12901.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29127/12901.png",
+      "source": "dem5a_png",
+      "z": 15,
+      "x": 29127,
+      "y": 12901,
+      "bytes": 58261,
+      "sha256": "68a1689bbe4af1691387c152cc8cec1f0bd06b1db630cc271dc67169923533be"
+    },
+    {
+      "file": "dem15-29127-12902.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29127/12902.png",
+      "source": "dem5a_png",
+      "z": 15,
+      "x": 29127,
+      "y": 12902,
+      "bytes": 65319,
+      "sha256": "2e9d5c0be0b82f486078d309053ef459d569a2dcf9427867fd01ea96740b2ffd"
+    },
+    {
+      "file": "dem15-29127-12903.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29127/12903.png",
+      "source": "dem5a_png",
+      "z": 15,
+      "x": 29127,
+      "y": 12903,
+      "bytes": 44348,
+      "sha256": "907d604f9e4bba29dc478a395d9804730f5418b8c968316178200e6898f97a68"
+    },
+    {
+      "file": "dem15-29127-12904.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29127/12904.png",
+      "source": "dem5a_png",
+      "z": 15,
+      "x": 29127,
+      "y": 12904,
+      "bytes": 56726,
+      "sha256": "76cc90d53b50832f37959aced5aa933ff65438c0efd0b588031381893686d5f0"
+    },
+    {
+      "file": "dem15-29127-12905.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29127/12905.png",
+      "source": "dem5a_png",
+      "z": 15,
+      "x": 29127,
+      "y": 12905,
+      "bytes": 39811,
+      "sha256": "77b80c3dc69c9273eeb7344e210e819977a7d60d222548f4b671e175c2cf318f"
+    },
+    {
+      "file": "dem15-29127-12906.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29127/12906.png",
+      "source": "dem5a_png",
+      "z": 15,
+      "x": 29127,
+      "y": 12906,
+      "bytes": 6326,
+      "sha256": "925a0cd9f5e1364f2d82db1678a6f39ca6e4f9fd6dc5b1147bf2112c160a7a9b"
+    },
+    {
+      "file": "dem15-29128-12901.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12901.png",
+      "source": "dem5a_png",
+      "z": 15,
+      "x": 29128,
+      "y": 12901,
+      "bytes": 66614,
+      "sha256": "622730490a2ed55f95d29fdcce47704dfcc154ec763eb80ed13d960813bbe31b"
+    },
+    {
+      "file": "dem15-29128-12902.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12902.png",
+      "source": "dem5a_png",
+      "z": 15,
+      "x": 29128,
+      "y": 12902,
+      "bytes": 61939,
+      "sha256": "d1d9a05aaf8362b148e6ccd74846999978d289c5a382bf394c4cd9a71daf959c"
+    },
+    {
+      "file": "dem15-29128-12903.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12903.png",
+      "source": "dem5a_png",
+      "z": 15,
+      "x": 29128,
+      "y": 12903,
+      "bytes": 62533,
+      "sha256": "0f0d4f258c2882d82582b180f93b3015ae57c4dc8adafca173074002d9246385"
+    },
+    {
+      "file": "dem15-29128-12904.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12904.png",
+      "source": "dem5a_png",
+      "z": 15,
+      "x": 29128,
+      "y": 12904,
+      "bytes": 56028,
+      "sha256": "e8f334c2dfb80dd64b7e106916041908a516ac67b66322af042a90a252a3b09f"
+    },
+    {
+      "file": "dem15-29128-12905.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12905.png",
+      "source": "dem5a_png",
+      "z": 15,
+      "x": 29128,
+      "y": 12905,
+      "bytes": 56060,
+      "sha256": "86edc2cbfa6660b8a155146c6e4966474335c04d9f8533eb9f0bcf48ee9a6546"
+    },
+    {
+      "file": "dem15-29128-12906.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12906.png",
+      "source": "dem5a_png",
+      "z": 15,
+      "x": 29128,
+      "y": 12906,
+      "bytes": 14947,
+      "sha256": "091c2d2a0483cb56fe0de76f3f8ddbeb950f50879e7adc9ab6aa54aa92e239e7"
+    },
+    {
+      "file": "dem15-29129-12901.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12901.png",
+      "source": "dem5a_png",
+      "z": 15,
+      "x": 29129,
+      "y": 12901,
+      "bytes": 61822,
+      "sha256": "b31b5b0167294d827cba3875272f19bddd32d19354b46106a15654eb309ffb1d"
+    },
+    {
+      "file": "dem15-29129-12902.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12902.png",
+      "source": "dem5a_png",
+      "z": 15,
+      "x": 29129,
+      "y": 12902,
+      "bytes": 63682,
+      "sha256": "2a4dc838e4a24327c1613e6fbb6a87514e87d56b0c1879af6388b0c044bb0cda"
+    },
+    {
+      "file": "dem15-29129-12903.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12903.png",
+      "source": "dem5a_png",
+      "z": 15,
+      "x": 29129,
+      "y": 12903,
+      "bytes": 66027,
+      "sha256": "50f2076d0fb0d0c54e3279b4c18987bf42d69c70a3b04975e922bc758c6c6fc9"
+    },
+    {
+      "file": "dem15-29129-12904.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12904.png",
+      "source": "dem5a_png",
+      "z": 15,
+      "x": 29129,
+      "y": 12904,
+      "bytes": 59742,
+      "sha256": "a6f6914ae346077e4a59d1ed86a17e32933e53ae0d100d42661a78e24d0b5d78"
+    },
+    {
+      "file": "dem15-29129-12905.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12905.png",
+      "source": "dem5a_png",
+      "z": 15,
+      "x": 29129,
+      "y": 12905,
+      "bytes": 59521,
+      "sha256": "6a9943094ec44c36edb73e16d998c08d0430f1185f8914a31827260cfcf77396"
+    },
+    {
+      "file": "dem15-29129-12906.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12906.png",
+      "source": "dem5a_png",
+      "z": 15,
+      "x": 29129,
+      "y": 12906,
+      "bytes": 52896,
+      "sha256": "39f1a7b0e399588e4261fe93327751216cbcdd5ae2a09532b31d6a3b0d673f80"
+    },
+    {
+      "file": "dem5b15-29127-12903.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29127/12903.png",
+      "source": "dem5b_png",
+      "z": 15,
+      "x": 29127,
+      "y": 12903,
+      "bytes": 7778,
+      "sha256": "5a3c0c5d64aa3bbb759007ce5d9367090cee0210b91ec640516551247bc1dcc5"
+    },
+    {
+      "file": "dem5b15-29127-12904.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29127/12904.png",
+      "source": "dem5b_png",
+      "z": 15,
+      "x": 29127,
+      "y": 12904,
+      "bytes": 10593,
+      "sha256": "e96ea35e96f347a5af3674b48eba3a94aef42f71d7e76c95291f0a2d3b612282"
+    },
+    {
+      "file": "dem5b15-29127-12905.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29127/12905.png",
+      "source": "dem5b_png",
+      "z": 15,
+      "x": 29127,
+      "y": 12905,
+      "bytes": 39811,
+      "sha256": "9a9df64465af247f52491abdfec80f5d5882f58cb0963277cf6f1beb74884c29"
+    },
+    {
+      "file": "dem5b15-29127-12906.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29127/12906.png",
+      "source": "dem5b_png",
+      "z": 15,
+      "x": 29127,
+      "y": 12906,
+      "bytes": 6326,
+      "sha256": "925a0cd9f5e1364f2d82db1678a6f39ca6e4f9fd6dc5b1147bf2112c160a7a9b"
+    },
+    {
+      "file": "dem5b15-29128-12904.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29128/12904.png",
+      "source": "dem5b_png",
+      "z": 15,
+      "x": 29128,
+      "y": 12904,
+      "bytes": 1768,
+      "sha256": "01e4f6a8a94b40b10aa4bf3307c3fa28cc7a77803194756d5d25e9dbe6290f0f"
+    },
+    {
+      "file": "dem5b15-29128-12905.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29128/12905.png",
+      "source": "dem5b_png",
+      "z": 15,
+      "x": 29128,
+      "y": 12905,
+      "bytes": 20544,
+      "sha256": "5ce66ecc906e16fe910d3732f33b13e784095b2bbc8b68a36f4e749837e91f22"
+    },
+    {
+      "file": "dem5b15-29128-12906.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29128/12906.png",
+      "source": "dem5b_png",
+      "z": 15,
+      "x": 29128,
+      "y": 12906,
+      "bytes": 14947,
+      "sha256": "e591ddda3583ca0b03bfa8a97f8e8e23ccee4e613829d9b4abab7318aa7dc840"
+    },
+    {
+      "file": "dem5b15-29129-12905.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29129/12905.png",
+      "source": "dem5b_png",
+      "z": 15,
+      "x": 29129,
+      "y": 12905,
+      "bytes": 3880,
+      "sha256": "b981edb8253580b05f36e5da33e7720969a0a8149ba5ac002ae20a334eb6d9df"
+    },
+    {
+      "file": "dem5b15-29129-12906.png",
+      "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29129/12906.png",
+      "source": "dem5b_png",
+      "z": 15,
+      "x": 29129,
+      "y": 12906,
+      "bytes": 29030,
+      "sha256": "2d92f3793f1341fe5b57a789c0fd651545fed20d344cbcc47e1b41fa23cacb05"
+    }
+  ],
+  "terrainInterpolatedSamples": 556,
+  "terrainControlSamples": [],
+  "demRecovery": {
+    "checkedAt": "2026-10-04T14:30:45.423141+00:00",
+    "previousSourceDerivedSamples": 10843,
+    "previousInterpolatedSamples": 13652,
+    "previousInterpolatedPercent": 55.7338,
+    "observation": "Nine missing DEM5A PNGs returned HTTP200 using Windows curl8.21 Schannel with normal certificate verification. Prior WinError10054/TLS resets were transport failures, root cause not proven. No insecure TLS flag, certificate change, alternate host, or access-control bypass used. Default sandbox network Bad access was resolved only through authorized escalation.",
+    "attempts": [
+      {
+        "exitCode": 0,
+        "httpStatus": "200",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29127/12904.png",
+        "validPng": true,
+        "retrievedAt": "2026-10-04T14:23:52.3012145Z",
+        "headersFile": "dem15-29127-12904.png.headers",
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only",
+        "file": "dem15-29127-12904.png"
+      },
+      {
+        "exitCode": 0,
+        "httpStatus": "200",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29127/12905.png",
+        "validPng": true,
+        "retrievedAt": "2026-10-04T14:23:52.4112869Z",
+        "headersFile": "dem15-29127-12905.png.headers",
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only",
+        "file": "dem15-29127-12905.png"
+      },
+      {
+        "exitCode": 0,
+        "httpStatus": "200",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12901.png",
+        "validPng": true,
+        "retrievedAt": "2026-10-04T14:23:52.5285518Z",
+        "headersFile": "dem15-29128-12901.png.headers",
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only",
+        "file": "dem15-29128-12901.png"
+      },
+      {
+        "exitCode": 0,
+        "httpStatus": "200",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12902.png",
+        "validPng": true,
+        "retrievedAt": "2026-10-04T14:23:52.6532844Z",
+        "headersFile": "dem15-29128-12902.png.headers",
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only",
+        "file": "dem15-29128-12902.png"
+      },
+      {
+        "exitCode": 0,
+        "httpStatus": "200",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12903.png",
+        "validPng": true,
+        "retrievedAt": "2026-10-04T14:23:52.7652977Z",
+        "headersFile": "dem15-29128-12903.png.headers",
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only",
+        "file": "dem15-29128-12903.png"
+      },
+      {
+        "exitCode": 0,
+        "httpStatus": "200",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12905.png",
+        "validPng": true,
+        "retrievedAt": "2026-10-04T14:23:52.8761089Z",
+        "headersFile": "dem15-29128-12905.png.headers",
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only",
+        "file": "dem15-29128-12905.png"
+      },
+      {
+        "exitCode": 0,
+        "httpStatus": "200",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12906.png",
+        "validPng": true,
+        "retrievedAt": "2026-10-04T14:23:52.9682441Z",
+        "headersFile": "dem15-29128-12906.png.headers",
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only",
+        "file": "dem15-29128-12906.png"
+      },
+      {
+        "exitCode": 0,
+        "httpStatus": "200",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12904.png",
+        "validPng": true,
+        "retrievedAt": "2026-10-04T14:23:53.0958185Z",
+        "headersFile": "dem15-29129-12904.png.headers",
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only",
+        "file": "dem15-29129-12904.png"
+      },
+      {
+        "exitCode": 0,
+        "httpStatus": "200",
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12906.png",
+        "validPng": true,
+        "retrievedAt": "2026-10-04T14:23:53.202212Z",
+        "headersFile": "dem15-29129-12906.png.headers",
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only",
+        "file": "dem15-29129-12906.png"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29127/12903.png",
+        "headersFile": "dem5b15-29127-12903.png.headers",
+        "httpStatus": "200",
+        "retrievedAt": "2026-10-04T14:28:33.2087015Z",
+        "validPng": true,
+        "file": "dem5b15-29127-12903.png",
+        "exitCode": 0,
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14563/6451.png",
+        "headersFile": "dem14-14563-6451.png.headers",
+        "httpStatus": "200",
+        "retrievedAt": "2026-10-04T14:28:33.3708218Z",
+        "validPng": true,
+        "file": "dem14-14563-6451.png",
+        "exitCode": 0,
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29128/12903.png",
+        "headersFile": "dem5b15-29128-12903.png.headers",
+        "httpStatus": "404",
+        "retrievedAt": "2026-10-04T14:28:33.4848351Z",
+        "validPng": false,
+        "file": "dem5b15-29128-12903.png",
+        "exitCode": 22,
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14564/6451.png",
+        "headersFile": "dem14-14564-6451.png.headers",
+        "httpStatus": "200",
+        "retrievedAt": "2026-10-04T14:28:33.6049772Z",
+        "validPng": true,
+        "file": "dem14-14564-6451.png",
+        "exitCode": 0,
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14563/6452.png",
+        "headersFile": "dem14-14563-6452.png.headers",
+        "httpStatus": "200",
+        "retrievedAt": "2026-10-04T14:28:33.7945258Z",
+        "validPng": true,
+        "file": "dem14-14563-6452.png",
+        "exitCode": 0,
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29128/12904.png",
+        "headersFile": "dem5b15-29128-12904.png.headers",
+        "httpStatus": "200",
+        "retrievedAt": "2026-10-04T14:28:34.2881510Z",
+        "validPng": true,
+        "file": "dem5b15-29128-12904.png",
+        "exitCode": 0,
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14564/6452.png",
+        "headersFile": "dem14-14564-6452.png.headers",
+        "httpStatus": "200",
+        "retrievedAt": "2026-10-04T14:28:34.3921941Z",
+        "validPng": true,
+        "file": "dem14-14564-6452.png",
+        "exitCode": 0,
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29129/12904.png",
+        "headersFile": "dem5b15-29129-12904.png.headers",
+        "httpStatus": "404",
+        "retrievedAt": "2026-10-04T14:28:34.6201755Z",
+        "validPng": false,
+        "file": "dem5b15-29129-12904.png",
+        "exitCode": 22,
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29127/12905.png",
+        "headersFile": "dem5b15-29127-12905.png.headers",
+        "httpStatus": "200",
+        "retrievedAt": "2026-10-04T14:28:34.7754588Z",
+        "validPng": true,
+        "file": "dem5b15-29127-12905.png",
+        "exitCode": 0,
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29128/12905.png",
+        "headersFile": "dem5b15-29128-12905.png.headers",
+        "httpStatus": "200",
+        "retrievedAt": "2026-10-04T14:28:34.9806167Z",
+        "validPng": true,
+        "file": "dem5b15-29128-12905.png",
+        "exitCode": 0,
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29129/12905.png",
+        "headersFile": "dem5b15-29129-12905.png.headers",
+        "httpStatus": "200",
+        "retrievedAt": "2026-10-04T14:28:35.5329431Z",
+        "validPng": true,
+        "file": "dem5b15-29129-12905.png",
+        "exitCode": 0,
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29127/12906.png",
+        "headersFile": "dem5b15-29127-12906.png.headers",
+        "httpStatus": "200",
+        "retrievedAt": "2026-10-04T14:28:35.9321364Z",
+        "validPng": true,
+        "file": "dem5b15-29127-12906.png",
+        "exitCode": 0,
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14563/6453.png",
+        "headersFile": "dem14-14563-6453.png.headers",
+        "httpStatus": "200",
+        "retrievedAt": "2026-10-04T14:28:36.1519615Z",
+        "validPng": true,
+        "file": "dem14-14563-6453.png",
+        "exitCode": 0,
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29128/12906.png",
+        "headersFile": "dem5b15-29128-12906.png.headers",
+        "httpStatus": "200",
+        "retrievedAt": "2026-10-04T14:28:36.5460619Z",
+        "validPng": true,
+        "file": "dem5b15-29128-12906.png",
+        "exitCode": 0,
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/14564/6453.png",
+        "headersFile": "dem14-14564-6453.png.headers",
+        "httpStatus": "200",
+        "retrievedAt": "2026-10-04T14:28:37.7983197Z",
+        "validPng": true,
+        "file": "dem14-14564-6453.png",
+        "exitCode": 0,
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5b_png/15/29129/12906.png",
+        "headersFile": "dem5b15-29129-12906.png.headers",
+        "httpStatus": "200",
+        "retrievedAt": "2026-10-04T14:28:38.2673735Z",
+        "validPng": true,
+        "file": "dem5b15-29129-12906.png",
+        "exitCode": 0,
+        "client": "curl 8.21.0 Windows Schannel; default certificate verification; HTTPS only"
+      }
+    ],
+    "historicalFailedUrls": [
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29127/12904.png",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29127/12905.png",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12902.png",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12901.png",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12903.png",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12904.png",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12905.png",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29128/12906.png",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12902.png",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12904.png",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/dem5a_png/15/29129/12906.png",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25805.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25806.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25809.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25810.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25811.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25804.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58254/25812.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25806.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25808.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25809.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25810.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58255/25812.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25803.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25805.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25806.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25808.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25809.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25810.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25811.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58256/25812.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25803.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25804.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25805.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25809.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25810.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25811.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58257/25812.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25803.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25807.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25806.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25808.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25809.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58258/25812.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25804.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25805.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25808.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25809.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/16/58259/25810.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233030/103217.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233030/103221.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233031/103217.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233031/103221.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233032/103220.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233032/103221.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233033/103217.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233033/103218.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233033/103220.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233033/103219.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233034/103218.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233025/103243.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233025/103244.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233025/103245.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233025/103246.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233026/103242.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233026/103243.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233026/103245.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233026/103246.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233027/103244.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233027/103245.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233027/103246.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233028/103244.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233028/103245.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233028/103246.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233029/103242.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233029/103245.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233029/103246.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      },
+      {
+        "url": "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/18/233029/103243.jpg",
+        "error": "<urlopen error [WinError 10054] 既存の接続はリモート ホストに強制的に切断されました。>"
+      }
+    ]
+  },
+  "terrainCoverage": {
+    "nx": 115,
+    "nz": 213,
+    "step": 20,
+    "sourceDerivedPercent": 97.7301,
+    "interpolatedPercent": 2.2699,
+    "coverageByTile": {
+      "15/29127/12901": {
+        "total": 186,
+        "sourceDerived": 186,
+        "interpolated": 0,
+        "sourceMasks": {
+          "1": 186
+        }
+      },
+      "15/29128/12901": {
+        "total": 300,
+        "sourceDerived": 300,
+        "interpolated": 0,
+        "sourceMasks": {
+          "1": 300
+        }
+      },
+      "15/29129/12901": {
+        "total": 204,
+        "sourceDerived": 204,
+        "interpolated": 0,
+        "sourceMasks": {
+          "1": 204
+        }
+      },
+      "15/29127/12902": {
+        "total": 1550,
+        "sourceDerived": 1550,
+        "interpolated": 0,
+        "sourceMasks": {
+          "1": 1550
+        }
+      },
+      "15/29128/12902": {
+        "total": 2500,
+        "sourceDerived": 2500,
+        "interpolated": 0,
+        "sourceMasks": {
+          "1": 2500
+        }
+      },
+      "15/29129/12902": {
+        "total": 1700,
+        "sourceDerived": 1700,
+        "interpolated": 0,
+        "sourceMasks": {
+          "1": 1700
+        }
+      },
+      "15/29127/12903": {
+        "total": 1519,
+        "sourceDerived": 1519,
+        "interpolated": 0,
+        "sourceMasks": {
+          "1": 899,
+          "5": 24,
+          "4": 596
+        }
+      },
+      "15/29128/12903": {
+        "total": 2450,
+        "sourceDerived": 2450,
+        "interpolated": 0,
+        "sourceMasks": {
+          "1": 2374,
+          "4": 63,
+          "5": 13
+        }
+      },
+      "15/29129/12903": {
+        "total": 1666,
+        "sourceDerived": 1666,
+        "interpolated": 0,
+        "sourceMasks": {
+          "1": 1666
+        }
+      },
+      "15/29127/12904": {
+        "total": 1550,
+        "sourceDerived": 1550,
+        "interpolated": 0,
+        "sourceMasks": {
+          "1": 1459,
+          "4": 60,
+          "5": 31
+        }
+      },
+      "15/29128/12904": {
+        "total": 2500,
+        "sourceDerived": 2500,
+        "interpolated": 0,
+        "sourceMasks": {
+          "1": 2378,
+          "5": 38,
+          "4": 84
+        }
+      },
+      "15/29129/12904": {
+        "total": 1700,
+        "sourceDerived": 1700,
+        "interpolated": 0,
+        "sourceMasks": {
+          "1": 1644,
+          "4": 39,
+          "5": 17
+        }
+      },
+      "15/29127/12905": {
+        "total": 1550,
+        "sourceDerived": 1450,
+        "interpolated": 100,
+        "sourceMasks": {
+          "1": 1425,
+          "4": 19,
+          "5": 6,
+          "0": 100
+        }
+      },
+      "15/29128/12905": {
+        "total": 2500,
+        "sourceDerived": 2427,
+        "interpolated": 73,
+        "sourceMasks": {
+          "1": 2337,
+          "4": 62,
+          "5": 28,
+          "0": 73
+        }
+      },
+      "15/29129/12905": {
+        "total": 1700,
+        "sourceDerived": 1700,
+        "interpolated": 0,
+        "sourceMasks": {
+          "1": 1690,
+          "5": 5,
+          "4": 5
+        }
+      },
+      "15/29127/12906": {
+        "total": 248,
+        "sourceDerived": 53,
+        "interpolated": 195,
+        "sourceMasks": {
+          "1": 50,
+          "5": 2,
+          "4": 1,
+          "0": 195
+        }
+      },
+      "15/29128/12906": {
+        "total": 400,
+        "sourceDerived": 212,
+        "interpolated": 188,
+        "sourceMasks": {
+          "0": 188,
+          "5": 3,
+          "1": 209
+        }
+      },
+      "15/29129/12906": {
+        "total": 272,
+        "sourceDerived": 272,
+        "interpolated": 0,
+        "sourceMasks": {
+          "1": 262,
+          "4": 6,
+          "5": 4
+        }
+      }
+    },
+    "sourceMaskLegend": {
+      "0": "interpolated without complete source corners",
+      "1": "GSI DEM5A",
+      "2": "GSI DEM5B",
+      "4": "GSI DEM10",
+      "3": "DEM5A and DEM5B",
+      "5": "DEM5A and DEM10",
+      "6": "DEM5B and DEM10",
+      "7": "mixed GSI DEM"
+    },
+    "sampleCount": 24495,
+    "sourceDerivedSamples": 23939,
+    "interpolatedSamples": 556,
+    "maskLocation": "region.json terrain.sampleSources and terrain.known, row-major z*nx+x"
+  },
+  "regionSha256": "6614016eeb5dffcfb16253b8a636f107e75dca72dd72bd805ec7696278d68ded"
+}

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:cit_app/widgets/common/app_startup_host.dart';
+import 'package:cit_app/core/constants/app_constants.dart';
+import 'package:cit_app/core/constants/home_feature_intro.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -147,6 +149,18 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('ホームへ復帰'), findsOneWidget);
       expect(calls, 2);
+    },
+  );
+  test(
+    'time attack is temporarily hidden and Tips include the hide setting',
+    () {
+      expect(AppConstants.campusBusTimeAttackEnabled, isFalse);
+      expect(kHomeTipIds, contains(HomeFeatureIntroId.tipsVisibilityTip));
+      expect(
+        homeFeatureIntroMessage(HomeFeatureIntroId.tipsVisibilityTip),
+        'このTipsはマイページから非表示にすることもできます',
+      );
+      expect(AppConstants.appVersion, '2.5.0');
     },
   );
 }

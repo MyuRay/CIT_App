@@ -22,6 +22,9 @@ import 'cwitter_more_menu.dart';
 import 'cwitter_reply_context.dart';
 import 'cwitter_report_helper.dart';
 import 'cwitter_posting_guidelines_dialog.dart';
+import 'cwitter_quoted_post.dart';
+import 'cwitter_poll_widget.dart';
+import 'cwitter_id_requirement.dart';
 import '../../../screens/user_block/block_confirmation_dialog.dart';
 
 /// 投稿への返信ボトムシート
@@ -120,7 +123,10 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
 
     final appUser = ref.read(currentAppUserStreamProvider).valueOrNull;
     final uid = ref.read(currentUserIdProvider);
-    if (appUser == null || uid == null || !appUser.hasCwitterId) return;
+    if (appUser == null || uid == null || !appUser.hasCwitterId) {
+      await promptCwitterIdRegistration(context, ref, action: '返信');
+      return;
+    }
 
     final confirmed = await CwitterPostingGuidelinesDialog.confirmIfNeeded(
       context,
@@ -390,7 +396,15 @@ class _CwitterReplySheetState extends ConsumerState<CwitterReplySheet> {
                         icon: Icon(
                           Icons.image_outlined,
                           color:
-                              _pendingImages.length >= CwitterPostImageService.maxImagesPerPost ? colorScheme.onSurface.withValues(alpha: 0.35) : AppColors.accent(context, const Color(0xFF2E7D32)),
+                              _pendingImages.length >=
+                                      CwitterPostImageService.maxImagesPerPost
+                                  ? colorScheme.onSurface.withValues(
+                                    alpha: 0.35,
+                                  )
+                                  : AppColors.accent(
+                                    context,
+                                    const Color(0xFF2E7D32),
+                                  ),
                         ),
                       ),
                       Expanded(
@@ -511,6 +525,18 @@ class _PostPreviewHeader extends ConsumerWidget {
                   heroTagPrefix: 'cwitterReplyPreview_${post.id}',
                 ),
               ],
+              if (post.quotedPostId != null) ...[
+                const SizedBox(height: 8),
+                CwitterQuotedPost(
+                  postId: post.quotedPostId!,
+                  onOpen:
+                      (original) => CwitterReplySheet.show(context, original),
+                ),
+              ],
+              if (post.hasPoll) ...[
+                const SizedBox(height: 8),
+                CwitterPollWidget(post: post),
+              ],
             ],
           ),
         ),
@@ -543,7 +569,6 @@ class _ReplyListTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final uid = ref.watch(currentUserIdProvider);
     final isAdmin = ref.watch(isAdminProvider);
     final targetReply = resolveReplyTarget(
@@ -568,11 +593,11 @@ class _ReplyListTile extends ConsumerWidget {
               children: [
                 Text(
                   formatCommunityRelativeTime(reply.createdAt),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: mutedColor,
-                    fontSize: 11,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: mutedColor),
                 ),
+                const SizedBox(width: 4),
                 CwitterMoreMenu(
                   isOwner: isOwner,
                   onDeleteReply: onDelete,
@@ -622,7 +647,12 @@ class _ReplyListTile extends ConsumerWidget {
                   ),
                 ],
                 const SizedBox(height: 2),
-                _ReplyActionButton(mutedColor: mutedColor, onTap: onReply),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _ReplyActionButton(mutedColor: mutedColor, onTap: onReply),
+                  ],
+                ),
               ],
             ),
           ),

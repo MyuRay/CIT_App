@@ -1,3 +1,4 @@
+import '../../widgets/bulletin/bulletin_report_button.dart';
 import '../../core/theme/app_colors.dart';
 import '../../widgets/ads/sponsor_presentation.dart';
 import 'package:cit_app/core/utils/logger.dart';
@@ -23,6 +24,10 @@ import '../reports/report_form_dialog.dart';
 import '../user_block/block_confirmation_dialog.dart';
 import '../../widgets/profile/author_avatar.dart';
 import '../../widgets/profile/author_display_name.dart';
+import '../../core/providers/schedule_provider.dart';
+import '../../core/providers/user_provider.dart';
+import '../../models/community/cwitter_profile_user.dart';
+import '../community/widgets/cwitter_profile_screen.dart';
 
 class BulletinPostDetailScreen extends ConsumerStatefulWidget {
   final BulletinPost post;
@@ -44,6 +49,7 @@ class _BulletinPostDetailScreenState
   String? _replyToCommentId;
   String? _replyToAuthorName;
   bool _isCommentFormVisible = false;
+  String? _openingCommentAuthorId;
 
   // クーポン連続押下防止用
   Timer? _couponCooldownTimer;
@@ -178,20 +184,9 @@ class _BulletinPostDetailScreenState
                   }
 
                   SecureLogger.debug('✅ 通報ボタンを表示します（ユーザー: ${user.email}）');
-                  return Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    decoration: BoxDecoration(
-                      color: AppColors.tintedSurface(context, Colors.red),
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: Icon(Icons.flag, color: AppColors.accent(context, Colors.red)),
-                      tooltip: '通報',
-                      onPressed: () {
-                        SecureLogger.debug('🔴 通報ボタンがタップされました！');
-                        _showPostReportDialog();
-                      },
-                    ),
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Center(child: BulletinReportButton(onPressed: _showPostReportDialog)),
                   );
                 },
                 loading: () => const SizedBox.shrink(),
@@ -267,7 +262,7 @@ class _BulletinPostDetailScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            BulletinImageGallery(imageUrls: widget.post.galleryImageUrls),
+            BulletinImageGallery(imageUrls: widget.post.galleryImageUrls, category: widget.post.category),
 
             // コンテンツセクション
             Padding(
@@ -754,6 +749,54 @@ class _BulletinPostDetailScreenState
     );
   }
 
+  Future<void> _openCommentAuthorProfile(BulletinComment comment) async {
+    if (_openingCommentAuthorId != null || comment.authorId.trim().isEmpty) {
+      return;
+    }
+    setState(() => _openingCommentAuthorId = comment.authorId);
+    try {
+      final author = await ref.refresh(userProvider(comment.authorId).future);
+      if (!mounted) return;
+      if (author == null || !author.isActive) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ユーザー情報を取得できませんでした')),
+        );
+        return;
+      }
+      if (!author.hasCwitterId) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('このユーザーはCwitter IDを設定していません')),
+        );
+        return;
+      }
+
+      final isSelf = ref.read(currentUserIdProvider) == comment.authorId;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => CwitterProfileScreen(
+            user: isSelf
+                ? null
+                : CwitterProfileUser(
+                    authorId: comment.authorId,
+                    displayName: author.displayName,
+                    cwitterId: author.cwitterId!,
+                    profileImageUrl: author.profileImageUrl,
+                    bio: author.cwitterBio,
+                    tags: author.cwitterTags,
+                  ),
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('プロフィールを開けませんでした。もう一度お試しください')),
+      );
+    } finally {
+      if (mounted) setState(() => _openingCommentAuthorId = null);
+    }
+  }
+
   Widget _buildCommentBubble(BulletinComment comment, bool isReply) {
     final isInitial = comment.id == widget.initialCommentId;
     if (isInitial && !_focusedInitialComment) {
@@ -770,10 +813,28 @@ class _BulletinPostDetailScreenState
       key: isInitial ? _initialCommentKey : null,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AuthorAvatar(
-          authorId: comment.authorId,
-          displayName: comment.authorName,
-          radius: isReply ? 16 : 20,
+        Tooltip(
+          message: 'Cwitterのプロフィールを開く',
+          child: InkResponse(
+            onTap: _openingCommentAuthorId == null
+                ? () => _openCommentAuthorProfile(comment)
+                : null,
+            customBorder: const CircleBorder(),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                AuthorAvatar(
+                  authorId: comment.authorId,
+                  displayName: comment.authorName,
+                  radius: isReply ? 16 : 20,
+                ),
+                if (_openingCommentAuthorId == comment.authorId)
+                  const Positioned.fill(
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+          ),
         ),
         const SizedBox(width: 12),
 

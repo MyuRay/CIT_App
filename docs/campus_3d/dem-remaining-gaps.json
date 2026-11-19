@@ -1,0 +1,51 @@
+{
+  "gridSamples": 24495,
+  "interpolatedSamples": 556,
+  "sourceDerivedPercent": 97.7301,
+  "interpolatedPercent": 2.2699,
+  "locationMethod": "Exact source-mask-zero 20m sample coordinates, inverse of app local geographic projection. Bounds enclose missing samples, not continuous missing rectangles.",
+  "tiles": [
+    {
+      "tile": "15/29127/12905",
+      "interpolatedSamples": 100,
+      "sampleBoundsLonLat": [
+        140.0060968843739,
+        35.657348736407926,
+        140.0096361808012,
+        35.658786040862516
+      ]
+    },
+    {
+      "tile": "15/29128/12905",
+      "interpolatedSamples": 73,
+      "sampleBoundsLonLat": [
+        140.00985738682792,
+        35.657348736407926,
+        140.01383909530867,
+        35.65842671474887
+      ]
+    },
+    {
+      "tile": "15/29127/12906",
+      "interpolatedSamples": 195,
+      "sampleBoundsLonLat": [
+        140.003,
+        35.655911431953335,
+        140.0096361808012,
+        35.6571690733511
+      ]
+    },
+    {
+      "tile": "15/29128/12906",
+      "interpolatedSamples": 188,
+      "sampleBoundsLonLat": [
+        140.00985738682792,
+        35.655911431953335,
+        140.01560874352234,
+        35.6571690733511
+      ]
+    }
+  ],
+  "recoveryMethod": "Official HTTPS tile URLs downloaded with Windows curl/Schannel standard TLS; no certificate bypass. DEM5A first, official DEM5B/DEM10B fallback. Requires four valid source corners per 20m sample. Original TLS failure cause not established.",
+  "remainingMethod": "Source-mask-zero samples filled by nearest valid sample and smoothing, explicitly labelled interpolation. No survey measurement or invented source controls."
+}

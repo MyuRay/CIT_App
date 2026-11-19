@@ -1,3 +1,4 @@
+import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -8,7 +9,9 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/providers/cafeteria_provider.dart';
+import '../../core/providers/cwitter_provider.dart';
 import '../../core/providers/cafeteria_review_provider.dart';
 import '../../core/providers/schedule_provider.dart';
 import '../../core/providers/notification_provider.dart';
@@ -33,7 +36,6 @@ import '../schedule/attendance_qr_reader_screen.dart';
 import '../../widgets/campus_map_widget.dart';
 import '../../widgets/home/academic_calendar_card.dart';
 import '../../widgets/home/campus_weather_card.dart';
-import '../../widgets/home/timetable_card_visibility.dart';
 import '../../core/providers/assignment_provider.dart';
 import '../../widgets/assignments/assignment_list.dart';
 import '../../widgets/assignments/assignment_editor.dart';
@@ -51,6 +53,11 @@ import '../../services/schedule/attendance_service.dart';
 import '../../widgets/common/interactive_fullscreen_image_viewer.dart';
 import '../../widgets/schedule/schedule_class_detail_dialog.dart';
 import '../../services/schedule/lecture_period_service.dart';
+import '../../widgets/profile/user_avatar.dart';
+import '../../core/constants/home_feature_intro.dart';
+import '../../core/providers/home_feature_intro_provider.dart';
+import '../../widgets/home/home_app_bar_leading.dart';
+import '../profile/simple_profile_screen.dart';
 
 const Map<String, String> _campusNavigationOptions = {
   'tsudanuma': '津田沼',
@@ -59,8 +66,15 @@ const Map<String, String> _campusNavigationOptions = {
 
 class HomeScreen extends ConsumerStatefulWidget {
   final VoidCallback? onNavigateToSchedule;
+  final GlobalKey? profileAvatarAnchorKey;
+  final GlobalKey? homeMenuAnchorKey;
 
-  const HomeScreen({super.key, this.onNavigateToSchedule});
+  const HomeScreen({
+    super.key,
+    this.onNavigateToSchedule,
+    this.profileAvatarAnchorKey,
+    this.homeMenuAnchorKey,
+  });
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -87,7 +101,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   bool _showTextMatchAd = false;
   List<String> _homeCardOrder = List<String>.from(_defaultHomeCardOrder);
   Set<String> _hiddenHomeCards = <String>{};
-  bool _alwaysShowAssignments = false;
+  bool _alwaysShowAssignments = true;
   bool _timetableAutoShowOverrideOutsideLecturePeriod = false;
   int _selectedRouteIndex = 0; // 選択中の路線インデックス
   bool _busInitialRouteSet = false; // 学バス初期表示の適用有無
@@ -203,11 +217,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       todayCafeteriaReviewExistsProvider,
     );
 
+    final introDisplay = ref.watch(homeFeatureIntroDisplayProvider);
+    final showIntroBubble = introDisplay.show && introDisplay.id != null;
+    final introMessage =
+        showIntroBubble ? homeFeatureIntroMessage(introDisplay.id!) : '';
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ホーム'),
+        toolbarHeight: showIntroBubble ? (MediaQuery.textScalerOf(context).scale(12) * 3 * 1.15 + 12).clamp(kToolbarHeight, 140.0) : kToolbarHeight,
+        leading: HomeAppBarLeading(
+          avatar: _HomeProfileAvatarButton(avatarAnchorKey: widget.profileAvatarAnchorKey),
+        ),
+        leadingWidth: HomeAppBarLeading.leadingWidth(
+          context,
+          showBubble: showIntroBubble,
+          message: introMessage,
+        ),
         actions: [
           PopupMenuButton<String>(
+            key: widget.homeMenuAnchorKey,
             icon: const Icon(Icons.menu),
             tooltip: 'ホームカード設定',
             onSelected: (value) {
@@ -525,10 +553,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   error: (_, __) => const SizedBox.shrink(),
                 ),
                 const Spacer(),
-                TextButton(
-                  onPressed: widget.onNavigateToSchedule,
-                  child: const Text('詳細を見る'),
-                ),
+
               ],
             ),
             const SizedBox(height: 16),
@@ -580,10 +605,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       return '$semesterName 第$week週';
     }
 
-    return weekLabel('前期', settings.springStartDate, settings.springEndDate) ??
-        weekLabel('後期', settings.fallStartDate, settings.fallEndDate) ??
-        // 旧データ互換
-        weekLabel('前期', settings.lectureStartDate, settings.lectureEndDate);
+    final labels = <String>{for (final p in settings.periods.values) p.term.label};
+    if (settings.springStartDate != null) labels.add('${settings.springStartDate!.year}年度前期');
+    if (settings.fallStartDate != null) labels.add('${settings.fallStartDate!.year}年度後期');
+    for (final label in labels) {
+      final result = weekLabel(label, settings.startDateForSemester(label), settings.endDateForSemester(label));
+      if (result != null) return result;
+    }
+    return null;
   }
 
   Widget _buildCafeteriaCard(
@@ -767,6 +796,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
               ),
             ),
+            if (AppConstants.campusBusTimeAttackEnabled) ...[
+              const SizedBox(height: 8),
+              const CampusBusGameButton(),
+            ],
           ],
         ),
       ),
@@ -919,6 +952,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
@@ -932,7 +967,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         'ホームカードを編集',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      subtitle: const Text('表示/非表示と順序を変更できます'),
+                      subtitle: const Text(
+                        '表示/非表示と順序の変更は自動で保存されます',
+                      ),
                       trailing: Wrap(
                         spacing: 4,
                         children: [
@@ -967,17 +1004,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                       ],
                                     ),
                               );
-                              if (confirmed != true) return;
-                              setState(() {
-                                _homeCardOrder = List<String>.from(
-                                  _defaultHomeCardOrder,
-                                );
-                                _hiddenHomeCards = <String>{};
-                                _alwaysShowAssignments = false;
-                                _timetableAutoShowOverrideOutsideLecturePeriod =
-                                    false;
-                              });
-                              await _saveHomeCardLayout();
+                              if (confirmed != true || !context.mounted) return;
+                              tempOrder
+                                ..clear()
+                                ..addAll(_defaultHomeCardOrder);
+                              tempHidden.clear();
+                              tempAlwaysShowAssignments = true;
+                              tempTimetableAutoShowOverride = false;
+                              setModalState(() {});
+                              await _persistHomeCardLayoutFromEditor(
+                                order: tempOrder,
+                                hidden: tempHidden,
+                                alwaysShowAssignments: tempAlwaysShowAssignments,
+                                timetableAutoShowOverride:
+                                    tempTimetableAutoShowOverride,
+                              );
                               if (context.mounted) {
                                 Navigator.of(context).pop();
                               }
@@ -985,21 +1026,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             icon: const Icon(Icons.restore),
                             tooltip: 'デフォルトに戻す',
                           ),
-                          TextButton(
-                            onPressed: () async {
-                              setState(() {
-                                _homeCardOrder = List<String>.from(tempOrder);
-                                _hiddenHomeCards = Set<String>.from(tempHidden);
-                                _alwaysShowAssignments = tempAlwaysShowAssignments;
-                                _timetableAutoShowOverrideOutsideLecturePeriod =
-                                    tempTimetableAutoShowOverride;
-                              });
-                              await _saveHomeCardLayout();
-                              if (context.mounted) {
-                                Navigator.of(context).pop();
-                              }
-                            },
-                            child: const Text('保存'),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close),
+                            tooltip: '閉じる',
                           ),
                         ],
                       ),
@@ -1011,39 +1041,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     Expanded(
                       child: ReorderableListView.builder(
                         itemCount: tempOrder.length,
-                        onReorder: (oldIndex, newIndex) {
+                        onReorder: (oldIndex, newIndex) async {
                           setModalState(() {
                             if (newIndex > oldIndex) newIndex -= 1;
                             final item = tempOrder.removeAt(oldIndex);
                             tempOrder.insert(newIndex, item);
                           });
+                          await _persistHomeCardLayoutFromEditor(
+                            order: tempOrder,
+                            hidden: tempHidden,
+                            alwaysShowAssignments: tempAlwaysShowAssignments,
+                            timetableAutoShowOverride:
+                                tempTimetableAutoShowOverride,
+                          );
                         },
                         itemBuilder: (context, index) {
                           final cardId = tempOrder[index];
-                          final isOutsideLecturePeriod =
-                              cardId == 'timetable'
-                                  ? _isOutsideLecturePeriodForTimetable(
-                                    useWatch: false,
-                                  )
-                                  : false;
-                          final isVisible =
-                              !tempHidden.contains(cardId) &&
-                              (cardId != 'assignments' || showAssignmentHomeCard(ref.read(assignmentsProvider), alwaysShow: tempAlwaysShowAssignments)) &&
-                              !(cardId == 'timetable' &&
-                                  isOutsideLecturePeriod &&
-                                  !tempTimetableAutoShowOverride);
+                          final isVisible = !tempHidden.contains(cardId) &&
+                            (cardId != 'assignments' || showAssignmentHomeCard(ref.read(assignmentsProvider), alwaysShow: tempAlwaysShowAssignments));
                           return ListTile(
                             key: ValueKey(cardId),
                             leading: const Icon(Icons.drag_handle),
                             title: Text(_homeCardTitle(cardId)),
                             subtitle: Text(
-                              cardId == 'timetable' &&
-                                      !tempHidden.contains(cardId) &&
-                                      !tempTimetableAutoShowOverride
-                                  ? isOutsideLecturePeriod
-                                      ? '講義期間外のため自動で非表示'
-                                      : '講義期間中は自動表示'
-                                  : cardId == 'assignments' &&
+                              cardId == 'assignments' &&
                                           !tempHidden.contains(cardId) &&
                                           !tempAlwaysShowAssignments
                                       ? '未完了の課題があるときに自動表示'
@@ -1051,23 +1072,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             ),
                             trailing: Switch(
                               value: isVisible,
-                              onChanged: (value) {
+                              onChanged: (value) async {
                                 setModalState(() {
                                   if (cardId == 'assignments') {
                                     tempAlwaysShowAssignments = value;
                                   }
-                                  if (cardId == 'timetable') {
-                                    if (value) {
-                                      tempHidden.remove(cardId);
-                                      if (isOutsideLecturePeriod) {
-                                        tempTimetableAutoShowOverride = true;
-                                      }
-                                    } else {
-                                      tempHidden.add(cardId);
-                                      tempTimetableAutoShowOverride = false;
-                                    }
-                                    return;
-                                  }
+
 
                                   if (value) {
                                     tempHidden.remove(cardId);
@@ -1075,6 +1085,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     tempHidden.add(cardId);
                                   }
                                 });
+                                await _persistHomeCardLayoutFromEditor(
+                                  order: tempOrder,
+                                  hidden: tempHidden,
+                                  alwaysShowAssignments:
+                                      tempAlwaysShowAssignments,
+                                  timetableAutoShowOverride:
+                                      tempTimetableAutoShowOverride,
+                                );
                               },
                             ),
                           );
@@ -1089,6 +1107,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         );
       },
     );
+
+    // 余白タップ・スワイプ・戻る・完了のいずれで閉じても変更を保存する。
+    if (!mounted) return;
+    setState(() {
+      _homeCardOrder = List<String>.from(tempOrder);
+      _hiddenHomeCards = Set<String>.from(tempHidden);
+      _alwaysShowAssignments = tempAlwaysShowAssignments;
+      _timetableAutoShowOverrideOutsideLecturePeriod =
+          tempTimetableAutoShowOverride;
+    });
+    await _saveHomeCardLayout();
   }
 
   String _homeCardTitle(String cardId) {
@@ -1163,22 +1192,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return result;
   }
 
-  bool _isOutsideLecturePeriodForTimetable({required bool useWatch}) {
-    final lecturePeriodAsync =
-        useWatch
-            ? ref.watch(lecturePeriodSettingsProvider)
-            : ref.read(lecturePeriodSettingsProvider);
-
-    return isOutsideHomeTimetableLecturePeriod(
-      settings: lecturePeriodAsync.valueOrNull,
-      date: DateTime.now(),
-    );
-  }
-
-  bool _shouldAutoHideTimetableCardByLecturePeriod() {
-    if (_timetableAutoShowOverrideOutsideLecturePeriod) return false;
-    return _isOutsideLecturePeriodForTimetable(useWatch: true);
-  }
+  // The user's card visibility choice applies throughout the year.
+  bool _shouldAutoHideTimetableCardByLecturePeriod() => false;
 
   Future<void> _loadHomeCardLayout() async {
     try {
@@ -1200,7 +1215,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       setState(() {
         _homeCardOrder = order;
         _hiddenHomeCards = hidden;
-        _alwaysShowAssignments = decoded['alwaysShowAssignments'] == true;
+        _alwaysShowAssignments = true; // 明示的な非表示はhiddenの設定を使う
         _timetableAutoShowOverrideOutsideLecturePeriod =
             decoded[_timetableAutoShowOverrideKey] == true;
       });
@@ -1219,6 +1234,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           _timetableAutoShowOverrideOutsideLecturePeriod,
     };
     await prefs.setString(_homeCardLayoutPrefsKey, jsonEncode(payload));
+  }
+
+  Future<void> _persistHomeCardLayoutFromEditor({
+    required List<String> order,
+    required Set<String> hidden,
+    required bool alwaysShowAssignments,
+    required bool timetableAutoShowOverride,
+  }) async {
+    if (!mounted) return;
+    setState(() {
+      _homeCardOrder = List<String>.from(order);
+      _hiddenHomeCards = Set<String>.from(hidden);
+      _alwaysShowAssignments = alwaysShowAssignments;
+      _timetableAutoShowOverrideOutsideLecturePeriod =
+          timetableAutoShowOverride;
+    });
+    await _saveHomeCardLayout();
   }
 
   // TextMatchのWebサイトを開く
@@ -1907,7 +1939,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   void _openCampusWebsite(BuildContext context) async {
-    const url = 'https://chibatech.jp/about/institute/campus/tsudanuma.html';
+    const url = 'https://chibatech.ac.jp/about/institute/campus/';
 
     try {
       final uri = Uri.parse(url);
@@ -1932,9 +1964,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   void _showNotifications(BuildContext context) {
+    final uid = ref.read(authStateProvider).valueOrNull?.uid;
+    final hasPersonalUnread = uid != null &&
+        (ref.read(unreadNotificationCountProvider(uid)).valueOrNull ?? 0) > 0;
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => const UnifiedNotificationScreen(),
+        builder: (context) => UnifiedNotificationScreen(initialPersonalTab: hasPersonalUnread),
       ),
     );
   }
@@ -2048,7 +2083,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             final processedIds = <String>{};
 
             // 時限順でスキャンして、開始セルまたは単独の授業のみを表示対象とする
-            for (int period = 1; period <= 10; period++) {
+            for (int period = 1; period <= (activeSchedule?.periodCount ?? todayClasses.length); period++) {
               if (scheduledClasses.containsKey(period)) {
                 final scheduleClass = scheduledClasses[period]!;
 
@@ -2552,9 +2587,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ref.read(lecturePeriodSettingsProvider).valueOrNull ??
                     await LecturePeriodService.getLecturePeriod();
                 ensureActiveUser();
-                final start = schedule.semester.contains('後期')
-                    ? settings?.fallStartDate
-                    : settings?.springStartDate;
+                final start = settings?.startDateForSemester(schedule.semester);
                 if (start == null) return [];
                 return AttendanceService.getClassAttendanceSessions(
                   userId: userId,
@@ -2622,14 +2655,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final current = now ?? DateTime.now();
     final day = DateTime(current.year, current.month, current.day);
 
-    final isFall = semester.contains('後期');
-    final startRaw = isFall ? settings.fallStartDate : settings.springStartDate;
-    final endRaw = isFall ? settings.fallEndDate : settings.springEndDate;
-    final legacyStart = settings.lectureStartDate;
-    final legacyEnd = settings.lectureEndDate;
-
-    final start = startRaw ?? (!isFall ? legacyStart : null);
-    final end = endRaw ?? (!isFall ? legacyEnd : null);
+    final period = settings.periodForSemester(semester);
+    if (period != null && !period.isActive) return false;
+    final start = settings.startDateForSemester(semester);
+    final end = settings.endDateForSemester(semester);
     if (start == null || end == null) return true;
 
     final startDay = DateTime(start.year, start.month, start.day);
@@ -2963,14 +2992,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     required String? semester,
   }) {
     if (settings == null || semester == null || semester.isEmpty) return null;
-    final isFall = semester.contains('後期');
-    final startRaw = isFall ? settings.fallStartDate : settings.springStartDate;
-    final endRaw = isFall ? settings.fallEndDate : settings.springEndDate;
-    final legacyStart = settings.lectureStartDate;
-    final legacyEnd = settings.lectureEndDate;
-
-    final start = startRaw ?? (!isFall ? legacyStart : null);
-    final end = endRaw ?? (!isFall ? legacyEnd : null);
+    final period = settings.periodForSemester(semester);
+    if (period != null && !period.isActive) return null;
+    final start = settings.startDateForSemester(semester);
+    final end = settings.endDateForSemester(semester);
     if (start == null || end == null) return null;
 
     final startDay = DateTime(start.year, start.month, start.day);
@@ -3018,6 +3043,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   context,
                 ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
               ),
+              const Campus3dMapButton(campus: 'tsudanuma'),
             ],
           ),
         ),
@@ -3040,6 +3066,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   context,
                 ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500),
               ),
+              const Campus3dMapButton(campus: 'narashino'),
             ],
           ),
         ),
@@ -3123,7 +3150,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     ElevatedButton.icon(
                                       onPressed: () async {
                                         const url =
-                                            'https://www.cit.ac.jp/guide/campus/';
+                                            'https://chibatech.ac.jp/about/institute/campus/';
                                         try {
                                           final uri = Uri.parse(url);
                                           if (await canLaunchUrl(uri)) {
@@ -4474,4 +4501,65 @@ class _YearCalendarImageItem {
   final String downloadUrl;
 
   const _YearCalendarImageItem({required this.name, required this.downloadUrl});
+}
+
+class _HomeProfileAvatarButton extends ConsumerWidget {
+  const _HomeProfileAvatarButton({this.avatarAnchorKey});
+
+  final GlobalKey? avatarAnchorKey;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authUser = ref.watch(authStateProvider).valueOrNull;
+    final appUserAsync = authUser != null
+        ? ref.watch(currentAppUserStreamProvider)
+        : null;
+    final profileImageUrl = appUserAsync?.maybeWhen(
+      data: (appUser) => appUser?.profileImageUrl,
+      orElse: () => authUser?.photoURL,
+    );
+    final firestoreName = appUserAsync?.maybeWhen(
+      data: (appUser) => appUser?.displayName,
+      orElse: () => null,
+    );
+    final displayName = (firestoreName?.trim().isNotEmpty == true)
+        ? firestoreName!.trim()
+        : ((authUser?.displayName?.trim().isNotEmpty == true)
+            ? authUser!.displayName!.trim()
+            : (authUser != null ? 'ユーザー' : 'ゲスト'));
+
+    return Tooltip(
+      message: 'マイページ',
+      child: Center(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const SimpleProfileScreen(),
+                ),
+              );
+            },
+            customBorder: const CircleBorder(),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: UserAvatar(
+                key: avatarAnchorKey,
+                imageUrl: profileImageUrl,
+                displayName: displayName,
+                colorSeed: authUser?.uid,
+                radius: 18,
+                initialTextStyle: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

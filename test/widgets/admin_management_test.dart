@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:cit_app/core/providers/admin_dashboard_provider.dart';
 import 'package:cit_app/core/providers/admin_provider.dart';
 import 'package:cit_app/core/providers/contact_provider.dart';
+import 'package:cit_app/core/providers/contact_chat_provider.dart';
 import 'package:cit_app/core/providers/global_notification_provider.dart';
 import 'package:cit_app/core/providers/report_provider.dart';
 import 'package:cit_app/core/providers/settings_provider.dart';
@@ -142,7 +143,11 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpWidget(
       ProviderScope(
-        overrides: overrides ?? defaults(),
+        overrides: [
+          adminContactChatsProvider.overrideWith((ref) => Stream.value([])),
+          ...?overrides,
+          if (overrides == null) ...defaults(),
+        ],
         child: RepaintBoundary(
           key: boundary,
           child: MaterialApp(
@@ -237,6 +242,8 @@ void main() {
       await tester.tap(find.text('問い合わせ'));
       await tester.pumpAndSettle();
       expect(find.byType(ContactManagementScreen), findsOneWidget);
+      await tester.tap(find.text('過去のお問い合わせ'));
+      await tester.pumpAndSettle();
       expect(find.text('1件を表示'), findsOneWidget);
       await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();
@@ -259,6 +266,8 @@ void main() {
           }),
         ],
       );
+      await tester.tap(find.text('過去のお問い合わせ'));
+      await tester.pumpAndSettle();
       expect(find.text('1件を表示'), findsOneWidget);
       await tester.enterText(find.byType(TextField), '解決した');
       await tester.pumpAndSettle();

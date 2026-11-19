@@ -1,82 +1,52 @@
+import '../../services/notification/notification_stream.dart';
 import 'package:cit_app/core/utils/logger.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/notification/notification_model.dart';
 import '../../models/notification/notification_preference_model.dart';
+import '../../services/notification/notification_read_store.dart';
+import 'auth_provider.dart';
 
-// ユーザーの通知一覧プロバイダー
-final userNotificationsProvider = StreamProvider.family<
-  List<AppNotification>,
-  String
->((ref, userId) {
-  SecureLogger.debug('🚀 userNotificationsProvider初期化 - ユーザーID: $userId');
+final notificationFirestoreProvider = Provider((ref) => FirebaseFirestore.instance);
 
-  try {
-    SecureLogger.debug('📢 Firestoreから通知監視開始: $userId');
+final notificationReadStoreProvider = Provider<NotificationReadStore>(
+  (ref) => NotificationReadStore(ref.watch(notificationFirestoreProvider)),
+);
 
-    final stream =
-        FirebaseFirestore.instance
-            .collection('notifications')
-            .where('userId', isEqualTo: userId)
-            .orderBy('createdAt', descending: true)
-            .limit(50)
-            .snapshots();
+final notificationReadIdsProvider = StateProvider.family<Set<String>, String>(
+  (ref, userId) => <String>{},
+);
 
-    SecureLogger.debug('🔗 Firestoreストリームを作成しました');
-
-    return stream
-        .map((snapshot) {
-          SecureLogger.debug('📢 通知データ受信: ${snapshot.docs.length}件 (ユーザー: $userId)');
-          SecureLogger.debug(
-            '🔍 スナップショット情報: metadata=${snapshot.metadata}, fromCache=${snapshot.metadata.isFromCache}',
+final displayedUserNotificationsProvider =
+    Provider.family<AsyncValue<List<AppNotification>>, String>((ref, userId) {
+      final readIds = ref.watch(notificationReadIdsProvider(userId));
+      return ref
+          .watch(userNotificationsProvider(userId))
+          .whenData(
+            (notifications) => [
+              for (final notification in notifications)
+                readIds.contains(notification.id)
+                    ? notification.copyWith(isRead: true)
+                    : notification,
+            ],
           );
+    });
 
-          if (snapshot.docs.isEmpty) {
-            SecureLogger.debug('ℹ️ このユーザーの通知はありません: $userId');
-            SecureLogger.debug(
-              '🔍 Firestoreクエリ確認: collection=notifications, where userId == $userId',
-            );
-            return <AppNotification>[];
-          }
-
-          final notifications = <AppNotification>[];
-
-          for (int i = 0; i < snapshot.docs.length; i++) {
-            final doc = snapshot.docs[i];
-            try {
-              SecureLogger.debug(
-                '🔍 通知ドキュメント ${i + 1}/${snapshot.docs.length} を処理中: ${doc.id}',
-              );
-              final data = doc.data();
-              data['id'] = doc.id;
-
-              SecureLogger.debug('📋 通知データ内容: ${data.toString()}');
-              final notification = AppNotification.fromJson(data);
-              notifications.add(notification);
-              SecureLogger.debug('✅ 通知データ変換成功: ${notification.title}');
-            } catch (e, stackTrace) {
-              SecureLogger.debug('❌ 通知データ変換エラー (docId: ${doc.id}): $e');
-              SecureLogger.debug('❌ エラースタック: $stackTrace');
-            }
-          }
-
-          SecureLogger.debug('📢 通知データ処理完了: ${notifications.length}件');
-          if (notifications.isNotEmpty) {
-            SecureLogger.debug('📝 最新通知: ${notifications.first.title}');
-          }
-
-          return notifications;
-        })
-        .handleError((error, stackTrace) {
-          SecureLogger.debug('❌ 通知ストリームエラー (ユーザー: $userId): $error');
-          SecureLogger.debug('❌ エラースタック: $stackTrace');
-          return <AppNotification>[];
-        });
-  } catch (e, stackTrace) {
-    SecureLogger.debug('❌ 通知プロバイダー初期化エラー (ユーザー: $userId): $e');
-    SecureLogger.debug('❌ 初期化エラースタック: $stackTrace');
-    return Stream.value(<AppNotification>[]);
-  }
+// A factory creates a new subscription when the user retries.
+final userNotificationStreamFactoryProvider = Provider.family<Stream<List<AppNotification>> Function(), String>((ref, uid) {
+  final db = ref.watch(notificationFirestoreProvider);
+  return () => db.collection('notifications').where('userId', isEqualTo: uid)
+    .orderBy('createdAt', descending: true).limit(50).snapshots().map((snapshot) {
+      final notifications = <AppNotification>[];
+      for (final doc in snapshot.docs) {
+        try { notifications.add(AppNotification.fromJson({...doc.data(), 'id': doc.id})); }
+        catch (_) { SecureLogger.debug('通知の形式を確認してください: ' + doc.id); }
+      }
+      return notifications;
+    });
+});
+final userNotificationsProvider = StreamProvider.family<List<AppNotification>, String>((ref, uid) {
+  return withInitialNotificationTimeout(ref.watch(userNotificationStreamFactoryProvider(uid))());
 });
 
 // 未読通知数プロバイダー
@@ -89,18 +59,20 @@ final unreadNotificationCountProvider = StreamProvider.family<int, String>((
   try {
     SecureLogger.debug('📊 未読通知数監視開始: $userId');
 
-    return FirebaseFirestore.instance
+    return ref.watch(notificationFirestoreProvider)
         .collection('notifications')
         .where('userId', isEqualTo: userId)
         .snapshots()
         .map((snapshot) {
           try {
-            SecureLogger.debug('📊 未読通知数計算中... (総通知数: ${snapshot.docs.length})');
+            SecureLogger.debug(
+              '📊 未読通知数計算中... (総通知数: ${snapshot.docs.length})',
+            );
             // Dartコード側で未読をフィルタ
             final unreadCount =
                 snapshot.docs.where((doc) {
                   final data = doc.data();
-                  final isRead = data['isRead'] ?? false;
+                  final isRead = AppNotification.readFlag(data);
                   return !isRead; // nullまたはfalseの場合は未読
                 }).length;
 
@@ -115,7 +87,7 @@ final unreadNotificationCountProvider = StreamProvider.family<int, String>((
         .handleError((error, stackTrace) {
           SecureLogger.debug('❌ 未読通知数ストリームエラー (ユーザー: $userId): $error');
           SecureLogger.debug('❌ エラースタック: $stackTrace');
-          return 0;
+          Error.throwWithStackTrace(error, stackTrace);
         });
   } catch (e, stackTrace) {
     SecureLogger.debug('❌ 未読通知数プロバイダー初期化エラー (ユーザー: $userId): $e');
@@ -131,7 +103,9 @@ class NotificationService {
     NotificationPreferenceKey? preferenceKey,
   }) async {
     try {
-      SecureLogger.debug('📢 sendNotification開始: ${notification.type.displayName}');
+      SecureLogger.debug(
+        '📢 sendNotification開始: ${notification.type.displayName}',
+      );
       SecureLogger.debug('🔍 通知送信対象ユーザーID: ${notification.userId}');
 
       final docRef =
@@ -186,21 +160,9 @@ class NotificationService {
 
   static Future<void> markAllAsRead(String userId) async {
     try {
-      final querySnapshot =
-          await FirebaseFirestore.instance
-              .collection('notifications')
-              .where('userId', isEqualTo: userId)
-              .where('isRead', isEqualTo: false)
-              .get();
-
-      final batch = FirebaseFirestore.instance.batch();
-      for (final doc in querySnapshot.docs) {
-        batch.update(doc.reference, {'isRead': true});
-      }
-
-      await batch.commit();
-
-      SecureLogger.debug('✅ 全通知既読化完了: ${querySnapshot.docs.length}件');
+      await NotificationReadStore(
+        FirebaseFirestore.instance,
+      ).markAllAsRead(userId);
     } catch (e) {
       SecureLogger.debug('❌ 全通知既読化エラー: $e');
       rethrow;
@@ -263,14 +225,13 @@ class NotificationService {
       }
 
       // バッチで一括削除
-      final batch = FirebaseFirestore.instance.batch();
-      for (final doc in querySnapshot.docs) {
-        batch.delete(doc.reference);
-        SecureLogger.debug('🔄 削除キューに追加: ${doc.id}');
+      for (var offset = 0; offset < querySnapshot.docs.length; offset += 400) {
+        final batch = FirebaseFirestore.instance.batch();
+        for (final doc in querySnapshot.docs.skip(offset).take(400)) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit();
       }
-
-      SecureLogger.debug('📦 バッチ削除実行中...');
-      await batch.commit();
 
       SecureLogger.debug('✅ 全通知削除完了: ${querySnapshot.docs.length}件を削除しました');
     } catch (e, stackTrace) {
@@ -606,26 +567,45 @@ class NotificationService {
 
 // 通知管理StateNotifier
 class NotificationNotifier extends StateNotifier<AsyncValue<void>> {
-  NotificationNotifier() : super(const AsyncValue.data(null));
+  NotificationNotifier(this.ref, this.store)
+    : super(const AsyncValue.data(null));
 
-  Future<void> markAsRead(String notificationId) async {
+  final Ref ref;
+  final NotificationReadStore store;
+
+  Future<void> _markRead(
+    String userId,
+    Set<String> ids,
+    Future<void> Function() save,
+  ) async {
+    final overrides = ref.read(notificationReadIdsProvider(userId).notifier);
+    final added = ids.difference(overrides.state);
+    overrides.state = {...overrides.state, ...ids};
     state = const AsyncValue.loading();
     try {
-      await NotificationService.markAsRead(notificationId);
-      state = const AsyncValue.data(null);
+      await save();
+      if (mounted) state = const AsyncValue.data(null);
     } catch (e, stackTrace) {
-      state = AsyncValue.error(e, stackTrace);
+      overrides.state = overrides.state.difference(added);
+      if (mounted) state = AsyncValue.error(e, stackTrace);
+      rethrow;
     }
   }
 
+  Future<void> markAsRead(String notificationId) async {
+    final userId = ref.read(authStateProvider).valueOrNull?.uid;
+    if (userId == null) return;
+    await _markRead(userId, {
+      notificationId,
+    }, () => store.markAsRead(notificationId));
+  }
+
   Future<void> markAllAsRead(String userId) async {
-    state = const AsyncValue.loading();
-    try {
-      await NotificationService.markAllAsRead(userId);
-      state = const AsyncValue.data(null);
-    } catch (e, stackTrace) {
-      state = AsyncValue.error(e, stackTrace);
-    }
+    final notifications =
+        ref.read(userNotificationsProvider(userId)).valueOrNull ?? [];
+    await _markRead(userId, {
+      for (final notification in notifications) notification.id,
+    }, () => store.markAllAsRead(userId));
   }
 
   Future<void> deleteNotification(String notificationId) async {
@@ -642,7 +622,10 @@ class NotificationNotifier extends StateNotifier<AsyncValue<void>> {
 // NotificationNotifierプロバイダー
 final notificationNotifierProvider =
     StateNotifierProvider<NotificationNotifier, AsyncValue<void>>((ref) {
-      return NotificationNotifier();
+      return NotificationNotifier(
+        ref,
+        ref.watch(notificationReadStoreProvider),
+      );
     });
 
 // テスト用通知作成プロバイダー

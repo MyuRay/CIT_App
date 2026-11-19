@@ -1,3 +1,4 @@
+import '../../widgets/admin/admin_tab_visibility_switch.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../core/providers/admin_provider.dart';
@@ -112,6 +113,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.all(16),
             children: [
+              const AdminTabVisibilitySwitch(),
+              const SizedBox(height: 16),
               Text(
                 '対応待ち',
                 style: Theme.of(

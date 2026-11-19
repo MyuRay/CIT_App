@@ -246,6 +246,24 @@ void main() {
     expect(find.textContaining('1限から10限'), findsOneWidget);
   });
 
+  testWidgets(
+    'expanded grid drags a two-period lesson into periods 11 and 12',
+    (tester) async {
+      schedule = schedule.withAdditionalPeriod().withAdditionalPeriod();
+      await mount(tester, height: 1600);
+      final gesture = await pickUp(tester);
+      await moveTo(tester, gesture, 'saturday', 11);
+      expect(find.text('11限へ'), findsOneWidget);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(moves, ['monday/1/lesson->saturday/11']);
+      expect(schedule.timetable['saturday']![11]!.toJson(), _lesson.toJson());
+      expect(schedule.timetable['saturday']![12]!.isStartCell, isFalse);
+      expect(schedule.periodCount, 12);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('concurrent collision while saving leaves both lessons intact', (
     tester,
   ) async {

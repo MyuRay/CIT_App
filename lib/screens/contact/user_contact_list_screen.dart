@@ -1,7 +1,7 @@
 import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../core/providers/auth_provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/admin/admin_model.dart';
 import '../../core/providers/contact_provider.dart';
@@ -12,7 +12,7 @@ class UserContactListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentUser = FirebaseAuth.instance.currentUser;
+    final currentUser = ref.watch(authStateProvider).asData?.value;
 
     if (currentUser == null) {
       return const Scaffold(body: Center(child: Text('ログインが必要です')));

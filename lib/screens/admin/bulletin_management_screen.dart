@@ -735,7 +735,7 @@ class _BulletinManagementScreenState
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (post.isSponsored) SponsorBanner(name: post.sponsorName),
-                    BulletinImageGallery(imageUrls: post.galleryImageUrls),
+                    BulletinImageGallery(imageUrls: post.galleryImageUrls, category: post.category),
                     Text(
                       post.title,
                       style: Theme.of(context).textTheme.titleLarge,

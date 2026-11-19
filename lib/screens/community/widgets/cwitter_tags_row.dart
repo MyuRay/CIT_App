@@ -24,7 +24,7 @@ class CwitterTagsRow extends StatelessWidget {
   }
 }
 
-/// 単一のハッシュタグチップ。[Wrap] の子として個別に折り返しできる。
+/// 表示名と並べても行を広げない、単一行のハッシュタグチップ。
 class CwitterTagChip extends StatelessWidget {
   const CwitterTagChip({
     super.key,
@@ -57,35 +57,38 @@ class CwitterTagChip extends StatelessWidget {
 
     final label = Text(
       '#$tag',
+      maxLines: 1,
+      softWrap: false,
+      overflow: TextOverflow.ellipsis,
       style: theme.textTheme.labelSmall?.copyWith(
         fontSize: fontSize,
+        height: 1.2,
         color: textColor,
         fontWeight: FontWeight.w600,
       ),
     );
-    if (onTap != null) {
-      return ActionChip(
-        label: label,
-        onPressed: onTap,
-        tooltip: '#$tag を使っている人を見る',
-        backgroundColor: backgroundColor,
-        side: BorderSide(color: borderColor),
-        shape: const StadiumBorder(),
-        materialTapTargetSize: MaterialTapTargetSize.padded,
-      );
-    }
+    // ActionChip の最小タップ領域で名前の行が高くならないよう、
+    // 表示用とタップ可能なタグに同じ余白を使用する。
+    final chip = Material(
+      color: backgroundColor,
+      shape: StadiumBorder(side: BorderSide(color: borderColor)),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const StadiumBorder(),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: verticalPadding,
+          ),
+          child: label,
+        ),
+      ),
+    );
+    if (onTap == null) return chip;
 
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: horizontalPadding,
-        vertical: verticalPadding,
-      ),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: borderColor),
-      ),
-      child: label,
+    return Semantics(
+      button: true,
+      child: Tooltip(message: '#$tag を使っている人を見る', child: chip),
     );
   }
 }

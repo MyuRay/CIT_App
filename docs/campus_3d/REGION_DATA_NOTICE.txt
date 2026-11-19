@@ -1,0 +1,11 @@
+地理院タイルを加工して作成。
+標高・航空写真: 国土地理院 https://maps.gsi.go.jp/development/ichiran.html
+利用規約: https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html
+道路・建物平面・キャンパス境界: © OpenStreetMap contributors, ODbL 1.0
+https://www.openstreetmap.org/copyright
+https://opendatacommons.org/licenses/odbl/1-0/
+OSM-derived data remains available in region.json and tools/campus_3d/data/osm-region.json under ODbL.
+GSI elevation/photo layers retain their source terms; acquisition dates are unknown.
+OSRM route candidates were retrieved once, not used as a production service.
+Full provenance, hashes, failed downloads, and estimate notes: region-source-manifest.json.
+No original university/architect photos are included as textures.

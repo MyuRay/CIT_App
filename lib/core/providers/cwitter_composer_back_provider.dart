@@ -19,8 +19,13 @@ class CwitterComposerBackGate {
 
 class CwitterComposerBackGateNotifier
     extends Notifier<CwitterComposerBackGate> {
+  bool _isDisposed = false;
+
   @override
-  CwitterComposerBackGate build() => const CwitterComposerBackGate();
+  CwitterComposerBackGate build() {
+    ref.onDispose(() => _isDisposed = true);
+    return const CwitterComposerBackGate();
+  }
 
   void set({
     required bool isTabVisible,
@@ -34,6 +39,7 @@ class CwitterComposerBackGateNotifier
   }
 
   void clear() {
+    if (_isDisposed) return;
     state = const CwitterComposerBackGate();
   }
 }

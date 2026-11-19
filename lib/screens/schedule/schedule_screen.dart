@@ -1,16 +1,18 @@
-import '../../core/providers/assignment_notification_provider.dart';
+import '../../widgets/schedule/saturday_visibility_button.dart';
 import '../../models/assignments/assignment.dart';
-import '../../widgets/notification/reminder_alarm_permission.dart';
+import '../../core/providers/assignment_notification_provider.dart';
+import '../../models/schedule/academic_term.dart';
+import '../../widgets/schedule/academic_term_selector.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/period_time_resolver.dart';
 import '../../widgets/common/retained_async_view.dart';
+import '../../widgets/notification/reminder_alarm_permission.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:ui' as ui;
-import 'package:path_provider/path_provider.dart';
-import 'package:android_intent_plus/android_intent.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
@@ -22,6 +24,7 @@ import '../../core/providers/settings_provider.dart';
 import '../../models/schedule/schedule_model.dart';
 import '../../models/schedule/lecture_period_model.dart';
 import '../../widgets/schedule/schedule_grid_widget.dart';
+import '../../widgets/schedule/schedule_image_footer.dart';
 import '../../widgets/schedule/schedule_class_move_dialog.dart';
 import '../../widgets/schedule/semester_switch_button.dart';
 import '../../widgets/assignments/assignment_flip_view.dart';
@@ -37,6 +40,7 @@ import '../../models/ads/in_app_ad_model.dart';
 import '../../widgets/ads/in_app_ad_card.dart';
 import '../../services/schedule/schedule_notification_service.dart';
 import '../../services/schedule/schedule_service.dart';
+import '../../services/schedule/schedule_image_save_service.dart';
 import '../../services/schedule/excel_schedule_import_service.dart';
 import '../../services/schedule/excel_import_feedback_service.dart';
 import '../../services/schedule/attendance_service.dart';
@@ -46,7 +50,16 @@ import 'attendance_management_screen.dart';
 import 'attendance_qr_reader_screen.dart';
 
 class ScheduleScreen extends ConsumerStatefulWidget {
-  const ScheduleScreen({super.key});
+  const ScheduleScreen({super.key, this.semesterAnchorKey,
+    this.assignmentAnchorKey, this.attendanceAnchorKey, this.editAnchorKey,
+    this.shareAnchorKey, this.saturdayAnchorKey, this.excelImportAnchorKey});
+  final GlobalKey? semesterAnchorKey;
+  final GlobalKey? assignmentAnchorKey;
+  final GlobalKey? attendanceAnchorKey;
+  final GlobalKey? editAnchorKey;
+  final GlobalKey? shareAnchorKey;
+  final GlobalKey? saturdayAnchorKey;
+  final GlobalKey? excelImportAnchorKey;
 
   @override
   ConsumerState<ScheduleScreen> createState() => _ScheduleScreenState();
@@ -54,10 +67,13 @@ class ScheduleScreen extends ConsumerStatefulWidget {
 
 enum _ScheduleSheetAction { add, rename, delete }
 
+enum _ScheduleExportAction { saveImage, share }
+
 class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
+  bool get _isEditMode => ref.read(scheduleEditingProvider);
+  set _isEditMode(bool value) => ref.read(scheduleEditingProvider.notifier).state = value;
+  bool _isExporting = false;
   bool _isUpdatingNotifications = false;
-  bool _isEditMode = false;
-  bool _isSharing = false; // 共有中フラグ
   String? _selectedScheduleId;
   final GlobalKey _scheduleKey = GlobalKey();
 
@@ -132,6 +148,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(scheduleEditingProvider);
     final showAssignments = ref.watch(assignmentViewOpenProvider);
     final userId = ref.watch(currentUserIdProvider);
     final showSaturday = ref.watch(showSaturdayProvider);
@@ -151,26 +168,40 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
 
     return Scaffold(
       appBar: !_isEditMode ? AssignmentHeader.appBar(context,
-        semesterButton: userId == null ? const Text('時間割') :
-          _buildHeaderScheduleChip(context, scheduleListAsync, userId),
+        semesterButton: KeyedSubtree(key: widget.semesterAnchorKey,
+          child: userId == null ? const Text('時間割') :
+            _buildHeaderScheduleChip(context, scheduleListAsync, userId)),
+        toggleAnchorKey: widget.assignmentAnchorKey,
         showAssignments: showAssignments,
-        onToggle: () => ref.read(assignmentViewOpenProvider.notifier).state = !showAssignments,
+        onToggle: () {
+          if (!_isExporting) {
+            ref.read(assignmentViewOpenProvider.notifier).state = !showAssignments;
+          }
+        },
         actions: [
           IconButton(
             icon: Icon(ref.watch(scheduleNotificationEnabledProvider) || ref.watch(assignmentNotificationsEnabledProvider)
               ? Icons.notifications_active : Icons.notifications_off),
             tooltip: '時間割・課題の通知設定',
-            onPressed: () => _showNotificationInfoDialog(context),
-          ),
-          IconButton(icon: const Icon(Icons.fact_check_outlined),
-            tooltip: '出欠管理', onPressed: () => _openAttendanceManagement(context)),
-          IconButton(icon: const Icon(Icons.edit), tooltip: '時間割を編集',
             onPressed: () {
+              _showNotificationInfoDialog(context);
+            },
+          ),
+          IconButton(key: widget.attendanceAnchorKey, icon: const Icon(Icons.fact_check_outlined),
+            tooltip: '出欠管理', onPressed: () => _openAttendanceManagement(context)),
+          IconButton(key: widget.editAnchorKey, icon: const Icon(Icons.edit), tooltip: '時間割を編集',
+            onPressed: _isExporting ? null : () {
               ref.read(assignmentViewOpenProvider.notifier).state = false;
               setState(() => _isEditMode = true);
             }),
-          IconButton(icon: const Icon(Icons.share), tooltip: '時間割を共有',
-            onPressed: showAssignments ? null : () => _shareSchedule(context)),
+          IconButton(
+            key: widget.shareAnchorKey,
+            icon: const Icon(Icons.share),
+            tooltip: '時間割を共有',
+            onPressed: showAssignments || _isExporting
+                ? null
+                : () => _showScheduleExportSheet(context),
+          ),
         ],
       ) : AppBar(
         automaticallyImplyLeading: false,
@@ -199,71 +230,24 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
         actions: [
           // 土曜日表示切り替えボタン（編集モードのみ）
           if (_isEditMode)
-            IconButton(
-              icon: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color:
-                          showSaturday
-                              ? Theme.of(
-                                context,
-                              ).primaryColor.withValues(alpha: 0.15)
-                              : Colors.grey.withValues(alpha: 0.15),
-                      border: Border.all(
-                        color:
-                            showSaturday
-                                ? Theme.of(context).primaryColor
-                                : Colors.grey,
-                        width: 2,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '土',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color:
-                              showSaturday
-                                  ? Theme.of(context).primaryColor
-                                  : Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (!showSaturday)
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Icon(
-                        Icons.visibility_off,
-                        size: 14,
-                        color: AppColors.accent(context, Colors.red.shade700),
-                      ),
-                    ),
-                ],
-              ),
+            SaturdayVisibilityButton(
+              key: widget.saturdayAnchorKey,
+              visible: showSaturday,
               onPressed: () async {
                 await ref.read(settingsProvider.notifier).toggleShowSaturday();
-                final newState = ref.read(showSaturdayProvider);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(newState ? '土曜日を表示しました' : '土曜日を非表示にしました'),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
+                if (!context.mounted) return;
+                final visible = ref.read(showSaturdayProvider);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(visible ? '土曜日を表示しました' : '土曜日を非表示にしました'),
+                  duration: const Duration(seconds: 2),
+                ));
               },
-              tooltip: showSaturday ? '土曜日を非表示' : '土曜日を表示',
             ),
 
           // Excelインポートボタン（編集モードのみ）
           if (_isEditMode)
             IconButton(
+              key: widget.excelImportAnchorKey,
               icon: const Icon(Icons.upload_file),
               onPressed:
                   () => _pickAndImportExcel(context, _selectedScheduleId),
@@ -391,7 +375,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  if (_isEditMode && !_isSharing)
+                                  if (_isEditMode && !_isExporting)
                                     Padding(
                                       padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
                                       child: Text('タップで編集・長押ししてドラッグで移動',
@@ -402,6 +386,8 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                                     ),
                                   ScheduleGridWidget(
                                     schedule: selectedSchedule,
+                                    onAddPeriod: () => _addPeriod(selectedSchedule),
+                                    onRemovePeriod: () => _removePeriod(selectedSchedule),
                                     onAddAssignment: (lesson) => showAssignmentEditor(context, ref,
                                       schedule: selectedSchedule, lesson: lesson),
                                     onClassLongPress: (day, period, lesson) => _moveClass(
@@ -508,7 +494,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                                         throw StateError('ログイン状態を確認してください');
                                       }
                                       final settings = lecturePeriodAsync.valueOrNull ?? await LecturePeriodService.getLecturePeriod();
-                                      final start = selectedSchedule.semester.contains('後期') ? settings?.fallStartDate : settings?.springStartDate;
+                                      final start = settings?.startDateForSemester(selectedSchedule.semester);
                                       if (start == null) return [];
                                       return AttendanceService.getClassAttendanceSessions(
                                         userId: userId,
@@ -537,52 +523,13 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                                         existingRecordId: session.recordId,
                                       );
                                     },
-                                    isEditMode: _isEditMode,
+                                    isEditMode: _isEditMode && !_isExporting,
                                     showSaturday: showSaturday,
-                                    forceFullHeight: _isSharing,
+                                    forceFullHeight: _isExporting,
                                     enableScroll: false,
                                   ),
-                                  if (_isSharing)
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary
-                                            .withValues(alpha: 0.1),
-                                        borderRadius: const BorderRadius.only(
-                                          bottomLeft: Radius.circular(8),
-                                          bottomRight: Radius.circular(8),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.school,
-                                            size: 20,
-                                            color:
-                                                Theme.of(
-                                                  context,
-                                                ).colorScheme.primary,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            'CIT App - 千葉工業大学 学生支援アプリ',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.bold,
-                                              color:
-                                                  Theme.of(
-                                                    context,
-                                                  ).colorScheme.primary,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                                  if (_isExporting)
+                                    const ScheduleImageFooter(),
                                 ],
                               ),
                             ),
@@ -626,7 +573,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   }
 
   String _scheduleLabel(Schedule schedule) {
-    return schedule.semester;
+    return schedule.name?.trim().isNotEmpty == true ? schedule.name! : schedule.semester;
   }
 
   Widget _buildHeaderScheduleChip(
@@ -637,7 +584,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     return scheduleListAsync.when(
       data: (schedules) {
         if (schedules.isEmpty) {
-          return const SizedBox.shrink();
+          return SemesterSwitchButton(label: '時間割を追加', onPressed: () => _showCreateScheduleDialog(context, userId, schedules));
         }
         final selected = _resolveSelectedSchedule(schedules);
         return SemesterSwitchButton(
@@ -669,6 +616,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     required List<Schedule> schedules,
     required Schedule selected,
   }) async {
+    if (_isExporting) return;
     final action = await showModalBottomSheet<_ScheduleSheetAction>(
       context: context,
       showDragHandle: true,
@@ -858,7 +806,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     String userId,
     List<Schedule> currentSchedules,
   ) async {
-    final timetableName = await Navigator.of(context).push<String>(
+    final input = await Navigator.of(context).push<({String name, AcademicTerm? term})>(
       MaterialPageRoute(
         fullscreenDialog: true,
         builder:
@@ -866,14 +814,13 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       ),
     );
 
-    if (timetableName == null || timetableName.isEmpty) return;
+    if (input == null) return;
 
     try {
       final created = await ScheduleService.createNamedSchedule(
         userId: userId,
-        // 時間割名のみ管理するため、semesterに同じ値を保存する
-        name: timetableName,
-        semester: timetableName,
+        name: input.name,
+        semester: input.term?.label ?? input.name,
       );
       if (!mounted) return;
       setState(() => _selectedScheduleId = created.id);
@@ -913,7 +860,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       id: selected.id,
       userId: selected.userId,
       name: newName,
-      semester: newName,
+      semester: selected.semester,
       timetable: selected.timetable,
       timeSlots: selected.timeSlots,
       createdAt: selected.createdAt,
@@ -941,542 +888,171 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       _rescheduleNotificationsForSchedule(updatedSchedule);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('学期名を「${_scheduleLabel(updatedSchedule)}」に変更しました'),
+          content: Text('時間割名を「${_scheduleLabel(updatedSchedule)}」に変更しました'),
         ),
       );
     });
   }
 
-  // 時間割を共有する機能
-  Future<void> _shareSchedule(BuildContext context) async {
-    try {
-      print('🔄 共有開始...');
-
-      // ローディング表示
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(
-            content: Row(
-              children: [
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                ),
-                SizedBox(width: 12),
-                Text('時間割の画像を作成中...'),
-              ],
-            ),
-            duration: Duration(seconds: 3),
-            backgroundColor: AppColors.snackBarSurface(context, Colors.blue),
-          ),
-        );
-      }
-
-      // フッターを表示するためにUIを更新
-      setState(() {
-        _isSharing = true;
-      });
-
-      // UI更新を十分に待つ（レンダリング完了まで）
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // スクリーンショットを撮影
-      final RenderObject? renderObject =
-          _scheduleKey.currentContext?.findRenderObject();
-      if (renderObject == null) {
-        throw Exception('時間割表示エリアが見つかりません');
-      }
-
-      final RenderRepaintBoundary boundary =
-          renderObject as RenderRepaintBoundary;
-      print('📸 スクリーンショット撮影中...');
-
-      // より高解像度で撮影（共有用）
-      final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-      final ByteData? byteData = await image.toByteData(
-        format: ui.ImageByteFormat.png,
-      );
-
-      if (byteData == null) {
-        throw Exception('画像データの生成に失敗しました');
-      }
-
-      final Uint8List pngBytes = byteData.buffer.asUint8List();
-      print('✅ 画像生成完了: ${pngBytes.length}バイト');
-
-      // 一時ディレクトリに画像を保存
-      final Directory tempDir = await getTemporaryDirectory();
-      final String tempPath =
-          '${tempDir.path}/cit_schedule_${DateTime.now().millisecondsSinceEpoch}.png';
-      final File file = File(tempPath);
-      await file.writeAsBytes(pngBytes);
-      print('💾 画像保存完了: $tempPath');
-
-      // フッターを非表示に戻す
-      setState(() {
-        _isSharing = false;
-      });
-
-      // 共有テキスト
-      const String shareText = '時間割';
-
-      // share_plusを使った共有を再試行
-      print('🚀 share_plus再試行中...');
-      await _shareWithSharePlus(context, tempPath, shareText);
-
-      print('✅ 共有完了');
-
-      // 成功メッセージ
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Theme.of(context).colorScheme.onInverseSurface),
-                SizedBox(width: 8),
-                Text('時間割を共有しました'),
-              ],
-            ),
-            backgroundColor: AppColors.snackBarSurface(context, Colors.green),
-            duration: Duration(seconds: 3),
-          ),
-        );
-      }
-    } catch (e, stackTrace) {
-      print('❌ 共有エラー: $e');
-      print('📍 スタックトレース: $stackTrace');
-
-      // フッターを非表示に戻す
-      setState(() {
-        _isSharing = false;
-      });
-
-      if (context.mounted) {
-        String errorMessage = '共有に失敗しました';
-
-        if (e.toString().contains('Permission') ||
-            e.toString().contains('permission')) {
-          errorMessage = 'ストレージへのアクセス権限が必要です';
-        } else if (e.toString().contains('No application')) {
-          errorMessage = '共有できるアプリが見つかりません';
-        } else if (e.toString().contains('見つかりません')) {
-          errorMessage = '時間割が表示されていません。しばらく待ってから再試行してください。';
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                     Icon(Icons.error_outline, color: Theme.of(context).colorScheme.onInverseSurface),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(errorMessage)),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'エラー詳細: ${e.toString().length > 100 ? '${e.toString().substring(0, 100)}...' : e.toString()}',
-                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onInverseSurface),
-                ),
-              ],
-            ),
-            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
-            duration: const Duration(seconds: 6),
-            action: SnackBarAction(
-              label: '再試行',
-              textColor: Theme.of(context).colorScheme.onInverseSurface,
-              onPressed: () => _shareSchedule(context),
-            ),
-          ),
-        );
-      }
+  Future<void> _showScheduleExportSheet(BuildContext context) async {
+    if (_isExporting || ref.read(assignmentViewOpenProvider)) return;
+    final canSaveToPhotos = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
+    if (!canSaveToPhotos) {
+      await _exportSchedule(context, saveToPhotos: false);
+      return;
     }
-  }
 
-  // share_plusを使った共有機能（再試行版）
-  Future<void> _shareWithSharePlus(
-    BuildContext context,
-    String imagePath,
-    String shareText,
-  ) async {
-    try {
-      print('🔄 複数の共有方法を試行中...');
-
-      // 方法1: share_plusを試行
-      try {
-        final XFile imageFile = XFile(imagePath);
-        await Share.shareXFiles(
-          [imageFile],
-          text: shareText,
-          subject: 'CIT App - 私の時間割',
-        );
-        print('✅ share_plus成功');
-        return;
-      } catch (e1) {
-        print('⚠️ share_plus失敗: $e1');
-      }
-
-      // 方法2: プラットフォームチャンネルを使用
-      try {
-        const platform = MethodChannel('flutter/share');
-        await platform.invokeMethod('share', {
-          'text': shareText,
-          'subject': 'CIT App - 私の時間割',
-        });
-        print('✅ プラットフォームチャンネル成功（テキストのみ）');
-
-        // 画像は別途ダイアログで案内
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('テキストを共有しました。画像は手動で添付してください'),
-              backgroundColor: AppColors.snackBarSurface(context, Colors.blue),
-              action: SnackBarAction(
-                label: '画像場所を表示',
-                textColor: Theme.of(context).colorScheme.onInverseSurface,
-                onPressed: () => _showImageLocation(context, imagePath),
-              ),
-            ),
-          );
-        }
-        return;
-      } catch (e2) {
-        print('⚠️ プラットフォームチャンネル失敗: $e2');
-      }
-
-      // 方法3: フォールバック
-      if (Platform.isAndroid) {
-        await _shareOnAndroid(context, imagePath, shareText);
-      } else {
-        final imageBytes = await File(imagePath).readAsBytes();
-        await _fallbackShare(context, imageBytes, shareText, imagePath);
-      }
-    } catch (e) {
-      print('❌ すべての共有方法が失敗: $e');
-      final imageBytes = await File(imagePath).readAsBytes();
-      await _fallbackShare(context, imageBytes, shareText, imagePath);
-    }
-  }
-
-  // 画像の場所を表示
-  void _showImageLocation(BuildContext context, String imagePath) {
-    showDialog(
+    final action = await showModalBottomSheet<_ScheduleExportAction>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Row(
-              children: [
-                Icon(Icons.image, color: AppColors.accent(context, Colors.blue)),
-                SizedBox(width: 8),
-                Text('画像の場所'),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('時間割画像は以下の場所に保存されています：'),
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-                  ),
-                  child: Text(
-                    imagePath,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('画像で保存'),
+                subtitle: const Text('端末の写真・ギャラリーに保存'),
+                onTap: () => Navigator.of(sheetContext).pop(
+                  _ScheduleExportAction.saveImage,
                 ),
-                const SizedBox(height: 12),
-                const Text(
-                  'ファイルマネージャーでこの場所を開き、画像を手動で共有アプリに添付してください。',
-                  style: TextStyle(fontSize: 14),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: imagePath));
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('パスをコピーしました'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  }
-                },
-                child: const Text('パスをコピー'),
               ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('閉じる'),
+              ListTile(
+                leading: const Icon(Icons.share),
+                title: const Text('他のアプリに共有'),
+                onTap: () => Navigator.of(sheetContext).pop(
+                  _ScheduleExportAction.share,
+                ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+    if (!context.mounted || action == null) return;
+    await _exportSchedule(
+      context,
+      saveToPhotos: action == _ScheduleExportAction.saveImage,
     );
   }
 
-  // Android用の共有機能（標準共有ダイアログでLINEなどを選択可能）
-  Future<void> _shareOnAndroid(
-    BuildContext context,
-    String imagePath,
-    String shareText,
-  ) async {
+  Future<void> _exportSchedule(
+    BuildContext context, {
+    required bool saveToPhotos,
+  }) async {
+    if (_isExporting || ref.read(assignmentViewOpenProvider)) return;
+    if (_scheduleKey.currentContext == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('時間割が表示されてからもう一度お試しください')),
+      );
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    final screenBox = context.findRenderObject() as RenderBox?;
+    final shareOrigin = screenBox != null && screenBox.hasSize
+        ? screenBox.localToGlobal(Offset.zero) & screenBox.size
+        : null;
+    setState(() => _isExporting = true);
+    messenger
+      ..clearSnackBars()
+      ..removeCurrentSnackBar();
+    final progress = messenger.showSnackBar(
+      const SnackBar(
+        content: Text('時間割の画像を作成中…'),
+        duration: Duration(minutes: 1),
+      ),
+    );
+    var progressClosed = false;
+    unawaited(progress.closed.then<void>((_) => progressClosed = true));
+    void dismissProgress() {
+      if (!progressClosed && messenger.mounted) {
+        progressClosed = true;
+        progress.close();
+      }
+    }
+
     try {
-      final File imageFile = File(imagePath);
-      if (!await imageFile.exists()) {
-        throw Exception('画像ファイルが見つかりません: $imagePath');
+      // フッターのアイコンも読み込んだ後、描画完了を待って全体を撮影する。
+      await precacheImage(
+        const AssetImage('assets/icons/app_launcher_icon.png'),
+        context,
+      );
+      if (!mounted) return;
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      final boundary =
+          _scheduleKey.currentContext?.findRenderObject();
+      if (boundary is! RenderRepaintBoundary) {
+        throw StateError('時間割が表示されていません');
       }
 
-      print('📱 Android共有機能を使用中...');
-
-      // 複数の方法を試行する
-      bool shared = false;
-
-      // 方法1: 画像とテキストを同時に共有
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      late final Uint8List pngBytes;
       try {
-        final AndroidIntent intent = AndroidIntent(
-          action: 'android.intent.action.SEND',
-          type: 'image/png',
-          arguments: <String, dynamic>{
-            'android.intent.extra.STREAM': imagePath,
-            'android.intent.extra.TEXT': shareText,
-            'android.intent.extra.SUBJECT': 'CIT App - 私の時間割',
-          },
+        final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+        if (byteData == null) {
+          throw StateError('画像データを作成できませんでした');
+        }
+        pngBytes = byteData.buffer.asUint8List(
+          byteData.offsetInBytes,
+          byteData.lengthInBytes,
         );
-
-        await intent.launch();
-        shared = true;
-        print('✅ 方法1成功: 画像とテキスト同時共有');
-      } catch (e1) {
-        print('⚠️ 方法1失敗: $e1');
+      } finally {
+        image.dispose();
       }
+      if (!mounted) return;
+      dismissProgress();
+      final fileName =
+          'cit_schedule_${DateTime.now().millisecondsSinceEpoch}.png';
 
-      // 方法2: 画像のみ共有
-      if (!shared) {
-        try {
-          final AndroidIntent intent = AndroidIntent(
-            action: 'android.intent.action.SEND',
-            type: 'image/*',
-            arguments: <String, dynamic>{
-              'android.intent.extra.STREAM': imagePath,
-              'android.intent.extra.SUBJECT': 'CIT App - 私の時間割',
-            },
+      if (saveToPhotos) {
+        await ScheduleImageSaveService.savePng(pngBytes, fileName: fileName);
+        if (!mounted) return;
+        messenger.showSnackBar(
+          const SnackBar(content: Text('時間割を写真・ギャラリーに保存しました')),
+        );
+      } else {
+        final result = await Share.shareXFiles(
+          [XFile.fromData(pngBytes, mimeType: 'image/png', name: fileName)],
+          fileNameOverrides: [fileName],
+          text: '時間割',
+          subject: 'CIT App - 私の時間割',
+          sharePositionOrigin: shareOrigin,
+        );
+        // キャンセルや結果不明の場合は共有完了と表示しない。
+        if (mounted && result.status == ShareResultStatus.success) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('時間割を共有しました')),
           );
-
-          await intent.launch();
-          shared = true;
-          print('✅ 方法2成功: 画像のみ共有');
-
-          // テキストは別途クリップボードにコピー
-          await Clipboard.setData(ClipboardData(text: shareText));
-
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-               SnackBar(
-                content: Text('画像を共有しました。テキストはクリップボードにコピー済みです'),
-                backgroundColor: AppColors.snackBarSurface(context, Colors.blue),
-                duration: Duration(seconds: 3),
-              ),
-            );
-          }
-        } catch (e2) {
-          print('⚠️ 方法2失敗: $e2');
         }
       }
-
-      if (!shared) {
-        throw Exception('すべての共有方法が失敗しました');
-      }
-    } catch (e) {
-      print('❌ Android共有エラー: $e');
-      // フォールバックに切り替え
-      final imageBytes = await File(imagePath).readAsBytes();
-      await _fallbackShare(context, imageBytes, shareText, imagePath);
-    }
-  }
-
-  // 外部ストレージに画像をコピー（共有用）
-  Future<String> _copyToExternalStorage(File imageFile) async {
-    try {
-      // Downloadsフォルダに一時的にコピー
-      final Directory? externalDir = await getExternalStorageDirectory();
-      if (externalDir == null) {
-        throw Exception('外部ストレージにアクセスできません');
-      }
-
-      final String fileName =
-          'cit_schedule_${DateTime.now().millisecondsSinceEpoch}.png';
-      final String externalPath = '${externalDir.path}/$fileName';
-      final File externalFile = File(externalPath);
-
-      await imageFile.copy(externalPath);
-      print('📂 外部ストレージにコピー完了: $externalPath');
-
-      return externalPath;
-    } catch (e) {
-      print('⚠️ 外部ストレージコピー失敗、元のパスを使用: $e');
-      return imageFile.path;
-    }
-  }
-
-  // フォールバック共有機能（画像保存 + テキストコピー + 案内表示）
-  Future<void> _fallbackShare(
-    BuildContext context,
-    Uint8List imageBytes,
-    String shareText,
-    String imagePath,
-  ) async {
-    try {
-      // 画像をクリップボードにコピー（テスト用）
-      await Clipboard.setData(ClipboardData(text: shareText));
-
-      if (context.mounted) {
-        // 共有方法の選択ダイアログを表示
-        await showDialog(
-          context: context,
-          builder:
-              (context) => AlertDialog(
-                title: Row(
-                  children: [
-                    Icon(Icons.share, color: AppColors.accent(context, Colors.blue)),
-                    SizedBox(width: 8),
-                    Text('時間割を共有'),
-                  ],
-                ),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '時間割画像を作成しました。共有方法を選択してください。',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 20),
-
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.tintedSurface(context, Colors.blue),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue.shade200),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                           Row(
-                            children: [
-                              Icon(Icons.info, color: AppColors.accent(context, Colors.blue), size: 20),
-                              SizedBox(width: 8),
-                              Text(
-                                '画像の場所',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '画像は以下のパスに保存されました：\n$imagePath',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.tintedSurface(context, Colors.green),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.green.shade200),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                           Row(
-                            children: [
-                              Icon(Icons.copy, color: AppColors.accent(context, Colors.green), size: 20),
-                              SizedBox(width: 8),
-                              Text(
-                                '共有テキスト（コピー済み）',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.surface,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-                            ),
-                            child: Text(
-                              shareText,
-                              style: const TextStyle(fontSize: 12),
-                              maxLines: 4,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () async {
-                      // テキストを再度クリップボードにコピー
-                      await Clipboard.setData(ClipboardData(text: shareText));
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                           SnackBar(
-                            content: Text('テキストをクリップボードにコピーしました'),
-                            backgroundColor: AppColors.snackBarSurface(context, Colors.green),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    },
-                    child: const Text('テキストをコピー'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('閉じる'),
-                  ),
-                ],
-              ),
-        );
-      }
-    } catch (e) {
-      print('フォールバック共有エラー: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+    } catch (error, stackTrace) {
+      debugPrint('時間割画像の出力に失敗: $error\n$stackTrace');
+      if (!mounted) return;
+      final permissionDenied =
+          error is PlatformException && error.code == 'permission_denied';
+      dismissProgress();
+      messenger.showSnackBar(
           SnackBar(
-            content: Text('共有に失敗しました: $e'),
-            backgroundColor: AppColors.snackBarSurface(context, Colors.red),
-            duration: const Duration(seconds: 4),
+            content: Text(
+              permissionDenied
+                  ? '写真への保存が許可されていません。端末の設定でCIT Appの写真への追加を許可してください。'
+                  : saveToPhotos
+                      ? '時間割を保存できませんでした。もう一度お試しください。'
+                      : '時間割を共有できませんでした。もう一度お試しください。',
+            ),
           ),
         );
-      }
+    } finally {
+      dismissProgress();
+      if (mounted) setState(() => _isExporting = false);
     }
   }
-
   Future<void> _pickAndImportExcel(
     BuildContext context,
     String? scheduleId,
@@ -1645,7 +1221,12 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     if (!context.mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => AttendanceManagementScreen(schedule: schedule),
+        builder: (context) => AttendanceManagementScreen(schedule: schedule, onSettingsChanged: () {
+          ref.invalidate(scheduleListProvider(schedule.userId));
+          ref.invalidate(scheduleProvider(schedule.userId));
+          ref.invalidate(currentUserSelectedTodayScheduleProvider);
+          ref.invalidate(currentUserScheduleProvider);
+        }),
       ),
     );
   }
@@ -1796,7 +1377,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                                     labelText: '始点時限',
                                   ),
                                   items:
-                                      List.generate(10, (i) => i + 1).map((p) {
+                                      List.generate(PeriodTimeResolver.maxPeriod, (i) => i + 1).map((p) {
                                         return DropdownMenuItem<int>(
                                           value: p,
                                           child: Text('$p限'),
@@ -2015,6 +1596,41 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     if (result == true) {
       // 時間割が更新された場合の処理（必要に応じて）
     }
+  }
+
+  Future<void> _removePeriod(Schedule schedule) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: Text('${schedule.periodCount}限を削除'),
+      content: const Text('末尾の拡張時限を削除します。この時限にかかる講義は、連続講義も含めて時間割から削除されます。'),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('削除'))],
+    ));
+    if (confirmed != true || !mounted) return;
+    await _addPeriod(schedule, remove: true);
+  }
+
+  Future<void> _addPeriod(Schedule schedule, {bool remove = false}) async {
+    final userId = ref.read(currentUserIdProvider);
+    if (userId == null || userId != schedule.userId) {
+      throw StateError('ログイン状態を確認してください');
+    }
+    final updated = remove
+        ? await ScheduleService.removeLastPeriod(scheduleId: schedule.id, expectedPeriod: schedule.periodCount, removeClasses: true)
+        : await ScheduleService.addPeriod(scheduleId: schedule.id);
+    if (!mounted || ref.read(currentUserIdProvider) != userId) return;
+    ref.invalidate(scheduleListProvider(userId));
+    ref.invalidate(scheduleProvider(userId));
+    ref.invalidate(weeklyScheduleProvider(userId));
+    ref.invalidate(todayScheduleProvider(userId));
+    ref.invalidate(nextClassProvider(userId));
+    ref.invalidate(currentPeriodProvider(userId));
+    ref.invalidate(todayScheduleByIdProvider(schedule.id));
+    ref.invalidate(currentUserSelectedTodayScheduleProvider);
+    ref.read(homeRefreshNotifierProvider.notifier).state++;
+    await ref.read(scheduleListProvider(userId).future);
+    if (!mounted || ref.read(currentUserIdProvider) != userId) return;
+    _rescheduleNotificationsForSchedule(updated);
+    unawaited(_syncWidgetsForSelectedSchedule(updated));
   }
 
   Future<void> _moveClass(Schedule schedule, String day, int period, ScheduleClass lesson) async {
@@ -2255,14 +1871,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     final current = now ?? DateTime.now();
     final day = DateTime(current.year, current.month, current.day);
 
-    final isFall = semester.contains('後期');
-    final startRaw = isFall ? settings.fallStartDate : settings.springStartDate;
-    final endRaw = isFall ? settings.fallEndDate : settings.springEndDate;
-    final legacyStart = settings.lectureStartDate;
-    final legacyEnd = settings.lectureEndDate;
-
-    final start = startRaw ?? (!isFall ? legacyStart : null);
-    final end = endRaw ?? (!isFall ? legacyEnd : null);
+    if (settings.periodForSemester(semester)?.isActive == false) return false;
+    final start = settings.startDateForSemester(semester);
+    final end = settings.endDateForSemester(semester);
     if (start == null || end == null) return true;
 
     final startDay = DateTime(start.year, start.month, start.day);
@@ -2275,14 +1886,8 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     required String semester,
   }) {
     if (settings == null) return null;
-    final isFall = semester.contains('後期');
-    final startRaw = isFall ? settings.fallStartDate : settings.springStartDate;
-    final endRaw = isFall ? settings.fallEndDate : settings.springEndDate;
-    final legacyStart = settings.lectureStartDate;
-    final legacyEnd = settings.lectureEndDate;
-
-    final start = startRaw ?? (!isFall ? legacyStart : null);
-    final end = endRaw ?? (!isFall ? legacyEnd : null);
+    final start = settings.startDateForSemester(semester);
+    final end = settings.endDateForSemester(semester);
     if (start == null || end == null) return null;
 
     final startDay = DateTime(start.year, start.month, start.day);
@@ -2378,6 +1983,7 @@ class _CreateScheduleInputPage extends StatefulWidget {
 }
 
 class _CreateScheduleInputPageState extends State<_CreateScheduleInputPage> {
+  AcademicTerm? _term;
   final TextEditingController _controller = TextEditingController();
   String? _errorMessage;
 
@@ -2397,7 +2003,7 @@ class _CreateScheduleInputPageState extends State<_CreateScheduleInputPage> {
     }
     final normalizedInput = input.toLowerCase();
     final duplicateExists = widget.currentSchedules.any(
-      (schedule) => schedule.semester.trim().toLowerCase() == normalizedInput,
+      (schedule) => (schedule.name ?? schedule.semester).trim().toLowerCase() == normalizedInput,
     );
     if (duplicateExists) {
       setState(() {
@@ -2405,7 +2011,7 @@ class _CreateScheduleInputPageState extends State<_CreateScheduleInputPage> {
       });
       return;
     }
-    Navigator.of(context).pop(input);
+    Navigator.of(context).pop((name: input, term: _term));
   }
 
   @override
@@ -2415,7 +2021,8 @@ class _CreateScheduleInputPageState extends State<_CreateScheduleInputPage> {
         title: const Text('時間割を追加'),
         actions: [TextButton(onPressed: _submit, child: const Text('追加'))],
       ),
-      body: Padding(
+      body: SingleChildScrollView(
+        child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2429,6 +2036,19 @@ class _CreateScheduleInputPageState extends State<_CreateScheduleInputPage> {
               ),
               onSubmitted: (_) => _submit(),
             ),
+            const SizedBox(height: 20),
+            AcademicTermSelector(value: _term, optional: true, onChanged: (value) async {
+              final enabling = _term == null && value != null;
+              setState(() => _term = value);
+              if (!enabling) return;
+              final useName = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+                title: const Text('時間割名も変更しますか？'),
+                content: Text('時間割名を「' + value.label + '」にしますか？あとから名前を変更できます。'),
+                actions: [TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('現在の名前を使う')),
+                  FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('年度・学期を名前にする'))],
+              ));
+              if (mounted && useName == true) _controller.text = value.label;
+            }),
             if (_errorMessage != null) ...[
               const SizedBox(height: 12),
               Text(
@@ -2441,6 +2061,7 @@ class _CreateScheduleInputPageState extends State<_CreateScheduleInputPage> {
             ],
           ],
         ),
+      ),
       ),
     );
   }
@@ -2482,7 +2103,7 @@ class _RenameScheduleInputPageState extends State<_RenameScheduleInputPage> {
     final input = _controller.text.trim();
     if (input.isEmpty) {
       setState(() {
-        _errorMessage = '学期名を入力してください';
+        _errorMessage = '時間割名を入力してください';
       });
       return;
     }
@@ -2494,7 +2115,7 @@ class _RenameScheduleInputPageState extends State<_RenameScheduleInputPage> {
     );
     if (duplicateExists) {
       setState(() {
-        _errorMessage = '同じ学期名が既に存在します。違う名前を入力してください。';
+        _errorMessage = '同じ時間割名が既に存在します。違う名前を入力してください。';
       });
       return;
     }
@@ -2505,7 +2126,7 @@ class _RenameScheduleInputPageState extends State<_RenameScheduleInputPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('学期名を編集'),
+        title: const Text('時間割名を編集'),
         actions: [TextButton(onPressed: _submit, child: const Text('保存'))],
       ),
       body: Padding(
@@ -2517,7 +2138,7 @@ class _RenameScheduleInputPageState extends State<_RenameScheduleInputPage> {
               controller: _controller,
               autofocus: true,
               decoration: const InputDecoration(
-                labelText: '学期名',
+                labelText: '時間割名',
                 hintText: '例: 2026年前期 / 3s',
               ),
               onSubmitted: (_) => _submit(),

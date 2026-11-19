@@ -1,12 +1,17 @@
+import '../../services/notification/notification_stream.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/notification/notification_model.dart';
 import '../../services/notification/global_notification_service.dart';
+
+final globalNotificationStreamFactoryProvider = Provider<Stream<List<GlobalNotification>> Function()>(
+  (ref) => GlobalNotificationService.getActiveGlobalNotifications,
+);
 
 // アクティブな全体通知のストリームプロバイダー
 final globalNotificationsProvider = StreamProvider<List<GlobalNotification>>((
   ref,
 ) {
-  return GlobalNotificationService.getActiveGlobalNotifications();
+  return withInitialNotificationTimeout(ref.watch(globalNotificationStreamFactoryProvider)());
 });
 
 // すべての全体通知のストリームプロバイダー（管理者用）

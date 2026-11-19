@@ -57,6 +57,16 @@ final adminQueueCountProvider = FutureProvider.autoDispose
               .where(queue.field, isEqualTo: queue.value)
               .count()
               .get();
+      if (queue == AdminQueue.contacts) {
+        final chats =
+            await ref
+                .watch(adminDashboardFirestoreProvider)
+                .collection('contact_chats')
+                .where('status', isEqualTo: 'pending')
+                .count()
+                .get();
+        return (result.count ?? 0) + (chats.count ?? 0);
+      }
       return result.count ?? 0;
     });
 

@@ -1,0 +1,43 @@
+{
+  "inputMethod": "Single Chrome page, CDP multi-touch, actual game renderer; QA requestAnimationFrame capped at 20fps",
+  "checks": {
+    "separateGameAndNoAnalog": true,
+    "bus-portrait": {
+      "outsideHeldNoCameraTransfer": true,
+      "returnHeld": true,
+      "brakePriority": true,
+      "independentPedals": true,
+      "independentDirection": true,
+      "trueCancel": true,
+      "rotationNeutral": true
+    },
+    "bus-landscape": {
+      "outsideHeldNoCameraTransfer": true,
+      "returnHeld": true,
+      "brakePriority": true,
+      "independentPedals": true,
+      "independentDirection": true,
+      "trueCancel": true,
+      "rotationNeutral": true
+    },
+    "practiceRecoveryPenalty": true,
+    "cancelCannotReviveRace": true,
+    "neonSphere": {
+      "position": [
+        230,
+        38,
+        -1110
+      ],
+      "radius": 38,
+      "originalPattern": true,
+      "reducedMotion": false
+    },
+    "busOnlyAndSimpleToolbar": true,
+    "persistentResetScene": true,
+    "backgroundNeutral": true,
+    "disposeBackNeutral": true,
+    "reducedMotion": true
+  },
+  "errors": [],
+  "scope": "First-stage local playability only. Node tests cover all four complete physics routes and recovery; full online/physical Android tests are separate."
+}

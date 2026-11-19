@@ -1,0 +1,24 @@
+{
+  "phase": "safe staged checkpoint",
+  "sourceFrozen": true,
+  "nodeTestsPassed": 39,
+  "flutterTestsPassed": 36,
+  "backendTestsPassed": 22,
+  "emulatorIntegrationsPassed": 8,
+  "actualWebGLTouchCombinationsPassed": 6,
+  "qaWebBuildsPassed": [
+    "campus_3d_preview.dart",
+    "campus_multiplayer_qa.dart"
+  ],
+  "notYetVerified": [
+    "Flutter host building-label rendering/back",
+    "two Flutter clients online E2E",
+    "latest normal Web and debug APK bundles",
+    "physical Android/iOS",
+    "iOS build",
+    "scheduler delivery"
+  ],
+  "runningRootProcesses": [],
+  "productionAccess": false,
+  "commitPushDeploy": false
+}

@@ -1,0 +1,18 @@
+{
+  "firestore": {
+    "rules": "build/contact-chat-deploy/firestore.rules"
+  },
+  "storage": [
+    {
+      "bucket": "cit-app-2de1c.firebasestorage.app",
+      "rules": "build/contact-chat-deploy/storage.rules"
+    }
+  ],
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "runtime": "nodejs20"
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import 'package:cit_app/core/utils/logger.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/utils/period_time_resolver.dart';
 
 // 時間割のクラス（科目）を表すモデル
 class ScheduleClass {
@@ -52,7 +53,7 @@ class ScheduleClass {
 
 // 時間割の時間枠を表すモデル
 class TimeSlot {
-  final int period; // 時限（1-10）
+  final int period;
   final String startTime; // 開始時刻（例: "9:00"）
   final String endTime; // 終了時刻（例: "10:00"）
 
@@ -61,6 +62,17 @@ class TimeSlot {
     required this.startTime,
     required this.endTime,
   });
+
+  factory TimeSlot.forPeriod(int period) {
+    if (!PeriodTimeResolver.isValidPeriod(period)) {
+      throw RangeError.range(period, 1, PeriodTimeResolver.maxPeriod, 'period');
+    }
+    return TimeSlot(
+      period: period,
+      startTime: '${PeriodTimeResolver.startHourForPeriod(period)}:00',
+      endTime: '${PeriodTimeResolver.endHourForPeriod(period)}:00',
+    );
+  }
 
   factory TimeSlot.fromJson(Map<String, dynamic> json) {
     return TimeSlot(
@@ -112,19 +124,125 @@ class Schedule {
     this.updatedAt,
   });
 
+  /// Empty added rows are retained through timeSlots and timetable keys.
+  int get periodCount {
+    var count = PeriodTimeResolver.defaultPeriodCount;
+    for (final slot in timeSlots) {
+      if (PeriodTimeResolver.isValidPeriod(slot.period) &&
+          slot.period > count) {
+        count = slot.period;
+      }
+    }
+    for (final day in timetable.values) {
+      for (final entry in day.entries) {
+        if (!PeriodTimeResolver.isValidPeriod(entry.key)) continue;
+        final last =
+            entry.key +
+            (entry.value?.isStartCell == true ? entry.value!.duration : 1)
+                .clamp(1, PeriodTimeResolver.maxPeriod) -
+            1;
+        if (last > count) count = last;
+      }
+    }
+    return count.clamp(
+      PeriodTimeResolver.defaultPeriodCount,
+      PeriodTimeResolver.maxPeriod,
+    );
+  }
+
+  Schedule withAdditionalPeriod() {
+    if (periodCount >= PeriodTimeResolver.maxPeriod) {
+      throw StateError('時限は${PeriodTimeResolver.maxPeriod}限まで追加できます');
+    }
+    final next = periodCount + 1;
+    final slots = {
+      for (final slot in DefaultTimeSlots.forPeriodCount(next))
+        slot.period: slot,
+      for (final slot in timeSlots)
+        if (PeriodTimeResolver.isValidPeriod(slot.period)) slot.period: slot,
+    };
+    return Schedule(
+      id: id,
+      userId: userId,
+      name: name,
+      semester: semester,
+      timetable: {
+        for (final entry in timetable.entries)
+          entry.key: Map<int, ScheduleClass?>.from(entry.value),
+        for (final day in Weekday.values)
+          day.name: {...?timetable[day.name], next: null},
+      },
+      timeSlots:
+          slots.values.toList()..sort((a, b) => a.period.compareTo(b.period)),
+      createdAt: createdAt,
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  /// 末尾の拡張時限だけを削除し、通常の1〜10限は残す。
+  Schedule withoutLastPeriod({bool removeClasses = false}) {
+    final last = periodCount;
+    if (last <= PeriodTimeResolver.defaultPeriodCount)
+      throw StateError('通常の時限は削除できません');
+    final next = <String, Map<int, ScheduleClass?>>{};
+    for (final day in timetable.entries) {
+      final affected = <String>{};
+      for (final entry in day.value.entries) {
+        final lesson = entry.value;
+        if (lesson != null &&
+            (entry.key == last ||
+                (lesson.isStartCell && entry.key + lesson.duration > last)))
+          affected.add(lesson.id);
+      }
+      if (affected.isNotEmpty && !removeClasses)
+        throw StateError('この時限には講義が登録されています');
+      next[day.key] = {
+        for (final entry in day.value.entries)
+          if (entry.key < last)
+            entry.key: affected.contains(entry.value?.id) ? null : entry.value,
+      };
+    }
+    return Schedule(
+      id: id,
+      userId: userId,
+      name: name,
+      semester: semester,
+      timetable: next,
+      timeSlots: timeSlots.where((slot) => slot.period < last).toList(),
+      createdAt: createdAt,
+      updatedAt: DateTime.now(),
+    );
+  }
+
   factory Schedule.fromJson(Map<String, dynamic> json) {
     try {
       // Firestoreから取得したtimetableデータを解析
-      final timetableData = Map<String, dynamic>.from(json['timetable'] as Map? ?? {});
+      final timetableData = Map<String, dynamic>.from(
+        json['timetable'] as Map? ?? {},
+      );
       final Map<String, Map<int, ScheduleClass?>> parsedTimetable = {};
 
       for (final weekdayEntry in timetableData.entries) {
         final weekdayKey = weekdayEntry.key;
-        final periodsData = Map<String, dynamic>.from(weekdayEntry.value as Map? ?? {});
+        final periodsData = Map<String, dynamic>.from(
+          weekdayEntry.value as Map? ?? {},
+        );
 
         parsedTimetable[weekdayKey] = {};
 
-        for (int period = 1; period <= 10; period++) {
+        final periods = <int>{
+          for (
+            var period = 1;
+            period <= PeriodTimeResolver.defaultPeriodCount;
+            period++
+          )
+            period,
+          for (final key in periodsData.keys)
+            if (int.tryParse(key) case final int period
+                when PeriodTimeResolver.isValidPeriod(period))
+              period,
+        };
+        for (final period in periods) {
           final periodData = periodsData[period.toString()];
           if (periodData is Map) {
             parsedTimetable[weekdayKey]![period] = ScheduleClass.fromJson(
@@ -143,13 +261,19 @@ class Schedule {
         parsedTimeSlots =
             timeSlotsField
                 .whereType<Map>()
-                .map((item) => TimeSlot.fromJson(Map<String, dynamic>.from(item)))
+                .map(
+                  (item) => TimeSlot.fromJson(Map<String, dynamic>.from(item)),
+                )
                 .toList();
       } else if (timeSlotsField is Map) {
         parsedTimeSlots =
             timeSlotsField.entries
                 .where((e) => e.value is Map)
-                .map((e) => TimeSlot.fromJson(Map<String, dynamic>.from(e.value as Map)))
+                .map(
+                  (e) => TimeSlot.fromJson(
+                    Map<String, dynamic>.from(e.value as Map),
+                  ),
+                )
                 .toList()
               ..sort((a, b) => a.period.compareTo(b.period));
       } else {
@@ -257,6 +381,13 @@ class Schedule {
 
 // デフォルトの時間枠を提供するクラス
 class DefaultTimeSlots {
+  static List<TimeSlot> forPeriodCount(int count) {
+    if (count < 1 || count > PeriodTimeResolver.maxPeriod) {
+      throw RangeError.range(count, 1, PeriodTimeResolver.maxPeriod, 'count');
+    }
+    return List.generate(count, (index) => TimeSlot.forPeriod(index + 1));
+  }
+
   static List<TimeSlot> get citTimeSlots => [
     const TimeSlot(period: 1, startTime: "9:00", endTime: "10:00"),
     const TimeSlot(period: 2, startTime: "10:00", endTime: "11:00"),
@@ -271,12 +402,22 @@ class DefaultTimeSlots {
   ];
 
   // 空の時間割を作成するヘルパー
-  static Map<String, Map<int, ScheduleClass?>> createEmptyTimetable() {
+  static Map<String, Map<int, ScheduleClass?>> createEmptyTimetable({
+    int periodCount = PeriodTimeResolver.defaultPeriodCount,
+  }) {
+    if (periodCount < 1 || periodCount > PeriodTimeResolver.maxPeriod) {
+      throw RangeError.range(
+        periodCount,
+        1,
+        PeriodTimeResolver.maxPeriod,
+        'periodCount',
+      );
+    }
     final timetable = <String, Map<int, ScheduleClass?>>{};
 
     for (final weekday in Weekday.values) {
       timetable[weekday.name] = <int, ScheduleClass?>{};
-      for (int period = 1; period <= 10; period++) {
+      for (int period = 1; period <= periodCount; period++) {
         timetable[weekday.name]![period] = null;
       }
     }
@@ -348,7 +489,10 @@ class ScheduleUtils {
     final todaySchedule = schedule.timetable[todayKey];
     if (todaySchedule == null) return [];
 
-    return List.generate(10, (index) => todaySchedule[index + 1]);
+    return List.generate(
+      schedule.periodCount,
+      (index) => todaySchedule[index + 1],
+    );
   }
 
   // 次の授業を取得
@@ -362,7 +506,11 @@ class ScheduleUtils {
     if (todaySchedule == null) return null;
 
     // 現在の時限以降の最初の授業を探す
-    for (int period = currentPeriod + 1; period <= 10; period++) {
+    for (
+      int period = currentPeriod + 1;
+      period <= schedule.periodCount;
+      period++
+    ) {
       final nextClass = todaySchedule[period];
       if (nextClass != null) return nextClass;
     }

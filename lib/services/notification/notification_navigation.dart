@@ -1,3 +1,4 @@
+import 'app_store_navigation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -10,31 +11,51 @@ import '../../screens/community/widgets/chiba_channel_thread_screen.dart';
 import '../../screens/community/widgets/cwitter_profile_screen.dart';
 import '../../screens/community/widgets/cwitter_reply_sheet.dart';
 import '../../screens/notification/unified_notification_screen.dart';
+import '../../screens/contact/user_contact_list_screen.dart';
+import '../../screens/contact/contact_chat_screen.dart';
 import '../users/user_block_service.dart';
 import 'notification_target.dart';
 
 class NotificationNavigation {
   static Future<void> open(
     BuildContext context,
-    NotificationTarget target,
-  ) async {
-    final user = FirebaseAuth.instance.currentUser;
+    NotificationTarget target, {
+    bool fromNotificationList = false,
+    bool markRead = true,
+    FirebaseAuth? auth,
+    FirebaseFirestore? firestore,
+    Future<Set<String>> Function()? hiddenUserIds,
+    Future<bool> Function()? launchStore,
+  }) async {
+    final session = auth ?? FirebaseAuth.instance;
+    final db = firestore ?? FirebaseFirestore.instance;
+    final getHiddenUsers = hiddenUserIds ?? UserBlockService.getHiddenUserIds;
+    final user = session.currentUser;
     if (user == null || !user.emailVerified || !target.belongsTo(user.uid)) {
       return;
     }
     bool stillCurrent() =>
-        context.mounted && FirebaseAuth.instance.currentUser?.uid == user.uid;
+        context.mounted && session.currentUser?.uid == user.uid;
+    if (markRead) await _markRead(target, db);
+    if (!stillCurrent()) return;
     try {
+      if (target.data['type'] == 'app_update') {
+        if (!await (launchStore ?? openAppStore)()) {
+          throw StateError('store unavailable');
+        }
+        return;
+      }
       Widget? destination;
-      if (target.source == 'cwitter' &&
-          target.data['type'] == 'follow' &&
-          target.fromUserId != null) {
+      if (target.source == 'contact_chat') {
+        destination = const ContactChatScreen();
+      } else if (target.data['type'] == 'contact_response') {
+        destination = const UserContactListScreen();
+      } else if (target.source == 'cwitter' &&
+          target.data['type'] == 'follow') {
+        if (target.fromUserId == null) throw StateError('missing');
         final doc =
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(target.fromUserId)
-                .get();
-        final hiddenUsers = await UserBlockService.getHiddenUserIds();
+            await db.collection('public_profiles').doc(target.fromUserId).get();
+        final hiddenUsers = await getHiddenUsers();
         if (!doc.exists || hiddenUsers.contains(target.fromUserId)) {
           throw StateError('unavailable');
         }
@@ -51,23 +72,19 @@ class NotificationNavigation {
         );
       } else if (target.source == 'cwitter' && target.postId != null) {
         final doc =
-            await FirebaseFirestore.instance
-                .collection('cwitter_posts')
-                .doc(target.postId)
-                .get();
+            await db.collection('cwitter_posts').doc(target.postId).get();
         if (!doc.exists) throw StateError('missing');
         final post = CwitterPost.fromFirestore(doc);
-        final hiddenUsers = await UserBlockService.getHiddenUserIds();
+        final hiddenUsers = await getHiddenUsers();
         if (hiddenUsers.contains(post.authorId)) {
           throw StateError('unavailable');
         }
         if (!context.mounted || !stillCurrent()) return;
         CwitterReplySheet.show(context, post);
-        await _markRead(target);
         return;
       } else if (target.source == 'chiba_channel' && target.postId != null) {
         final doc =
-            await FirebaseFirestore.instance
+            await db
                 .collection('chiba_channel_threads')
                 .doc(target.postId)
                 .get();
@@ -75,52 +92,57 @@ class NotificationNavigation {
         destination = ChibaChannelThreadScreen(
           thread: ChibaChannelThread.fromFirestore(doc),
         );
-      } else if (target.postId != null) {
+      } else if (target.postId != null &&
+          (target.source.isEmpty || target.source == 'bulletin')) {
         final doc =
-            await FirebaseFirestore.instance
-                .collection('bulletin_posts')
-                .doc(target.postId)
-                .get();
+            await db.collection('bulletin_posts').doc(target.postId).get();
         if (!doc.exists) throw StateError('missing');
         final post = BulletinPost.fromJson({...doc.data()!, 'id': doc.id});
-        final hiddenUsers = await UserBlockService.getHiddenUserIds();
-        if (!post.isActive ||
-            hiddenUsers.contains(post.authorId) ||
-            (post.approvalStatus != 'approved' && post.authorId != user.uid)) {
+        final hiddenUsers = await getHiddenUsers();
+        if (hiddenUsers.contains(post.authorId) ||
+            ((!post.isActive || post.approvalStatus != 'approved') &&
+                post.authorId != user.uid)) {
           throw StateError('unavailable');
         }
         destination = BulletinPostDetailScreen(
           post: post,
           initialCommentId: target.commentId,
         );
+      } else if (target.source == 'cwitter' ||
+          target.source == 'chiba_channel') {
+        throw StateError('missing');
       }
       if (!context.mounted || !stillCurrent()) return;
+      if (destination == null && fromNotificationList) return;
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => destination ?? const UnifiedNotificationScreen(),
         ),
       );
-      await _markRead(target);
     } catch (_) {
       if (!context.mounted || !stillCurrent()) return;
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => const UnifiedNotificationScreen(),
-        ),
-      );
+      if (!fromNotificationList) {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const UnifiedNotificationScreen(),
+          ),
+        );
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('通知の内容を開けませんでした。削除・公開範囲・通信状態をご確認ください。')),
       );
     }
   }
 
-  static Future<void> _markRead(NotificationTarget target) async {
+  static Future<void> _markRead(
+    NotificationTarget target,
+    FirebaseFirestore db,
+  ) async {
     if (target.notificationId == null) return;
     try {
-      await FirebaseFirestore.instance
-          .collection('notifications')
-          .doc(target.notificationId)
-          .update({'isRead': true});
+      await db.collection('notifications').doc(target.notificationId).update({
+        'isRead': true,
+      });
     } catch (_) {}
   }
 }

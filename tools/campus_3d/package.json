@@ -1,0 +1,16 @@
+{
+  "name": "cit-campus-explorer-build",
+  "private": true,
+  "scripts": {
+    "build": "node build.cjs",
+    "test": "node --test *.test.mjs"
+  },
+  "dependencies": {
+    "three": "0.186.1",
+    "three-mesh-bvh": "0.9.15"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "playwright-core": "1.63.0"
+  }
+}

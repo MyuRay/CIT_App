@@ -8,6 +8,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../../core/providers/schedule_provider.dart';
 
 import '../../../core/providers/cwitter_provider.dart';
+import '../../../core/providers/cwitter_search_provider.dart';
 
 import '../../../core/providers/user_block_provider.dart';
 
@@ -16,8 +17,6 @@ import '../../../models/community/cwitter_follow_user.dart';
 import '../../../models/community/cwitter_hashtag_summary.dart';
 
 import '../../../models/community/cwitter_post.dart';
-
-import '../../../services/community/cwitter_service.dart';
 
 import '../../../services/users/content_filter_service.dart';
 
@@ -33,7 +32,7 @@ import 'cwitter_profile_screen.dart';
 
 import 'cwitter_tags_row.dart';
 
-/// Cweet 本文・Cwitter ID・ハッシュタグの検索
+/// Cweet 本文・ユーザー（表示名 / ID）・ハッシュタグの検索
 
 class CwitterSearchScreen extends ConsumerStatefulWidget {
   const CwitterSearchScreen({super.key});
@@ -52,6 +51,7 @@ class _CwitterSearchScreenState extends ConsumerState<CwitterSearchScreen>
   late final TabController _tabController;
 
   Timer? _debounce;
+  int _searchRequestId = 0;
 
   bool _isSearching = false;
 
@@ -91,11 +91,22 @@ class _CwitterSearchScreenState extends ConsumerState<CwitterSearchScreen>
 
   void _onQueryChanged() {
     _debounce?.cancel();
+    _searchRequestId++;
+
+    setState(() {
+      _isSearching = _searchController.text.trim().isNotEmpty;
+      _errorMessage = null;
+      _postResults = const [];
+      _userResults = const [];
+      _tagUserResults = const [];
+    });
 
     _debounce = Timer(const Duration(milliseconds: 400), _runSearch);
   }
 
   Future<void> _runSearch() async {
+    _debounce?.cancel();
+    final requestId = ++_searchRequestId;
     final query = _searchController.text.trim();
 
     if (query.isEmpty) {
@@ -123,26 +134,28 @@ class _CwitterSearchScreenState extends ConsumerState<CwitterSearchScreen>
     });
 
     try {
+      final results = await ref.read(cwitterSearchProvider)(query);
+      if (!mounted || requestId != _searchRequestId) return;
+
       final hiddenUserIds =
-          ref.read(hiddenUserIdsProvider).valueOrNull ?? const {};
+          await ref.read(hiddenUserIdsProvider.future);
+      if (!mounted || requestId != _searchRequestId) return;
 
       final posts = ContentFilterService.filterCwitterPosts(
-        await CwitterService.searchPosts(query),
+        results.posts,
 
         hiddenUserIds,
       );
 
       final users =
-          (await CwitterService.searchUsersByCwitterId(
-            query,
-          )).where((user) => !hiddenUserIds.contains(user.authorId)).toList();
+          results.users
+              .where((user) => !hiddenUserIds.contains(user.authorId))
+              .toList();
 
       final tagUsers =
-          (await CwitterService.searchUsersByHashtag(
-            query,
-          )).where((user) => !hiddenUserIds.contains(user.authorId)).toList();
-
-      if (!mounted) return;
+          results.tagUsers
+              .where((user) => !hiddenUserIds.contains(user.authorId))
+              .toList();
 
       setState(() {
         _postResults = posts;
@@ -154,7 +167,7 @@ class _CwitterSearchScreenState extends ConsumerState<CwitterSearchScreen>
         _isSearching = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || requestId != _searchRequestId) return;
 
       setState(() {
         _isSearching = false;
@@ -203,7 +216,7 @@ class _CwitterSearchScreenState extends ConsumerState<CwitterSearchScreen>
           textInputAction: TextInputAction.search,
 
           decoration: InputDecoration(
-            hintText: 'キーワード・@ID・#タグ（部分一致）',
+            hintText: 'キーワード・名前・@ID・#タグ',
 
             border: InputBorder.none,
 
@@ -241,7 +254,7 @@ class _CwitterSearchScreenState extends ConsumerState<CwitterSearchScreen>
 
           unselectedLabelColor: colorScheme.onSurface.withValues(alpha: 0.6),
 
-          tabs: const [Tab(text: 'Cweet'), Tab(text: 'ID'), Tab(text: 'タグ')],
+          tabs: const [Tab(text: 'Cweet'), Tab(text: 'ユーザー'), Tab(text: 'タグ')],
         ),
       ),
 
@@ -315,7 +328,7 @@ class _CwitterSearchScreenState extends ConsumerState<CwitterSearchScreen>
     String query,
   ) {
     if (query.isEmpty) {
-      return _buildHint(theme, colorScheme, '@ または ID の一部を入力（部分一致）');
+      return _buildHint(theme, colorScheme, '表示名または @ID を入力（部分一致）');
     }
 
     if (_isSearching) {

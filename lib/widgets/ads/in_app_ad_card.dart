@@ -1,5 +1,11 @@
+import 'dart:async';
+import '../../core/providers/in_app_ad_provider.dart';
+import '../../core/providers/analytics_provider.dart';
+import '../../services/ads/ad_event_service.dart';
+import 'ad_slot_position.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -16,11 +22,13 @@ class InAppAdCard extends ConsumerStatefulWidget {
     required this.ad,
     required this.placement,
     this.margin,
+    this.slotIndex,
   });
 
   final InAppAd ad;
   final AdPlacement placement;
   final EdgeInsetsGeometry? margin;
+  final int? slotIndex;
 
   @override
   ConsumerState<InAppAdCard> createState() => _InAppAdCardState();
@@ -28,6 +36,59 @@ class InAppAdCard extends ConsumerStatefulWidget {
 
 class _InAppAdCardState extends ConsumerState<InAppAdCard> {
   bool _impressionLogged = false;
+  Timer? _visibilityTimer;
+  @override
+  void dispose() {
+    _visibilityTimer?.cancel();
+    super.dispose();
+  }
+
+  void _record(String kind) {
+    if (!ref.read(analyticsCollectionEnabledProvider)) return;
+    final AdEventService service;
+    try {
+      service = ref.read(adEventServiceProvider);
+    } catch (_) {
+      return;
+    }
+    final grade = service.viewerGrade;
+    if (!widget.ad.matchesGrade(grade)) return;
+    final slot = widget.slotIndex ?? AdSlotPosition.of(context);
+    try {
+      unawaited(
+        service
+            .record(
+              ad: widget.ad,
+              placement: widget.placement,
+              grade: grade,
+              kind: kind,
+              slotIndex: slot,
+            )
+            .catchError((Object _) {}),
+      );
+    } catch (_) {
+      /* Recording must never block the ad destination. */
+    }
+    try {
+      unawaited(
+        ref
+            .read(analyticsServiceProvider)
+            .logEvent(
+              'in_app_ad_$kind',
+              parameters: {
+                'ad_id': widget.ad.id,
+                'placement': widget.placement.name,
+                'action_type': widget.ad.actionType.name,
+                'grade': grade,
+                'slot_index': slot,
+              },
+            )
+            .catchError((Object _) {}),
+      );
+    } catch (_) {
+      /* SDK initialization can fail independently of Firestore. */
+    }
+  }
 
   @override
   void didUpdateWidget(covariant InAppAdCard oldWidget) {
@@ -35,6 +96,8 @@ class _InAppAdCardState extends ConsumerState<InAppAdCard> {
     if (oldWidget.ad.id != widget.ad.id ||
         oldWidget.placement != widget.placement) {
       _impressionLogged = false;
+      _visibilityTimer?.cancel();
+      _visibilityTimer = null;
       _logImpressionIfNeeded();
     }
   }
@@ -45,36 +108,66 @@ class _InAppAdCardState extends ConsumerState<InAppAdCard> {
     _logImpressionIfNeeded();
   }
 
-  Future<void> _logImpressionIfNeeded() async {
+  void _logImpressionIfNeeded() {
     if (_impressionLogged) return;
-    _impressionLogged = true;
-    await ref
-        .read(analyticsServiceProvider)
-        .logEvent(
-          'in_app_ad_impression',
-          parameters: {
-            'ad_id': widget.ad.id,
-            'placement': widget.placement.name,
-          },
+    void check() {
+      if (!mounted || _impressionLogged) return;
+      if (!TickerMode.valuesOf(context).enabled ||
+          ModalRoute.of(context)?.isCurrent != true ||
+          (WidgetsBinding.instance.lifecycleState != null &&
+              WidgetsBinding.instance.lifecycleState !=
+                  AppLifecycleState.resumed)) {
+        return;
+      }
+      final box = context.findRenderObject();
+      if (box is! RenderBox || !box.hasSize || box.size.isEmpty) return;
+      final rect = box.localToGlobal(Offset.zero) & box.size;
+      var viewport = Offset.zero & MediaQuery.sizeOf(context);
+      final scrollBox = Scrollable.maybeOf(context)?.context.findRenderObject();
+      if (scrollBox is RenderBox && scrollBox.hasSize) {
+        viewport = viewport.intersect(
+          scrollBox.localToGlobal(Offset.zero) & scrollBox.size,
         );
+      }
+      final visible = rect.intersect(viewport);
+      if (visible.isEmpty ||
+          visible.width * visible.height < rect.width * rect.height * .5) {
+        return;
+      }
+      if (!widget.ad.matchesGrade(ref.read(adViewerGradeProvider)) ||
+          !widget.ad.isEligible(DateTime.now())) {
+        return;
+      }
+      final hit = HitTestResult();
+      WidgetsBinding.instance.hitTestInView(
+        hit,
+        visible.center,
+        View.of(context).viewId,
+      );
+      if (!hit.path.any((entry) => identical(entry.target, box))) return;
+      _impressionLogged = true;
+      _visibilityTimer?.cancel();
+      _record('impression');
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => check());
+    _visibilityTimer ??= Timer.periodic(
+      const Duration(milliseconds: 500),
+      (_) => check(),
+    );
   }
 
   Future<void> _onTap() async {
+    if (!widget.ad.matchesGrade(ref.read(adViewerGradeProvider)) ||
+        !widget.ad.isEligible(DateTime.now())) {
+      return;
+    }
     debugPrint(
       '🔸 Ad tapped | id=${widget.ad.id}, action=${widget.ad.actionType}, payload=${widget.ad.actionPayload}',
     );
 
     try {
-      await ref
-          .read(analyticsServiceProvider)
-          .logEvent(
-            'in_app_ad_click',
-            parameters: {
-              'ad_id': widget.ad.id,
-              'placement': widget.placement.name,
-              'action_type': widget.ad.actionType.name,
-            },
-          );
+      _record('click');
 
       debugPrint('🔸 Analytics logged, processing action...');
 
@@ -240,6 +333,10 @@ class _InAppAdCardState extends ConsumerState<InAppAdCard> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      InAppAdCreative(ad: widget.ad, margin: widget.margin, onTap: _onTap);
+  Widget build(BuildContext context) {
+    if (!widget.ad.matchesGrade(ref.watch(adViewerGradeProvider))) {
+      return const SizedBox.shrink();
+    }
+    return InAppAdCreative(ad: widget.ad, margin: widget.margin, onTap: _onTap);
+  }
 }
