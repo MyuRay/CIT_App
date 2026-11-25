@@ -36,15 +36,11 @@ class BulletinFeedCard extends ConsumerWidget {
       colors.onSurfaceVariant,
       background,
     );
-    final categorySeed = Color(
-      int.tryParse(post.category.color.replaceFirst('#', 'ff'), radix: 16) ??
-          colors.primary.toARGB32(),
-    );
-    final categorySurface = Color.alphaBlend(
-      categorySeed.withValues(alpha: .10),
+    final (categorySurface, categoryInk) = bulletinCategoryLabelColors(
+      post.category,
       background,
+      colors.primary,
     );
-    final categoryInk = AppColors.ensureContrast(categorySeed, categorySurface);
     final imageCount = post.galleryImageUrls.length;
     final commentCount =
         post.allowComments
@@ -75,11 +71,14 @@ class BulletinFeedCard extends ConsumerWidget {
             if (post.isSponsored)
               SponsorBanner(name: post.sponsorName, compact: true),
             AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (post.imageUrl.isEmpty) BulletinCategoryImage(category: post.category) else BulletinThumbnail(
+              aspectRatio: 16 / 9,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (post.imageUrl.isEmpty)
+                    BulletinCategoryImage(category: post.category)
+                  else
+                    BulletinThumbnail(
                       imageUrl: post.imageUrl,
                       crop: BulletinCrop(
                         x: post.thumbAlignX,
@@ -97,43 +96,43 @@ class BulletinFeedCard extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    if (imageCount > 1)
-                      Positioned(
-                        right: 12,
-                        bottom: 12,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Colors.black87,
-                            borderRadius: BorderRadius.circular(20),
+                  if (imageCount > 1)
+                    Positioned(
+                      right: 12,
+                      bottom: 12,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.collections_outlined,
-                                  size: 14,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.collections_outlined,
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                '$imageCount枚',
+                                style: theme.textTheme.labelMedium?.copyWith(
                                   color: Colors.white,
                                 ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  '$imageCount枚',
-                                  style: theme.textTheme.labelMedium?.copyWith(
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
               child: Column(
@@ -152,7 +151,7 @@ class BulletinFeedCard extends ConsumerWidget {
                         const SizedBox(width: 6),
                       ],
                       Flexible(
-                        child: _Label(
+                        child: BulletinCategoryLabel(
                           icon: bulletinCategoryIcon(post.category.icon),
                           text: post.category.name,
                           background: categorySurface,
@@ -215,21 +214,21 @@ class BulletinFeedCard extends ConsumerWidget {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
-                        _date(post.createdAt),
+                        bulletinFeedDate(post.createdAt),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: secondary,
                         ),
                       ),
-                      _Metric(
+                      BulletinMetric(
                         icon: Icons.visibility_outlined,
                         text: '${post.viewCount}',
                         label: '閲覧 ${post.viewCount}回',
                         color: secondary,
                       ),
                       if (post.allowComments)
-                        _Metric(
+                        BulletinMetric(
                           icon: Icons.chat_bubble_outline_rounded,
                           text: commentCount?.toString() ?? '—',
                           label:
@@ -248,13 +247,30 @@ class BulletinFeedCard extends ConsumerWidget {
       ),
     );
   }
-
-  String _date(DateTime value) =>
-      '${value.year}.${value.month.toString().padLeft(2, '0')}.${value.day.toString().padLeft(2, '0')}';
 }
 
-class _Label extends StatelessWidget {
-  const _Label({
+/// 一覧で使う日付表記（例: 2026.09.16）。
+String bulletinFeedDate(DateTime value) =>
+    '${value.year}.${value.month.toString().padLeft(2, '0')}.${value.day.toString().padLeft(2, '0')}';
+
+/// カテゴリラベルの背景色と文字色。文字色は背景に対するコントラストを確保する。
+(Color, Color) bulletinCategoryLabelColors(
+  BulletinCategory category,
+  Color background,
+  Color fallback,
+) {
+  final seed = Color(
+    int.tryParse(category.color.replaceFirst('#', 'ff'), radix: 16) ??
+        fallback.toARGB32(),
+  );
+  final surface = Color.alphaBlend(seed.withValues(alpha: .10), background);
+  return (surface, AppColors.ensureContrast(seed, surface));
+}
+
+/// カテゴリ名とアイコンを並べた小さなラベル。
+class BulletinCategoryLabel extends StatelessWidget {
+  const BulletinCategoryLabel({
+    super.key,
     required this.icon,
     required this.text,
     required this.background,
@@ -294,8 +310,10 @@ class _Label extends StatelessWidget {
   );
 }
 
-class _Metric extends StatelessWidget {
-  const _Metric({
+/// 閲覧数・コメント数などの小さな数値表示。
+class BulletinMetric extends StatelessWidget {
+  const BulletinMetric({
+    super.key,
     required this.icon,
     required this.text,
     required this.label,

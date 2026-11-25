@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cit_app/core/providers/bulletin_provider.dart';
+import 'package:cit_app/core/providers/bulletin_view_mode_provider.dart';
 import 'package:cit_app/core/providers/comment_provider.dart';
 import 'package:cit_app/core/providers/filtered_bulletin_provider.dart';
 import 'package:cit_app/core/providers/schedule_provider.dart';
@@ -9,12 +10,15 @@ import 'package:cit_app/models/bulletin/bulletin_model.dart';
 import 'package:cit_app/models/comment/comment_model.dart';
 import 'package:cit_app/screens/bulletin/bulletin_screen.dart';
 import 'package:cit_app/screens/main/widgets/main_navigation_bar.dart';
+import 'package:cit_app/widgets/bulletin/bulletin_category_grid.dart';
 import 'package:cit_app/widgets/bulletin/bulletin_feed_card.dart';
+import 'package:cit_app/widgets/bulletin/bulletin_feed_list_tile.dart';
 import 'package:cit_app/widgets/bulletin/bulletin_thumbnail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../support/theme_test_fonts.dart';
 
 const photoUrl = 'https://example.com/bulletin-ui-fixture.png';
@@ -144,7 +148,9 @@ void main() {
     double scale = 1,
     bool navigation = false,
     bool settle = true,
+    Map<String, Object>? prefs,
   }) async {
+    SharedPreferences.setMockInitialValues(prefs ?? {});
     tester.view.physicalSize = Size(width, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -256,7 +262,7 @@ void main() {
     final event = find.byKey(const ValueKey('bulletin-category-event'));
     await tester.tap(event);
     await tester.pumpAndSettle();
-    expect(tester.widget<ChoiceChip>(event).selected, isTrue);
+    expect(tester.widget<BulletinCategoryTile>(event).selected, isTrue);
     expect(
       tester
           .widgetList<BulletinFeedCard>(find.byType(BulletinFeedCard))
@@ -569,5 +575,139 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+  }
+
+  Future<void> switchTo(WidgetTester tester, String tooltip) async {
+    await tester.tap(find.byTooltip(tooltip));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('view toggle switches to one-column rows and saves the choice', (
+    tester,
+  ) async {
+    await mount(tester);
+    expect(find.byType(BulletinFeedCard), findsNWidgets(3));
+    await switchTo(tester, 'リスト表示');
+    expect(find.byType(BulletinFeedCard), findsNothing);
+    expect(find.byType(BulletinFeedListTile), findsNWidgets(3));
+    final first = tester.getRect(
+      find.byKey(const ValueKey('bulletin-post-event')),
+    );
+    final second = tester.getRect(
+      find.byKey(const ValueKey('bulletin-post-sponsor')),
+    );
+    expect(second.left, first.left);
+    expect(second.width, first.width);
+    expect(second.top, greaterThan(first.bottom));
+    final title = tester.widget<Text>(
+      find.byKey(const ValueKey('bulletin-title-event')),
+    );
+    expect(title.maxLines, 2);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString(BulletinViewModeNotifier.prefsKey), 'list');
+    await switchTo(tester, 'カード表示');
+    expect(find.byType(BulletinFeedCard), findsNWidgets(3));
+    expect(prefs.getString(BulletinViewModeNotifier.prefsKey), 'card');
+  });
+
+  testWidgets('saved list view is restored on the next launch', (tester) async {
+    await mount(tester, prefs: {BulletinViewModeNotifier.prefsKey: 'list'});
+    expect(find.byType(BulletinFeedListTile), findsNWidgets(3));
+    expect(find.byType(BulletinFeedCard), findsNothing);
+  });
+
+  testWidgets('list rows keep pinned, sponsor, thumbnails and comment counts', (
+    tester,
+  ) async {
+    await mount(tester, prefs: {BulletinViewModeNotifier.prefsKey: 'list'});
+    expect(tester.takeException(), isNull);
+    final event = find.byKey(const ValueKey('bulletin-post-event'));
+    final club = find.byKey(const ValueKey('bulletin-post-club'));
+    expect(
+      find.descendant(of: event, matching: find.byType(BulletinThumbnail)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: club, matching: find.byType(BulletinThumbnail)),
+      findsNothing,
+    );
+    expect(find.byIcon(Icons.push_pin_outlined), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('bulletin-post-sponsor')),
+        matching: find.text('広告'),
+      ),
+      findsOneWidget,
+    );
+    // Compact rows show noticeably more posts per screen than two-column cards.
+    for (final id in ['event', 'sponsor', 'club']) {
+      expect(
+        tester.getSize(find.byKey(ValueKey('bulletin-post-$id'))).height,
+        lessThan(90),
+      );
+    }
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pump();
+      expect(find.bySemanticsLabel(RegExp('ピン留め')), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('コメント 5件')), findsOneWidget);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('list view filters, loads earlier pages and pull-to-refreshes', (
+    tester,
+  ) async {
+    await mount(
+      tester,
+      prefs: {BulletinViewModeNotifier.prefsKey: 'list'},
+      initial: BulletinFeedState(
+        posts: [
+          fixture('event'),
+          fixture('club', category: BulletinCategories.club),
+        ],
+        hasMore: true,
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('bulletin-category-club')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('bulletin-post-club')), findsOneWidget);
+    expect(find.byKey(const ValueKey('bulletin-post-event')), findsNothing);
+    expect(find.byType(BulletinFeedListTile), findsOneWidget);
+    await tester.tap(find.text('以前の投稿を読み込む'));
+    await tester.pumpAndSettle();
+    expect(feed.loads, 1);
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, 350));
+    await tester.pumpAndSettle();
+    expect(feed.refreshes, 1);
+  });
+
+  for (final mode in Brightness.values) {
+    testWidgets('${mode.name} list view fits at 320px / 200%', (tester) async {
+      await mount(
+        tester,
+        mode: mode,
+        width: 320,
+        scale: 2,
+        navigation: true,
+        prefs: {BulletinViewModeNotifier.prefsKey: 'list'},
+      );
+      expect(tester.takeException(), isNull);
+      await capture(tester, 'feed-list-large-${mode.name}');
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+    testWidgets('${mode.name} phone list view', (tester) async {
+      await mount(
+        tester,
+        mode: mode,
+        navigation: true,
+        prefs: {BulletinViewModeNotifier.prefsKey: 'list'},
+      );
+      expect(tester.takeException(), isNull);
+      await capture(tester, 'feed-list-${mode.name}');
+    });
   }
 }
