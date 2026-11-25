@@ -6,12 +6,17 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/providers/bulletin_provider.dart';
 import '../../core/providers/filtered_bulletin_provider.dart';
 import '../../models/bulletin/bulletin_model.dart';
+import '../../widgets/bulletin/bulletin_category_grid.dart';
 import '../../widgets/bulletin/bulletin_feed_card.dart';
 import 'bulletin_post_detail_screen.dart';
 import 'bulletin_post_form_screen.dart';
 
 class BulletinScreen extends ConsumerStatefulWidget {
-  const BulletinScreen({super.key, this.categoriesAnchorKey, this.postAnchorKey});
+  const BulletinScreen({
+    super.key,
+    this.categoriesAnchorKey,
+    this.postAnchorKey,
+  });
   final GlobalKey? categoriesAnchorKey;
   final GlobalKey? postAnchorKey;
   @override
@@ -114,22 +119,15 @@ class _BulletinScreenState extends ConsumerState<BulletinScreen> {
           children: [
             Material(
               color: theme.colorScheme.surface,
-              child: SingleChildScrollView(
+              child: Padding(
                 key: const ValueKey('bulletin-categories'),
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-                child: Row(
-                  children: [
-                    KeyedSubtree(key: widget.categoriesAnchorKey, child: _category(null, 'すべて', Icons.grid_view_rounded)),
-                    for (final category in BulletinCategories.all) ...[
-                      const SizedBox(width: 8),
-                      _category(
-                        category.id,
-                        category.name,
-                        bulletinCategoryIcon(category.icon),
-                      ),
-                    ],
-                  ],
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                child: KeyedSubtree(
+                  key: widget.categoriesAnchorKey,
+                  child: BulletinCategoryGrid(
+                    selectedCategoryId: _selectedCategoryId,
+                    onSelected: _selectCategory,
+                  ),
                 ),
               ),
             ),
@@ -184,35 +182,6 @@ class _BulletinScreenState extends ConsumerState<BulletinScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _category(String? id, String name, IconData icon) {
-    final selected = _selectedCategoryId == id;
-    final colors = Theme.of(context).colorScheme;
-    return ChoiceChip(
-      key: ValueKey('bulletin-category-${id ?? 'all'}'),
-      selected: selected,
-      showCheckmark: false,
-      onSelected: (_) => _selectCategory(id),
-      avatar: Icon(
-        icon,
-        size: 17,
-        color: selected ? colors.onPrimary : colors.onSurfaceVariant,
-      ),
-      label: Text(name),
-      labelStyle: TextStyle(
-        fontSize: 13,
-        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-        color: selected ? colors.onPrimary : colors.onSurfaceVariant,
-      ),
-      selectedColor: colors.primary,
-      backgroundColor: colors.surface,
-      side: BorderSide(
-        color: selected ? colors.primary : colors.outlineVariant,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
     );
   }
 

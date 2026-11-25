@@ -9,6 +9,7 @@ import 'package:cit_app/models/bulletin/bulletin_model.dart';
 import 'package:cit_app/models/comment/comment_model.dart';
 import 'package:cit_app/screens/bulletin/bulletin_screen.dart';
 import 'package:cit_app/screens/main/widgets/main_navigation_bar.dart';
+import 'package:cit_app/widgets/bulletin/bulletin_category_grid.dart';
 import 'package:cit_app/widgets/bulletin/bulletin_feed_card.dart';
 import 'package:cit_app/widgets/bulletin/bulletin_thumbnail.dart';
 import 'package:flutter/material.dart';
@@ -256,7 +257,7 @@ void main() {
     final event = find.byKey(const ValueKey('bulletin-category-event'));
     await tester.tap(event);
     await tester.pumpAndSettle();
-    expect(tester.widget<ChoiceChip>(event).selected, isTrue);
+    expect(tester.widget<BulletinCategoryTile>(event).selected, isTrue);
     expect(
       tester
           .widgetList<BulletinFeedCard>(find.byType(BulletinFeedCard))
