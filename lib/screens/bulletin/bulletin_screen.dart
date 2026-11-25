@@ -4,10 +4,12 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/providers/bulletin_provider.dart';
+import '../../core/providers/bulletin_view_mode_provider.dart';
 import '../../core/providers/filtered_bulletin_provider.dart';
 import '../../models/bulletin/bulletin_model.dart';
 import '../../widgets/bulletin/bulletin_category_grid.dart';
 import '../../widgets/bulletin/bulletin_feed_card.dart';
+import '../../widgets/bulletin/bulletin_feed_list_tile.dart';
 import 'bulletin_post_detail_screen.dart';
 import 'bulletin_post_form_screen.dart';
 
@@ -137,8 +139,13 @@ class _BulletinScreenState extends ConsumerState<BulletinScreen> {
                   final contentWidth = math.min(constraints.maxWidth, 1120.0);
                   final horizontal =
                       (constraints.maxWidth - contentWidth) / 2 + 16;
-                  // Keep two columns without reserving empty image/title rows.
-                  const columns = 2;
+                  // Cards keep two columns without reserving empty
+                  // image/title rows; the list view uses one row per post.
+                  final columns =
+                      ref.watch(bulletinViewModeProvider) ==
+                              BulletinViewMode.list
+                          ? 1
+                          : 2;
                   return RefreshIndicator(
                     onRefresh: _refreshBulletinFeed,
                     child: CustomScrollView(
@@ -198,28 +205,37 @@ class _BulletinScreenState extends ConsumerState<BulletinScreen> {
             .where((item) => item.id == _selectedCategoryId)
             .firstOrNull;
     final theme = Theme.of(context);
+    final listView = columns == 1;
     return [
       SliverPadding(
-        padding: EdgeInsets.fromLTRB(horizontal, 8, horizontal, 10),
+        padding: EdgeInsets.fromLTRB(horizontal, 4, horizontal, 8),
         sliver: SliverToBoxAdapter(
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          child: Row(
             children: [
-              Text(
-                category == null ? 'すべての投稿' : '${category.name}の投稿',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      category == null ? 'すべての投稿' : '${category.name}の投稿',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (posts.isNotEmpty && !posts.any((item) => item.isPinned))
+                      Text(
+                        '新着順',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              if (posts.isNotEmpty && !posts.any((item) => item.isPinned))
-                Text(
-                  '新着順',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
+              const SizedBox(width: 8),
+              _viewModeToggle(listView),
             ],
           ),
         ),
@@ -251,6 +267,18 @@ class _BulletinScreenState extends ConsumerState<BulletinScreen> {
                       icon: const Icon(Icons.edit_outlined),
                       label: const Text('投稿する'),
                     ),
+          ),
+        )
+      else if (listView)
+        SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: horizontal),
+          sliver: SliverList.builder(
+            itemCount: posts.length,
+            itemBuilder:
+                (context, index) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _postTile(posts[index]),
+                ),
           ),
         )
       else
@@ -320,15 +348,51 @@ class _BulletinScreenState extends ConsumerState<BulletinScreen> {
     ];
   }
 
+  Widget _viewModeToggle(bool listView) {
+    final mode = listView ? BulletinViewMode.list : BulletinViewMode.card;
+    return SegmentedButton<BulletinViewMode>(
+      key: const ValueKey('bulletin-view-mode'),
+      showSelectedIcon: false,
+      style: const ButtonStyle(
+        visualDensity: VisualDensity.compact,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      segments: const [
+        ButtonSegment(
+          value: BulletinViewMode.card,
+          icon: Icon(Icons.grid_view_rounded, size: 18),
+          tooltip: 'カード表示',
+        ),
+        ButtonSegment(
+          value: BulletinViewMode.list,
+          icon: Icon(Icons.view_agenda_outlined, size: 18),
+          tooltip: 'リスト表示',
+        ),
+      ],
+      selected: {mode},
+      onSelectionChanged:
+          (selection) => ref
+              .read(bulletinViewModeProvider.notifier)
+              .setMode(selection.single),
+    );
+  }
+
+  void _openPost(BulletinPost post) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => BulletinPostDetailScreen(post: post),
+    ),
+  );
+
   Widget _postCard(BulletinPost post) => BulletinFeedCard(
     key: ValueKey('bulletin-post-${post.id}'),
     post: post,
-    onTap:
-        () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => BulletinPostDetailScreen(post: post),
-          ),
-        ),
+    onTap: () => _openPost(post),
+  );
+
+  Widget _postTile(BulletinPost post) => BulletinFeedListTile(
+    key: ValueKey('bulletin-post-${post.id}'),
+    post: post,
+    onTap: () => _openPost(post),
   );
 
   Widget _stateMessage({
