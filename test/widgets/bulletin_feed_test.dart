@@ -10,7 +10,6 @@ import 'package:cit_app/models/bulletin/bulletin_model.dart';
 import 'package:cit_app/models/comment/comment_model.dart';
 import 'package:cit_app/screens/bulletin/bulletin_screen.dart';
 import 'package:cit_app/screens/main/widgets/main_navigation_bar.dart';
-import 'package:cit_app/widgets/ads/sponsor_presentation.dart';
 import 'package:cit_app/widgets/bulletin/bulletin_category_grid.dart';
 import 'package:cit_app/widgets/bulletin/bulletin_feed_card.dart';
 import 'package:cit_app/widgets/bulletin/bulletin_feed_list_tile.dart';
@@ -636,10 +635,17 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('bulletin-post-sponsor')),
-        matching: find.byType(SponsorBanner),
+        matching: find.text('広告'),
       ),
       findsOneWidget,
     );
+    // Compact rows show noticeably more posts per screen than two-column cards.
+    for (final id in ['event', 'sponsor', 'club']) {
+      expect(
+        tester.getSize(find.byKey(ValueKey('bulletin-post-$id'))).height,
+        lessThan(90),
+      );
+    }
     final semantics = tester.ensureSemantics();
     try {
       await tester.pump();

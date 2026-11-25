@@ -276,7 +276,7 @@ class _BulletinScreenState extends ConsumerState<BulletinScreen> {
             itemCount: posts.length,
             itemBuilder:
                 (context, index) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.only(bottom: 6),
                   child: _postTile(posts[index]),
                 ),
           ),
